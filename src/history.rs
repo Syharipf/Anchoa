@@ -11,7 +11,7 @@
 //!
 //! | done item      | undo                                                          |
 //! |----------------|---------------------------------------------------------------|
-//! | move / rename  | move / rename back                                            |
+//! | move / rename  | move / rename back (a restore from the trash: trash it again)  |
 //! | copy           | trash the copy                                                |
 //! | chmod          | chmod back to the old mode                                    |
 //! | mkdir          | trash the folder, if it is empty once this undo has run       |
@@ -281,6 +281,10 @@ pub fn plan_undo_with(
                         path: at,
                         reason: SkipReason::Changed,
                     });
+                } else if crate::trash::is_trash_file(&orig) {
+                    // It was restored from the trash: undo puts it back there.
+                    removed.insert(at.clone());
+                    actions.push(Action::Trash { path: at });
                 } else if std::fs::symlink_metadata(&orig).is_ok() {
                     skipped.push(Skipped {
                         path: at,

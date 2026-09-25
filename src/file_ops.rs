@@ -26,6 +26,8 @@ pub type Db = Arc<Mutex<rusqlite::Connection>>;
 #[derive(Debug, Clone)]
 pub enum Job {
     Trash,
+    /// Move items from the trash back to where they were trashed from.
+    Restore,
     Rename,
     NewFolder,
     Undo {
@@ -115,6 +117,7 @@ pub fn summary(job: &Job, statuses: &[ItemStatus]) -> String {
         .count();
     match job {
         Job::Trash => format!("Moved {} to trash", items(done)),
+        Job::Restore => format!("Restored {}", items(done)),
         Job::Rename => "Renamed".into(),
         Job::NewFolder => "Folder created".into(),
         Job::Undo { .. } => "Undone".into(),
@@ -162,7 +165,8 @@ pub fn confirm<M: Send + 'static>(
             };
             ("Undo the last operation?".to_string(), label, lines)
         }
-        Job::Rename | Job::NewFolder => return sender.emit(on_confirm),
+        // Explicit already: a dialog asked for the name, or the user pressed Restore.
+        Job::Restore | Job::Rename | Job::NewFolder => return sender.emit(on_confirm),
     };
     shorten(&mut lines);
     let dialog = adw::AlertDialog::new(Some(&heading), Some(&lines.join("\n")));
@@ -231,6 +235,41 @@ pub fn ask_name<M: Send + 'static>(
         let name = entry.text().trim().to_owned();
         if response == "confirm" && usable(&name) {
             sender.emit(on_name(name));
+        }
+    });
+}
+
+/// Worker thread: a validated plan restoring `files` from the trash (all of it for `None`),
+/// and how many of `files` were not in the trash any more.
+pub fn plan_restore(
+    files: Option<Vec<PathBuf>>,
+) -> Result<(Result<ValidatedPlan, Vec<Rejection>>, usize), String> {
+    let items = loom::trash::contents().map_err(|e| e.to_string())?;
+    let (plan, missing) = loom::trash::restore_plan(&items, files.as_deref());
+    Ok((validate(plan), missing.len()))
+}
+
+/// Asks before emptying the trash for good, then sends `on_confirm`.
+pub fn confirm_empty<M: Send + 'static>(
+    root: &adw::ApplicationWindow,
+    sender: Sender<M>,
+    on_confirm: M,
+) {
+    let dialog = adw::AlertDialog::new(
+        Some("Empty the trash?"),
+        Some(
+            "Everything in the trash, on every drive, is deleted for good. This cannot be undone.",
+        ),
+    );
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("empty", "Empty Trash");
+    dialog.set_response_appearance("empty", adw::ResponseAppearance::Destructive);
+    // Deleting for good is never the default answer.
+    dialog.set_default_response(Some("cancel"));
+    dialog.set_close_response("cancel");
+    dialog.choose(Some(root), gtk::gio::Cancellable::NONE, move |response| {
+        if response == "empty" {
+            sender.emit(on_confirm);
         }
     });
 }

@@ -10,12 +10,24 @@ use serde::{Deserialize, Serialize};
 
 /// Missing keys take their default and unknown keys are ignored, so older and newer
 /// config files both load.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     /// `.gguf` model for the LLM fallback; `None` disables the fallback.
     pub model_path: Option<PathBuf>,
     pub show_hidden: bool,
+    /// Trash items older than this many days are deleted for good at startup; 0 never.
+    pub trash_auto_delete_days: u32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            model_path: None,
+            show_hidden: false,
+            trash_auto_delete_days: 30,
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

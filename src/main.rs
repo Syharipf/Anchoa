@@ -12,6 +12,7 @@ use loom::fs::{self, Entry};
 use loom::places::{self, Place};
 use loom::plan::{Action, ActionPlan};
 use loom::validator::{Rejection, ValidatedPlan};
+use loom::{config, trash};
 use relm4::gtk::gio;
 use relm4::gtk::prelude::*;
 use relm4::prelude::*;
@@ -145,6 +146,8 @@ struct App {
     _drive_monitors: Vec<gio::FileMonitor>,
     /// Plugged-in volumes, mounted or not (via udisks2); also fires on (un)plug and (un)mount.
     volumes: gio::VolumeMonitor,
+    /// `cwd` is a trash folder: show the restore / empty bar.
+    in_trash: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -193,6 +196,11 @@ enum Msg {
     Submit(Job, ActionPlan),
     /// Execute (and record) a validated, confirmed plan on a worker.
     Run(Job, ValidatedPlan),
+    /// Restore the selected trash items (`false`) or everything in the trash (`true`).
+    Restore(bool),
+    /// Ask, then empty the trash for good.
+    EmptyTrash,
+    EmptyTrashConfirmed,
 }
 
 #[derive(Debug)]
@@ -206,6 +214,10 @@ enum Cmd {
     Validated(Job, Result<ValidatedPlan, Vec<Rejection>>),
     Ran(Job, Vec<ItemStatus>, Option<String>),
     UndoPlanned(file_ops::UndoPlanned),
+    RestorePlanned(Result<(Result<ValidatedPlan, Vec<Rejection>>, usize), String>),
+    TrashEmptied(io::Result<usize>),
+    /// Old trash items deleted at startup.
+    TrashExpired(io::Result<usize>),
 }
 
 const HIDDEN_FILTER: usize = 0;
@@ -268,13 +280,36 @@ impl Component for App {
                     #[local_ref]
                     #[wrap(Some)]
                     set_end_child = toasts -> adw::ToastOverlay {
-                        gtk::ScrolledWindow {
-                            set_vexpand: true,
+                        gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
 
-                            #[local_ref]
-                            entries_view -> gtk::ColumnView {
-                                connect_activate[sender] => move |_, position| {
-                                    sender.input(Msg::Activate(position));
+                            gtk::ScrolledWindow {
+                                set_vexpand: true,
+
+                                #[local_ref]
+                                entries_view -> gtk::ColumnView {
+                                    connect_activate[sender] => move |_, position| {
+                                        sender.input(Msg::Activate(position));
+                                    },
+                                },
+                            },
+
+                            gtk::ActionBar {
+                                #[watch]
+                                set_revealed: model.in_trash,
+                                pack_start = &gtk::Button {
+                                    set_label: "Restore",
+                                    set_tooltip_text: Some("Put the selected items back where they were"),
+                                    connect_clicked => Msg::Restore(false),
+                                },
+                                pack_start = &gtk::Button {
+                                    set_label: "Restore All",
+                                    connect_clicked => Msg::Restore(true),
+                                },
+                                pack_end = &gtk::Button {
+                                    set_label: "Empty Trash",
+                                    add_css_class: "destructive-action",
+                                    connect_clicked => Msg::EmptyTrash,
                                 },
                             },
                         },
@@ -352,6 +387,7 @@ impl Component for App {
             db: None,
             _drive_monitors: drive_monitors,
             volumes,
+            in_trash: false,
         };
         let path_entry = &model.path_entry;
         let toasts = &model.toasts;
@@ -420,6 +456,14 @@ impl Component for App {
                 // Housekeeping only: a failed prune must not make history unavailable.
                 let _ = db::prune(conn, file_ops::now());
             }))
+        });
+
+        // Trash items past the configured age are deleted for good (default 30 days).
+        sender.spawn_oneshot_command(|| {
+            let days = config::load(&config::path())
+                .unwrap_or_default()
+                .trash_auto_delete_days;
+            Cmd::TrashExpired(trash::delete_expired(days, file_ops::now()))
         });
 
         sender.input(Msg::Open(dir));
@@ -558,6 +602,35 @@ impl Component for App {
                 });
                 None
             }
+            Msg::Restore(all) => {
+                let files = (!all).then(|| {
+                    self.selected()
+                        .into_iter()
+                        .map(|entry| entry.path)
+                        .collect::<Vec<_>>()
+                });
+                if files.as_ref().is_some_and(Vec::is_empty) {
+                    self.toasts
+                        .add_toast(adw::Toast::new("Select the items to restore first"));
+                } else {
+                    sender.spawn_oneshot_command(move || {
+                        Cmd::RestorePlanned(file_ops::plan_restore(files))
+                    });
+                }
+                None
+            }
+            Msg::EmptyTrash => {
+                file_ops::confirm_empty(
+                    root,
+                    sender.input_sender().clone(),
+                    Msg::EmptyTrashConfirmed,
+                );
+                None
+            }
+            Msg::EmptyTrashConfirmed => {
+                sender.spawn_oneshot_command(|| Cmd::TrashEmptied(trash::empty()));
+                None
+            }
             Msg::RefreshDrives => {
                 sender
                     .spawn_oneshot_command(|| Cmd::Drives(places::drives(&places::drive_roots())));
@@ -583,12 +656,43 @@ impl Component for App {
             | Cmd::UndoPlanned(Ok(Some((_, Err(rejections))))) => {
                 file_ops::show_rejections(root, &rejections);
             }
+            Cmd::RestorePlanned(Ok((Ok(plan), missing))) => {
+                if missing > 0 {
+                    self.toasts.add_toast(adw::Toast::new(&format!(
+                        "{missing} selected item(s) are no longer in the trash"
+                    )));
+                }
+                if plan.plan().actions.is_empty() {
+                    self.toasts.add_toast(adw::Toast::new("Nothing to restore"));
+                } else {
+                    sender.input(Msg::Run(Job::Restore, plan));
+                }
+            }
+            Cmd::RestorePlanned(Ok((Err(rejections), _))) => {
+                file_ops::show_rejections(root, &rejections);
+            }
+            Cmd::RestorePlanned(Err(err)) => self
+                .toasts
+                .add_toast(adw::Toast::new(&format!("Cannot read the trash: {err}"))),
+            Cmd::TrashEmptied(result) => {
+                let text = match result {
+                    Ok(n) => format!("Trash emptied ({n} items)"),
+                    Err(err) => format!("Emptying the trash failed: {err}"),
+                };
+                self.toasts.add_toast(adw::Toast::new(&text));
+                sender.input(Msg::Open(self.cwd.clone()));
+            }
+            // Without gvfs there is nothing to expire; stay quiet about it.
+            Cmd::TrashExpired(Ok(0) | Err(_)) => {}
+            Cmd::TrashExpired(Ok(n)) => self.toasts.add_toast(adw::Toast::new(&format!(
+                "Deleted {n} item(s) that were in the trash for over the time limit"
+            ))),
             Cmd::UndoPlanned(Ok(None)) => self.toasts.add_toast(adw::Toast::new("Nothing to undo")),
             Cmd::UndoPlanned(Err(err)) => self
                 .toasts
                 .add_toast(adw::Toast::new(&format!("Undo failed: {err}"))),
             Cmd::Ran(job, statuses, warning) => {
-                if matches!(job, Job::Trash) {
+                if matches!(job, Job::Trash | Job::Restore) {
                     // The first trashing creates the trash folder; show it in the sidebar.
                     sender.spawn_oneshot_command(|| Cmd::Places(places::standard_places()));
                 }
@@ -624,6 +728,7 @@ impl Component for App {
                         return;
                     }
                 };
+                self.in_trash = trash::is_trash_folder(&dir);
                 if dir != self.cwd {
                     let previous = std::mem::replace(&mut self.cwd, dir);
                     match nav {

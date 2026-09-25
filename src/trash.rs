@@ -1,16 +1,17 @@
-//! Looking into the XDG trash through gio's `trash:///` (served by gvfs), read-only.
+//! The XDG trash through gio's `trash:///` (served by gvfs).
 //!
 //! Loom never writes into a trash folder itself (CLAUDE.md rule 2): items go in with
-//! `gio::File::trash` and come back out by moving the `trash:///` item, which lets gvfs
-//! clean up the `.trashinfo` too. Without gvfs, `trash:///` is unavailable and restoring
-//! simply is not offered.
+//! `gio::File::trash`, come back out by moving the `trash:///` item, and are deleted for
+//! good by deleting the `trash:///` item, so gvfs keeps each `.trashinfo` in step. Without
+//! gvfs, `trash:///` is unavailable and restoring or emptying simply is not offered.
 //!
 //! Blocking: call from a worker thread only.
 
+use std::collections::HashSet;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::plan::ActionPlan;
+use crate::plan::{Action, ActionPlan};
 use relm4::gtk::gio;
 use relm4::gtk::glib;
 use relm4::gtk::prelude::*;
@@ -31,6 +32,12 @@ const ATTRIBUTES: &str =
 
 /// Everything in the trash, across the home trash and the trash folders of other mounts.
 pub fn contents() -> io::Result<Vec<Trashed>> {
+    Ok(entries()?.into_iter().map(|(_, item)| item).collect())
+}
+
+/// Each `trash:///` item with what it records.
+fn entries() -> io::Result<Vec<(gio::File, Trashed)>> {
+    let trash = gio::File::for_uri("trash:///");
     let mut items = Vec::new();
     for info in children()? {
         let info = info.map_err(to_io)?;
@@ -41,11 +48,12 @@ pub fn contents() -> io::Result<Vec<Trashed>> {
                 glib::DateTime::from_iso8601(&date, Some(&glib::TimeZone::local())).ok()
             });
         if let (Some(orig), Some(deleted), Some(file)) = (orig, deleted, target(&info)) {
-            items.push(Trashed {
+            let item = Trashed {
                 orig: orig.into(),
                 deleted: deleted.to_unix(),
                 file,
-            });
+            };
+            items.push((trash.child(info.name()), item));
         }
     }
     Ok(items)
@@ -53,16 +61,100 @@ pub fn contents() -> io::Result<Vec<Trashed>> {
 
 /// Items trashed more than `days` days before `now`; none when `days` is 0.
 pub fn expired(items: &[Trashed], days: u32, now: i64) -> impl Iterator<Item = &Trashed> {
-    let _ = (items, days, now);
-    std::iter::empty()
+    let limit = now - i64::from(days) * 86_400;
+    items
+        .iter()
+        .filter(move |item| days > 0 && item.deleted < limit)
 }
 
 /// A plan moving the trashed `files` (or everything, for `None`) back to where they were
 /// trashed from, with a `Mkdir` for each original folder that no longer exists. Also returns
 /// the requested files that are not in `items`. Checks the disk: worker thread only.
 pub fn restore_plan(items: &[Trashed], files: Option<&[PathBuf]>) -> (ActionPlan, Vec<PathBuf>) {
-    let _ = (items, files);
-    todo!()
+    let (chosen, missing): (Vec<_>, Vec<_>) = match files {
+        None => (items.iter().collect(), Vec::new()),
+        Some(files) => {
+            let found = |file: &PathBuf| items.iter().find(|item| item.file == *file);
+            let missing = files
+                .iter()
+                .filter(|f| found(f).is_none())
+                .cloned()
+                .collect();
+            (files.iter().filter_map(found).collect(), missing)
+        }
+    };
+    let mut actions = Vec::new();
+    let mut created = HashSet::new();
+    for item in chosen {
+        if let Some(parent) = item.orig.parent()
+            && !parent.exists()
+            && created.insert(parent.to_path_buf())
+        {
+            actions.push(Action::Mkdir {
+                path: parent.to_path_buf(),
+            });
+        }
+        actions.push(Action::Move {
+            src: item.file.clone(),
+            dst: item.orig.clone(),
+        });
+    }
+    let plan = ActionPlan {
+        actions,
+        on_conflict: None,
+    };
+    (plan, missing)
+}
+
+/// Deletes the trashed item for good, folder contents first. Only for emptying the trash:
+/// the caller confirms with the user (or applies the configured age limit).
+fn delete(item: &gio::File) -> io::Result<()> {
+    let info = item
+        .query_info(
+            "standard::type",
+            gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
+            gio::Cancellable::NONE,
+        )
+        .map_err(to_io)?;
+    if info.file_type() == gio::FileType::Directory {
+        let children = item
+            .enumerate_children(
+                "standard::name",
+                gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
+                gio::Cancellable::NONE,
+            )
+            .map_err(to_io)?;
+        for child in children {
+            delete(&item.child(child.map_err(to_io)?.name()))?;
+        }
+    }
+    item.delete(gio::Cancellable::NONE).map_err(to_io)
+}
+
+/// Permanently deletes every item in the trash (all mounts); returns how many.
+pub fn empty() -> io::Result<usize> {
+    delete_where(|_| true)
+}
+
+/// Permanently deletes the items trashed more than `days` days before `now` (none for 0);
+/// returns how many.
+pub fn delete_expired(days: u32, now: i64) -> io::Result<usize> {
+    delete_where(|item| {
+        expired(std::slice::from_ref(item), days, now)
+            .next()
+            .is_some()
+    })
+}
+
+fn delete_where(keep: impl Fn(&Trashed) -> bool) -> io::Result<usize> {
+    let mut deleted = 0;
+    for (file, item) in entries()? {
+        if keep(&item) {
+            delete(&file)?;
+            deleted += 1;
+        }
+    }
+    Ok(deleted)
 }
 
 /// The `trash:///` item for `path`, if `path` is an item inside a trash `files` folder.
@@ -84,11 +176,15 @@ pub fn item(path: &Path) -> io::Result<Option<gio::File>> {
 }
 
 /// `…/Trash/files/NAME` (home trash) or `…/.Trash-UID/files/NAME` (other mounts).
+pub fn is_trash_file(path: &Path) -> bool {
+    path.parent().is_some_and(is_trash_folder)
+}
+
+/// `…/Trash/files` or `…/.Trash-UID/files`: the folder trashed items lie in.
 // ponytail: the spec's shared `$topdir/.Trash/$uid/files` layout is not recognised; add it
 // if a mount with one turns up.
-pub fn is_trash_file(path: &Path) -> bool {
-    let trash = path
-        .parent()
+pub fn is_trash_folder(dir: &Path) -> bool {
+    let trash = Some(dir)
         .filter(|files| files.file_name() == Some("files".as_ref()))
         .and_then(Path::parent)
         .and_then(Path::file_name)
@@ -119,7 +215,6 @@ fn to_io(err: glib::Error) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plan::Action;
 
     const DAY: i64 = 86_400;
 

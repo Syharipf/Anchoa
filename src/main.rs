@@ -1,5 +1,6 @@
 mod clipboard;
 mod columns;
+mod dnd;
 mod file_ops;
 mod sidebar;
 
@@ -305,14 +306,16 @@ impl Component for App {
             });
         }
         let list_input = sender.input_sender().clone();
-        let list_drop = gtk::DropTarget::new(
-            gdk::FileList::static_type(),
-            gdk::DragAction::COPY | gdk::DragAction::MOVE,
-        );
-        list_drop.connect_drop(move |target, value, _, _| {
-            emit_file_drop(&list_input, target, value, None)
-        });
-        entries.view.add_controller(list_drop);
+        entries
+            .view
+            .add_controller(dnd::file_drop_target(move |sources, cut| {
+                list_input.emit(Msg::Paste {
+                    sources,
+                    dest: None,
+                    cut,
+                });
+                true
+            }));
         entries.add_filter(|e| !e.name.starts_with('.'));
 
         let sidebar =
@@ -1190,47 +1193,26 @@ fn setup_file_row(item: &gtk::ListItem, input: &relm4::Sender<Msg>) {
     drag.connect_prepare(move |source, _, _| {
         let item = weak.upgrade()?;
         let widget = source.widget()?;
-        let paths = drag_paths(&item, &widget)?;
-        let files: Vec<_> = paths.into_iter().map(gio::File::for_path).collect();
-        let value = gdk::FileList::from_array(&files).to_value();
-        Some(gdk::ContentProvider::for_value(&value))
+        Some(dnd::files_provider(&drag_paths(&item, &widget)?))
     });
     root.add_controller(drag);
 
     let weak = item.downgrade();
-    let drop = gtk::DropTarget::new(
-        gdk::FileList::static_type(),
-        gdk::DragAction::COPY | gdk::DragAction::MOVE,
-    );
     let input = input.clone();
-    drop.connect_drop(move |target, value, _, _| {
-        let Some(item) = weak.upgrade() else {
+    root.add_controller(dnd::file_drop_target(move |sources, cut| {
+        // Only folder rows take drops; elsewhere the list's own target takes them.
+        let Some(entry) = weak.upgrade().as_ref().and_then(list_item_entry) else {
             return false;
         };
-        let Some(entry) = list_item_entry(&item) else {
-            return false;
-        };
-        entry.is_dir && emit_file_drop(&input, target, value, Some(entry.path))
-    });
-    root.add_controller(drop);
-}
-
-fn emit_file_drop(
-    input: &relm4::Sender<Msg>,
-    target: &gtk::DropTarget,
-    value: &gtk::glib::Value,
-    dest: Option<PathBuf>,
-) -> bool {
-    let sources = dropped_paths(value);
-    if sources.is_empty() {
-        return false;
-    }
-    input.emit(Msg::Paste {
-        sources,
-        dest,
-        cut: drop_cut(target),
-    });
-    true
+        if entry.is_dir {
+            input.emit(Msg::Paste {
+                sources,
+                dest: Some(entry.path),
+                cut,
+            });
+        }
+        entry.is_dir
+    }));
 }
 
 fn drag_paths(item: &gtk::ListItem, widget: &gtk::Widget) -> Option<Vec<PathBuf>> {
@@ -1264,32 +1246,6 @@ fn list_item_entry(item: &gtk::ListItem) -> Option<Entry> {
     boxed.try_borrow::<Entry>().ok().map(|entry| entry.clone())
 }
 
-fn dropped_paths(value: &gtk::glib::Value) -> Vec<PathBuf> {
-    value
-        .get::<gdk::FileList>()
-        .map(|files| {
-            files
-                .files()
-                .into_iter()
-                .filter_map(|file| file.path())
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn drop_cut(target: &gtk::DropTarget) -> Option<bool> {
-    let state = target.current_drop()?.device().modifier_state();
-    if state.contains(gdk::ModifierType::CONTROL_MASK) {
-        Some(false)
-    } else if state.contains(gdk::ModifierType::SHIFT_MASK) {
-        Some(true)
-    } else {
-        None
-    }
-}
-
-/// Local volumes from udisks2, mounted or not. Network mounts are left out: they have no
-/// unix device, and remote locations are out of scope for v1.
 fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {
     monitor
         .volumes()

@@ -15,8 +15,6 @@ const PLAIN_TEXT_MIME: &str = "text/plain";
 
 /// Puts `paths` on the clipboard, marked as cut or copied.
 pub fn write(clipboard: &gdk::Clipboard, paths: &[PathBuf], cut: bool) {
-    let files: Vec<_> = paths.iter().map(gio::File::for_path).collect();
-    let file_list = gdk::FileList::from_array(&files).to_value();
     let gnome = gtk::glib::Bytes::from_owned(paste::gnome_copied_files(paths, cut).into_bytes());
     let text = paths
         .iter()
@@ -25,7 +23,7 @@ pub fn write(clipboard: &gdk::Clipboard, paths: &[PathBuf], cut: bool) {
         .join("\n");
     let text = gtk::glib::Bytes::from_owned(text.into_bytes());
     let provider = gdk::ContentProvider::new_union(&[
-        gdk::ContentProvider::for_value(&file_list),
+        crate::dnd::files_provider(paths),
         gdk::ContentProvider::for_bytes(GNOME_COPIED_FILES_MIME, &gnome),
         gdk::ContentProvider::for_bytes(PLAIN_TEXT_MIME, &text),
     ]);

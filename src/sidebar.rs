@@ -358,59 +358,23 @@ impl Sidebar {
     }
 
     fn add_trash_drop(row: &gtk::ListBoxRow, output: &Sender<Output>) {
-        let drop = gtk::DropTarget::new(
-            gdk::FileList::static_type(),
-            gdk::DragAction::COPY | gdk::DragAction::MOVE,
-        );
         let output = output.clone();
-        drop.connect_drop(move |_, value, _, _| {
-            let sources = value
-                .get::<gdk::FileList>()
-                .map(|files| {
-                    files
-                        .files()
-                        .into_iter()
-                        .filter_map(|file| file.path())
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            if sources.is_empty() {
-                return false;
-            }
+        row.add_controller(crate::dnd::file_drop_target(move |sources, _| {
             output.emit(Output::TrashDrop { sources });
             true
-        });
-        row.add_controller(drop);
+        }));
     }
 
     fn add_file_drop(row: &gtk::ListBoxRow, dest: PathBuf, output: &Sender<Output>) {
-        let drop = gtk::DropTarget::new(
-            gdk::FileList::static_type(),
-            gdk::DragAction::COPY | gdk::DragAction::MOVE,
-        );
         let output = output.clone();
-        drop.connect_drop(move |target, value, _, _| {
-            let sources = value
-                .get::<gdk::FileList>()
-                .map(|files| {
-                    files
-                        .files()
-                        .into_iter()
-                        .filter_map(|file| file.path())
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            if sources.is_empty() {
-                return false;
-            }
+        row.add_controller(crate::dnd::file_drop_target(move |sources, cut| {
             output.emit(Output::Paste {
                 sources,
                 dest: dest.clone(),
-                cut: drop_cut(target),
+                cut,
             });
             true
-        });
-        row.add_controller(drop);
+        }));
     }
 
     fn header_row(text: &str) -> gtk::ListBoxRow {
@@ -451,17 +415,6 @@ pub const CSS: &str = "
 .navigation-sidebar row.drop-before { box-shadow: inset 0 2px @accent_color; }
 .navigation-sidebar row.drop-after { box-shadow: inset 0 -2px @accent_color; }
 ";
-
-fn drop_cut(target: &gtk::DropTarget) -> Option<bool> {
-    let state = target.current_drop()?.device().modifier_state();
-    if state.contains(gdk::ModifierType::CONTROL_MASK) {
-        Some(false)
-    } else if state.contains(gdk::ModifierType::SHIFT_MASK) {
-        Some(true)
-    } else {
-        None
-    }
-}
 
 /// The bookmark row under `y` (list coordinates), and whether `y` is in its lower half.
 fn bookmark_row_at(list: &gtk::ListBox, y: f64) -> Option<(gtk::ListBoxRow, bool)> {

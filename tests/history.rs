@@ -10,6 +10,7 @@ use std::sync::Once;
 use loom::executor::{ItemStatus, execute};
 use loom::history::{self, SkipReason, Skipped, Source, UndoPlan};
 use loom::plan::{Action, ActionPlan, ConflictPolicy};
+use loom::trash::Trashed;
 use loom::validator::{ValidatedPlan, Validator};
 use rusqlite::Connection;
 
@@ -494,10 +495,17 @@ fn folder_with_foreign_files_is_not_trashed() {
     );
 }
 
-#[test]
-fn trash_is_reported_not_undone() {
-    let f = Fixture::new("trash");
-    let doomed = f.write("doomed-history-test.txt", "x");
+fn trashed(orig: &Path, deleted: i64, file: &Path) -> Trashed {
+    Trashed {
+        orig: orig.to_path_buf(),
+        deleted,
+        file: file.to_path_buf(),
+    }
+}
+
+/// Trashes `name` through a recorded operation; returns its original path.
+fn trash_one(f: &Fixture, name: &str) -> PathBuf {
+    let doomed = f.write(name, "x");
     f.run(
         vec![Action::Trash {
             path: doomed.clone(),
@@ -509,16 +517,66 @@ fn trash_is_reported_not_undone() {
         .query_row("SELECT trashed_at FROM operation_item", [], |r| r.get(0))
         .unwrap();
     assert_eq!(trashed_at, Some(NOW));
+    doomed
+}
 
-    let undo = history::plan_undo(&f.conn).unwrap().unwrap();
-    assert_eq!(undo.plan.actions, []);
+#[test]
+fn trash_is_undone_by_moving_the_item_back_out_of_the_trash() {
+    let f = Fixture::new("trash");
+    let doomed = trash_one(&f, "doomed-history-test.txt");
+    let in_trash = f.p("Trash/files/doomed-history-test.txt");
+    let contents = vec![
+        // The same path trashed an hour earlier belongs to another operation.
+        trashed(&doomed, NOW - 3600, Path::new("/elsewhere/older")),
+        trashed(&doomed, NOW, &in_trash),
+        trashed(&f.p("other.txt"), NOW, Path::new("/elsewhere/other")),
+    ];
+
+    let undo = history::plan_undo_with(&f.conn, || Ok(contents))
+        .unwrap()
+        .unwrap();
     assert_eq!(
-        undo.skipped,
-        [Skipped {
-            path: doomed,
-            reason: SkipReason::TrashNotSupported
+        undo.plan.actions,
+        [Action::Move {
+            src: in_trash,
+            dst: doomed
         }]
     );
+    assert_eq!(undo.skipped, []);
+}
+
+#[test]
+fn trash_undo_skips_what_cannot_be_restored() {
+    let f = Fixture::new("trash-skip");
+    let doomed = trash_one(&f, "doomed-history-test.txt");
+    let skipped = |reason| {
+        vec![Skipped {
+            path: doomed.clone(),
+            reason,
+        }]
+    };
+    let in_trash = vec![trashed(&doomed, NOW, &f.p("Trash/files/x"))];
+
+    // Emptied from the trash (or restored by hand) since.
+    let undo = history::plan_undo_with(&f.conn, || Ok(Vec::new()))
+        .unwrap()
+        .unwrap();
+    assert_eq!(undo.plan.actions, []);
+    assert_eq!(undo.skipped, skipped(SkipReason::NotInTrash));
+
+    // No gvfs: the trash cannot be looked into.
+    let undo = history::plan_undo_with(&f.conn, || Err(std::io::Error::other("no gvfs")))
+        .unwrap()
+        .unwrap();
+    assert_eq!(undo.skipped, skipped(SkipReason::TrashNotSupported));
+
+    // Something new took its place.
+    std::fs::write(&doomed, "new").unwrap();
+    let undo = history::plan_undo_with(&f.conn, || Ok(in_trash))
+        .unwrap()
+        .unwrap();
+    assert_eq!(undo.plan.actions, []);
+    assert_eq!(undo.skipped, skipped(SkipReason::OriginalTaken));
 }
 
 #[test]
@@ -585,5 +643,36 @@ fn only_done_items_of_a_partial_operation_are_undone() {
             dst: a
         }]
     );
+    assert_eq!(undo.skipped, []);
+}
+
+#[test]
+fn undoing_a_restore_trashes_the_item_again() {
+    let f = Fixture::new("unrestore");
+    // A restore is a move out of a trash `files` folder. Recorded by hand here: really
+    // moving it needs gvfs to know this trash (see tests/trash.rs).
+    let in_trash = f.write("Trash/files/a.txt", "a");
+    let home = f.p("a.txt");
+    let plan = f.validate(ActionPlan {
+        actions: vec![Action::Move {
+            src: in_trash.clone(),
+            dst: home.clone(),
+        }],
+        on_conflict: None,
+    });
+    let id = history::begin(&f.conn, &plan, Source::Manual, NOW).unwrap();
+    std::fs::rename(&in_trash, &home).unwrap();
+    history::finish(
+        &f.conn,
+        id,
+        &[ItemStatus::Done {
+            dst: Some(home.clone()),
+        }],
+        NOW,
+    )
+    .unwrap();
+
+    let undo = history::plan_undo(&f.conn).unwrap().unwrap();
+    assert_eq!(undo.plan.actions, [Action::Trash { path: home }]);
     assert_eq!(undo.skipped, []);
 }

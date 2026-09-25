@@ -7,4 +7,6 @@ license = "GPL-3.0-or-later"
 [dependencies]
 relm4 = { version = "0.11.0", features = ["libadwaita"] }
 rusqlite = "0.40.2"
+serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"
+toml = "1.1.6"

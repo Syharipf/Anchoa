@@ -185,6 +185,22 @@ fn position_of(conn: &Connection, id: i64) -> Result<Option<i64>, DbError> {
         .optional()?)
 }
 
+/// Operations older than this many days are pruned.
+pub const RETENTION_DAYS: i64 = 30;
+/// Only this many most recent operations are kept.
+pub const RETENTION_MAX: u32 = 1_000;
+
+/// Deletes operations past either retention limit (their items cascade) and returns how
+/// many were deleted. `now` is seconds since the Unix epoch. Meant to run at startup.
+pub fn prune(conn: &Connection, now: i64) -> Result<usize, DbError> {
+    Ok(conn.execute(
+        "DELETE FROM operation
+         WHERE created_at < ?1
+            OR id NOT IN (SELECT id FROM operation ORDER BY created_at DESC, id DESC LIMIT ?2)",
+        (now - RETENTION_DAYS * 86_400, RETENTION_MAX),
+    )?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -354,5 +370,48 @@ mod tests {
         assert_eq!(items, 0);
         drop(conn);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn prune_drops_old_operations_and_keeps_the_latest_thousand() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        migrate(&mut conn).unwrap();
+        let now = 1_800_000_000;
+        let insert = |id: i64, created_at: i64| {
+            conn.execute(
+                "INSERT INTO operation (id, kind, source, status, created_at) VALUES (?1, 'move', 'rule', 'done', ?2)",
+                (id, created_at),
+            )
+            .unwrap();
+        };
+        // Operation 1 is past the age limit; 2..=1002 are recent, 2 being the oldest of them.
+        insert(1, now - RETENTION_DAYS * 86_400 - 1);
+        for id in 2..=1002 {
+            insert(id, now - (1002 - id));
+        }
+        conn.execute(
+            "INSERT INTO operation_item (operation_id, seq, src_path, status) VALUES (1, 0, '/a', 'done')",
+            [],
+        )
+        .unwrap();
+
+        assert_eq!(prune(&conn, now).unwrap(), 2);
+        let (count, min_id): (i64, i64) = conn
+            .query_row("SELECT COUNT(*), MIN(id) FROM operation", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+        assert_eq!((count, min_id), (1000, 3));
+        let items: i64 = conn
+            .query_row("SELECT COUNT(*) FROM operation_item", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(items, 0);
+        assert_eq!(prune(&conn, now).unwrap(), 0);
+
+        // Exactly at the age limit is kept.
+        conn.execute("DELETE FROM operation", []).unwrap();
+        insert(1, now - RETENTION_DAYS * 86_400);
+        assert_eq!(prune(&conn, now).unwrap(), 0);
     }
 }

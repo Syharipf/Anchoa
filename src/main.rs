@@ -588,6 +588,10 @@ impl Component for App {
                 .toasts
                 .add_toast(adw::Toast::new(&format!("Undo failed: {err}"))),
             Cmd::Ran(job, statuses, warning) => {
+                if matches!(job, Job::Trash) {
+                    // The first trashing creates the trash folder; show it in the sidebar.
+                    sender.spawn_oneshot_command(|| Cmd::Places(places::standard_places()));
+                }
                 let toast = adw::Toast::new(&file_ops::summary(&job, &statuses));
                 let undoable = !matches!(job, Job::Undo { .. })
                     && warning.is_none()

@@ -12,7 +12,8 @@ pub struct Place {
 }
 
 /// Home plus the XDG user directories (Documents, Downloads, Music, Pictures, Videos) that
-/// are configured, exist, and are not the home directory itself — in that order.
+/// are configured, exist, and are not the home directory itself — in that order — and last
+/// the home trash, once it exists (it is created by the first trashing).
 /// Checks each directory exists, which may block on slow mounts: call from a worker thread.
 pub fn standard_places() -> Vec<Place> {
     let mut places = Vec::new();
@@ -47,7 +48,22 @@ pub fn standard_places() -> Vec<Place> {
         }
     }
 
+    let trash = trash_files();
+    if trash.is_dir() {
+        places.push(Place {
+            label: "Trash".to_string(),
+            path: trash,
+            icon: "user-trash-symbolic",
+        });
+    }
+
     places
+}
+
+/// The home trash's `files` folder: `$XDG_DATA_HOME/Trash/files`. Items trashed from other
+/// drives go to that drive's own `.Trash-$UID` instead.
+pub fn trash_files() -> PathBuf {
+    glib::user_data_dir().join("Trash").join("files")
 }
 
 /// Directories that hold manual mount points (`/mnt`). Drives mounted through udisks2
@@ -129,6 +145,11 @@ mod tests {
         assert_eq!(places[0].path, relm4::gtk::glib::home_dir());
         assert!(places.iter().all(|p| p.path.is_dir()));
         assert!(places[1..].iter().all(|p| p.path != places[0].path));
+        let trash = places.iter().find(|p| p.label == "Trash");
+        assert_eq!(
+            trash.map(|p| p.path.clone()),
+            trash_files().is_dir().then(trash_files)
+        );
     }
 
     #[test]

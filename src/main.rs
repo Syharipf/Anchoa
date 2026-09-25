@@ -258,6 +258,10 @@ impl Component for App {
                 })),
             ));
         }
+        shortcuts.add_shortcut(gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("<Ctrl>Q"),
+            Some(gtk::NamedAction::new("window.close")),
+        ));
         root.add_controller(shortcuts);
 
         sender.input(Msg::Open(dir));

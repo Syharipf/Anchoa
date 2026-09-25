@@ -352,6 +352,7 @@ fn rename_patterns_that_cannot_be_mapped_are_errors() {
         "rename ?.png to *.gif",     // `?` cannot be carried over
         "rename *.png to sub/*.png", // a rename never changes folder
         "rename dirs to x",          // no glob to map from
+        "rename c.png to ..",        // not a name
     ] {
         assert!(matches!(f.plan(bad), Err(PlanError::Rename(_))), "{bad}");
     }

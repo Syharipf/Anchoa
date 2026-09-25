@@ -29,6 +29,8 @@ pub enum Reason {
     AlreadyExists,
     #[error("destination is inside the source")]
     IntoItself,
+    #[error("destination must end in a name, not `..`")]
+    NoName,
     #[error("rename cannot move the item to another folder")]
     RenameChangesFolder,
     #[error("mode {0:o} is not a plain 3-digit octal mode")]
@@ -113,6 +115,9 @@ impl Validator {
             }
             Action::Mkdir { path } => {
                 let resolved = self.inside(path)?;
+                if path.file_name().is_none() {
+                    return Err((path, Reason::NoName));
+                }
                 if path.symlink_metadata().is_ok() {
                     return Err((path, Reason::AlreadyExists));
                 }
@@ -124,6 +129,10 @@ impl Validator {
         };
         let src_resolved = self.existing(src)?;
         let dst_resolved = self.inside(dst)?;
+        // `dir/..` names no new entry; writing "there" would hit an existing folder.
+        if dst.file_name().is_none() {
+            return Err((dst, Reason::NoName));
+        }
         if matches!(action, Action::Rename { .. }) && src.parent() != dst.parent() {
             return Err((dst, Reason::RenameChangesFolder));
         }

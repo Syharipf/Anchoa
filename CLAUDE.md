@@ -32,7 +32,7 @@ Jalankan `cargo fmt` dan `cargo clippy --all-targets -- -D warnings` sebelum men
 Pembagian peran per model:
 
 1. **Plan (Opus, effort high):** Opus hanya untuk planning — rencana, task list/to-do, dan test sebagai spesifikasi. Opus tidak menulis kode implementasi.
-2. **Coding (delegasi):** skill `opencode:delegate` (default `claude-opus-4-8`). agy tidak dipakai untuk coding: headless-nya butuh izin command yang sengaja tidak dibuka (allow-rule atau `--dangerously-skip-permissions`). Pelaksana **tidak boleh mengubah test** yang ditulis Opus.
+2. **Coding (delegasi):** skill `opencode:delegate` dengan `--model opencode/muse-spark-1.3-contributor-free` (pilihan pengguna, top benchmark OpenCode; DeepSeek 4.1 alternatif bila tersedia setelah login). Default plugin (`claude-opus-4-8`) tidak tersedia tanpa kredensial dan diam-diam jatuh ke `opencode/big-pickle` — selalu set `--model` eksplisit, dan cek model yang benar-benar dipakai lewat `opencode stats --days 1 --models`. agy tidak dipakai untuk coding: headless-nya butuh izin command yang sengaja tidak dibuka (allow-rule atau `--dangerously-skip-permissions`). Pelaksana **tidak boleh mengubah test** yang ditulis Opus.
 3. **Verifikasi:** jalankan sendiri `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` di state bersih. Jangan percaya laporan "lulus" dari pelaksana.
 4. **Review:** Gemini 3.8 Flash via `agy --model gemini-3.8-flash-high --mode plan --add-dir <dir> -p "<prompt>"` dengan diff disimpan ke file dulu (read-only; headless tidak bisa menjalankan `git`). Opus (effort high) hanya dipanggil untuk konfirmasi bila temuan ambigu atau saling bertentangan.
 

@@ -32,7 +32,7 @@ Jalankan `cargo fmt` dan `cargo clippy --all-targets -- -D warnings` sebelum men
 Pembagian peran per model:
 
 1. **Plan (Opus, effort high):** Opus hanya untuk planning — rencana, task list/to-do, dan test sebagai spesifikasi. Opus tidak menulis kode implementasi.
-2. **Coding (delegasi):** skill `opencode:delegate` (model terbaik, default `claude-opus-4-8`), atau Antigravity headless: `agy -p --model claude-opus-4-6-thinking --effort max "<task>"` (cek `agy models` untuk model terbaru). Pelaksana **tidak boleh mengubah test** yang ditulis Opus.
+2. **Coding (delegasi):** utama Antigravity headless: `agy -p --model claude-opus-4-6-thinking --effort max --mode accept-edits "<task>"` (cek `agy models` untuk model terbaru). Cadangan bila agy gagal/tidak tersedia: skill `opencode:delegate` (default `claude-opus-4-8`). Pelaksana **tidak boleh mengubah test** yang ditulis Opus.
 3. **Verifikasi:** jalankan sendiri `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` di state bersih. Jangan percaya laporan "lulus" dari pelaksana.
 4. **Review:** Gemini 3.8 Flash via `agy -p --model gemini-3.8-flash-high "review diff <base>..HEAD"` (read-only). Opus (effort high) hanya dipanggil untuk konfirmasi bila temuan ambigu atau saling bertentangan.
 

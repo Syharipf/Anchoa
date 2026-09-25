@@ -91,3 +91,36 @@ fn a_trailing_slash_lists_nothing_to_complete_unless_one_folder() {
     );
     assert_eq!(complete(&t.at(""), &t.0, &t.0), None);
 }
+
+#[test]
+fn a_common_prefix_of_several_folders_gets_no_slash() {
+    let t = Tree::new("prefix-no-slash");
+    std::fs::create_dir(t.0.join("Music Videos")).unwrap();
+    // "Music" and "Music Videos": the common part is a folder name, but not the only one.
+    assert_eq!(complete(&t.at("Mus"), &t.0, &t.0), Some(t.at("Music")));
+}
+
+#[test]
+fn a_leading_slash_is_the_root_folder() {
+    let t = Tree::new("root");
+    // Whatever the active folder is, "/" names the root.
+    let got = complete("/et", &t.0, &t.0);
+    assert_eq!(got.as_deref(), Some("/etc/"));
+}
+
+#[test]
+fn hidden_folders_never_match_an_empty_prefix() {
+    let t = Tree::new("hidden-empty");
+    std::fs::create_dir_all(t.0.join("only/.git")).unwrap();
+    std::fs::create_dir_all(t.0.join("only/src")).unwrap();
+    assert_eq!(
+        complete(&t.at("only/"), &t.0, &t.0),
+        Some(t.at("only/src/"))
+    );
+}
+
+#[test]
+fn a_bare_tilde_completes_to_home() {
+    let t = Tree::new("tilde");
+    assert_eq!(complete("~", &t.0, &t.0), Some("~/".into()));
+}

@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anchoa::command::Preview;
-use anchoa::executor::{self, ItemStatus};
+use anchoa::executor::{self, ItemStatus, Tally};
 use anchoa::history::{self, ResolvedBy, Skipped, Source};
 use anchoa::plan::{Action, ActionPlan};
 use anchoa::validator::{Rejection, ValidatedPlan, Validator};
@@ -64,10 +64,18 @@ pub fn validate(plan: ActionPlan) -> Result<ValidatedPlan, Vec<Rejection>> {
 /// Worker thread: executes `plan` and records it, or for an undo, marks the original
 /// operation undone once every step succeeded. History problems never stop the operation
 /// itself; they come back as the warning.
-pub fn run(db: Option<&Db>, job: &Job, plan: &ValidatedPlan) -> (Vec<ItemStatus>, Option<String>) {
+///
+/// `keep_going` is the executor's progress/cancel hook (see [`executor::execute`]); it is
+/// used for both the normal and the undo path.
+pub fn run(
+    db: Option<&Db>,
+    job: &Job,
+    plan: &ValidatedPlan,
+    keep_going: impl FnMut(usize) -> bool,
+) -> (Vec<ItemStatus>, Option<String>) {
     let conn = db.map(|db| db.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
     if let Job::Undo { operation_id, .. } = job {
-        let statuses = executor::execute(plan, |_| true);
+        let statuses = executor::execute(plan, keep_going);
         let all_done = statuses
             .iter()
             .all(|s| matches!(s, ItemStatus::Done { .. }));
@@ -86,7 +94,7 @@ pub fn run(db: Option<&Db>, job: &Job, plan: &ValidatedPlan) -> (Vec<ItemStatus>
     let id = conn
         .as_ref()
         .map(|conn| history::begin(conn, plan, source, now()));
-    let statuses = executor::execute(plan, |_| true);
+    let statuses = executor::execute(plan, keep_going);
     let mut warning = match (&conn, id.as_ref()) {
         (Some(conn), Some(Ok(id))) => history::finish(conn, *id, &statuses, now())
             .err()
@@ -129,10 +137,7 @@ pub fn summary(job: &Job, statuses: &[ItemStatus]) -> String {
     {
         return format!("Failed: {err}");
     }
-    let done = statuses
-        .iter()
-        .filter(|s| matches!(s, ItemStatus::Done { .. }))
-        .count();
+    let done = Tally::of(statuses).done;
     match job {
         Job::Trash => format!("Moved {} to trash", items(done)),
         Job::Command { .. } => format!("Done: {}", items(done)),

@@ -45,6 +45,45 @@ pub enum Source {
     Llm,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResolvedBy {
+    Rule,
+    Llm,
+    None,
+}
+
+fn resolved_by_str(resolved_by: ResolvedBy) -> &'static str {
+    match resolved_by {
+        ResolvedBy::Rule => "rule",
+        ResolvedBy::Llm => "llm",
+        ResolvedBy::None => "none",
+    }
+}
+
+/// Stores a command and returns its new row id.
+pub fn record_command(
+    conn: &Connection,
+    input: &str,
+    resolved_by: ResolvedBy,
+    confidence: Option<f64>,
+    operation_id: Option<i64>,
+    now: i64,
+) -> Result<i64, DbError> {
+    conn.execute(
+        "INSERT INTO command_history
+            (input, resolved_by, confidence, operation_id, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            input,
+            resolved_by_str(resolved_by),
+            confidence,
+            operation_id,
+            now,
+        ],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
 /// Stores `plan` as a `running` operation with all items `pending`, before it executes.
 /// `operation.kind` is the first action's kind that is not `mkdir` (or `mkdir` if all are).
 /// Returns the operation id.

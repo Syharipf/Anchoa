@@ -9,10 +9,11 @@ use file_ops::Job;
 use loom::db::{self, Bookmark, DbError};
 use loom::executor::ItemStatus;
 use loom::fs::{self, Entry};
+use loom::history::ResolvedBy;
 use loom::places::{self, Place};
 use loom::plan::{Action, ActionPlan};
 use loom::validator::{Rejection, ValidatedPlan};
-use loom::{config, trash};
+use loom::{command, config, history, parser, planner, trash};
 use relm4::gtk::gio;
 use relm4::gtk::prelude::*;
 use relm4::prelude::*;
@@ -137,6 +138,8 @@ struct App {
     show_hidden: bool,
     entries: TypedColumnView<Entry, gtk::MultiSelection>,
     path_entry: gtk::Entry,
+    command_entry: gtk::Entry,
+    command_error: gtk::Label,
     toasts: adw::ToastOverlay,
     sidebar: Controller<Sidebar>,
     /// `None` until opened, or forever if opening the database failed; bookmarks are
@@ -166,8 +169,12 @@ enum Msg {
     Forward,
     Activate(u32),
     FocusPath,
+    FocusCommand,
+    FocusFileList,
+    CommandTextChanged,
+    RunCommand(String),
     ToggleHidden,
-    /// F6: toggle keyboard focus between the sidebar and the file list.
+    /// F6: cycle keyboard focus between the sidebar, file list and command panel.
     ToggleSidebarFocus,
     /// Ctrl+D: bookmark the current directory.
     BookmarkCwd,
@@ -213,6 +220,11 @@ enum Cmd {
     BookmarkAdded(Result<(bool, Vec<Bookmark>), DbError>),
     Places(Vec<Place>),
     Drives(Vec<Place>),
+    CommandPlanned {
+        input: String,
+        result: Result<(command::Preview, ActionPlan), String>,
+    },
+    CommandRecordAttempt,
     Validated(Job, Result<ValidatedPlan, Vec<Rejection>>),
     Ran(Job, Vec<ItemStatus>, Option<String>),
     UndoPlanned(file_ops::UndoPlanned),
@@ -319,6 +331,31 @@ impl Component for App {
                                     connect_clicked => Msg::DeleteSelected,
                                 },
                             },
+
+                            #[local_ref]
+                            command_entry -> gtk::Entry {
+                                set_placeholder_text: Some("move *.jpg older than 30d to ~/Pictures/old"),
+                                set_hexpand: true,
+                                set_margin_start: 6,
+                                set_margin_end: 6,
+                                set_margin_top: 6,
+                                connect_activate[sender] => move |entry| {
+                                    sender.input(Msg::RunCommand(entry.text().into()));
+                                },
+                                connect_changed[sender] => move |_| {
+                                    sender.input(Msg::CommandTextChanged);
+                                },
+                            },
+
+                            #[local_ref]
+                            command_error -> gtk::Label {
+                                set_xalign: 0.0,
+                                set_wrap: true,
+                                set_visible: false,
+                                set_margin_start: 6,
+                                set_margin_end: 6,
+                                set_margin_bottom: 4,
+                            },
                         },
                     },
                 },
@@ -389,6 +426,8 @@ impl Component for App {
             show_hidden: false,
             entries,
             path_entry: gtk::Entry::new(),
+            command_entry: gtk::Entry::new(),
+            command_error: gtk::Label::new(None),
             toasts: adw::ToastOverlay::new(),
             sidebar,
             db: None,
@@ -397,6 +436,8 @@ impl Component for App {
             in_trash: false,
         };
         let path_entry = &model.path_entry;
+        let command_entry = &model.command_entry;
+        let command_error = &model.command_error;
         let toasts = &model.toasts;
         let entries_view = &model.entries.view;
         let widgets = view_output!();
@@ -408,6 +449,7 @@ impl Component for App {
             ("<Alt>Left", Msg::Back),
             ("<Alt>Right", Msg::Forward),
             ("<Ctrl>L", Msg::FocusPath),
+            ("<Ctrl>K", Msg::FocusCommand),
             ("<Ctrl>H", Msg::ToggleHidden),
             ("<Ctrl>D", Msg::BookmarkCwd),
             ("F6", Msg::ToggleSidebarFocus),
@@ -426,6 +468,18 @@ impl Component for App {
             Some(gtk::NamedAction::new("window.close")),
         ));
         root.add_controller(shortcuts);
+
+        let command_entry: &gtk::Widget = model.command_entry.upcast_ref();
+        let shortcuts = gtk::ShortcutController::new();
+        let input = sender.input_sender().clone();
+        shortcuts.add_shortcut(gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("Escape"),
+            Some(gtk::CallbackAction::new(move |_, _| {
+                input.emit(Msg::FocusFileList);
+                gtk::glib::Propagation::Stop
+            })),
+        ));
+        command_entry.add_controller(shortcuts);
 
         // File shortcuts act on the file list only, so Delete in the path bar or the sidebar
         // keeps its own meaning; undo and new folder work anywhere in the two panes.
@@ -497,6 +551,56 @@ impl Component for App {
                 self.path_entry.grab_focus();
                 None
             }
+            Msg::FocusCommand => {
+                self.command_entry.grab_focus();
+                None
+            }
+            Msg::FocusFileList => {
+                self.entries.view.grab_focus();
+                None
+            }
+            Msg::CommandTextChanged => {
+                self.command_error.set_text("");
+                self.command_error.set_visible(false);
+                None
+            }
+            Msg::RunCommand(input) => {
+                self.command_error.set_text("");
+                self.command_error.set_visible(false);
+                match parser::parse(&input) {
+                    Ok(cmd) => {
+                        let cwd = self.cwd.clone();
+                        let home = gtk::glib::home_dir();
+                        sender.spawn_oneshot_command(move || {
+                            let result = planner::build(&cmd, &cwd, &home, file_ops::now())
+                                .map(|plan| (command::preview(&plan), plan))
+                                .map_err(|err| err.to_string());
+                            Cmd::CommandPlanned { input, result }
+                        });
+                    }
+                    Err(err) => {
+                        let examples = command::examples(&input).join("\n");
+                        self.command_error.set_text(&format!("{err}\n{examples}"));
+                        self.command_error.set_visible(true);
+                        if let Some(db) = self.db.clone() {
+                            sender.spawn_oneshot_command(move || {
+                                let conn =
+                                    db.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                                let _ = history::record_command(
+                                    &conn,
+                                    &input,
+                                    ResolvedBy::None,
+                                    None,
+                                    None,
+                                    file_ops::now(),
+                                );
+                                Cmd::CommandRecordAttempt
+                            });
+                        }
+                    }
+                }
+                None
+            }
             Msg::ToggleHidden => {
                 self.show_hidden = !self.show_hidden;
                 self.entries
@@ -506,8 +610,12 @@ impl Component for App {
             Msg::ToggleSidebarFocus => {
                 if self.sidebar_has_focus(root) {
                     self.entries.view.grab_focus();
-                } else {
+                } else if gtk::prelude::RootExt::focus(root)
+                    .is_some_and(|widget| widget.is_ancestor(&self.command_entry))
+                {
                     self.sidebar.emit(SidebarMsg::Focus);
+                } else {
+                    self.command_entry.grab_focus();
                 }
                 None
             }
@@ -677,6 +785,13 @@ impl Component for App {
 
     fn update_cmd(&mut self, cmd: Cmd, sender: ComponentSender<Self>, root: &Self::Root) {
         match cmd {
+            Cmd::CommandPlanned { input, result } => match result {
+                Ok((preview, plan)) => {
+                    sender.input(Msg::Submit(Job::Command { input, preview }, plan));
+                }
+                Err(err) => self.toasts.add_toast(adw::Toast::new(&err)),
+            },
+            Cmd::CommandRecordAttempt => {}
             Cmd::Validated(job, Ok(plan)) | Cmd::UndoPlanned(Ok(Some((job, Ok(plan))))) => {
                 let run = Msg::Run(job.clone(), plan.clone());
                 file_ops::confirm(root, &job, plan.plan(), sender.input_sender().clone(), run);
@@ -721,6 +836,14 @@ impl Component for App {
                 .toasts
                 .add_toast(adw::Toast::new(&format!("Undo failed: {err}"))),
             Cmd::Ran(job, statuses, warning) => {
+                if let Job::Command { input, .. } = &job
+                    && self.command_entry.text().as_str() == input
+                    && !statuses
+                        .iter()
+                        .any(|status| matches!(status, ItemStatus::Failed(_)))
+                {
+                    self.command_entry.set_text("");
+                }
                 if matches!(job, Job::Trash | Job::Restore) {
                     // The first trashing creates the trash folder; show it in the sidebar.
                     sender.spawn_oneshot_command(|| Cmd::Places(places::standard_places()));

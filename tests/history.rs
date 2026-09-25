@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Once;
 
 use loom::executor::{ItemStatus, execute};
-use loom::history::{self, SkipReason, Skipped, Source, UndoPlan};
+use loom::history::{self, ResolvedBy, SkipReason, Skipped, Source, UndoPlan};
 use loom::plan::{Action, ActionPlan, ConflictPolicy};
 use loom::trash::Trashed;
 use loom::validator::{ValidatedPlan, Validator};
@@ -675,4 +675,107 @@ fn undoing_a_restore_trashes_the_item_again() {
     let undo = history::plan_undo(&f.conn).unwrap().unwrap();
     assert_eq!(undo.plan.actions, [Action::Trash { path: home }]);
     assert_eq!(undo.skipped, []);
+}
+
+/// `(input, resolved_by, confidence, operation_id, created_at)`.
+type CommandRow = (String, String, Option<f64>, Option<i64>, i64);
+
+/// Each command, by id.
+fn commands(conn: &Connection) -> Vec<CommandRow> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT input, resolved_by, confidence, operation_id, created_at
+             FROM command_history ORDER BY id",
+        )
+        .unwrap();
+    stmt.query_map([], |r| {
+        Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+    })
+    .unwrap()
+    .map(Result::unwrap)
+    .collect()
+}
+
+#[test]
+fn record_command_links_a_rule_command_to_its_operation() {
+    let f = Fixture::new("record-rule");
+    let id = f.run(
+        vec![Action::Mkdir {
+            path: f.p("2026-09"),
+        }],
+        None,
+    );
+
+    let row = history::record_command(
+        &f.conn,
+        "mkdir 2026-09",
+        ResolvedBy::Rule,
+        Some(1.0),
+        Some(id),
+        NOW,
+    )
+    .unwrap();
+
+    assert!(row > 0);
+    assert_eq!(
+        commands(&f.conn),
+        vec![(
+            "mkdir 2026-09".into(),
+            "rule".into(),
+            Some(1.0),
+            Some(id),
+            NOW
+        )]
+    );
+}
+
+#[test]
+fn record_command_stores_an_unrecognized_command_without_operation() {
+    let f = Fixture::new("record-none");
+
+    history::record_command(&f.conn, "tidy up please", ResolvedBy::None, None, None, NOW).unwrap();
+    history::record_command(
+        &f.conn,
+        "from the model",
+        ResolvedBy::Llm,
+        Some(0.5),
+        None,
+        NOW + 1,
+    )
+    .unwrap();
+
+    assert_eq!(
+        commands(&f.conn),
+        vec![
+            ("tidy up please".into(), "none".into(), None, None, NOW),
+            (
+                "from the model".into(),
+                "llm".into(),
+                Some(0.5),
+                None,
+                NOW + 1
+            ),
+        ]
+    );
+}
+
+#[test]
+fn pruned_operation_leaves_the_command_without_operation() {
+    let f = Fixture::new("record-pruned");
+    let id = f.run(vec![Action::Mkdir { path: f.p("old") }], None);
+    history::record_command(
+        &f.conn,
+        "mkdir old",
+        ResolvedBy::Rule,
+        Some(1.0),
+        Some(id),
+        NOW,
+    )
+    .unwrap();
+
+    f.conn
+        .execute("DELETE FROM operation WHERE id = ?1", [id])
+        .unwrap();
+
+    assert_eq!(commands(&f.conn)[0].3, None);
 }

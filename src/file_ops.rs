@@ -13,8 +13,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use loom::command::Preview;
 use loom::executor::{self, ItemStatus};
-use loom::history::{self, Skipped, Source};
+use loom::history::{self, ResolvedBy, Skipped, Source};
 use loom::plan::{Action, ActionPlan};
 use loom::validator::{Rejection, ValidatedPlan, Validator};
 use relm4::adw::prelude::*;
@@ -26,6 +27,10 @@ pub type Db = Arc<Mutex<rusqlite::Connection>>;
 #[derive(Debug, Clone)]
 pub enum Job {
     Trash,
+    Command {
+        input: String,
+        preview: Preview,
+    },
     /// Move items from the trash back to where they were trashed from.
     Restore,
     Rename,
@@ -74,17 +79,30 @@ pub fn run(db: Option<&Db>, job: &Job, plan: &ValidatedPlan) -> (Vec<ItemStatus>
         };
         return (statuses, warning);
     }
+    let source = match job {
+        Job::Command { .. } => Source::Rule,
+        _ => Source::Manual,
+    };
     let id = conn
         .as_ref()
-        .map(|conn| history::begin(conn, plan, Source::Manual, now()));
+        .map(|conn| history::begin(conn, plan, source, now()));
     let statuses = executor::execute(plan, |_| true);
-    let warning = match (&conn, id) {
-        (Some(conn), Some(Ok(id))) => history::finish(conn, id, &statuses, now())
+    let mut warning = match (&conn, id.as_ref()) {
+        (Some(conn), Some(Ok(id))) => history::finish(conn, *id, &statuses, now())
             .err()
             .map(|e| e.to_string()),
         (_, Some(Err(err))) => Some(err.to_string()),
         _ => Some("history is unavailable, so this cannot be undone".into()),
     };
+    if let (Some(conn), Some(Ok(id)), Job::Command { input, .. }) = (&conn, id.as_ref(), job)
+        && let Err(err) =
+            history::record_command(conn, input, ResolvedBy::Rule, Some(1.0), Some(*id), now())
+    {
+        warning = Some(match warning {
+            Some(warning) => format!("{warning}; {err}"),
+            None => err.to_string(),
+        });
+    }
     (statuses, warning)
 }
 
@@ -117,6 +135,7 @@ pub fn summary(job: &Job, statuses: &[ItemStatus]) -> String {
         .count();
     match job {
         Job::Trash => format!("Moved {} to trash", items(done)),
+        Job::Command { .. } => format!("Done: {}", items(done)),
         Job::Restore => format!("Restored {}", items(done)),
         Job::Rename => "Renamed".into(),
         Job::NewFolder => "Folder created".into(),
@@ -151,6 +170,21 @@ pub fn confirm<M: Send + 'static>(
             "Move to Trash",
             plan.actions.iter().map(describe).collect::<Vec<_>>(),
         ),
+        Job::Command { input, preview } => {
+            let mut lines = vec![format!(
+                "{}, {}",
+                items(preview.items),
+                gtk::glib::format_size(preview.bytes)
+            )];
+            lines.extend(
+                preview
+                    .new_dirs
+                    .iter()
+                    .map(|dir| format!("Creates {}", dir.display())),
+            );
+            lines.extend(plan.actions.iter().map(describe));
+            (format!("Run: {input}?"), "Run", lines)
+        }
         Job::Undo { skipped, .. } => {
             let mut lines: Vec<_> = plan.actions.iter().map(describe).collect();
             lines.extend(
@@ -174,6 +208,14 @@ pub fn confirm<M: Send + 'static>(
     dialog.add_response("confirm", confirm_label);
     let appearance = match job {
         Job::Trash => adw::ResponseAppearance::Destructive,
+        Job::Command { .. }
+            if plan
+                .actions
+                .iter()
+                .any(|action| matches!(action, Action::Trash { .. })) =>
+        {
+            adw::ResponseAppearance::Destructive
+        }
         _ => adw::ResponseAppearance::Suggested,
     };
     dialog.set_response_appearance("confirm", appearance);

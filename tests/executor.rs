@@ -7,7 +7,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 
-use anchoa::executor::{ItemStatus, execute};
+use anchoa::executor::{ItemStatus, Tally, execute};
 use anchoa::plan::{Action, ActionPlan, ConflictPolicy};
 use anchoa::validator::{ValidatedPlan, Validator};
 
@@ -408,4 +408,42 @@ fn move_across_filesystems_copies_then_removes_source() {
     assert_eq!(read(&dst.join("sub/f.txt")), "f");
     assert!(!src_left);
     assert_eq!(f.names(""), ["moved"], "no partial copy left");
+}
+
+#[test]
+fn tally_counts_each_outcome() {
+    let statuses = [
+        ItemStatus::Done { dst: None },
+        ItemStatus::Done {
+            dst: Some("/x".into()),
+        },
+        ItemStatus::Skipped,
+        ItemStatus::Failed("disk full".into()),
+        ItemStatus::Pending,
+        ItemStatus::Pending,
+    ];
+
+    assert_eq!(
+        Tally::of(&statuses),
+        Tally {
+            done: 2,
+            skipped: 1,
+            failed: 1,
+            pending: 2,
+        }
+    );
+}
+
+#[test]
+fn partial_means_something_done_and_something_not() {
+    let done = ItemStatus::Done { dst: None };
+    let failed = ItemStatus::Failed("x".into());
+
+    // Stopped halfway, by a failure or by Cancel: offer rollback.
+    assert!(Tally::of(&[done.clone(), failed.clone(), ItemStatus::Pending]).is_partial());
+    assert!(Tally::of(&[done.clone(), ItemStatus::Pending]).is_partial());
+    // Everything done (skips are a chosen outcome), or nothing done: nothing to roll back.
+    assert!(!Tally::of(&[done.clone(), ItemStatus::Skipped]).is_partial());
+    assert!(!Tally::of(&[failed, ItemStatus::Pending]).is_partial());
+    assert!(!Tally::of(&[]).is_partial());
 }

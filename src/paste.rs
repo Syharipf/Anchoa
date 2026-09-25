@@ -4,8 +4,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 use crate::plan::{Action, ActionPlan};
-use relm4::gtk::gio;
-use relm4::gtk::gio::prelude::*;
+use relm4::gtk::glib;
 
 /// Builds the move or copy actions for pasting `sources` into `dest`.
 pub fn plan(sources: &[PathBuf], dest: &Path, cut: bool) -> ActionPlan {
@@ -46,7 +45,8 @@ pub fn gnome_copied_files(paths: &[PathBuf], cut: bool) -> String {
         .chain(
             paths
                 .iter()
-                .map(|path| gio::File::for_path(path).uri().to_string()),
+                .filter_map(|path| glib::filename_to_uri(path, None).ok())
+                .map(String::from),
         )
         .collect::<Vec<_>>()
         .join("\n")
@@ -64,10 +64,9 @@ pub fn parse_gnome_copied_files(text: &str) -> Option<(Vec<PathBuf>, bool)> {
         _ => return None,
     };
     let paths = lines
-        .filter_map(|uri| {
-            let file = gio::File::for_uri(uri);
-            file.has_uri_scheme("file").then(|| file.path()).flatten()
-        })
+        // Plain URI parsing, never a `gio::File`: a remote URI would make gvfs look up its
+        // mount spec, which crashes when first done from several threads at once.
+        .filter_map(|uri| glib::filename_from_uri(uri).ok().map(|(path, _)| path))
         .collect::<Vec<_>>();
     (!paths.is_empty()).then_some((paths, cut))
 }

@@ -1,15 +1,15 @@
-# Copy / Cut / Paste + Dialog Konflik — Desain
+# Copy / Cut / Paste, Drag and Drop + Dialog Konflik — Desain
 
 Tanggal: 2026-09-25. PRD: §4.2 (operasi manual), R8.
 
 ## Scope
 
-Masuk: Ctrl+C / Ctrl+X / Ctrl+V di list file, dialog konflik saat tujuan sudah ada, dicatat ke history sehingga Ctrl+Z bekerja.
+Masuk: Ctrl+C / Ctrl+X / Ctrl+V di list file, drag and drop, dialog konflik saat tujuan sudah ada, dicatat ke history sehingga Ctrl+Z bekerja.
 
 Tidak masuk:
 - Clipboard sistem (interop dengan Nautilus/Dolphin lewat `x-special/gnome-copied-files`). Clipboard internal saja — ponytail: tambahkan bila pengguna butuh paste antar aplikasi.
 - Pilihan per item. Satu kebijakan untuk semua konflik di satu paste (setara "terapkan ke semua" selalu aktif), karena `ActionPlan.on_conflict` memang satu per plan. Tambahkan per item bila ada permintaan nyata.
-- Drag and drop, progress/batal.
+- Drop ke baris Trash atau drive yang belum di-mount di sidebar (diabaikan). Progress/batal.
 
 ## Perilaku
 
@@ -19,6 +19,14 @@ Tidak masuk:
 - Cut lalu paste ke folder asal → item itu dibuang dari plan (no-op). Plan kosong → tidak terjadi apa-apa.
 - Setelah cut-paste berhasil, clipboard dikosongkan. Copy tetap di clipboard (bisa ditempel berkali-kali).
 - Tidak ada dialog konfirmasi terpisah untuk paste tanpa konflik: tindakan eksplisit, dan bisa di-undo (sama seperti rename/new folder). Paste dengan konflik selalu lewat dialog konflik.
+
+## Drag and drop
+
+- Sumber drag: item terpilih di list (atau item yang di-drag bila tidak terpilih), konten `gdk::FileList`. Karena formatnya standar, drag keluar ke Nautilus/Dolphin dan drop masuk dari aplikasi lain ikut berfungsi.
+- Target drop: baris folder di list (masuk ke folder itu), area kosong list (folder aktif), baris Places/Bookmarks/drive yang sudah di-mount di sidebar.
+- Aksi: Ctrl = copy, Shift = move. Tanpa modifier: move bila sumber dan tujuan satu filesystem, copy bila beda (konvensi Nautilus), lewat `paste::same_device`.
+- Setelah drop, jalurnya sama persis dengan Ctrl+V: `paste::plan` → `conflicts` → dialog konflik bila perlu → `Msg::Submit(Job::Paste { cut })`. Drag and drop tidak menyentuh clipboard.
+- Drag and drop hanya pelengkap mouse; semua yang bisa dilakukan dengannya juga bisa lewat keyboard (Ctrl+C/X/V), jadi R9 tetap terpenuhi.
 
 ## Dialog konflik
 
@@ -35,10 +43,12 @@ Ctrl+V -> [worker] paste::plan(sources, cwd, cut) -> paste::conflicts(&plan)
 
 ## Unit baru: `loom::paste` (`src/paste.rs`)
 
-- `plan(sources: &[PathBuf], dest: &Path, cut: bool) -> ActionPlan`: satu `Copy` (atau `Move` bila `cut`) per sumber ke `dest.join(nama_file)`, urutan sumber, `on_conflict: None`. Bila `cut` dan folder induk sumber == `dest`, sumber itu dilewati. Sumber tanpa nama file (mis. `/`) dilewati.
+- `plan(sources: &[PathBuf], dest: &Path, cut: bool) -> ActionPlan`: satu `Copy` (atau `Move` bila `cut`) per sumber ke `dest.join(nama_file)`, urutan sumber, `on_conflict: None`. Dilewati: bila `cut` dan folder induk sumber == `dest`; bila `dest` sama dengan sumber atau berada di dalamnya (folder ke dalam dirinya sendiri, untuk copy maupun cut); sumber tanpa nama file (mis. `/`).
 - `conflicts(plan: &ActionPlan) -> Vec<PathBuf>`: `dst` dari aksi `Move`/`Copy`/`Rename` yang sudah ada di disk (`symlink_metadata`, jadi symlink rusak juga dihitung), urutan plan.
 
-Keduanya blocking-ringan (stat); panggil di worker.
+- `same_device(src: &Path, dest: &Path) -> bool`: `st_dev` keduanya sama (`MetadataExt::dev`, `symlink_metadata` untuk sumber). Salah satu tidak bisa di-stat → `false` (jatuh ke copy, yang tidak menghapus sumber).
+
+Semuanya blocking-ringan (stat); panggil di worker.
 
 ## Binary
 
@@ -47,6 +57,6 @@ Keduanya blocking-ringan (stat); panggil di worker.
 
 ## Test (ditulis dulu, pelaksana tidak boleh mengubah)
 
-`tests/paste.rs`: plan copy/cut, cut ke folder asal dilewati, copy ke folder asal tetap ada, `conflicts` menemukan file, folder, symlink rusak, dan tidak melaporkan yang belum ada; aksi selain move/copy/rename diabaikan.
+`tests/paste.rs`: plan copy/cut, cut ke folder asal dilewati, copy ke folder asal tetap ada, `conflicts` menemukan file, folder, symlink rusak, dan tidak melaporkan yang belum ada; aksi selain move/copy/rename diabaikan; folder tidak bisa ditempel ke dalam dirinya sendiri; `same_device` benar di satu filesystem dan `false` untuk path yang tidak ada.
 
-UI (shortcut, dialog, toast) diuji manual oleh pengguna.
+UI (shortcut, drag and drop, dialog, toast) diuji manual oleh pengguna.

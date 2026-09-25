@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use loom::paste::{conflicts, plan};
+use loom::paste::{conflicts, plan, same_device};
 use loom::plan::{Action, ActionPlan};
 
 struct Dir(PathBuf);
@@ -178,4 +178,38 @@ fn conflicts_ignores_other_actions() {
     };
 
     assert!(conflicts(&p).is_empty());
+}
+
+#[test]
+fn a_folder_is_never_pasted_into_itself() {
+    let d = Dir::new("into-itself");
+    let folder = d.p("src/folder");
+    std::fs::create_dir_all(folder.join("inner")).unwrap();
+
+    for cut in [false, true] {
+        assert!(
+            plan(std::slice::from_ref(&folder), &folder, cut)
+                .actions
+                .is_empty()
+        );
+        assert!(
+            plan(std::slice::from_ref(&folder), &folder.join("inner"), cut)
+                .actions
+                .is_empty()
+        );
+    }
+    // A sibling whose name only starts the same is fine.
+    let sibling = d.p("src/folder2");
+    std::fs::create_dir(&sibling).unwrap();
+    assert_eq!(plan(&[folder], &sibling, true).actions.len(), 1);
+}
+
+#[test]
+fn same_device_within_one_filesystem() {
+    let d = Dir::new("device");
+    let a = d.file("src/a.txt");
+
+    assert!(same_device(&a, &d.p("dst")));
+    assert!(!same_device(&d.p("src/missing"), &d.p("dst")));
+    assert!(!same_device(&a, &d.p("missing")));
 }

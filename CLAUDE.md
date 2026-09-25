@@ -29,14 +29,27 @@ Jalankan `cargo fmt` dan `cargo clippy --all-targets -- -D warnings` sebelum men
 
 ## Workflow
 
-**Perubahan kecil** (1–2 file, < ~100 baris): dikerjakan langsung oleh Opus, tanpa delegasi — biaya briefing + review melebihi penghematannya.
+Pembagian peran per model:
 
-**Fitur multi-file:**
+1. **Plan (Opus, effort high):** Opus hanya untuk planning — rencana, task list/to-do, dan test sebagai spesifikasi. Opus tidak menulis kode implementasi.
+2. **Coding (delegasi):** skill `opencode:delegate` (model terbaik, default `claude-opus-4-8`), atau Antigravity headless: `agy -p --model claude-opus-4-6-thinking --effort max "<task>"` (cek `agy models` untuk model terbaru). Pelaksana **tidak boleh mengubah test** yang ditulis Opus.
+3. **Verifikasi:** jalankan sendiri `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` di state bersih. Jangan percaya laporan "lulus" dari pelaksana.
+4. **Review:** Gemini 3.8 Flash via `agy -p --model gemini-3.8-flash-high "review diff <base>..HEAD"` (read-only). Opus (effort high) hanya dipanggil untuk konfirmasi bila temuan ambigu atau saling bertentangan.
 
-1. **Plan (Opus):** rencana + task list. Test ditulis dulu oleh Opus sebagai spesifikasi.
-2. **Implementasi (delegasi):** subagent Sonnet/Haiku, atau `agy-delegate -m gemini-3.8-flash-high --dir <repo>`. Pelaksana **tidak boleh mengubah test** yang ditulis Opus.
-3. **Verifikasi (Opus):** jalankan sendiri `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` di state bersih. Jangan percaya laporan "lulus" dari pelaksana.
-4. **Review lintas model:** `agy:review` atas diff; Opus hakim akhir atas temuan.
+**Skill Claude Code per tahap** (pakai bila relevan, bukan wajib semua):
+
+| Tahap | Skill |
+|---|---|
+| Plan | `superpowers:brainstorming` (fitur/perilaku baru), `superpowers:writing-plans`, `superpowers:test-driven-development` (test spesifikasi), `caveman:lean-build` (fitur rawan overbuild) |
+| Bug | `superpowers:systematic-debugging` / `caveman:investigate-first` sebelum menyusun fix, lalu `caveman:surgical-patch` sebagai arah task |
+| Refactor / migration DB | `caveman:safe-refactor`, `caveman:migration` |
+| Delegasi | `superpowers:subagent-driven-development` (task independen), `superpowers:dispatching-parallel-agents` (bisa paralel), `superpowers:using-git-worktrees` (isolasi) |
+| Verifikasi | `superpowers:verification-before-completion`, `caveman:verify-and-stop` |
+| Review | `ponytail:ponytail-review` (over-engineering), `security-review` (Validator, path, trash), `superpowers:receiving-code-review` (menilai temuan) |
+| Selesai | `superpowers:finishing-a-development-branch`, `caveman:caveman-commit` |
+| UI | `ui-ux-pro-max:ui-ux-pro-max` hanya untuk prinsip UX/aksesibilitas/keyboard — bagian web (Tailwind/shadcn) tidak berlaku untuk GTK4/libadwaita; ikuti GNOME HIG |
+
+**Skill tidak ikut ke CLI delegasi.** OpenCode dan `agy` tidak memuat plugin Claude Code, jadi prompt delegasi wajib menyalin aturan yang relevan secara eksplisit: prinsip ponytail (reuse kode yang ada → stdlib → dependensi terpasang → diff terpendek; tanpa abstraksi spekulatif), aturan keras proyek yang disentuh task, file/test target, dan larangan mengubah test.
 
 **Git:** satu branch per perubahan (`feat/…`, `fix/…`, `chore/…`, `docs/…`), commit Conventional Commits, push, buka PR ke `main` via `gh pr create`. Claude **tidak merge** — setelah CI hijau dan verifikasi selesai, laporkan link PR; pengguna yang merge (squash). `main` diproteksi: wajib PR + check `check` hijau, tanpa push langsung. Jangan pernah commit secret, `.env*`, `*.db`, atau `*.gguf` — cek `git status` sebelum commit.
 

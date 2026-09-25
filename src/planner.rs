@@ -189,7 +189,7 @@ fn filter_holds(filter: &Filter, entry: &Entry, now: i64) -> bool {
 /// Matches `name` against `pattern`, where `*` is any run of characters (including none)
 /// and `?` is exactly one; case-sensitive, no partial matches. Classic two-pointer
 /// wildcard match: `star` remembers the last `*` to backtrack to when a literal fails.
-fn glob_match(pattern: &str, name: &str) -> bool {
+pub fn glob_match(pattern: &str, name: &str) -> bool {
     let p: Vec<char> = pattern.chars().collect();
     let n: Vec<char> = name.chars().collect();
     let (mut pi, mut ni) = (0, 0);

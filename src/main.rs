@@ -1,8 +1,11 @@
 mod file_ops;
 mod sidebar;
 
+use std::cell::RefCell;
 use std::io;
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use anchoa::db::{self, Bookmark, DbError};
@@ -12,7 +15,7 @@ use anchoa::history::ResolvedBy;
 use anchoa::places::{self, Place};
 use anchoa::plan::{Action, ActionPlan};
 use anchoa::validator::{Rejection, ValidatedPlan};
-use anchoa::{command, config, history, parser, planner, trash};
+use anchoa::{command, config, history, parser, planner, search, trash};
 use file_ops::Job;
 use relm4::gtk::gio;
 use relm4::gtk::prelude::*;
@@ -137,6 +140,13 @@ struct App {
     forward: Vec<PathBuf>,
     show_hidden: bool,
     entries: TypedColumnView<Entry, gtk::MultiSelection>,
+    search_bar: gtk::SearchBar,
+    search_entry: gtk::SearchEntry,
+    search_status: gtk::Label,
+    filter_query: Rc<RefCell<String>>,
+    search_mode: SearchMode,
+    search_cancel: Option<Arc<AtomicBool>>,
+    showing_results: bool,
     path_entry: gtk::Entry,
     command_entry: gtk::Entry,
     command_error: gtk::Label,
@@ -158,6 +168,13 @@ enum Nav {
     New,
     Back,
     Forward,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SearchMode {
+    Off,
+    Filter,
+    Recursive,
 }
 
 #[derive(Debug, Clone)]
@@ -210,6 +227,17 @@ enum Msg {
     /// Ask, then delete trash items for good: the selected ones, or all for `None`.
     DeleteForGood(Option<Vec<PathBuf>>),
     DeleteForGoodConfirmed(Option<Vec<PathBuf>>),
+    /// The search entry's text changed; only filters entries while in [`SearchMode::Filter`].
+    SearchTextChanged(String),
+    /// Enter in the search entry: runs [`search::walk`] on a worker while in
+    /// [`SearchMode::Recursive`].
+    RunSearch,
+    /// Ctrl+F: opens the search bar in recursive mode.
+    OpenRecursiveSearch,
+    /// The search bar opened, whether by typing (key capture) or by [`Msg::OpenRecursiveSearch`].
+    SearchOpened,
+    /// The search bar closed (Esc): cancels a running search and restores the folder listing.
+    SearchClosed,
 }
 
 #[derive(Debug)]
@@ -232,9 +260,13 @@ enum Cmd {
     DeletedForGood(io::Result<usize>),
     /// Old trash items deleted at startup.
     TrashExpired(io::Result<usize>),
+    /// Result of a [`search::walk`]; ignored unless `cancel` still matches `search_cancel`
+    /// (a stale or superseded search).
+    SearchResults(Arc<AtomicBool>, Vec<Entry>),
 }
 
 const HIDDEN_FILTER: usize = 0;
+const FILTER_QUERY: usize = 1;
 
 #[relm4::component]
 impl Component for App {
@@ -296,6 +328,31 @@ impl Component for App {
                     set_end_child = toasts -> adw::ToastOverlay {
                         gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
+
+                            #[local_ref]
+                            search_bar -> gtk::SearchBar {
+                                #[wrap(Some)]
+                                set_child = &gtk::Box {
+                                    set_orientation: gtk::Orientation::Horizontal,
+                                    set_spacing: 6,
+
+                                    #[local_ref]
+                                    search_entry -> gtk::SearchEntry {
+                                        set_hexpand: true,
+                                        connect_search_changed[sender] => move |entry| {
+                                            sender.input(Msg::SearchTextChanged(entry.text().into()));
+                                        },
+                                        connect_activate[sender] => move |_| {
+                                            sender.input(Msg::RunSearch);
+                                        },
+                                    },
+
+                                    #[local_ref]
+                                    search_status -> gtk::Label {
+                                        set_visible: false,
+                                    },
+                                },
+                            },
 
                             gtk::ScrolledWindow {
                                 set_vexpand: true,
@@ -370,6 +427,20 @@ impl Component for App {
         entries.append_column::<PermissionColumn>();
         entries.append_column::<ModifiedColumn>();
         entries.add_filter(|e| !e.name.starts_with('.'));
+        // Filter mode: an empty query matches everything, so this stays harmlessly active
+        // outside filter mode rather than needing to be toggled on and off.
+        let filter_query = Rc::new(RefCell::new(String::new()));
+        {
+            let filter_query = filter_query.clone();
+            entries.add_filter(move |e| search::matches(&filter_query.borrow(), &e.name));
+        }
+
+        let search_bar = gtk::SearchBar::new();
+        let search_entry = gtk::SearchEntry::new();
+        search_bar.connect_entry(&search_entry);
+        search_bar.set_key_capture_widget(Some(&entries.view));
+        let search_status = gtk::Label::new(None);
+        search_status.add_css_class("dim-label");
 
         let sidebar =
             Sidebar::builder()
@@ -425,6 +496,13 @@ impl Component for App {
             forward: Vec::new(),
             show_hidden: false,
             entries,
+            search_bar,
+            search_entry,
+            search_status,
+            filter_query,
+            search_mode: SearchMode::Off,
+            search_cancel: None,
+            showing_results: false,
             path_entry: gtk::Entry::new(),
             command_entry: gtk::Entry::new(),
             command_error: gtk::Label::new(None),
@@ -435,12 +513,28 @@ impl Component for App {
             volumes,
             in_trash: false,
         };
+        let search_bar = &model.search_bar;
+        let search_entry = &model.search_entry;
+        let search_status = &model.search_status;
         let path_entry = &model.path_entry;
         let command_entry = &model.command_entry;
         let command_error = &model.command_error;
         let toasts = &model.toasts;
         let entries_view = &model.entries.view;
         let widgets = view_output!();
+
+        {
+            let input = sender.input_sender().clone();
+            model
+                .search_bar
+                .connect_search_mode_enabled_notify(move |bar| {
+                    input.emit(if bar.is_search_mode() {
+                        Msg::SearchOpened
+                    } else {
+                        Msg::SearchClosed
+                    });
+                });
+        }
 
         let shortcuts = gtk::ShortcutController::new();
         shortcuts.set_scope(gtk::ShortcutScope::Global);
@@ -453,6 +547,7 @@ impl Component for App {
             ("<Ctrl>H", Msg::ToggleHidden),
             ("<Ctrl>D", Msg::BookmarkCwd),
             ("F6", Msg::ToggleSidebarFocus),
+            ("<Ctrl>F", Msg::OpenRecursiveSearch),
         ] {
             let input = sender.input_sender().clone();
             shortcuts.add_shortcut(gtk::Shortcut::new(
@@ -676,11 +771,17 @@ impl Component for App {
             Msg::RenameSelected => {
                 if let [entry] = &self.selected()[..] {
                     let src = entry.path.clone();
+                    // `entry.name` is a relative path in search results; the file's own name
+                    // always comes from `path` instead.
+                    let name = src
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default();
                     file_ops::ask_name(
                         root,
                         "Rename",
                         "Rename",
-                        &entry.name,
+                        &name,
                         true,
                         sender.input_sender().clone(),
                         move |name| {
@@ -773,7 +874,81 @@ impl Component for App {
                     .spawn_oneshot_command(|| Cmd::Drives(places::drives(&places::drive_roots())));
                 None
             }
+            Msg::SearchTextChanged(text) => {
+                if self.search_mode == SearchMode::Filter {
+                    *self.filter_query.borrow_mut() = text;
+                    self.entries.notify_filter_changed(FILTER_QUERY);
+                }
+                None
+            }
+            Msg::RunSearch => {
+                if self.search_mode == SearchMode::Recursive {
+                    if let Some(previous) = self.search_cancel.take() {
+                        previous.store(true, Ordering::Relaxed);
+                    }
+                    let cancel = Arc::new(AtomicBool::new(false));
+                    self.search_cancel = Some(cancel.clone());
+                    // Leave `showing_results` as it is: if a first search's results are still
+                    // on screen, Esc during this second search must still restore the folder
+                    // listing, not silently do nothing.
+                    self.search_status.set_text("Searching…");
+                    self.search_status.set_visible(true);
+                    let root = self.cwd.clone();
+                    let query = self.search_entry.text().to_string();
+                    let hidden = self.show_hidden;
+                    sender.spawn_oneshot_command(move || {
+                        let results = search::walk(&root, &query, hidden, &cancel);
+                        Cmd::SearchResults(cancel, results)
+                    });
+                }
+                None
+            }
+            Msg::OpenRecursiveSearch => {
+                // An earlier filter query must not hide recursive results once they land.
+                *self.filter_query.borrow_mut() = String::new();
+                self.entries.notify_filter_changed(FILTER_QUERY);
+                self.search_mode = SearchMode::Recursive;
+                let folder = self
+                    .cwd
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| self.cwd.display().to_string());
+                self.search_entry
+                    .set_placeholder_text(Some(&format!("Search in {folder} and below")));
+                self.search_bar.set_search_mode(true);
+                self.search_entry.grab_focus();
+                None
+            }
+            Msg::SearchOpened => {
+                // Otherwise this is `Msg::OpenRecursiveSearch` already having set the mode.
+                if self.search_mode == SearchMode::Off {
+                    self.search_mode = SearchMode::Filter;
+                    self.search_entry.set_placeholder_text(Some("Filter"));
+                }
+                None
+            }
+            Msg::SearchClosed => {
+                let restore = self.showing_results;
+                self.reset_search();
+                if restore {
+                    // Results are on screen: go through the normal navigation path (like
+                    // Up/Back/Open) instead of a separate async reload.
+                    Some((self.cwd.clone(), Nav::New))
+                } else {
+                    self.entries.view.grab_focus();
+                    None
+                }
+            }
         };
+        // Any navigation (including the reload `Msg::SearchClosed` triggers to restore the
+        // folder listing) leaves search behind, so stale results or a leftover filter can
+        // never land on the newly opened folder. `reset_search` already closed here (e.g. by
+        // `Msg::SearchClosed`) leaves both conditions false, so this does not re-close it.
+        if target.is_some() && (self.search_mode != SearchMode::Off || self.search_cancel.is_some())
+        {
+            self.reset_search();
+            self.search_bar.set_search_mode(false);
+        }
         if let Some((dir, nav)) = target {
             self.requested = Some((dir.clone(), nav));
             sender.spawn_oneshot_command(move || {
@@ -933,6 +1108,21 @@ impl Component for App {
                 }));
                 self.sidebar.emit(SidebarMsg::SetDrives(drives));
             }
+            Cmd::SearchResults(cancel, results) => {
+                // A stale or superseded search (cancelled, or replaced by a newer one): its
+                // `search_cancel` no longer matches, so the results are dropped.
+                if self
+                    .search_cancel
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, &cancel))
+                {
+                    self.search_cancel = None;
+                    self.search_status.set_visible(false);
+                    self.entries.clear();
+                    self.entries.extend_from_iter(results);
+                    self.showing_results = true;
+                }
+            }
         }
     }
 }
@@ -1025,6 +1215,20 @@ impl App {
     fn bookmarks_unavailable(&self, err: DbError) {
         self.toasts
             .add_toast(adw::Toast::new(&format!("Bookmarks unavailable: {err}")));
+    }
+
+    /// Leaves search: cancels a running walk and clears the filter. Does not touch `entries`
+    /// or the search bar's own open/closed state — the caller decides what happens to those.
+    fn reset_search(&mut self) {
+        if let Some(cancel) = self.search_cancel.take() {
+            cancel.store(true, Ordering::Relaxed);
+        }
+        *self.filter_query.borrow_mut() = String::new();
+        self.entries.notify_filter_changed(FILTER_QUERY);
+        self.search_mode = SearchMode::Off;
+        self.search_status.set_visible(false);
+        self.search_entry.set_text("");
+        self.showing_results = false;
     }
 }
 

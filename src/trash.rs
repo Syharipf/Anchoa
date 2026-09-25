@@ -106,34 +106,21 @@ pub fn restore_plan(items: &[Trashed], files: Option<&[PathBuf]>) -> (ActionPlan
     (plan, missing)
 }
 
-/// Deletes the trashed item for good, folder contents first. Only for emptying the trash:
-/// the caller confirms with the user (or applies the configured age limit).
+/// Deletes a top-level trash item for good. gvfs removes a folder with all its contents,
+/// and refuses to touch anything inside a trashed folder on its own.
 fn delete(item: &gio::File) -> io::Result<()> {
-    let info = item
-        .query_info(
-            "standard::type",
-            gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
-            gio::Cancellable::NONE,
-        )
-        .map_err(to_io)?;
-    if info.file_type() == gio::FileType::Directory {
-        let children = item
-            .enumerate_children(
-                "standard::name",
-                gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
-                gio::Cancellable::NONE,
-            )
-            .map_err(to_io)?;
-        for child in children {
-            delete(&item.child(child.map_err(to_io)?.name()))?;
-        }
-    }
     item.delete(gio::Cancellable::NONE).map_err(to_io)
 }
 
 /// Permanently deletes every item in the trash (all mounts); returns how many.
 pub fn empty() -> io::Result<usize> {
     delete_where(|_| true)
+}
+
+/// Permanently deletes the trash items lying at `files` (inside a trash `files` folder);
+/// returns how many. Paths that are not in the trash are ignored.
+pub fn delete_files(files: &[PathBuf]) -> io::Result<usize> {
+    delete_where(|item| files.contains(&item.file))
 }
 
 /// Permanently deletes the items trashed more than `days` days before `now` (none for 0);
@@ -192,6 +179,9 @@ pub fn is_trash_folder(dir: &Path) -> bool {
     trash.is_some_and(|name| name == "Trash" || name.starts_with(".Trash-"))
 }
 
+// ponytail: gvfs picks up new trash items asynchronously, so an item trashed a few
+// milliseconds ago may not be listed yet; fine for a person clicking Undo, retry here if
+// anything ever looks items up faster.
 fn children() -> io::Result<gio::FileEnumerator> {
     // ponytail: lists the whole trash each time; index it if trashes with many thousands of
     // items make undo slow.

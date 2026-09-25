@@ -186,6 +186,8 @@ enum Msg {
     Mounted(Result<PathBuf, String>),
     /// Delete: trash the selected entries (after confirming).
     TrashSelected,
+    /// Delete in the trash, or its Delete button: delete the selected items for good.
+    DeleteSelected,
     /// F2: rename the selected entry.
     RenameSelected,
     /// Ctrl+Shift+N: new folder in the current directory.
@@ -198,9 +200,9 @@ enum Msg {
     Run(Job, ValidatedPlan),
     /// Restore the selected trash items (`false`) or everything in the trash (`true`).
     Restore(bool),
-    /// Ask, then empty the trash for good.
-    EmptyTrash,
-    EmptyTrashConfirmed,
+    /// Ask, then delete trash items for good: the selected ones, or all for `None`.
+    DeleteForGood(Option<Vec<PathBuf>>),
+    DeleteForGoodConfirmed(Option<Vec<PathBuf>>),
 }
 
 #[derive(Debug)]
@@ -215,7 +217,7 @@ enum Cmd {
     Ran(Job, Vec<ItemStatus>, Option<String>),
     UndoPlanned(file_ops::UndoPlanned),
     RestorePlanned(Result<(Result<ValidatedPlan, Vec<Rejection>>, usize), String>),
-    TrashEmptied(io::Result<usize>),
+    DeletedForGood(io::Result<usize>),
     /// Old trash items deleted at startup.
     TrashExpired(io::Result<usize>),
 }
@@ -309,7 +311,12 @@ impl Component for App {
                                 pack_end = &gtk::Button {
                                     set_label: "Empty Trash",
                                     add_css_class: "destructive-action",
-                                    connect_clicked => Msg::EmptyTrash,
+                                    connect_clicked => Msg::DeleteForGood(None),
+                                },
+                                pack_end = &gtk::Button {
+                                    set_label: "Delete",
+                                    set_tooltip_text: Some("Delete the selected items for good (Delete)"),
+                                    connect_clicked => Msg::DeleteSelected,
                                 },
                             },
                         },
@@ -532,6 +539,21 @@ impl Component for App {
                     .add_toast(adw::Toast::new(&format!("Cannot mount: {err}")));
                 None
             }
+            // Items already in the trash cannot be trashed again: Delete deletes them for good.
+            Msg::TrashSelected if self.in_trash => {
+                sender.input(Msg::DeleteSelected);
+                None
+            }
+            Msg::DeleteSelected => {
+                let files: Vec<_> = self.selected().into_iter().map(|e| e.path).collect();
+                if files.is_empty() {
+                    self.toasts
+                        .add_toast(adw::Toast::new("Select the items to delete first"));
+                } else {
+                    sender.input(Msg::DeleteForGood(Some(files)));
+                }
+                None
+            }
             Msg::TrashSelected => {
                 let actions: Vec<_> = self
                     .selected()
@@ -619,16 +641,23 @@ impl Component for App {
                 }
                 None
             }
-            Msg::EmptyTrash => {
-                file_ops::confirm_empty(
+            Msg::DeleteForGood(files) => {
+                let confirmed = Msg::DeleteForGoodConfirmed(files.clone());
+                file_ops::confirm_delete(
                     root,
+                    files.as_deref(),
                     sender.input_sender().clone(),
-                    Msg::EmptyTrashConfirmed,
+                    confirmed,
                 );
                 None
             }
-            Msg::EmptyTrashConfirmed => {
-                sender.spawn_oneshot_command(|| Cmd::TrashEmptied(trash::empty()));
+            Msg::DeleteForGoodConfirmed(files) => {
+                sender.spawn_oneshot_command(move || {
+                    Cmd::DeletedForGood(match files {
+                        Some(files) => trash::delete_files(&files),
+                        None => trash::empty(),
+                    })
+                });
                 None
             }
             Msg::RefreshDrives => {
@@ -674,10 +703,10 @@ impl Component for App {
             Cmd::RestorePlanned(Err(err)) => self
                 .toasts
                 .add_toast(adw::Toast::new(&format!("Cannot read the trash: {err}"))),
-            Cmd::TrashEmptied(result) => {
+            Cmd::DeletedForGood(result) => {
                 let text = match result {
-                    Ok(n) => format!("Trash emptied ({n} items)"),
-                    Err(err) => format!("Emptying the trash failed: {err}"),
+                    Ok(n) => format!("Deleted {n} item(s) for good"),
+                    Err(err) => format!("Deleting failed: {err}"),
                 };
                 self.toasts.add_toast(adw::Toast::new(&text));
                 sender.input(Msg::Open(self.cwd.clone()));

@@ -249,20 +249,39 @@ pub fn plan_restore(
     Ok((validate(plan), missing.len()))
 }
 
-/// Asks before emptying the trash for good, then sends `on_confirm`.
-pub fn confirm_empty<M: Send + 'static>(
+/// Asks before deleting trash items for good (`files`, or the whole trash for `None`), then
+/// sends `on_confirm`.
+pub fn confirm_delete<M: Send + 'static>(
     root: &adw::ApplicationWindow,
+    files: Option<&[PathBuf]>,
     sender: Sender<M>,
     on_confirm: M,
 ) {
-    let dialog = adw::AlertDialog::new(
-        Some("Empty the trash?"),
-        Some(
-            "Everything in the trash, on every drive, is deleted for good. This cannot be undone.",
+    let (heading, body, label) = match files {
+        None => (
+            "Empty the trash?".to_string(),
+            "Everything in the trash, on every drive, is deleted for good.".to_string(),
+            "Empty Trash",
         ),
-    );
+        Some(files) => {
+            let mut lines: Vec<_> = files
+                .iter()
+                .map(|f| {
+                    f.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned()
+                })
+                .collect();
+            shorten(&mut lines);
+            let heading = format!("Delete {} for good?", items(files.len()));
+            (heading, lines.join("\n"), "Delete")
+        }
+    };
+    let body = format!("{body}\n\nThis cannot be undone.");
+    let dialog = adw::AlertDialog::new(Some(&heading), Some(&body));
     dialog.add_response("cancel", "Cancel");
-    dialog.add_response("empty", "Empty Trash");
+    dialog.add_response("empty", label);
     dialog.set_response_appearance("empty", adw::ResponseAppearance::Destructive);
     // Deleting for good is never the default answer.
     dialog.set_default_response(Some("cancel"));

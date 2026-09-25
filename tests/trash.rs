@@ -7,6 +7,7 @@ use loom::executor::{ItemStatus, execute};
 use loom::history::{self, Source};
 use loom::plan::{Action, ActionPlan};
 use loom::validator::Validator;
+use relm4::gtk::prelude::*;
 
 #[test]
 #[ignore = "needs gvfs and uses the real home trash"]
@@ -38,6 +39,8 @@ fn trashed_file_comes_back_on_undo() {
     history::finish(&conn, id, &statuses, now()).unwrap();
     assert!(!path.exists());
 
+    // gvfs notices new trash items asynchronously; a person never undoes this fast.
+    std::thread::sleep(std::time::Duration::from_secs(1));
     let undo = history::plan_undo(&conn).unwrap().unwrap();
     assert_eq!(undo.skipped, [], "{undo:?}");
     let statuses = execute(&validator.validate(undo.plan).unwrap(), |_| true);
@@ -53,4 +56,34 @@ fn trashed_file_comes_back_on_undo() {
     assert!(!leftover.exists(), "gvfs should remove the .trashinfo");
     std::fs::remove_file(&path).unwrap();
     std::fs::remove_file(&db_path).unwrap();
+}
+
+#[test]
+#[ignore = "needs gvfs and uses the real home trash"]
+fn trashed_file_and_folder_can_be_deleted_for_good() {
+    let home = relm4::gtk::glib::home_dir();
+    let tag = format!("loom-delete-e2e-{}", std::process::id());
+    let file = home.join(format!("{tag}.txt"));
+    let dir = home.join(&tag);
+    std::fs::write(&file, "bye").unwrap();
+    std::fs::create_dir_all(dir.join("inner")).unwrap();
+    std::fs::write(dir.join("inner/x"), "bye").unwrap();
+    for path in [&file, &dir] {
+        relm4::gtk::gio::File::for_path(path)
+            .trash(relm4::gtk::gio::Cancellable::NONE)
+            .unwrap();
+    }
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let in_trash: Vec<_> = loom::trash::contents()
+        .unwrap()
+        .into_iter()
+        .filter(|t| t.orig == file || t.orig == dir)
+        .map(|t| t.file)
+        .collect();
+    assert_eq!(in_trash.len(), 2);
+
+    assert_eq!(loom::trash::delete_files(&in_trash).unwrap(), 2);
+    let left = loom::trash::contents().unwrap();
+    assert!(left.iter().all(|t| t.orig != file && t.orig != dir));
+    assert!(in_trash.iter().all(|p| !p.exists()));
 }

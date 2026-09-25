@@ -1,4 +1,5 @@
 pub mod db;
+pub mod executor;
 pub mod fs;
 pub mod places;
 pub mod plan;

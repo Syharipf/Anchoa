@@ -10,12 +10,24 @@ use serde::{Deserialize, Serialize};
 
 /// Missing keys take their default and unknown keys are ignored, so older and newer
 /// config files both load.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     /// `.gguf` model for the LLM fallback; `None` disables the fallback.
     pub model_path: Option<PathBuf>,
     pub show_hidden: bool,
+    /// Trash items older than this many days are deleted for good at startup; 0 never.
+    pub trash_auto_delete_days: u32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            model_path: None,
+            show_hidden: false,
+            trash_auto_delete_days: 30,
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -66,6 +78,15 @@ mod tests {
     }
 
     #[test]
+    fn trash_is_emptied_after_30_days_unless_configured() {
+        assert_eq!(Config::default().trash_auto_delete_days, 30);
+        let off: Config = toml::from_str("trash_auto_delete_days = 0").unwrap();
+        assert_eq!(off.trash_auto_delete_days, 0);
+        let partial: Config = toml::from_str("show_hidden = true").unwrap();
+        assert_eq!(partial.trash_auto_delete_days, 30);
+    }
+
+    #[test]
     fn missing_file_gives_defaults() {
         let dir = temp_dir("missing");
         assert_eq!(load(&dir.join("config.toml")).unwrap(), Config::default());
@@ -78,6 +99,7 @@ mod tests {
         let config = Config {
             model_path: Some("/models/qwen2.5-1.5b-instruct-q4_k_m.gguf".into()),
             show_hidden: true,
+            trash_auto_delete_days: 7,
         };
         save(&path, &config).unwrap();
         assert_eq!(load(&path).unwrap(), config);

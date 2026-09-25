@@ -11,19 +11,21 @@
 //!
 //! | done item      | undo                                                          |
 //! |----------------|---------------------------------------------------------------|
-//! | move / rename  | move / rename back                                            |
+//! | move / rename  | move / rename back (a restore from the trash: trash it again)  |
 //! | copy           | trash the copy                                                |
 //! | chmod          | chmod back to the old mode                                    |
 //! | mkdir          | trash the folder, if it is empty once this undo has run       |
-//! | trash          | not supported yet: restore it from the system trash           |
+//! | trash          | move it back out of the trash (see [`crate::trash`])            |
 //!
 //! An item is only undone if its "after" state still matches the disk: the item at the
 //! destination has the recorded size and mtime (mode for chmod), and for move/rename the
 //! original path is free. Otherwise it is skipped and reported.
-// ponytail: trash undo needs trash:// lookup by original path + deletion date, which is an
-// open question under Flatpak (PRD §10); add it once that is settled.
+//!
+//! A trashed item is found in the trash by its original path and a deletion time within the
+//! operation's run. Without gvfs the trash cannot be looked into, and it is skipped.
 
 use std::collections::HashSet;
+use std::io;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -32,6 +34,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use crate::db::DbError;
 use crate::executor::ItemStatus;
 use crate::plan::{Action, ActionPlan};
+use crate::trash::Trashed;
 use crate::validator::ValidatedPlan;
 
 /// Who produced the plan; stored in `operation.source`.
@@ -215,20 +218,31 @@ pub fn finish(
 
 /// Undo for the latest operation that is `done` or `partial`, or `None` if there is none.
 pub fn plan_undo(conn: &Connection) -> Result<Option<UndoPlan>, DbError> {
-    let operation_id: Option<i64> = conn
+    plan_undo_with(conn, crate::trash::contents)
+}
+
+/// [`plan_undo`] with the trash contents coming from `trash`, which is only called if the
+/// operation trashed something.
+pub fn plan_undo_with(
+    conn: &Connection,
+    trash: impl FnOnce() -> io::Result<Vec<Trashed>>,
+) -> Result<Option<UndoPlan>, DbError> {
+    let operation: Option<(i64, i64)> = conn
         .query_row(
-            "SELECT id FROM operation WHERE status IN ('done', 'partial')
+            "SELECT id, created_at FROM operation WHERE status IN ('done', 'partial')
              ORDER BY created_at DESC, id DESC LIMIT 1",
             [],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .optional()?;
-    let Some(operation_id) = operation_id else {
+    let Some((operation_id, created_at)) = operation else {
         return Ok(None);
     };
+    let mut trash = Some(trash);
+    let mut trash_contents = None;
 
     let mut stmt = conn.prepare(
-        "SELECT kind, src_path, dst_path, mode_before, mode_after, size, mtime_after
+        "SELECT kind, src_path, dst_path, mode_before, mode_after, size, mtime_after, trashed_at
          FROM operation_item WHERE operation_id = ?1 AND status = 'done' ORDER BY seq DESC",
     )?;
     let items = stmt
@@ -241,6 +255,7 @@ pub fn plan_undo(conn: &Connection) -> Result<Option<UndoPlan>, DbError> {
                 mode_after: r.get(4)?,
                 size: r.get(5)?,
                 mtime_after: r.get(6)?,
+                trashed_at: r.get(7)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -266,6 +281,10 @@ pub fn plan_undo(conn: &Connection) -> Result<Option<UndoPlan>, DbError> {
                         path: at,
                         reason: SkipReason::Changed,
                     });
+                } else if crate::trash::is_trash_file(&orig) {
+                    // It was restored from the trash: undo puts it back there.
+                    removed.insert(at.clone());
+                    actions.push(Action::Trash { path: at });
                 } else if std::fs::symlink_metadata(&orig).is_ok() {
                     skipped.push(Skipped {
                         path: at,
@@ -311,10 +330,39 @@ pub fn plan_undo(conn: &Connection) -> Result<Option<UndoPlan>, DbError> {
                     });
                 }
             }
-            "trash" => skipped.push(Skipped {
-                path: item.src_path.clone(),
-                reason: SkipReason::TrashNotSupported,
-            }),
+            "trash" => {
+                let orig = item.src_path.clone();
+                let contents =
+                    trash_contents.get_or_insert_with(|| trash.take().expect("taken once")());
+                // Trashed while this operation ran: between its start and its finish.
+                let window = created_at - 2..=item.trashed_at.unwrap_or(created_at) + 2;
+                let found = contents.as_ref().map(|items| {
+                    items
+                        .iter()
+                        .filter(|t| t.orig == orig && window.contains(&t.deleted))
+                        .max_by_key(|t| t.deleted)
+                });
+                match found {
+                    Err(_) => skipped.push(Skipped {
+                        path: orig,
+                        reason: SkipReason::TrashNotSupported,
+                    }),
+                    Ok(None) => skipped.push(Skipped {
+                        path: orig,
+                        reason: SkipReason::NotInTrash,
+                    }),
+                    Ok(Some(_)) if std::fs::symlink_metadata(&orig).is_ok() => {
+                        skipped.push(Skipped {
+                            path: orig,
+                            reason: SkipReason::OriginalTaken,
+                        });
+                    }
+                    Ok(Some(trashed)) => actions.push(Action::Move {
+                        src: trashed.file.clone(),
+                        dst: orig,
+                    }),
+                }
+            }
             "mkdir" => {
                 let path = item.src_path.clone();
                 let empty_once_undone = std::fs::metadata(&path)
@@ -366,6 +414,7 @@ struct DoneItem {
     mode_after: Option<i64>,
     size: Option<i64>,
     mtime_after: Option<i64>,
+    trashed_at: Option<i64>,
 }
 
 /// Whether `path` still has the size and mtime recorded when the item finished.
@@ -409,6 +458,8 @@ pub enum SkipReason {
     OriginalTaken,
     #[error("folder is not empty")]
     NotEmpty,
-    #[error("restore it from the trash instead")]
+    #[error("the trash cannot be read here (needs gvfs); restore it from the trash instead")]
     TrashNotSupported,
+    #[error("no longer in the trash")]
+    NotInTrash,
 }

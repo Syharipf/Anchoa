@@ -8,6 +8,8 @@
 //!   place only when complete; a failed copy removes its partial file or folder, so no
 //!   half-written item ever carries the real name.
 //! - A move across filesystems removes the source only after the copy has completed.
+//! - Moving an item out of a trash folder restores it through gvfs (`trash:///`), which
+//!   also removes its `.trashinfo`; see [`crate::trash`].
 //! - Nothing is deleted permanently: trash and [`ConflictPolicy::Replace`] go through the
 //!   XDG trash (`gio::File::trash`).
 //! - An existing destination is never overwritten silently: if one appeared after
@@ -105,6 +107,17 @@ fn transfer(
         }
         Some(ConflictPolicy::KeepBoth) => free_name(dst, src_is_dir),
     };
+    if remove_source && let Some(item) = crate::trash::item(src)? {
+        // Out of the trash through gvfs, so its `.trashinfo` goes too.
+        item.move_(
+            &gio::File::for_path(&dst),
+            gio::FileCopyFlags::NOFOLLOW_SYMLINKS,
+            gio::Cancellable::NONE,
+            None,
+        )
+        .map_err(|err| io::Error::other(err.message().to_owned()))?;
+        return Ok(ItemStatus::Done { dst: Some(dst) });
+    }
     if remove_source {
         match std::fs::rename(src, &dst) {
             Err(err) if err.kind() == io::ErrorKind::CrossesDevices => {}

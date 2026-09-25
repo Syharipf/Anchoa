@@ -2,14 +2,12 @@ mod clipboard;
 mod columns;
 mod command_panel;
 mod dnd;
+mod file_list;
 mod file_ops;
 mod sidebar;
 
-use std::cell::RefCell;
 use std::io;
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use anchoa::db::{self, Bookmark, DbError};
@@ -19,15 +17,14 @@ use anchoa::history::ResolvedBy;
 use anchoa::places::{self, Place};
 use anchoa::plan::{Action, ActionPlan};
 use anchoa::validator::{Rejection, ValidatedPlan};
-use anchoa::{command, config, history, parser, paste, planner, search, trash};
-use columns::{ModifiedColumn, NameColumn, PermissionColumn, SizeColumn};
+use anchoa::{command, config, history, parser, paste, planner, trash};
 use command_panel::{CommandPanel, Msg as CommandPanelMsg, Output as CommandPanelOutput};
+use file_list::{FileList, Msg as FileListMsg, Output as FileListOutput};
 use file_ops::Job;
+use relm4::gtk::gio;
 use relm4::gtk::gio::prelude::*;
 use relm4::gtk::prelude::*;
-use relm4::gtk::{gdk, gio};
 use relm4::prelude::*;
-use relm4::typed_view::column::{RelmColumn, TypedColumnView};
 use relm4::{adw, gtk};
 use sidebar::{Drive, DriveTarget, Msg as SidebarMsg, Output as SidebarOutput, Sidebar};
 
@@ -39,15 +36,7 @@ struct App {
     requested: Option<(PathBuf, Nav)>,
     back: Vec<PathBuf>,
     forward: Vec<PathBuf>,
-    show_hidden: bool,
-    entries: TypedColumnView<Entry, gtk::MultiSelection>,
-    search_bar: gtk::SearchBar,
-    search_entry: gtk::SearchEntry,
-    search_status: gtk::Label,
-    filter_query: Rc<RefCell<String>>,
-    search_mode: SearchMode,
-    search_cancel: Option<Arc<AtomicBool>>,
-    showing_results: bool,
+    file_list: Controller<FileList>,
     path_entry: gtk::Entry,
     command_panel: Controller<CommandPanel>,
     toasts: adw::ToastOverlay,
@@ -70,13 +59,6 @@ enum Nav {
     Forward,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SearchMode {
-    Off,
-    Filter,
-    Recursive,
-}
-
 #[derive(Debug, Clone)]
 enum Msg {
     Open(PathBuf),
@@ -84,7 +66,8 @@ enum Msg {
     Up,
     Back,
     Forward,
-    Activate(u32),
+    /// Search results were closed: list the active folder again.
+    Reload,
     FocusPath,
     FocusCommand,
     FocusFileList,
@@ -146,17 +129,8 @@ enum Msg {
     /// Ask, then delete trash items for good: the selected ones, or all for `None`.
     DeleteForGood(Option<Vec<PathBuf>>),
     DeleteForGoodConfirmed(Option<Vec<PathBuf>>),
-    /// The search entry's text changed; only filters entries while in [`SearchMode::Filter`].
-    SearchTextChanged(String),
-    /// Enter in the search entry: runs [`search::walk`] on a worker while in
-    /// [`SearchMode::Recursive`].
-    RunSearch,
-    /// Ctrl+F: opens the search bar in recursive mode.
+    /// Ctrl+F: search the active folder and below.
     OpenRecursiveSearch,
-    /// The search bar opened, whether by typing (key capture) or by [`Msg::OpenRecursiveSearch`].
-    SearchOpened,
-    /// The search bar closed (Esc): cancels a running search and restores the folder listing.
-    SearchClosed,
 }
 
 #[derive(Debug)]
@@ -186,13 +160,7 @@ enum Cmd {
     DeletedForGood(io::Result<usize>),
     /// Old trash items deleted at startup.
     TrashExpired(io::Result<usize>),
-    /// Result of a [`search::walk`]; ignored unless `cancel` still matches `search_cancel`
-    /// (a stale or superseded search).
-    SearchResults(Arc<AtomicBool>, Vec<Entry>),
 }
-
-const HIDDEN_FILTER: usize = 0;
-const FILTER_QUERY: usize = 1;
 
 #[relm4::component]
 impl Component for App {
@@ -256,40 +224,7 @@ impl Component for App {
                             set_orientation: gtk::Orientation::Vertical,
 
                             #[local_ref]
-                            search_bar -> gtk::SearchBar {
-                                #[wrap(Some)]
-                                set_child = &gtk::Box {
-                                    set_orientation: gtk::Orientation::Horizontal,
-                                    set_spacing: 6,
-
-                                    #[local_ref]
-                                    search_entry -> gtk::SearchEntry {
-                                        set_hexpand: true,
-                                        connect_search_changed[sender] => move |entry| {
-                                            sender.input(Msg::SearchTextChanged(entry.text().into()));
-                                        },
-                                        connect_activate[sender] => move |_| {
-                                            sender.input(Msg::RunSearch);
-                                        },
-                                    },
-
-                                    #[local_ref]
-                                    search_status -> gtk::Label {
-                                        set_visible: false,
-                                    },
-                                },
-                            },
-
-                            gtk::ScrolledWindow {
-                                set_vexpand: true,
-
-                                #[local_ref]
-                                entries_view -> gtk::ColumnView {
-                                    connect_activate[sender] => move |_, position| {
-                                        sender.input(Msg::Activate(position));
-                                    },
-                                },
-                            },
+                            file_list_widget -> gtk::Box {},
 
                             gtk::ActionBar {
                                 #[watch]
@@ -325,50 +260,19 @@ impl Component for App {
     }
 
     fn init(dir: PathBuf, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
-        let mut entries = TypedColumnView::<Entry, gtk::MultiSelection>::new();
-        entries.append_column::<NameColumn>();
-        entries.append_column::<SizeColumn>();
-        entries.append_column::<PermissionColumn>();
-        entries.append_column::<ModifiedColumn>();
-        let row_input = sender.input_sender().clone();
-        if let Some(factory) = entries
-            .get_columns()
-            .get(NameColumn::COLUMN_NAME)
-            .and_then(|column| column.factory())
-            .and_downcast::<gtk::SignalListItemFactory>()
-        {
-            factory.connect_setup(move |_, object| {
-                if let Some(item) = object.downcast_ref::<gtk::ListItem>() {
-                    setup_file_row(item, &row_input);
-                }
-            });
-        }
-        let list_input = sender.input_sender().clone();
-        entries
-            .view
-            .add_controller(dnd::file_drop_target(move |sources, cut| {
-                list_input.emit(Msg::Paste {
-                    sources,
-                    dest: None,
-                    cut,
-                });
-                true
-            }));
-        entries.add_filter(|e| !e.name.starts_with('.'));
-        // Filter mode: an empty query matches everything, so this stays harmlessly active
-        // outside filter mode rather than needing to be toggled on and off.
-        let filter_query = Rc::new(RefCell::new(String::new()));
-        {
-            let filter_query = filter_query.clone();
-            entries.add_filter(move |e| search::matches(&filter_query.borrow(), &e.name));
-        }
-
-        let search_bar = gtk::SearchBar::new();
-        let search_entry = gtk::SearchEntry::new();
-        search_bar.connect_entry(&search_entry);
-        search_bar.set_key_capture_widget(Some(&entries.view));
-        let search_status = gtk::Label::new(None);
-        search_status.add_css_class("dim-label");
+        let file_list = FileList::builder().launch(dir.clone()).forward(
+            sender.input_sender(),
+            |out| match out {
+                FileListOutput::Open(path) => Msg::Open(path),
+                FileListOutput::Reload => Msg::Reload,
+                FileListOutput::Paste { sources, dest, cut } => Msg::Paste { sources, dest, cut },
+                FileListOutput::Trash => Msg::TrashSelected,
+                FileListOutput::Rename => Msg::RenameSelected,
+                FileListOutput::Copy => Msg::CopySelected,
+                FileListOutput::Cut => Msg::CutSelected,
+                FileListOutput::PasteClipboard => Msg::PasteSelected,
+            },
+        );
 
         let command_panel =
             CommandPanel::builder()
@@ -447,15 +351,7 @@ impl Component for App {
             requested: None,
             back: Vec::new(),
             forward: Vec::new(),
-            show_hidden: false,
-            entries,
-            search_bar,
-            search_entry,
-            search_status,
-            filter_query,
-            search_mode: SearchMode::Off,
-            search_cancel: None,
-            showing_results: false,
+            file_list,
             path_entry: gtk::Entry::new(),
             command_panel,
             toasts: adw::ToastOverlay::new(),
@@ -465,27 +361,11 @@ impl Component for App {
             volumes,
             in_trash: false,
         };
-        let search_bar = &model.search_bar;
-        let search_entry = &model.search_entry;
-        let search_status = &model.search_status;
         let path_entry = &model.path_entry;
         let command_panel_widget = model.command_panel.widget();
         let toasts = &model.toasts;
-        let entries_view = &model.entries.view;
+        let file_list_widget = model.file_list.widget();
         let widgets = view_output!();
-
-        {
-            let input = sender.input_sender().clone();
-            model
-                .search_bar
-                .connect_search_mode_enabled_notify(move |bar| {
-                    input.emit(if bar.is_search_mode() {
-                        Msg::SearchOpened
-                    } else {
-                        Msg::SearchClosed
-                    });
-                });
-        }
 
         let shortcuts = gtk::ShortcutController::new();
         shortcuts.set_scope(gtk::ShortcutScope::Global);
@@ -515,40 +395,19 @@ impl Component for App {
         ));
         root.add_controller(shortcuts);
 
-        // File shortcuts act on the file list only, so Delete in the path bar or the sidebar
-        // keeps its own meaning; undo and new folder work anywhere in the two panes.
-        let file_list: &gtk::Widget = model.entries.view.upcast_ref();
-        let panes: &gtk::Widget = widgets.panes.upcast_ref();
-        for (widget, accels) in [
-            (
-                file_list,
-                &[
-                    ("Delete", Msg::TrashSelected),
-                    ("F2", Msg::RenameSelected),
-                    ("<Ctrl>c", Msg::CopySelected),
-                    ("<Ctrl>x", Msg::CutSelected),
-                    ("<Ctrl>v", Msg::PasteSelected),
-                ][..],
-            ),
-            (
-                panes,
-                &[("<Ctrl>z", Msg::Undo), ("<Ctrl><Shift>n", Msg::NewFolder)][..],
-            ),
-        ] {
-            let shortcuts = gtk::ShortcutController::new();
-            for (accel, msg) in accels {
-                let input = sender.input_sender().clone();
-                let msg = msg.clone();
-                shortcuts.add_shortcut(gtk::Shortcut::new(
-                    gtk::ShortcutTrigger::parse_string(accel),
-                    Some(gtk::CallbackAction::new(move |_, _| {
-                        input.emit(msg.clone());
-                        gtk::glib::Propagation::Stop
-                    })),
-                ));
-            }
-            widget.add_controller(shortcuts);
+        // Undo and new folder work anywhere in the two panes.
+        let shortcuts = gtk::ShortcutController::new();
+        for (accel, msg) in [("<Ctrl>z", Msg::Undo), ("<Ctrl><Shift>n", Msg::NewFolder)] {
+            let input = sender.input_sender().clone();
+            shortcuts.add_shortcut(gtk::Shortcut::new(
+                gtk::ShortcutTrigger::parse_string(accel),
+                Some(gtk::CallbackAction::new(move |_, _| {
+                    input.emit(msg.clone());
+                    gtk::glib::Propagation::Stop
+                })),
+            ));
         }
+        widgets.panes.add_controller(shortcuts);
 
         // Never blocks the UI thread: opens (and migrates) the database on a worker thread.
         sender.spawn_oneshot_command(|| {
@@ -581,12 +440,7 @@ impl Component for App {
             Msg::Up => self.cwd.parent().map(|p| (p.to_path_buf(), Nav::New)),
             Msg::Back => self.back.last().map(|p| (p.clone(), Nav::Back)),
             Msg::Forward => self.forward.last().map(|p| (p.clone(), Nav::Forward)),
-            Msg::Activate(position) => self
-                .entries
-                .get_visible(position)
-                .map(|item| item.borrow().clone())
-                .filter(|entry| entry.is_dir)
-                .map(|entry| (entry.path, Nav::New)),
+            Msg::Reload => Some((self.cwd.clone(), Nav::New)),
             Msg::FocusPath => {
                 self.path_entry.grab_focus();
                 None
@@ -596,7 +450,7 @@ impl Component for App {
                 None
             }
             Msg::FocusFileList => {
-                self.entries.view.grab_focus();
+                self.file_list.emit(FileListMsg::Focus);
                 None
             }
             Msg::RunCommand { input, command } => {
@@ -691,14 +545,16 @@ impl Component for App {
                 None
             }
             Msg::ToggleHidden => {
-                self.show_hidden = !self.show_hidden;
-                self.entries
-                    .set_filter_status(HIDDEN_FILTER, !self.show_hidden);
+                self.file_list.emit(FileListMsg::ToggleHidden);
+                None
+            }
+            Msg::OpenRecursiveSearch => {
+                self.file_list.emit(FileListMsg::OpenRecursiveSearch);
                 None
             }
             Msg::ToggleSidebarFocus => {
                 if self.sidebar_has_focus(root) {
-                    self.entries.view.grab_focus();
+                    self.file_list.emit(FileListMsg::Focus);
                 } else if gtk::prelude::RootExt::focus(root)
                     .is_some_and(|widget| widget.is_ancestor(self.command_panel.widget()))
                 {
@@ -868,80 +724,11 @@ impl Component for App {
                     .spawn_oneshot_command(|| Cmd::Drives(places::drives(&places::drive_roots())));
                 None
             }
-            Msg::SearchTextChanged(text) => {
-                if self.search_mode == SearchMode::Filter {
-                    *self.filter_query.borrow_mut() = text;
-                    self.entries.notify_filter_changed(FILTER_QUERY);
-                }
-                None
-            }
-            Msg::RunSearch => {
-                if self.search_mode == SearchMode::Recursive {
-                    if let Some(previous) = self.search_cancel.take() {
-                        previous.store(true, Ordering::Relaxed);
-                    }
-                    let cancel = Arc::new(AtomicBool::new(false));
-                    self.search_cancel = Some(cancel.clone());
-                    // Leave `showing_results` as it is: if a first search's results are still
-                    // on screen, Esc during this second search must still restore the folder
-                    // listing, not silently do nothing.
-                    self.search_status.set_text("Searching…");
-                    self.search_status.set_visible(true);
-                    let root = self.cwd.clone();
-                    let query = self.search_entry.text().to_string();
-                    let hidden = self.show_hidden;
-                    sender.spawn_oneshot_command(move || {
-                        let results = search::walk(&root, &query, hidden, &cancel);
-                        Cmd::SearchResults(cancel, results)
-                    });
-                }
-                None
-            }
-            Msg::OpenRecursiveSearch => {
-                // An earlier filter query must not hide recursive results once they land.
-                *self.filter_query.borrow_mut() = String::new();
-                self.entries.notify_filter_changed(FILTER_QUERY);
-                self.search_mode = SearchMode::Recursive;
-                let folder = self
-                    .cwd
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| self.cwd.display().to_string());
-                self.search_entry
-                    .set_placeholder_text(Some(&format!("Search in {folder} and below")));
-                self.search_bar.set_search_mode(true);
-                self.search_entry.grab_focus();
-                None
-            }
-            Msg::SearchOpened => {
-                // Otherwise this is `Msg::OpenRecursiveSearch` already having set the mode.
-                if self.search_mode == SearchMode::Off {
-                    self.search_mode = SearchMode::Filter;
-                    self.search_entry.set_placeholder_text(Some("Filter"));
-                }
-                None
-            }
-            Msg::SearchClosed => {
-                let restore = self.showing_results;
-                self.reset_search();
-                if restore {
-                    // Results are on screen: go through the normal navigation path (like
-                    // Up/Back/Open) instead of a separate async reload.
-                    Some((self.cwd.clone(), Nav::New))
-                } else {
-                    self.entries.view.grab_focus();
-                    None
-                }
-            }
         };
-        // Any navigation (including the reload `Msg::SearchClosed` triggers to restore the
-        // folder listing) leaves search behind, so stale results or a leftover filter can
-        // never land on the newly opened folder. `reset_search` already closed here (e.g. by
-        // `Msg::SearchClosed`) leaves both conditions false, so this does not re-close it.
-        if target.is_some() && (self.search_mode != SearchMode::Off || self.search_cancel.is_some())
-        {
-            self.reset_search();
-            self.search_bar.set_search_mode(false);
+        // Any navigation leaves search behind, so a stale result or filter never lands on
+        // the newly opened folder.
+        if target.is_some() {
+            self.file_list.emit(FileListMsg::LeaveSearch);
         }
         if let Some((dir, nav)) = target {
             self.requested = Some((dir.clone(), nav));
@@ -1118,13 +905,15 @@ impl Component for App {
                         }
                     }
                 }
-                self.entries.clear();
-                self.entries.extend_from_iter(list);
+                self.file_list.emit(FileListMsg::Show {
+                    dir: self.cwd.clone(),
+                    entries: list,
+                });
                 self.path_entry.set_text(&self.cwd.to_string_lossy());
                 // Opened from the sidebar: keep focus there, so Delete and reordering still
                 // act on the row that was just clicked.
                 if !self.sidebar_has_focus(root) {
-                    self.entries.view.grab_focus();
+                    self.file_list.emit(FileListMsg::Focus);
                 }
             }
             Cmd::DbOpened(Ok(conn)) => {
@@ -1153,21 +942,6 @@ impl Component for App {
                     target: DriveTarget::Mounted(place.path),
                 }));
                 self.sidebar.emit(SidebarMsg::SetDrives(drives));
-            }
-            Cmd::SearchResults(cancel, results) => {
-                // A stale or superseded search (cancelled, or replaced by a newer one): its
-                // `search_cancel` no longer matches, so the results are dropped.
-                if self
-                    .search_cancel
-                    .as_ref()
-                    .is_some_and(|current| Arc::ptr_eq(current, &cancel))
-                {
-                    self.search_cancel = None;
-                    self.search_status.set_visible(false);
-                    self.entries.clear();
-                    self.entries.extend_from_iter(results);
-                    self.showing_results = true;
-                }
             }
         }
     }
@@ -1267,11 +1041,7 @@ impl App {
 
     /// The selected entries of the file list, in list order.
     fn selected(&self) -> Vec<Entry> {
-        let selection = self.entries.selection_model.selection();
-        (0..selection.size())
-            .filter_map(|i| self.entries.get_visible(selection.nth(i as u32)))
-            .map(|item| item.borrow().clone())
-            .collect()
+        self.file_list.model().selected()
     }
 
     fn sidebar_has_focus(&self, root: &adw::ApplicationWindow) -> bool {
@@ -1314,83 +1084,6 @@ impl App {
         self.toasts
             .add_toast(adw::Toast::new(&format!("Bookmarks unavailable: {err}")));
     }
-
-    /// Leaves search: cancels a running walk and clears the filter. Does not touch `entries`
-    /// or the search bar's own open/closed state — the caller decides what happens to those.
-    fn reset_search(&mut self) {
-        if let Some(cancel) = self.search_cancel.take() {
-            cancel.store(true, Ordering::Relaxed);
-        }
-        *self.filter_query.borrow_mut() = String::new();
-        self.entries.notify_filter_changed(FILTER_QUERY);
-        self.search_mode = SearchMode::Off;
-        self.search_status.set_visible(false);
-        self.search_entry.set_text("");
-        self.showing_results = false;
-    }
-}
-
-fn setup_file_row(item: &gtk::ListItem, input: &relm4::Sender<Msg>) {
-    let Some(root) = item.child() else {
-        return;
-    };
-    let weak = item.downgrade();
-    let drag = gtk::DragSource::new();
-    drag.set_actions(gdk::DragAction::COPY | gdk::DragAction::MOVE);
-    drag.connect_prepare(move |source, _, _| {
-        let item = weak.upgrade()?;
-        let widget = source.widget()?;
-        Some(dnd::files_provider(&drag_paths(&item, &widget)?))
-    });
-    root.add_controller(drag);
-
-    let weak = item.downgrade();
-    let input = input.clone();
-    root.add_controller(dnd::file_drop_target(move |sources, cut| {
-        // Only folder rows take drops; elsewhere the list's own target takes them.
-        let Some(entry) = weak.upgrade().as_ref().and_then(list_item_entry) else {
-            return false;
-        };
-        if entry.is_dir {
-            input.emit(Msg::Paste {
-                sources,
-                dest: Some(entry.path),
-                cut,
-            });
-        }
-        entry.is_dir
-    }));
-}
-
-fn drag_paths(item: &gtk::ListItem, widget: &gtk::Widget) -> Option<Vec<PathBuf>> {
-    let entry = list_item_entry(item)?;
-    let view = widget
-        .ancestor(gtk::ColumnView::static_type())
-        .and_downcast::<gtk::ColumnView>()?;
-    let model = view.model()?;
-    if model.is_selected(item.position()) {
-        let selection = model.selection();
-        let paths: Vec<_> = (0..selection.size())
-            .filter_map(|index| model.item(selection.nth(index as u32)))
-            .filter_map(|object| {
-                object
-                    .downcast_ref::<gtk::glib::BoxedAnyObject>()?
-                    .try_borrow::<Entry>()
-                    .ok()
-                    .map(|entry| entry.path.clone())
-            })
-            .collect();
-        if !paths.is_empty() {
-            return Some(paths);
-        }
-    }
-    Some(vec![entry.path])
-}
-
-fn list_item_entry(item: &gtk::ListItem) -> Option<Entry> {
-    let object = item.item()?;
-    let boxed = object.downcast_ref::<gtk::glib::BoxedAnyObject>()?;
-    boxed.try_borrow::<Entry>().ok().map(|entry| entry.clone())
 }
 
 fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {

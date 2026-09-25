@@ -62,7 +62,8 @@ pub enum Msg {
         entries: Vec<Entry>,
     },
     Focus,
-    ToggleHidden,
+    /// Show or hide names starting with `.`; the app owns and persists this setting.
+    SetHidden(bool),
     /// Ctrl+F: open the search bar in recursive mode.
     OpenRecursiveSearch,
     /// Navigation is about to happen: cancel any search and clear the filter.
@@ -259,10 +260,9 @@ impl Component for FileList {
             Msg::Focus => {
                 self.entries.view.grab_focus();
             }
-            Msg::ToggleHidden => {
-                self.show_hidden = !self.show_hidden;
-                self.entries
-                    .set_filter_status(HIDDEN_FILTER, !self.show_hidden);
+            Msg::SetHidden(show_hidden) => {
+                self.show_hidden = show_hidden;
+                self.entries.set_filter_status(HIDDEN_FILTER, !show_hidden);
             }
             Msg::OpenRecursiveSearch => {
                 // An earlier filter query must not hide recursive results once they land.

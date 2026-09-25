@@ -67,6 +67,23 @@ pub fn save(path: &Path, config: &Config) -> Result<(), ConfigError> {
     Ok(())
 }
 
+/// Serializes [`update`]'s load-modify-save so two worker threads calling it around the same
+/// time cannot race: `save` always uses one fixed temp file name, and without this lock a
+/// second `load` could run before the first `save`, silently dropping one of the two changes.
+static UPDATE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Loads `path` (or the defaults, if it does not exist yet), applies `change`, saves the
+/// result, and returns it. A file that fails to parse is left untouched and returns
+/// `Err(ConfigError::Parse)`. Concurrent calls are serialized, so two settings changed in
+/// quick succession from different workers cannot race each other.
+pub fn update(path: &Path, change: impl FnOnce(&mut Config)) -> Result<Config, ConfigError> {
+    let _guard = UPDATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut config = load(path)?;
+    change(&mut config);
+    save(path, &config)?;
+    Ok(config)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

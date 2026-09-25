@@ -38,7 +38,7 @@ Jalankan `cargo fmt` dan `cargo clippy --all-targets -- -D warnings` sebelum men
 3. **Verifikasi (Opus):** jalankan sendiri `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` di state bersih. Jangan percaya laporan "lulus" dari pelaksana.
 4. **Review lintas model:** `agy:review` atas diff; Opus hakim akhir atas temuan.
 
-**Git:** satu branch per perubahan (`feat/…`, `fix/…`, `chore/…`, `docs/…`), commit Conventional Commits, push, buka PR ke `main` via `gh pr create`. Merge (`gh pr merge --squash`) hanya setelah CI hijau dan verifikasi selesai. Jangan push langsung ke `main`. Jangan pernah commit secret, `.env*`, `*.db`, atau `*.gguf` — cek `git status` sebelum commit.
+**Git:** satu branch per perubahan (`feat/…`, `fix/…`, `chore/…`, `docs/…`), commit Conventional Commits, push, buka PR ke `main` via `gh pr create`. Claude **tidak merge** — setelah CI hijau dan verifikasi selesai, laporkan link PR; pengguna yang merge (squash). `main` diproteksi: wajib PR + check `check` hijau, tanpa push langsung. Jangan pernah commit secret, `.env*`, `*.db`, atau `*.gguf` — cek `git status` sebelum commit.
 
 ## Arsitektur
 

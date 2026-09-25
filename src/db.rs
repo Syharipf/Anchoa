@@ -3,9 +3,11 @@
 //! The schema version is tracked in `PRAGMA user_version`: migration `i` in
 //! [`MIGRATIONS`] brings the database from version `i` to `i + 1`.
 
-use std::path::Path;
+use std::ffi::OsString;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::path::{Path, PathBuf};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension, params};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -93,9 +95,207 @@ pub fn migrate(conn: &mut Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bookmark {
+    pub id: i64,
+    pub path: PathBuf,
+    pub label: String,
+}
+
+// Paths are stored as raw bytes (`OsStr::as_bytes`) so non-UTF-8 names round-trip exactly.
+
+/// All bookmarks in display order (`position` ascending).
+pub fn bookmarks(conn: &Connection) -> Result<Vec<Bookmark>, DbError> {
+    let mut stmt = conn.prepare("SELECT id, path, label FROM bookmark ORDER BY position")?;
+    let rows = stmt.query_map([], |row| {
+        Ok(Bookmark {
+            id: row.get(0)?,
+            path: OsString::from_vec(row.get(1)?).into(),
+            label: row.get(2)?,
+        })
+    })?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Appends a bookmark at the end. Returns `false` (and changes nothing) if `path` is already bookmarked.
+pub fn add_bookmark(conn: &Connection, path: &Path, label: &str) -> Result<bool, DbError> {
+    let inserted = conn.execute(
+        "INSERT INTO bookmark (path, label, position)
+         VALUES (?1, ?2, (SELECT COALESCE(MAX(position), -1) + 1 FROM bookmark))
+         ON CONFLICT (path) DO NOTHING",
+        params![path.as_os_str().as_bytes(), label],
+    )?;
+    Ok(inserted == 1)
+}
+
+/// Removes a bookmark and renumbers the rest so positions stay `0..n`. Unknown `id` is a no-op.
+pub fn remove_bookmark(conn: &mut Connection, id: i64) -> Result<(), DbError> {
+    let tx = conn.transaction()?;
+    if let Some(position) = position_of(&tx, id)? {
+        tx.execute("DELETE FROM bookmark WHERE id = ?1", [id])?;
+        tx.execute(
+            "UPDATE bookmark SET position = position - 1 WHERE position > ?1",
+            [position],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Moves a bookmark one place: `up = true` moves it one place earlier.
+/// No-op at either end or for an unknown `id`.
+pub fn move_bookmark(conn: &mut Connection, id: i64, up: bool) -> Result<(), DbError> {
+    let Some(position) = position_of(conn, id)? else {
+        return Ok(());
+    };
+    move_bookmark_to(conn, id, if up { position - 1 } else { position + 1 })
+}
+
+/// Moves a bookmark to `position` (clamped to the list), shifting the ones in between.
+/// No-op for an unknown `id`.
+pub fn move_bookmark_to(conn: &mut Connection, id: i64, position: i64) -> Result<(), DbError> {
+    let tx = conn.transaction()?;
+    if let Some(from) = position_of(&tx, id)? {
+        let last: i64 = tx.query_row("SELECT MAX(position) FROM bookmark", [], |row| row.get(0))?;
+        let to = position.clamp(0, last);
+        // Positions are contiguous, so shifting the range between `from` and `to` by one
+        // leaves exactly the gap at `to`.
+        if to < from {
+            tx.execute(
+                "UPDATE bookmark SET position = position + 1 WHERE position >= ?1 AND position < ?2",
+                [to, from],
+            )?;
+        } else {
+            tx.execute(
+                "UPDATE bookmark SET position = position - 1 WHERE position > ?1 AND position <= ?2",
+                [from, to],
+            )?;
+        }
+        tx.execute("UPDATE bookmark SET position = ?1 WHERE id = ?2", [to, id])?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+fn position_of(conn: &Connection, id: i64) -> Result<Option<i64>, DbError> {
+    Ok(conn
+        .query_row("SELECT position FROM bookmark WHERE id = ?1", [id], |row| {
+            row.get(0)
+        })
+        .optional()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn db() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate(&mut conn).unwrap();
+        conn
+    }
+
+    fn labels(conn: &Connection) -> Vec<String> {
+        bookmarks(conn)
+            .unwrap()
+            .into_iter()
+            .map(|b| b.label)
+            .collect()
+    }
+
+    fn positions(conn: &Connection) -> Vec<i64> {
+        let mut stmt = conn
+            .prepare("SELECT position FROM bookmark ORDER BY position")
+            .unwrap();
+        stmt.query_map([], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    fn id_of(conn: &Connection, label: &str) -> i64 {
+        bookmarks(conn)
+            .unwrap()
+            .into_iter()
+            .find(|b| b.label == label)
+            .unwrap()
+            .id
+    }
+
+    #[test]
+    fn add_bookmark_appends_and_rejects_duplicates() {
+        let conn = db();
+        assert!(add_bookmark(&conn, Path::new("/a"), "a").unwrap());
+        assert!(add_bookmark(&conn, Path::new("/b"), "b").unwrap());
+        assert!(!add_bookmark(&conn, Path::new("/a"), "again").unwrap());
+        assert_eq!(labels(&conn), ["a", "b"]);
+        assert_eq!(positions(&conn), [0, 1]);
+        assert_eq!(bookmarks(&conn).unwrap()[1].path, Path::new("/b"));
+    }
+
+    #[test]
+    fn bookmark_path_round_trips_non_utf8() {
+        use std::os::unix::ffi::OsStrExt;
+        let conn = db();
+        let path = Path::new(std::ffi::OsStr::from_bytes(b"/tmp/caf\xe9"));
+        add_bookmark(&conn, path, "cafe").unwrap();
+        assert_eq!(bookmarks(&conn).unwrap()[0].path, path);
+        assert!(!add_bookmark(&conn, path, "dup").unwrap());
+    }
+
+    #[test]
+    fn remove_bookmark_closes_position_gaps() {
+        let mut conn = db();
+        for name in ["a", "b", "c"] {
+            add_bookmark(&conn, &Path::new("/").join(name), name).unwrap();
+        }
+        let b = id_of(&conn, "b");
+        remove_bookmark(&mut conn, b).unwrap();
+        remove_bookmark(&mut conn, 9999).unwrap();
+        assert_eq!(labels(&conn), ["a", "c"]);
+        assert_eq!(positions(&conn), [0, 1]);
+        add_bookmark(&conn, Path::new("/d"), "d").unwrap();
+        assert_eq!(labels(&conn), ["a", "c", "d"]);
+    }
+
+    #[test]
+    fn move_bookmark_swaps_neighbours_and_stops_at_edges() {
+        let mut conn = db();
+        for name in ["a", "b", "c"] {
+            add_bookmark(&conn, &Path::new("/").join(name), name).unwrap();
+        }
+        let (a, c) = (id_of(&conn, "a"), id_of(&conn, "c"));
+        move_bookmark(&mut conn, c, true).unwrap();
+        assert_eq!(labels(&conn), ["a", "c", "b"]);
+        move_bookmark(&mut conn, a, true).unwrap();
+        move_bookmark(&mut conn, 9999, false).unwrap();
+        assert_eq!(labels(&conn), ["a", "c", "b"]);
+        move_bookmark(&mut conn, a, false).unwrap();
+        assert_eq!(labels(&conn), ["c", "a", "b"]);
+        let b = id_of(&conn, "b");
+        move_bookmark(&mut conn, b, false).unwrap();
+        assert_eq!(labels(&conn), ["c", "a", "b"]);
+        assert_eq!(positions(&conn), [0, 1, 2]);
+    }
+
+    #[test]
+    fn move_bookmark_to_inserts_at_position_and_clamps() {
+        let mut conn = db();
+        for name in ["a", "b", "c", "d"] {
+            add_bookmark(&conn, &Path::new("/").join(name), name).unwrap();
+        }
+        let (a, d) = (id_of(&conn, "a"), id_of(&conn, "d"));
+        move_bookmark_to(&mut conn, a, 2).unwrap();
+        assert_eq!(labels(&conn), ["b", "c", "a", "d"]);
+        move_bookmark_to(&mut conn, d, 0).unwrap();
+        assert_eq!(labels(&conn), ["d", "b", "c", "a"]);
+        move_bookmark_to(&mut conn, d, 99).unwrap();
+        assert_eq!(labels(&conn), ["b", "c", "a", "d"]);
+        move_bookmark_to(&mut conn, a, -5).unwrap();
+        move_bookmark_to(&mut conn, 9999, 0).unwrap();
+        assert_eq!(labels(&conn), ["a", "b", "c", "d"]);
+        assert_eq!(positions(&conn), [0, 1, 2, 3]);
+    }
 
     fn user_version(conn: &Connection) -> u32 {
         conn.pragma_query_value(None, "user_version", |row| row.get(0))

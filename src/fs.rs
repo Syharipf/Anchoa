@@ -2,7 +2,7 @@
 
 use std::io;
 use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
@@ -42,6 +42,28 @@ pub fn list_dir(dir: &Path) -> io::Result<Vec<Entry>> {
     }
     entries.sort_by_cached_key(|e| (!e.is_dir, e.name.to_lowercase()));
     Ok(entries)
+}
+
+/// Resolves path-bar input: `~` expands to `home`, relative paths are taken from `cwd`,
+/// and `.`/`..` are folded lexically (symlinks are not resolved).
+pub fn resolve_input(input: &str, cwd: &Path, home: &Path) -> PathBuf {
+    let input = input.trim();
+    let joined = match input.strip_prefix('~') {
+        Some("") => home.to_path_buf(),
+        Some(rest) if rest.starts_with('/') => home.join(rest.trim_start_matches('/')),
+        _ => cwd.join(input),
+    };
+    let mut resolved = PathBuf::new();
+    for component in joined.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                resolved.pop();
+            }
+            other => resolved.push(other),
+        }
+    }
+    resolved
 }
 
 /// Formats the permission bits as `rwxr-xr-x`.
@@ -88,6 +110,22 @@ mod tests {
     #[test]
     fn list_dir_missing_dir_is_error() {
         assert!(list_dir(Path::new("/nonexistent/loom-test")).is_err());
+    }
+
+    #[test]
+    fn resolve_input_expands_home_and_relative_paths() {
+        let (cwd, home) = (Path::new("/data/work"), Path::new("/home/me"));
+        assert_eq!(resolve_input("~", cwd, home), home);
+        assert_eq!(
+            resolve_input(" ~/Pictures ", cwd, home),
+            home.join("Pictures")
+        );
+        assert_eq!(resolve_input("/etc", cwd, home), Path::new("/etc"));
+        assert_eq!(resolve_input("sub/dir", cwd, home), cwd.join("sub/dir"));
+        assert_eq!(resolve_input("../x/./y", cwd, home), Path::new("/data/x/y"));
+        assert_eq!(resolve_input("/../..", cwd, home), Path::new("/"));
+        // `~user` is not supported; treated as a relative name.
+        assert_eq!(resolve_input("~bob", cwd, home), cwd.join("~bob"));
     }
 
     #[test]

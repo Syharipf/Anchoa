@@ -645,3 +645,34 @@ fn only_done_items_of_a_partial_operation_are_undone() {
     );
     assert_eq!(undo.skipped, []);
 }
+
+#[test]
+fn undoing_a_restore_trashes_the_item_again() {
+    let f = Fixture::new("unrestore");
+    // A restore is a move out of a trash `files` folder. Recorded by hand here: really
+    // moving it needs gvfs to know this trash (see tests/trash.rs).
+    let in_trash = f.write("Trash/files/a.txt", "a");
+    let home = f.p("a.txt");
+    let plan = f.validate(ActionPlan {
+        actions: vec![Action::Move {
+            src: in_trash.clone(),
+            dst: home.clone(),
+        }],
+        on_conflict: None,
+    });
+    let id = history::begin(&f.conn, &plan, Source::Manual, NOW).unwrap();
+    std::fs::rename(&in_trash, &home).unwrap();
+    history::finish(
+        &f.conn,
+        id,
+        &[ItemStatus::Done {
+            dst: Some(home.clone()),
+        }],
+        NOW,
+    )
+    .unwrap();
+
+    let undo = history::plan_undo(&f.conn).unwrap().unwrap();
+    assert_eq!(undo.plan.actions, [Action::Trash { path: home }]);
+    assert_eq!(undo.skipped, []);
+}

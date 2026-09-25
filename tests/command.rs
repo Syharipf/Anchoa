@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anchoa::command::{EXAMPLES, Preview, examples, preview};
+use anchoa::command::{EXAMPLES, Preview, Recall, examples, preview};
 use anchoa::plan::{Action, ActionPlan};
 
 fn verb(example: &str) -> &str {
@@ -146,4 +146,49 @@ fn preview_skips_missing_sources_and_sizeless_actions() {
 
     assert_eq!(got.items, 3);
     assert_eq!(got.bytes, 0);
+}
+
+fn recall() -> Recall {
+    Recall::new(vec!["newest".into(), "middle".into(), "oldest".into()])
+}
+
+#[test]
+fn up_walks_back_through_history_and_stops_at_the_oldest() {
+    let mut r = recall();
+    assert_eq!(r.up("draft").as_deref(), Some("newest"));
+    assert_eq!(r.up("newest").as_deref(), Some("middle"));
+    assert_eq!(r.up("middle").as_deref(), Some("oldest"));
+    assert_eq!(r.up("oldest"), None);
+}
+
+#[test]
+fn down_walks_forward_and_ends_on_the_draft() {
+    let mut r = recall();
+    r.up("half typed");
+    r.up("newest");
+    assert_eq!(r.down().as_deref(), Some("newest"));
+    assert_eq!(r.down().as_deref(), Some("half typed"));
+    assert_eq!(r.down(), None);
+}
+
+#[test]
+fn down_before_up_does_nothing() {
+    let mut r = recall();
+    assert_eq!(r.down(), None);
+}
+
+#[test]
+fn empty_history_recalls_nothing() {
+    let mut r = Recall::new(Vec::new());
+    assert_eq!(r.up("x"), None);
+    assert_eq!(r.down(), None);
+}
+
+#[test]
+fn up_after_returning_to_the_draft_starts_over() {
+    let mut r = recall();
+    r.up("draft");
+    r.down();
+    assert_eq!(r.up("edited draft").as_deref(), Some("newest"));
+    assert_eq!(r.down().as_deref(), Some("edited draft"));
 }

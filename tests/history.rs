@@ -779,3 +779,30 @@ fn pruned_operation_leaves_the_command_without_operation() {
 
     assert_eq!(commands(&f.conn)[0].3, None);
 }
+
+#[test]
+fn recent_commands_are_distinct_newest_first_and_limited() {
+    let f = Fixture::new("recent");
+    for (i, input) in ["mkdir a", "trash *.tmp", "mkdir a", "chmod 644 x", "bogus"]
+        .into_iter()
+        .enumerate()
+    {
+        history::record_command(&f.conn, input, ResolvedBy::None, None, None, NOW + i as i64)
+            .unwrap();
+    }
+
+    assert_eq!(
+        history::recent_commands(&f.conn, 10).unwrap(),
+        ["bogus", "chmod 644 x", "mkdir a", "trash *.tmp"]
+    );
+    assert_eq!(
+        history::recent_commands(&f.conn, 2).unwrap(),
+        ["bogus", "chmod 644 x"]
+    );
+}
+
+#[test]
+fn recent_commands_on_an_empty_history() {
+    let f = Fixture::new("recent-empty");
+    assert!(history::recent_commands(&f.conn, 10).unwrap().is_empty());
+}

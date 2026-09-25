@@ -1,5 +1,6 @@
 mod clipboard;
 mod columns;
+mod command_panel;
 mod dnd;
 mod file_ops;
 mod sidebar;
@@ -17,6 +18,7 @@ use anchoa::plan::{Action, ActionPlan};
 use anchoa::validator::{Rejection, ValidatedPlan};
 use anchoa::{command, config, history, parser, paste, planner, trash};
 use columns::{ModifiedColumn, NameColumn, PermissionColumn, SizeColumn};
+use command_panel::{CommandPanel, Msg as CommandPanelMsg, Output as CommandPanelOutput};
 use file_ops::Job;
 use relm4::gtk::gio::prelude::*;
 use relm4::gtk::prelude::*;
@@ -37,9 +39,7 @@ struct App {
     show_hidden: bool,
     entries: TypedColumnView<Entry, gtk::MultiSelection>,
     path_entry: gtk::Entry,
-    command_entry: gtk::Entry,
-    command_error: gtk::Label,
-    recall: command::Recall,
+    command_panel: Controller<CommandPanel>,
     toasts: adw::ToastOverlay,
     sidebar: Controller<Sidebar>,
     /// `None` until opened, or forever if opening the database failed; bookmarks are
@@ -71,10 +71,13 @@ enum Msg {
     FocusPath,
     FocusCommand,
     FocusFileList,
-    CommandTextChanged,
-    RecallUp,
-    RecallDown,
-    RunCommand(String),
+    /// The command panel parsed `command`: plan it against the active folder.
+    RunCommand {
+        input: String,
+        command: parser::Command,
+    },
+    /// The command panel did not recognize `input`: record it.
+    CommandUnrecognized(String),
     CopySelected,
     CutSelected,
     PasteSelected,
@@ -256,29 +259,7 @@ impl Component for App {
                             },
 
                             #[local_ref]
-                            command_entry -> gtk::Entry {
-                                set_placeholder_text: Some("move *.jpg older than 30d to ~/Pictures/old"),
-                                set_hexpand: true,
-                                set_margin_start: 6,
-                                set_margin_end: 6,
-                                set_margin_top: 6,
-                                connect_activate[sender] => move |entry| {
-                                    sender.input(Msg::RunCommand(entry.text().into()));
-                                },
-                                connect_changed[sender] => move |_| {
-                                    sender.input(Msg::CommandTextChanged);
-                                },
-                            },
-
-                            #[local_ref]
-                            command_error -> gtk::Label {
-                                set_xalign: 0.0,
-                                set_wrap: true,
-                                set_visible: false,
-                                set_margin_start: 6,
-                                set_margin_end: 6,
-                                set_margin_bottom: 4,
-                            },
+                            command_panel_widget -> gtk::Box {},
                         },
                     },
                 },
@@ -317,6 +298,17 @@ impl Component for App {
                 true
             }));
         entries.add_filter(|e| !e.name.starts_with('.'));
+
+        let command_panel =
+            CommandPanel::builder()
+                .launch(())
+                .forward(sender.input_sender(), |out| match out {
+                    CommandPanelOutput::Parsed { input, command } => {
+                        Msg::RunCommand { input, command }
+                    }
+                    CommandPanelOutput::Unrecognized(input) => Msg::CommandUnrecognized(input),
+                    CommandPanelOutput::Leave => Msg::FocusFileList,
+                });
 
         let sidebar =
             Sidebar::builder()
@@ -387,9 +379,7 @@ impl Component for App {
             show_hidden: false,
             entries,
             path_entry: gtk::Entry::new(),
-            command_entry: gtk::Entry::new(),
-            command_error: gtk::Label::new(None),
-            recall: command::Recall::default(),
+            command_panel,
             toasts: adw::ToastOverlay::new(),
             sidebar,
             db: None,
@@ -398,8 +388,7 @@ impl Component for App {
             in_trash: false,
         };
         let path_entry = &model.path_entry;
-        let command_entry = &model.command_entry;
-        let command_error = &model.command_error;
+        let command_panel_widget = model.command_panel.widget();
         let toasts = &model.toasts;
         let entries_view = &model.entries.view;
         let widgets = view_output!();
@@ -430,25 +419,6 @@ impl Component for App {
             Some(gtk::NamedAction::new("window.close")),
         ));
         root.add_controller(shortcuts);
-
-        let command_entry: &gtk::Widget = model.command_entry.upcast_ref();
-        let shortcuts = gtk::ShortcutController::new();
-        for (accel, msg) in [
-            ("Escape", Msg::FocusFileList),
-            ("Up", Msg::RecallUp),
-            ("Down", Msg::RecallDown),
-        ] {
-            let input = sender.input_sender().clone();
-            let msg = msg.clone();
-            shortcuts.add_shortcut(gtk::Shortcut::new(
-                gtk::ShortcutTrigger::parse_string(accel),
-                Some(gtk::CallbackAction::new(move |_, _| {
-                    input.emit(msg.clone());
-                    gtk::glib::Propagation::Stop
-                })),
-            ));
-        }
-        command_entry.add_controller(shortcuts);
 
         // File shortcuts act on the file list only, so Delete in the path bar or the sidebar
         // keeps its own meaning; undo and new folder work anywhere in the two panes.
@@ -527,66 +497,38 @@ impl Component for App {
                 None
             }
             Msg::FocusCommand => {
-                self.command_entry.grab_focus();
+                self.command_panel.emit(CommandPanelMsg::Focus);
                 None
             }
             Msg::FocusFileList => {
                 self.entries.view.grab_focus();
                 None
             }
-            Msg::CommandTextChanged => {
-                self.command_error.set_text("");
-                self.command_error.set_visible(false);
+            Msg::RunCommand { input, command } => {
+                let cwd = self.cwd.clone();
+                let home = gtk::glib::home_dir();
+                sender.spawn_oneshot_command(move || {
+                    let result = planner::build(&command, &cwd, &home, file_ops::now())
+                        .map(|plan| (command::preview(&plan), plan))
+                        .map_err(|err| err.to_string());
+                    Cmd::CommandPlanned { input, result }
+                });
                 None
             }
-            Msg::RecallUp => {
-                if let Some(text) = self.recall.up(self.command_entry.text().as_str()) {
-                    self.command_entry.set_text(&text);
-                    self.command_entry.set_position(text.chars().count() as i32);
-                }
-                None
-            }
-            Msg::RecallDown => {
-                if let Some(text) = self.recall.down() {
-                    self.command_entry.set_text(&text);
-                    self.command_entry.set_position(text.chars().count() as i32);
-                }
-                None
-            }
-            Msg::RunCommand(input) => {
-                self.command_error.set_text("");
-                self.command_error.set_visible(false);
-                match parser::parse(&input) {
-                    Ok(cmd) => {
-                        let cwd = self.cwd.clone();
-                        let home = gtk::glib::home_dir();
-                        sender.spawn_oneshot_command(move || {
-                            let result = planner::build(&cmd, &cwd, &home, file_ops::now())
-                                .map(|plan| (command::preview(&plan), plan))
-                                .map_err(|err| err.to_string());
-                            Cmd::CommandPlanned { input, result }
-                        });
-                    }
-                    Err(err) => {
-                        let examples = command::examples(&input).join("\n");
-                        self.command_error.set_text(&format!("{err}\n{examples}"));
-                        self.command_error.set_visible(true);
-                        if let Some(db) = self.db.clone() {
-                            sender.spawn_oneshot_command(move || {
-                                let conn =
-                                    db.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-                                let _ = history::record_command(
-                                    &conn,
-                                    &input,
-                                    ResolvedBy::None,
-                                    None,
-                                    None,
-                                    file_ops::now(),
-                                );
-                                Cmd::RecentCommands(history::recent_commands(&conn, 100))
-                            });
-                        }
-                    }
+            Msg::CommandUnrecognized(input) => {
+                if let Some(db) = self.db.clone() {
+                    sender.spawn_oneshot_command(move || {
+                        let conn = db.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                        let _ = history::record_command(
+                            &conn,
+                            &input,
+                            ResolvedBy::None,
+                            None,
+                            None,
+                            file_ops::now(),
+                        );
+                        Cmd::RecentCommands(history::recent_commands(&conn, 100))
+                    });
                 }
                 None
             }
@@ -663,11 +605,11 @@ impl Component for App {
                 if self.sidebar_has_focus(root) {
                     self.entries.view.grab_focus();
                 } else if gtk::prelude::RootExt::focus(root)
-                    .is_some_and(|widget| widget.is_ancestor(&self.command_entry))
+                    .is_some_and(|widget| widget.is_ancestor(self.command_panel.widget()))
                 {
                     self.sidebar.emit(SidebarMsg::Focus);
                 } else {
-                    self.command_entry.grab_focus();
+                    self.command_panel.emit(CommandPanelMsg::Focus);
                 }
                 None
             }
@@ -877,7 +819,9 @@ impl Component for App {
                 }
                 Err(err) => self.toasts.add_toast(adw::Toast::new(&err)),
             },
-            Cmd::RecentCommands(Ok(items)) => self.recall = command::Recall::new(items),
+            Cmd::RecentCommands(Ok(items)) => {
+                self.command_panel.emit(CommandPanelMsg::SetRecent(items))
+            }
             Cmd::RecentCommands(Err(_)) => {}
             Cmd::Validated(job, Ok(plan)) | Cmd::UndoPlanned(Ok(Some((job, Ok(plan))))) => {
                 let run = Msg::Run(job.clone(), plan.clone());
@@ -936,12 +880,11 @@ impl Component for App {
                     clipboard::clear(&root.clipboard());
                 }
                 if let Job::Command { input, .. } = &job
-                    && self.command_entry.text().as_str() == input
                     && !statuses
                         .iter()
                         .any(|status| matches!(status, ItemStatus::Failed(_)))
                 {
-                    self.command_entry.set_text("");
+                    self.command_panel.emit(CommandPanelMsg::Ran(input.clone()));
                 }
                 if matches!(job, Job::Trash | Job::Restore) {
                     // The first trashing creates the trash folder; show it in the sidebar.

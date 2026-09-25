@@ -8,11 +8,13 @@ mod sidebar;
 
 use std::io;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anchoa::config::{Config, ConfigError};
 use anchoa::db::{self, Bookmark, DbError};
-use anchoa::executor::ItemStatus;
+use anchoa::executor::{ItemStatus, Tally};
 use anchoa::fs::{self, Entry};
 use anchoa::history::ResolvedBy;
 use anchoa::places::{self, Place};
@@ -56,6 +58,18 @@ struct App {
     volumes: gio::VolumeMonitor,
     /// `cwd` is a trash folder: show the restore / empty bar.
     in_trash: bool,
+    /// A run in progress: how far it's gotten, and the flag Cancel sets. `None` when nothing
+    /// is running, which also guards against starting a second run concurrently.
+    progress: Option<Progress>,
+    /// The progress bar only becomes visible once a run has outlived a short delay, so quick
+    /// operations don't flash it.
+    show_progress: bool,
+}
+
+struct Progress {
+    done: usize,
+    total: usize,
+    cancel: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,6 +153,11 @@ enum Msg {
     Submit(Job, ActionPlan),
     /// Execute (and record) a validated, confirmed plan on a worker.
     Run(Job, ValidatedPlan),
+    /// Stops the run in progress before its next action; the rest stay pending.
+    Cancel,
+    /// 300 ms after a run started: reveal the progress bar if that run (identified by its
+    /// cancel flag) is still the one going.
+    RevealProgress(Arc<AtomicBool>),
     /// Restore the selected trash items (`false`) or everything in the trash (`true`).
     Restore(bool),
     /// Ask, then delete trash items for good: the selected ones, or all for `None`.
@@ -171,6 +190,8 @@ enum Cmd {
         conflicts: Vec<PathBuf>,
     },
     Validated(Job, Result<ValidatedPlan, Vec<Rejection>>),
+    /// Items done so far, out of the total, sent before each action runs.
+    Progress(usize, usize),
     Ran(Job, Vec<ItemStatus>, Option<String>),
     UndoPlanned(file_ops::UndoPlanned),
     RestorePlanned(Result<(Result<ValidatedPlan, Vec<Rejection>>, usize), String>),
@@ -247,6 +268,34 @@ impl Component for App {
 
                             #[local_ref]
                             file_list_widget -> gtk::Box {},
+
+                            gtk::Box {
+                                set_orientation: gtk::Orientation::Horizontal,
+                                set_spacing: 6,
+                                set_margin_start: 6,
+                                set_margin_end: 6,
+                                set_margin_top: 6,
+                                #[watch]
+                                set_visible: model.show_progress,
+
+                                gtk::ProgressBar {
+                                    set_hexpand: true,
+                                    set_show_text: true,
+                                    #[watch]
+                                    set_fraction: model.progress.as_ref().map_or(0.0, |p| {
+                                        if p.total == 0 { 1.0 } else { p.done as f64 / p.total as f64 }
+                                    }),
+                                    #[watch]
+                                    set_text: model.progress.as_ref()
+                                        .map(|p| format!("{} of {}", p.done, p.total))
+                                        .as_deref(),
+                                },
+
+                                gtk::Button {
+                                    set_label: "Cancel",
+                                    connect_clicked => Msg::Cancel,
+                                },
+                            },
 
                             gtk::ActionBar {
                                 #[watch]
@@ -385,6 +434,8 @@ impl Component for App {
             _drive_monitors: drive_monitors,
             volumes,
             in_trash: false,
+            progress: None,
+            show_progress: false,
         };
         let path_entry = &model.path_entry;
         let command_panel_widget = model.command_panel.widget();
@@ -744,12 +795,50 @@ impl Component for App {
                 });
                 None
             }
+            Msg::Run(..) if self.progress.is_some() => {
+                self.toasts
+                    .add_toast(adw::Toast::new("Another operation is still running"));
+                None
+            }
             Msg::Run(job, plan) => {
-                let db = self.db.clone();
-                sender.spawn_oneshot_command(move || {
-                    let (statuses, warning) = file_ops::run(db.as_ref(), &job, &plan);
-                    Cmd::Ran(job, statuses, warning)
+                let total = plan.plan().actions.len();
+                let cancel = Arc::new(AtomicBool::new(false));
+                self.progress = Some(Progress {
+                    done: 0,
+                    total,
+                    cancel: Arc::clone(&cancel),
                 });
+                self.show_progress = false;
+                let reveal = sender.input_sender().clone();
+                let reveal_flag = Arc::clone(&cancel);
+                gtk::glib::timeout_add_local_once(Duration::from_millis(300), move || {
+                    reveal.emit(Msg::RevealProgress(reveal_flag));
+                });
+                let db = self.db.clone();
+                sender.spawn_command(move |out| {
+                    let keep_going = |i: usize| {
+                        out.emit(Cmd::Progress(i, total));
+                        !cancel.load(Ordering::Relaxed)
+                    };
+                    let (statuses, warning) = file_ops::run(db.as_ref(), &job, &plan, keep_going);
+                    out.emit(Cmd::Ran(job, statuses, warning));
+                });
+                None
+            }
+            Msg::Cancel => {
+                if let Some(progress) = &self.progress {
+                    progress.cancel.store(true, Ordering::Relaxed);
+                }
+                None
+            }
+            Msg::RevealProgress(flag) => {
+                if self
+                    .progress
+                    .as_ref()
+                    .is_some_and(|progress| Arc::ptr_eq(&progress.cancel, &flag))
+                {
+                    self.show_progress = true;
+                }
                 None
             }
             Msg::Restore(all) => {
@@ -870,6 +959,12 @@ impl Component for App {
             | Cmd::UndoPlanned(Ok(Some((_, Err(rejections))))) => {
                 file_ops::show_rejections(root, &rejections);
             }
+            Cmd::Progress(done, total) => {
+                if let Some(progress) = &mut self.progress {
+                    progress.done = done;
+                    progress.total = total;
+                }
+            }
             Cmd::RestorePlanned(Ok((Ok(plan), missing))) => {
                 if missing > 0 {
                     self.toasts.add_toast(adw::Toast::new(&format!(
@@ -928,6 +1023,8 @@ impl Component for App {
                 .toasts
                 .add_toast(adw::Toast::new(&format!("Undo failed: {err}"))),
             Cmd::Ran(job, statuses, warning) => {
+                self.progress = None;
+                self.show_progress = false;
                 if matches!(
                     &job,
                     Job::Paste {
@@ -951,18 +1048,29 @@ impl Component for App {
                     // The first trashing creates the trash folder; show it in the sidebar.
                     sender.spawn_oneshot_command(|| Cmd::Places(places::standard_places()));
                 }
-                let toast = adw::Toast::new(&file_ops::summary(&job, &statuses));
-                let undoable = !matches!(job, Job::Undo { .. })
-                    && warning.is_none()
-                    && statuses
-                        .iter()
-                        .any(|s| matches!(s, ItemStatus::Done { .. }));
-                if undoable {
-                    toast.set_button_label(Some("Undo"));
+                // Offer Roll Back only when it would undo this operation: an undo job has
+                // nothing further to undo, and a warning means the operation was never
+                // recorded, so Msg::Undo would target an unrelated earlier one.
+                let offer_rollback = Tally::of(&statuses).is_partial()
+                    && !matches!(job, Job::Undo { .. })
+                    && warning.is_none();
+                if offer_rollback {
                     let input = sender.input_sender().clone();
-                    toast.connect_button_clicked(move |_| input.emit(Msg::Undo));
+                    show_partial(root, &statuses, input);
+                } else {
+                    let toast = adw::Toast::new(&file_ops::summary(&job, &statuses));
+                    let undoable = !matches!(job, Job::Undo { .. })
+                        && warning.is_none()
+                        && statuses
+                            .iter()
+                            .any(|s| matches!(s, ItemStatus::Done { .. }));
+                    if undoable {
+                        toast.set_button_label(Some("Undo"));
+                        let input = sender.input_sender().clone();
+                        toast.connect_button_clicked(move |_| input.emit(Msg::Undo));
+                    }
+                    self.toasts.add_toast(toast);
                 }
-                self.toasts.add_toast(toast);
                 if let Some(warning) = warning {
                     self.toasts.add_toast(adw::Toast::new(&warning));
                 }
@@ -1258,6 +1366,33 @@ fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {
             })
         })
         .collect()
+}
+
+/// The "stopped partway" dialog for a partial batch (PRD §6.4): `Keep` (default, Esc) leaves
+/// the finished part of the plan in place; `Roll Back` sends [`Msg::Undo`], the existing undo
+/// path with its own preview.
+fn show_partial(root: &adw::ApplicationWindow, statuses: &[ItemStatus], input: relm4::Sender<Msg>) {
+    let tally = Tally::of(statuses);
+    let mut body = format!(
+        "{} done, {} failed, {} not processed",
+        tally.done, tally.failed, tally.pending
+    );
+    if let Some(err) = statuses.iter().find_map(|s| match s {
+        ItemStatus::Failed(err) => Some(err.as_str()),
+        _ => None,
+    }) {
+        body.push_str(&format!("\n\n{err}"));
+    }
+    let dialog = adw::AlertDialog::new(Some("Stopped partway"), Some(&body));
+    dialog.add_response("keep", "Keep");
+    dialog.add_response("rollback", "Roll Back");
+    dialog.set_default_response(Some("keep"));
+    dialog.set_close_response("keep");
+    dialog.choose(Some(root), gtk::gio::Cancellable::NONE, move |response| {
+        if response == "rollback" {
+            input.emit(Msg::Undo);
+        }
+    });
 }
 
 fn plan(actions: Vec<Action>) -> ActionPlan {

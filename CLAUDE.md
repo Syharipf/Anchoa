@@ -27,6 +27,19 @@ cargo clippy --all-targets -- -D warnings
 
 Jalankan `cargo fmt` dan `cargo clippy --all-targets -- -D warnings` sebelum menganggap task selesai — jangan tunggu diminta.
 
+## Workflow
+
+**Perubahan kecil** (1–2 file, < ~100 baris): dikerjakan langsung oleh Opus, tanpa delegasi — biaya briefing + review melebihi penghematannya.
+
+**Fitur multi-file:**
+
+1. **Plan (Opus):** rencana + task list. Test ditulis dulu oleh Opus sebagai spesifikasi.
+2. **Implementasi (delegasi):** subagent Sonnet/Haiku, atau `agy-delegate -m gemini-3.8-flash-high --dir <repo>`. Pelaksana **tidak boleh mengubah test** yang ditulis Opus.
+3. **Verifikasi (Opus):** jalankan sendiri `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` di state bersih. Jangan percaya laporan "lulus" dari pelaksana.
+4. **Review lintas model:** `agy:review` atas diff; Opus hakim akhir atas temuan.
+
+**Git:** satu branch per perubahan (`feat/…`, `fix/…`, `chore/…`, `docs/…`), commit Conventional Commits, push, buka PR ke `main` via `gh pr create`. Merge (`gh pr merge --squash`) hanya setelah CI hijau dan verifikasi selesai. Jangan push langsung ke `main`. Jangan pernah commit secret, `.env*`, `*.db`, atau `*.gguf` — cek `git status` sebelum commit.
+
 ## Arsitektur
 
 Satu proses, pemisahan tegas UI thread (GTK4) vs worker thread (filesystem + inferensi LLM). UI thread **tidak boleh** blocking untuk operasi file atau panggilan LLM apa pun — selalu lewat channel async ke worker thread.

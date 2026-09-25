@@ -66,6 +66,72 @@ pub fn resolve_input(input: &str, cwd: &Path, home: &Path) -> PathBuf {
     resolved
 }
 
+/// Completes the last path component of `input` with a matching **folder** name (PRD §6.1,
+/// Tab in the path bar). The text before the last `/` (if any) is kept as typed — `~` and
+/// relative prefixes are not expanded — and only that folder (resolved via [`resolve_input`]
+/// from the text up to and including that `/`, so a leading `/` correctly resolves to the
+/// filesystem root) is read to find folder names starting with the part after the last `/`.
+/// A bare `~` (no `/` at all) is home itself and completes straight to `~/`.
+///
+/// A single match always completes to the full name plus a trailing `/`, even if that name is
+/// exactly what was typed (like a shell: pressing Tab on an already-complete folder name still
+/// adds the `/`). Several matches complete to their longest common prefix, without a trailing
+/// `/` (it may not be a complete name) — and `None` there when that prefix is no longer than
+/// what was already typed, since several matches leave nothing unambiguous to add. Hidden
+/// folders only match a prefix that itself starts with `.`, same as a shell — in particular, an
+/// empty prefix never matches them. Entries whose name is not valid UTF-8 are skipped, since
+/// they could not be written back into the (UTF-8) path bar.
+pub fn complete(input: &str, cwd: &Path, home: &Path) -> Option<String> {
+    if input == "~" {
+        return Some("~/".to_string());
+    }
+    let (prefix_text, name_prefix) = match input.rfind('/') {
+        Some(i) => (&input[..=i], &input[i + 1..]),
+        None => ("", input),
+    };
+    let dir = resolve_input(prefix_text, cwd, home);
+    let matches: Vec<String> = std::fs::read_dir(&dir)
+        .ok()?
+        .flatten()
+        .filter_map(|entry| {
+            let file_name = entry.file_name();
+            let name = file_name.to_str()?;
+            if !name.starts_with(name_prefix)
+                || (name.starts_with('.') && !name_prefix.starts_with('.'))
+            {
+                return None;
+            }
+            std::fs::metadata(entry.path())
+                .ok()
+                .filter(std::fs::Metadata::is_dir)
+                .map(|_| name.to_owned())
+        })
+        .collect();
+    match matches.as_slice() {
+        [] => None,
+        [only] => Some(format!("{prefix_text}{only}/")),
+        multiple => {
+            let completed = common_prefix(multiple);
+            (completed.chars().count() > name_prefix.chars().count())
+                .then(|| format!("{prefix_text}{completed}"))
+        }
+    }
+}
+
+/// The longest common prefix shared by every string in `names` (`names` is never empty).
+fn common_prefix(names: &[String]) -> String {
+    let first = &names[0];
+    let shared = names[1..].iter().fold(first.chars().count(), |len, name| {
+        first
+            .chars()
+            .zip(name.chars())
+            .take_while(|(a, b)| a == b)
+            .count()
+            .min(len)
+    });
+    first.chars().take(shared).collect()
+}
+
 /// Formats the permission bits as `rwxr-xr-x`.
 pub fn permission_string(mode: u32) -> String {
     (0..9)

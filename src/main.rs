@@ -63,6 +63,9 @@ enum Nav {
 enum Msg {
     Open(PathBuf),
     OpenInput(String),
+    /// Tab in the path bar: complete the last component against `text`, the text it was
+    /// pressed on.
+    CompletePath(String),
     Up,
     Back,
     Forward,
@@ -141,6 +144,8 @@ enum Cmd {
     BookmarkAdded(Result<(bool, Vec<Bookmark>), DbError>),
     Places(Vec<Place>),
     Drives(Vec<Place>),
+    /// The text Tab was pressed on, and the completion for it (if any).
+    Completed(String, Option<String>),
     CommandPlanned {
         input: String,
         result: Result<(command::Preview, ActionPlan), String>,
@@ -409,6 +414,19 @@ impl Component for App {
         }
         widgets.panes.add_controller(shortcuts);
 
+        // Tab always completes in the path bar instead of moving focus to the next widget.
+        let shortcuts = gtk::ShortcutController::new();
+        let path_entry = model.path_entry.clone();
+        let input = sender.input_sender().clone();
+        shortcuts.add_shortcut(gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("Tab"),
+            Some(gtk::CallbackAction::new(move |_, _| {
+                input.emit(Msg::CompletePath(path_entry.text().into()));
+                gtk::glib::Propagation::Stop
+            })),
+        ));
+        model.path_entry.add_controller(shortcuts);
+
         // Never blocks the UI thread: opens (and migrates) the database on a worker thread.
         sender.spawn_oneshot_command(|| {
             let path = gtk::glib::user_data_dir().join("anchoa").join("history.db");
@@ -437,6 +455,15 @@ impl Component for App {
                 fs::resolve_input(&text, &self.cwd, &gtk::glib::home_dir()),
                 Nav::New,
             )),
+            Msg::CompletePath(text) => {
+                let cwd = self.cwd.clone();
+                let home = gtk::glib::home_dir();
+                sender.spawn_oneshot_command(move || {
+                    let result = fs::complete(&text, &cwd, &home);
+                    Cmd::Completed(text, result)
+                });
+                None
+            }
             Msg::Up => self.cwd.parent().map(|p| (p.to_path_buf(), Nav::New)),
             Msg::Back => self.back.last().map(|p| (p.clone(), Nav::Back)),
             Msg::Forward => self.forward.last().map(|p| (p.clone(), Nav::Forward)),
@@ -785,6 +812,14 @@ impl Component for App {
                 self.command_panel.emit(CommandPanelMsg::SetRecent(items))
             }
             Cmd::RecentCommands(Err(_)) => {}
+            Cmd::Completed(text, Some(completed)) => {
+                // Only apply it if the path bar still shows what Tab was pressed on.
+                if self.path_entry.text() == text {
+                    self.path_entry.set_text(&completed);
+                    self.path_entry.set_position(-1);
+                }
+            }
+            Cmd::Completed(_, None) => {}
             Cmd::Validated(job, Ok(plan)) | Cmd::UndoPlanned(Ok(Some((job, Ok(plan))))) => {
                 let run = Msg::Run(job.clone(), plan.clone());
                 file_ops::confirm(root, &job, plan.plan(), sender.input_sender().clone(), run);

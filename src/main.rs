@@ -632,5 +632,7 @@ fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {
 }
 
 fn main() {
-    RelmApp::new(APP_ID).run::<App>(gtk::glib::home_dir());
+    let app = RelmApp::new(APP_ID);
+    relm4::set_global_css(sidebar::CSS);
+    app.run::<App>(gtk::glib::home_dir());
 }

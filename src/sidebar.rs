@@ -62,10 +62,11 @@ pub enum Msg {
     DeleteSelected,
     /// Internal: Alt+Shift+Up/Down pressed while a row is selected (`true` = up).
     MoveSelected(bool),
-    /// Internal: bookmark `id` was dropped at `y` (list coordinates).
+    /// Internal: bookmark `id` was dropped on the row at `index`, in its lower half if `after`.
     DropBookmark {
         id: i64,
-        y: f64,
+        index: i32,
+        after: bool,
     },
 }
 
@@ -132,14 +133,43 @@ impl SimpleComponent for Sidebar {
         }
         model.list.add_controller(shortcuts);
 
-        // Bookmarks are reordered by dragging one onto another (rows carry their id).
+        // Bookmarks are reordered by dragging one onto another (rows carry their id). While
+        // dragging, a line above or below the bookmark under the pointer shows where it lands.
         let drop = gtk::DropTarget::new(i64::static_type(), gdk::DragAction::MOVE);
+        drop.connect_motion(|target, _, y| {
+            let list = target.widget().and_downcast::<gtk::ListBox>();
+            let Some(list) = list else {
+                return gdk::DragAction::empty();
+            };
+            clear_drop_marks(&list);
+            match bookmark_row_at(&list, y) {
+                Some((row, after)) => {
+                    row.add_css_class(if after { "drop-after" } else { "drop-before" });
+                    gdk::DragAction::MOVE
+                }
+                None => gdk::DragAction::empty(),
+            }
+        });
+        drop.connect_leave(|target| {
+            if let Some(list) = target.widget().and_downcast::<gtk::ListBox>() {
+                clear_drop_marks(&list);
+            }
+        });
         let input = sender.input_sender().clone();
-        drop.connect_drop(move |_, value, _, y| {
-            let Ok(id) = value.get::<i64>() else {
+        drop.connect_drop(move |target, value, _, y| {
+            let Some(list) = target.widget().and_downcast::<gtk::ListBox>() else {
                 return false;
             };
-            input.emit(Msg::DropBookmark { id, y });
+            clear_drop_marks(&list);
+            let (Ok(id), Some((row, after))) = (value.get::<i64>(), bookmark_row_at(&list, y))
+            else {
+                return false;
+            };
+            input.emit(Msg::DropBookmark {
+                id,
+                index: row.index(),
+                after,
+            });
             true
         });
         model.list.add_controller(drop);
@@ -181,15 +211,12 @@ impl SimpleComponent for Sidebar {
                     let _ = sender.output(Output::MoveBookmark { id, up });
                 }
             }
-            Msg::DropBookmark { id, y } => {
-                let target = self
-                    .list
-                    .row_at_y(y as i32)
-                    .and_then(|row| self.rows.get(row.index() as usize));
-                if let Some(RowKind::Bookmark(target, _)) = target
-                    && let Some(position) = self.bookmarks.iter().position(|b| b.id == *target)
+            Msg::DropBookmark { id, index, after } => {
+                let position_of = |id: i64| self.bookmarks.iter().position(|b| b.id == id);
+                if let Some(RowKind::Bookmark(target, _)) = self.rows.get(index as usize)
+                    && let (Some(from), Some(target)) = (position_of(id), position_of(*target))
                 {
-                    let position = position as i64;
+                    let position = drop_position(from, target, after) as i64;
                     let _ = sender.output(Output::MoveBookmarkTo { id, position });
                 }
             }
@@ -302,6 +329,7 @@ impl Sidebar {
             }
         });
         row.add_controller(drag);
+        row.add_css_class("bookmark");
         self.list.append(&row);
         self.rows
             .push(RowKind::Bookmark(bookmark.id, bookmark.path));
@@ -337,5 +365,57 @@ impl Sidebar {
         row.set_child(Some(&content));
         row.set_tooltip_text(Some(tooltip));
         row
+    }
+}
+
+/// Styles for the drop indicator: a line in the accent colour on the row's top or bottom edge.
+pub const CSS: &str = "
+.navigation-sidebar row.drop-before { box-shadow: inset 0 2px @accent_color; }
+.navigation-sidebar row.drop-after { box-shadow: inset 0 -2px @accent_color; }
+";
+
+/// The bookmark row under `y` (list coordinates), and whether `y` is in its lower half.
+fn bookmark_row_at(list: &gtk::ListBox, y: f64) -> Option<(gtk::ListBoxRow, bool)> {
+    let row = list
+        .row_at_y(y as i32)
+        .filter(|row| row.has_css_class("bookmark"))?;
+    let bounds = row.compute_bounds(list)?;
+    let after = y as f32 > bounds.y() + bounds.height() / 2.0;
+    Some((row, after))
+}
+
+fn clear_drop_marks(list: &gtk::ListBox) {
+    let mut child = list.first_child();
+    while let Some(widget) = child {
+        widget.remove_css_class("drop-before");
+        widget.remove_css_class("drop-after");
+        child = widget.next_sibling();
+    }
+}
+
+/// New position for the bookmark at `from` when dropped before (or `after`) the one at
+/// `target`, positions counted before the move.
+fn drop_position(from: usize, target: usize, after: bool) -> usize {
+    let slot = target + usize::from(after);
+    if from < slot { slot - 1 } else { slot }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::drop_position;
+
+    #[test]
+    fn drop_position_lands_at_the_indicated_line() {
+        // [a, b, c, d]: dragging a (0) to the line above / below c (2).
+        assert_eq!(drop_position(0, 2, false), 1); // [b, a, c, d]
+        assert_eq!(drop_position(0, 2, true), 2); // [b, c, a, d]
+        // Dragging d (3) to the line above / below b (1).
+        assert_eq!(drop_position(3, 1, false), 1); // [a, d, b, c]
+        assert_eq!(drop_position(3, 1, true), 2); // [a, b, d, c]
+        // Dropping next to itself changes nothing.
+        assert_eq!(drop_position(2, 2, false), 2);
+        assert_eq!(drop_position(2, 2, true), 2);
+        assert_eq!(drop_position(2, 1, true), 2);
+        assert_eq!(drop_position(2, 3, false), 2);
     }
 }

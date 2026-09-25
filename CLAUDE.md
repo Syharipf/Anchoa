@@ -98,6 +98,7 @@ Kalau diminta menambah salah satu ini tanpa konteks eksplisit yang mengubah scop
 - Error handling: `thiserror` untuk error domain (yang perlu ditangani berbeda-beda di caller), `anyhow` untuk error di boundary aplikasi/main.
 - Kode yang menyentuh FFI ke llama.cpp: isolasi `unsafe` seminimal mungkin, wrap di fungsi aman secepatnya, beri komentar kenapa unsafe-nya sound.
 - Operasi filesystem yang bisa gagal di tengah jalan (copy/move banyak file) harus punya jalur cleanup eksplisit — jangan biarkan partial state ambigu (lihat User Flow 6.4 di PRD).
+- **gvfs tidak aman untuk semua panggilan lintas thread.** `has_uri_scheme`/`uri_scheme`/`uri` pada `gio::File` non-lokal (mis. `sftp://`, `trash:///`) crash (SIGSEGV di `g_mount_spec_get`) bila dipanggil dari beberapa thread sekaligus — dibuktikan 2026-09-26, tetap crash walau gvfs sudah "dipanaskan" di thread utama. Untuk mengubah URI ↔ path pakai `glib::filename_from_uri` / `glib::filename_to_uri` (parsing murni, tanpa VFS). Operasi yang dipakai `trash.rs` (enumerate, query info, move, delete) sudah diuji paralel dan aman.
 - Test wajib untuk: rule-based parser (regresi paling gampang lolos tanpa test), Validator whitelist (termasuk input adversarial — path traversal, operasi di luar daftar izin), operasi filesystem dengan skenario gagal (disk penuh, permission ditolak, konflik nama) pakai temp dir.
 
 ## Target Lingkungan

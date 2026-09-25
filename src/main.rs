@@ -1,3 +1,4 @@
+mod clipboard;
 mod columns;
 mod file_ops;
 mod sidebar;
@@ -156,8 +157,6 @@ enum Cmd {
 }
 
 const HIDDEN_FILTER: usize = 0;
-const GNOME_COPIED_FILES_MIME: &str = "x-special/gnome-copied-files";
-const PLAIN_TEXT_MIME: &str = "text/plain";
 
 #[relm4::component]
 impl Component for App {
@@ -601,10 +600,10 @@ impl Component for App {
                     self.toasts
                         .add_toast(adw::Toast::new("Cannot paste into the trash"));
                 } else {
-                    let clipboard = gtk::prelude::RootExt::display(root).clipboard();
+                    let clipboard = root.clipboard();
                     let input = sender.input_sender().clone();
                     relm4::spawn_local(async move {
-                        let contents = read_system_clipboard(&clipboard).await;
+                        let contents = clipboard::read(&clipboard).await;
                         input.emit(Msg::ClipboardRead(contents));
                     });
                 }
@@ -931,9 +930,7 @@ impl Component for App {
                     .iter()
                     .any(|status| matches!(status, ItemStatus::Failed(_)))
                 {
-                    let _ = gtk::prelude::RootExt::display(root)
-                        .clipboard()
-                        .set_content(None::<&gdk::ContentProvider>);
+                    clipboard::clear(&root.clipboard());
                 }
                 if let Job::Command { input, .. } = &job
                     && self.command_entry.text().as_str() == input
@@ -1050,24 +1047,7 @@ impl App {
         if sources.is_empty() {
             return;
         }
-        let files: Vec<_> = sources.iter().map(gio::File::for_path).collect();
-        let file_value = gdk::FileList::from_array(&files).to_value();
-        let gnome_bytes =
-            gtk::glib::Bytes::from_owned(paste::gnome_copied_files(&sources, cut).into_bytes());
-        let text = sources
-            .iter()
-            .map(|path| path.to_string_lossy().into_owned())
-            .collect::<Vec<_>>()
-            .join("\n");
-        let text_bytes = gtk::glib::Bytes::from_owned(text.into_bytes());
-        let file_provider = gdk::ContentProvider::for_value(&file_value);
-        let gnome_provider = gdk::ContentProvider::for_bytes(GNOME_COPIED_FILES_MIME, &gnome_bytes);
-        let text_provider = gdk::ContentProvider::for_bytes(PLAIN_TEXT_MIME, &text_bytes);
-        let provider =
-            gdk::ContentProvider::new_union(&[file_provider, gnome_provider, text_provider]);
-        let _ = gtk::prelude::RootExt::display(root)
-            .clipboard()
-            .set_content(Some(&provider));
+        clipboard::write(&root.clipboard(), &sources, cut);
         let count = sources.len();
         let noun = if count == 1 { "item" } else { "items" };
         self.toasts.add_toast(adw::Toast::new(&format!(
@@ -1332,52 +1312,6 @@ fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {
             })
         })
         .collect()
-}
-
-async fn read_system_clipboard(clipboard: &gdk::Clipboard) -> Option<(Vec<PathBuf>, bool)> {
-    if clipboard
-        .formats()
-        .contain_mime_type(GNOME_COPIED_FILES_MIME)
-        && let Ok((stream, mime)) = clipboard
-            .read_future(&[GNOME_COPIED_FILES_MIME], gtk::glib::Priority::DEFAULT)
-            .await
-        && mime.as_str() == GNOME_COPIED_FILES_MIME
-        && let Some(bytes) = read_clipboard_stream(stream).await
-        && let Ok(text) = String::from_utf8(bytes)
-        && let Some(parsed) = paste::parse_gnome_copied_files(&text)
-    {
-        return Some(parsed);
-    }
-    let value = clipboard
-        .read_value_future(gdk::FileList::static_type(), gtk::glib::Priority::DEFAULT)
-        .await
-        .ok()?;
-    let files = value.get::<gdk::FileList>().ok()?;
-    let sources: Vec<_> = files
-        .files()
-        .into_iter()
-        .filter_map(|file| file.path())
-        .collect();
-    (!sources.is_empty()).then_some((sources, false))
-}
-
-async fn read_clipboard_stream(stream: gio::InputStream) -> Option<Vec<u8>> {
-    const CHUNK_SIZE: usize = 64 * 1024;
-    const MAX_SIZE: usize = 16 * 1024 * 1024;
-    let mut data = Vec::new();
-    loop {
-        let bytes = stream
-            .read_bytes_future(CHUNK_SIZE, gtk::glib::Priority::DEFAULT)
-            .await
-            .ok()?;
-        if bytes.is_empty() {
-            return Some(data);
-        }
-        if data.len().saturating_add(bytes.len()) > MAX_SIZE {
-            return None;
-        }
-        data.extend_from_slice(bytes.as_ref());
-    }
 }
 
 fn plan(actions: Vec<Action>) -> ActionPlan {

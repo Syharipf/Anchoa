@@ -84,6 +84,20 @@ pub fn record_command(
     Ok(conn.last_insert_rowid())
 }
 
+/// Returns the most recently recorded distinct command inputs, newest first.
+pub fn recent_commands(conn: &Connection, limit: usize) -> Result<Vec<String>, DbError> {
+    let mut stmt = conn.prepare(
+        "SELECT input
+         FROM command_history
+         GROUP BY input
+         ORDER BY MAX(id) DESC
+         LIMIT ?1",
+    )?;
+    let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+    let rows = stmt.query_map([limit], |row| row.get(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
 /// Stores `plan` as a `running` operation with all items `pending`, before it executes.
 /// `operation.kind` is the first action's kind that is not `mkdir` (or `mkdir` if all are).
 /// Returns the operation id.

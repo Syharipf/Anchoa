@@ -5,6 +5,54 @@ use std::path::PathBuf;
 
 use crate::plan::{Action, ActionPlan};
 
+/// The command history and the draft being edited in the command panel.
+#[derive(Debug, Default)]
+pub struct Recall {
+    items: Vec<String>,
+    position: Option<usize>,
+    draft: String,
+}
+
+impl Recall {
+    /// Creates recall state from `items`, ordered from newest to oldest.
+    pub fn new(items: Vec<String>) -> Self {
+        Self {
+            items,
+            ..Self::default()
+        }
+    }
+
+    /// Moves one command backwards, or starts browsing from the current draft.
+    pub fn up(&mut self, current: &str) -> Option<String> {
+        if self.items.is_empty() {
+            return None;
+        }
+        let position = match self.position {
+            None => {
+                self.draft = current.to_owned();
+                0
+            }
+            Some(position) => position + 1,
+        };
+        let item = self.items.get(position)?.clone();
+        self.position = Some(position);
+        Some(item)
+    }
+
+    /// Moves one command forwards, or returns to the draft after the newest command.
+    pub fn down(&mut self) -> Option<String> {
+        let position = self.position?;
+        if position == 0 {
+            self.position = None;
+            Some(self.draft.clone())
+        } else {
+            let item = self.items.get(position - 1)?.clone();
+            self.position = Some(position - 1);
+            Some(item)
+        }
+    }
+}
+
 /// The PRD §4.5 examples, one per verb.
 pub const EXAMPLES: [&str; 6] = [
     "move *.jpg older than 30d to ~/Pictures/old",

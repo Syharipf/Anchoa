@@ -2,6 +2,7 @@ pub mod config;
 pub mod db;
 pub mod executor;
 pub mod fs;
+pub mod history;
 pub mod parser;
 pub mod places;
 pub mod plan;

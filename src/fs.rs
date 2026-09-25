@@ -84,7 +84,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("loom-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("anchoa-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn list_dir_missing_dir_is_error() {
-        assert!(list_dir(Path::new("/nonexistent/loom-test")).is_err());
+        assert!(list_dir(Path::new("/nonexistent/anchoa-test")).is_err());
     }
 
     #[test]

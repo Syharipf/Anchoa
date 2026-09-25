@@ -5,15 +5,15 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use anchoa::db::{self, Bookmark, DbError};
+use anchoa::executor::ItemStatus;
+use anchoa::fs::{self, Entry};
+use anchoa::history::ResolvedBy;
+use anchoa::places::{self, Place};
+use anchoa::plan::{Action, ActionPlan};
+use anchoa::validator::{Rejection, ValidatedPlan};
+use anchoa::{command, config, history, parser, planner, trash};
 use file_ops::Job;
-use loom::db::{self, Bookmark, DbError};
-use loom::executor::ItemStatus;
-use loom::fs::{self, Entry};
-use loom::history::ResolvedBy;
-use loom::places::{self, Place};
-use loom::plan::{Action, ActionPlan};
-use loom::validator::{Rejection, ValidatedPlan};
-use loom::{command, config, history, parser, planner, trash};
 use relm4::gtk::gio;
 use relm4::gtk::prelude::*;
 use relm4::prelude::*;
@@ -22,7 +22,7 @@ use relm4::typed_view::column::{LabelColumn, RelmColumn, TypedColumnView};
 use relm4::{adw, gtk};
 use sidebar::{Drive, DriveTarget, Msg as SidebarMsg, Output as SidebarOutput, Sidebar};
 
-const APP_ID: &str = "io.github.syharipf.Loom";
+const APP_ID: &str = "io.github.syharipf.Anchoa";
 
 struct NameColumn;
 
@@ -245,7 +245,7 @@ impl Component for App {
 
     view! {
         adw::ApplicationWindow {
-            set_title: Some("Loom"),
+            set_title: Some("Anchoa"),
             set_default_size: (960, 640),
 
             gtk::Box {
@@ -512,7 +512,7 @@ impl Component for App {
 
         // Never blocks the UI thread: opens (and migrates) the database on a worker thread.
         sender.spawn_oneshot_command(|| {
-            let path = gtk::glib::user_data_dir().join("loom").join("history.db");
+            let path = gtk::glib::user_data_dir().join("anchoa").join("history.db");
             Cmd::DbOpened(db::open(&path).inspect(|conn| {
                 // Housekeeping only: a failed prune must not make history unavailable.
                 let _ = db::prune(conn, file_ops::now());

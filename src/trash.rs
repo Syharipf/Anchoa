@@ -1,6 +1,6 @@
 //! The XDG trash through gio's `trash:///` (served by gvfs).
 //!
-//! Loom never writes into a trash folder itself (CLAUDE.md rule 2): items go in with
+//! Anchoa never writes into a trash folder itself (CLAUDE.md rule 2): items go in with
 //! `gio::File::trash`, come back out by moving the `trash:///` item, and are deleted for
 //! good by deleting the `trash:///` item, so gvfs keeps each `.trashinfo` in step. Without
 //! gvfs, `trash:///` is unavailable and restoring or emptying simply is not offered.
@@ -236,7 +236,8 @@ mod tests {
 
     #[test]
     fn restore_plan_moves_items_home_and_recreates_missing_folders() {
-        let base = std::env::temp_dir().join(format!("loom-trash-restore-{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("anchoa-trash-restore-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         std::fs::create_dir_all(base.join("kept")).unwrap();
         let p = |rel: &str| base.join(rel);

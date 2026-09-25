@@ -3,9 +3,9 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use loom::parser::parse;
-use loom::plan::{Action, ActionPlan};
-use loom::planner::{PlanError, build};
+use anchoa::parser::parse;
+use anchoa::plan::{Action, ActionPlan};
+use anchoa::planner::{PlanError, build};
 
 const DAY: i64 = 86_400;
 
@@ -30,7 +30,8 @@ struct Fixture {
 
 impl Fixture {
     fn new(name: &str) -> Self {
-        let base = std::env::temp_dir().join(format!("loom-planner-{name}-{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("anchoa-planner-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let home = base.join("home");
         let cam = home.join("cam");

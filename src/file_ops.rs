@@ -13,11 +13,11 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use loom::command::Preview;
-use loom::executor::{self, ItemStatus};
-use loom::history::{self, ResolvedBy, Skipped, Source};
-use loom::plan::{Action, ActionPlan};
-use loom::validator::{Rejection, ValidatedPlan, Validator};
+use anchoa::command::Preview;
+use anchoa::executor::{self, ItemStatus};
+use anchoa::history::{self, ResolvedBy, Skipped, Source};
+use anchoa::plan::{Action, ActionPlan};
+use anchoa::validator::{Rejection, ValidatedPlan, Validator};
 use relm4::adw::prelude::*;
 use relm4::{Sender, adw, gtk};
 
@@ -286,8 +286,8 @@ pub fn ask_name<M: Send + 'static>(
 pub fn plan_restore(
     files: Option<Vec<PathBuf>>,
 ) -> Result<(Result<ValidatedPlan, Vec<Rejection>>, usize), String> {
-    let items = loom::trash::contents().map_err(|e| e.to_string())?;
-    let (plan, missing) = loom::trash::restore_plan(&items, files.as_deref());
+    let items = anchoa::trash::contents().map_err(|e| e.to_string())?;
+    let (plan, missing) = anchoa::trash::restore_plan(&items, files.as_deref());
     Ok((validate(plan), missing.len()))
 }
 

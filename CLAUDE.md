@@ -13,7 +13,7 @@ File manager desktop Linux (setara Thunar/Nautilus) dengan panel AI/CLI terinteg
 - **Async runtime:** tokio (jangan campur runtime lain)
 - **Database:** SQLite lewat `rusqlite` (sinkron, dipanggil dari worker thread), migration bernomor sejak commit pertama
 - **LLM runtime:** `llama.cpp` via FFI (crate `llama-cpp-2`), model default Qwen2.5-1.5B/3B-Instruct quantized Q4_K_M — **jangan pernah rekomendasikan atau tambahkan dependensi model 7B+**
-- **Identitas:** nama `loom`, app ID `io.github.syharipf.Loom`, lisensi GPL-3.0-or-later
+- **Identitas:** nama `anchoa`, app ID `io.github.syharipf.Anchoa`, lisensi GPL-3.0-or-later
 - **Packaging:** AUR (PKGBUILD) + Flatpak (sandbox minimal: `--filesystem=home`, `--filesystem=/run/media`, `--filesystem=/mnt` — bukan `=host`)
 
 ## Perintah
@@ -69,17 +69,17 @@ Ini bukan preferensi gaya — melanggarnya berarti melanggar requirement keamana
 2. **Delete selalu lewat trash XDG** via `gio::File::trash()` (menangani `.Trash-$uid` di mount lain dan portal Flatpak — jangan tulis manual ke direktori Trash), bukan `unlink`/`remove_file` permanen, kecuali eksplisit diminta pengguna dan dikonfirmasi via dialog — bukan default. Satu pengecualian (keputusan pengguna, 2026-09-25): item trash yang lebih tua dari `trash_auto_delete_days` di `config.toml` (default 30, `0` = mati) dihapus permanen otomatis saat startup, seperti GNOME. Hapus permanen apa pun tetap lewat `trash:///` (gvfs), bukan menulis ke direktori Trash.
 3. **Model LLM lokal bersifat opsional.** Semua fitur inti (navigasi, CRUD, permission, rule-based command) harus tetap berfungsi penuh tanpa model terpasang. Jangan menambahkan kode yang mengasumsikan model selalu ada.
 4. **Tidak ada panggilan jaringan** untuk fungsi inti apa pun, termasuk AI (no cloud LLM fallback). Kalau menambah dependensi baru, cek dulu apakah dia diam-diam butuh network di runtime.
-5. **State persisten hanya di path XDG** (`$XDG_CONFIG_HOME/loom`, `$XDG_DATA_HOME/loom`) — resolve lewat `glib::user_config_dir()`/`glib::user_data_dir()`, jangan hardcode `~/.config` (Flatpak memetakannya ke `~/.var/app/<app-id>/`). Jangan menulis ke home directory langsung.
+5. **State persisten hanya di path XDG** (`$XDG_CONFIG_HOME/anchoa`, `$XDG_DATA_HOME/anchoa`) — resolve lewat `glib::user_config_dir()`/`glib::user_data_dir()`, jangan hardcode `~/.config` (Flatpak memetakannya ke `~/.var/app/<app-id>/`). Jangan menulis ke home directory langsung.
 6. **Panel AI hanya mengirim metadata direktori ke model** (nama, ukuran, permission, timestamp) — tidak pernah isi file.
 7. **Setiap operasi destruktif harus melalui tahap preview + konfirmasi eksplisit** sebelum eksekusi. Tidak ada auto-execute.
 
 ## Database
 
-SQLite di `$XDG_DATA_HOME/loom/history.db`. Tabel utama: `operation`, `operation_item` (pasangan untuk undo — simpan state before/after, jangan menyalin isi file), `command_history` (untuk mengukur rasio rule-based vs LLM), `bookmark`. Tabel `download_job` sudah disiapkan di skema untuk v2 — **jangan diimplementasikan sekarang**, hanya jaga agar migration tidak perlu dirombak nanti.
+SQLite di `$XDG_DATA_HOME/anchoa/history.db`. Tabel utama: `operation`, `operation_item` (pasangan untuk undo — simpan state before/after, jangan menyalin isi file), `command_history` (untuk mengukur rasio rule-based vs LLM), `bookmark`. Tabel `download_job` sudah disiapkan di skema untuk v2 — **jangan diimplementasikan sekarang**, hanya jaga agar migration tidak perlu dirombak nanti.
 
 Retensi: pangkas otomatis operasi berumur >30 hari **atau** di luar 1.000 operasi terakhir (mana yang lebih dulu tercapai).
 
-Preferensi pengguna disimpan terpisah sebagai TOML di `$XDG_CONFIG_HOME/loom/config.toml`, bukan di database.
+Preferensi pengguna disimpan terpisah sebagai TOML di `$XDG_CONFIG_HOME/anchoa/config.toml`, bukan di database.
 
 ## Scope v1 — Jangan Implementasikan Dulu
 

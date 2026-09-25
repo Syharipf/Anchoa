@@ -4,7 +4,7 @@
 //!
 //! Guarantees (PRD §6.4):
 //! - The batch stops at the first failure; later actions stay [`ItemStatus::Pending`].
-//! - Copies are written to `.loom-partial-<name>` next to the destination and renamed into
+//! - Copies are written to `.anchoa-partial-<name>` next to the destination and renamed into
 //!   place only when complete; a failed copy removes its partial file or folder, so no
 //!   half-written item ever carries the real name.
 //! - A move across filesystems removes the source only after the copy has completed.
@@ -145,10 +145,10 @@ fn transfer(
     Ok(ItemStatus::Done { dst: Some(dst) })
 }
 
-/// Copies `src` into `.loom-partial-<name>` next to `dst`, then renames it into place.
+/// Copies `src` into `.anchoa-partial-<name>` next to `dst`, then renames it into place.
 /// On failure the partial copy is removed.
 fn copy_via_partial(src: &Path, dst: &Path) -> io::Result<()> {
-    let mut name = OsString::from(".loom-partial-");
+    let mut name = OsString::from(".anchoa-partial-");
     name.push(
         dst.file_name()
             .ok_or_else(|| io::Error::other("destination has no name"))?,

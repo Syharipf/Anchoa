@@ -6,8 +6,8 @@
 
 use std::path::PathBuf;
 
-use loom::db::Bookmark;
-use loom::places::Place;
+use anchoa::db::Bookmark;
+use anchoa::places::Place;
 use relm4::RelmRemoveAllExt;
 use relm4::gtk;
 use relm4::gtk::{gdk, prelude::*};

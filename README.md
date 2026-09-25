@@ -1,4 +1,4 @@
-# Loom
+# Anchoa
 
 A keyboard-first file manager for the Linux desktop, built with GTK4 and libadwaita, with a command panel for batch and conditional file operations:
 
@@ -103,10 +103,10 @@ AUR and Flatpak packages are planned once v1 is usable.
 
 ## Data
 
-Loom only writes to XDG directories:
+Anchoa only writes to XDG directories:
 
-- `$XDG_DATA_HOME/loom/history.db` — operation history for undo, command history, and bookmarks
-- `$XDG_CONFIG_HOME/loom/config.toml` — preferences, such as `trash_auto_delete_days` (default 30, `0` turns it off)
+- `$XDG_DATA_HOME/anchoa/history.db` — operation history for undo, command history, and bookmarks
+- `$XDG_CONFIG_HOME/anchoa/config.toml` — preferences, such as `trash_auto_delete_days` (default 30, `0` turns it off)
 
 ## Contributing
 

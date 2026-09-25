@@ -1,4 +1,4 @@
-//! User preferences, stored as TOML in `$XDG_CONFIG_HOME/loom/config.toml` (not in the database).
+//! User preferences, stored as TOML in `$XDG_CONFIG_HOME/anchoa/config.toml` (not in the database).
 //!
 //! Blocking file I/O: call from a worker thread only.
 
@@ -40,9 +40,9 @@ pub enum ConfigError {
     Serialize(#[from] toml::ser::Error),
 }
 
-/// `$XDG_CONFIG_HOME/loom/config.toml`, which Flatpak maps into the app's own directory.
+/// `$XDG_CONFIG_HOME/anchoa/config.toml`, which Flatpak maps into the app's own directory.
 pub fn path() -> PathBuf {
-    glib::user_config_dir().join("loom").join("config.toml")
+    glib::user_config_dir().join("anchoa").join("config.toml")
 }
 
 /// Loads `path`, or the defaults if it does not exist yet.
@@ -72,7 +72,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("loom-config-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("anchoa-config-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
     }

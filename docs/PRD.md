@@ -1,8 +1,8 @@
-# PRD — Loom (Folder Manager Linux)
+# PRD — Anchoa (Folder Manager Linux)
 
 ## 1. Overview
 
-Loom adalah file manager desktop Linux (setara Thunar/Nautilus) berbasis GTK4 + libadwaita dengan panel perintah terintegrasi untuk operasi file batch dan bersyarat, misalnya "pindahkan semua `.jpg` yang lebih tua dari 30 hari ke folder arsip". Perintah diproses **rule-first**: parser deterministik menangani sebagian besar kasus, dan model LLM lokal kecil (opsional) hanya dipakai sebagai fallback. Semua rencana aksi divalidasi dan dipreview sebelum dieksekusi. Target pengguna: pengguna Linux yang nyaman dengan keyboard dan sering merapikan file dalam jumlah banyak, tanpa ingin menulis skrip shell atau mengirim data ke cloud.
+Anchoa adalah file manager desktop Linux (setara Thunar/Nautilus) berbasis GTK4 + libadwaita dengan panel perintah terintegrasi untuk operasi file batch dan bersyarat, misalnya "pindahkan semua `.jpg` yang lebih tua dari 30 hari ke folder arsip". Perintah diproses **rule-first**: parser deterministik menangani sebagian besar kasus, dan model LLM lokal kecil (opsional) hanya dipakai sebagai fallback. Semua rencana aksi divalidasi dan dipreview sebelum dieksekusi. Target pengguna: pengguna Linux yang nyaman dengan keyboard dan sering merapikan file dalam jumlah banyak, tanpa ingin menulis skrip shell atau mengirim data ke cloud.
 
 ## 2. Goals & Success Metrics
 
@@ -20,7 +20,7 @@ Loom adalah file manager desktop Linux (setara Thunar/Nautilus) berbasis GTK4 + 
 - **R3 — Delete lewat trash.** Delete default memindahkan ke trash XDG. Hapus permanen hanya jika diminta eksplisit dan dikonfirmasi lewat dialog.
 - **R4 — Model opsional.** Navigasi, CRUD, dan perintah rule-based berfungsi penuh tanpa model terpasang.
 - **R5 — Tanpa network.** Tidak ada panggilan jaringan untuk fungsi apa pun, termasuk AI.
-- **R6 — State di path XDG.** Konfigurasi di `$XDG_CONFIG_HOME/loom/`, data di `$XDG_DATA_HOME/loom/`. Tidak ada file lain yang ditulis ke home directory.
+- **R6 — State di path XDG.** Konfigurasi di `$XDG_CONFIG_HOME/anchoa/`, data di `$XDG_DATA_HOME/anchoa/`. Tidak ada file lain yang ditulis ke home directory.
 - **R7 — Metadata saja ke model.** Prompt LLM hanya berisi nama, ukuran, permission, dan timestamp. Isi file tidak pernah dibaca untuk prompt.
 - **R8 — Preview + konfirmasi.** Setiap operasi destruktif (move, trash, rename, chmod, overwrite) menampilkan preview daftar item dan menunggu konfirmasi eksplisit. Tidak ada auto-execute.
 - **R9 — Keyboard penuh.** Semua fitur v1 bisa dipakai tanpa mouse, termasuk panel perintah, preview, dan dialog konfirmasi.
@@ -70,7 +70,7 @@ Loom adalah file manager desktop Linux (setara Thunar/Nautilus) berbasis GTK4 + 
     - Panel riwayat menampilkan operasi dan perintah terakhir.
     - Pemangkasan otomatis saat startup: hapus operasi berumur >30 hari **atau** di luar 1.000 operasi terakhir (mana yang lebih dulu tercapai).
 11. **Settings**
-    - Disimpan di `$XDG_CONFIG_HOME/loom/config.toml`: path model `.gguf`, threshold confidence parser, tampilkan file tersembunyi, sort default.
+    - Disimpan di `$XDG_CONFIG_HOME/anchoa/config.toml`: path model `.gguf`, threshold confidence parser, tampilkan file tersembunyi, sort default.
     - Pemilih file model menampilkan link dokumentasi (model yang direkomendasikan + checksum). App tidak mengunduh apa pun.
 
 ## 5. Out of Scope
@@ -92,7 +92,7 @@ Loom adalah file manager desktop Linux (setara Thunar/Nautilus) berbasis GTK4 + 
 ## 6. User Flow
 
 ### 6.1 Navigasi keyboard
-1. Pengguna membuka Loom; fokus di list direktori home.
+1. Pengguna membuka Anchoa; fokus di list direktori home.
 2. Panah atas/bawah memilih item, Enter membuka folder, Alt+Up naik satu level.
 3. Ctrl+L memfokuskan path bar; pengguna mengetik path, Tab melengkapi nama, Enter berpindah.
 4. F6 berpindah fokus antar sidebar, list, dan panel perintah.
@@ -116,7 +116,7 @@ Loom adalah file manager desktop Linux (setara Thunar/Nautilus) berbasis GTK4 + 
 
 ### 6.4 Kegagalan di tengah batch
 1. Worker sedang menyalin 200 file; file ke-120 gagal karena disk penuh (atau permission ditolak).
-2. Setiap file disalin ke nama sementara `.loom-partial-<nama>` di folder tujuan, lalu di-rename atomik setelah selesai. File sementara yang gagal langsung dihapus, jadi tidak ada file setengah jadi dengan nama asli.
+2. Setiap file disalin ke nama sementara `.anchoa-partial-<nama>` di folder tujuan, lalu di-rename atomik setelah selesai. File sementara yang gagal langsung dihapus, jadi tidak ada file setengah jadi dengan nama asli.
 3. Untuk move lintas filesystem, sumber dihapus hanya setelah salinan selesai dan tervalidasi (ukuran sama).
 4. Worker berhenti. `operation.status = 'partial'`; tiap `operation_item` berstatus `done`, `failed`, atau `pending`.
 5. UI menampilkan ringkasan: 119 berhasil, 1 gagal (dengan pesan error), 80 belum diproses, dan dua pilihan:
@@ -174,7 +174,7 @@ sequenceDiagram
 
 ## 8. Database Schema
 
-Lokasi: `$XDG_DATA_HOME/loom/history.db`. Versi migration dilacak lewat `PRAGMA user_version`; migration bernomor dan hanya maju.
+Lokasi: `$XDG_DATA_HOME/anchoa/history.db`. Versi migration dilacak lewat `PRAGMA user_version`; migration bernomor dan hanya maju.
 
 ```mermaid
 erDiagram
@@ -240,7 +240,7 @@ erDiagram
 - **LLM:** `llama.cpp` via crate `llama-cpp-2`. Model yang didukung: Qwen2.5-1.5B/3B-Instruct Q4_K_M. Model 7B+ tidak didukung (target: laptop tanpa GPU diskrit). `unsafe` FFI diisolasi dan dibungkus API aman.
 - **Path & trash:** direktori XDG diambil lewat `glib::user_config_dir()` / `glib::user_data_dir()`, tidak di-hardcode. Trash lewat `gio::File::trash()` (menangani `.Trash-$uid` di mount lain dan portal Flatpak).
 - **Packaging:** AUR (PKGBUILD) dan Flatpak dengan `--filesystem=home`, `--filesystem=/run/media`, `--filesystem=/mnt`. Tidak memakai `--filesystem=host`, tidak ada izin network.
-- **Identitas:** nama `loom`, app ID `io.github.syharipf.Loom`.
+- **Identitas:** nama `anchoa`, app ID `io.github.syharipf.Anchoa`.
 - **Lisensi:** GPL-3.0-or-later.
 - **Kualitas:** `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, dan test wajib untuk parser, Validator (termasuk input adversarial), dan skenario gagal filesystem di temp dir.
 

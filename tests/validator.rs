@@ -2,8 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use loom::plan::{Action, ActionPlan, ConflictPolicy};
-use loom::validator::{Reason, Rejection, Validator};
+use anchoa::plan::{Action, ActionPlan, ConflictPolicy};
+use anchoa::validator::{Reason, Rejection, Validator};
 
 /// Layout under a fresh temp dir:
 ///
@@ -24,7 +24,7 @@ struct Fixture {
 impl Fixture {
     fn new(name: &str) -> Self {
         let base =
-            std::env::temp_dir().join(format!("loom-validator-{name}-{}", std::process::id()));
+            std::env::temp_dir().join(format!("anchoa-validator-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let (home, outside) = (base.join("home"), base.join("outside"));
         std::fs::create_dir_all(home.join("dir")).unwrap();

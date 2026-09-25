@@ -135,6 +135,7 @@ fn mode(path: &Path) -> u32 {
 fn begin_records_a_running_operation_with_pending_items() {
     let f = Fixture::new("begin");
     let a = f.write("a.txt", "a");
+    f.write("b.txt", "b");
     std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o640)).unwrap();
     let plan = f.validate(ActionPlan {
         actions: vec![
@@ -143,8 +144,9 @@ fn begin_records_a_running_operation_with_pending_items() {
                 src: a.clone(),
                 dst: f.p("new/a.txt"),
             },
+            // Validation sees the disk before the plan runs, so chmod something that exists.
             Action::Chmod {
-                path: f.p("new"),
+                path: f.p("b.txt"),
                 mode: 0o700,
             },
         ],
@@ -174,7 +176,7 @@ fn begin_records_a_running_operation_with_pending_items() {
                 s(&a),
                 Some(s(&f.p("new/a.txt")))
             ),
-            ("chmod".into(), "pending".into(), s(&f.p("new")), None),
+            ("chmod".into(), "pending".into(), s(&f.p("b.txt")), None),
         ]
     );
 }

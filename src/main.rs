@@ -140,6 +140,7 @@ struct App {
     path_entry: gtk::Entry,
     command_entry: gtk::Entry,
     command_error: gtk::Label,
+    recall: command::Recall,
     toasts: adw::ToastOverlay,
     sidebar: Controller<Sidebar>,
     /// `None` until opened, or forever if opening the database failed; bookmarks are
@@ -172,6 +173,8 @@ enum Msg {
     FocusCommand,
     FocusFileList,
     CommandTextChanged,
+    RecallUp,
+    RecallDown,
     RunCommand(String),
     ToggleHidden,
     /// F6: cycle keyboard focus between the sidebar, file list and command panel.
@@ -224,7 +227,7 @@ enum Cmd {
         input: String,
         result: Result<(command::Preview, ActionPlan), String>,
     },
-    CommandRecordAttempt,
+    RecentCommands(Result<Vec<String>, DbError>),
     Validated(Job, Result<ValidatedPlan, Vec<Rejection>>),
     Ran(Job, Vec<ItemStatus>, Option<String>),
     UndoPlanned(file_ops::UndoPlanned),
@@ -428,6 +431,7 @@ impl Component for App {
             path_entry: gtk::Entry::new(),
             command_entry: gtk::Entry::new(),
             command_error: gtk::Label::new(None),
+            recall: command::Recall::default(),
             toasts: adw::ToastOverlay::new(),
             sidebar,
             db: None,
@@ -471,14 +475,21 @@ impl Component for App {
 
         let command_entry: &gtk::Widget = model.command_entry.upcast_ref();
         let shortcuts = gtk::ShortcutController::new();
-        let input = sender.input_sender().clone();
-        shortcuts.add_shortcut(gtk::Shortcut::new(
-            gtk::ShortcutTrigger::parse_string("Escape"),
-            Some(gtk::CallbackAction::new(move |_, _| {
-                input.emit(Msg::FocusFileList);
-                gtk::glib::Propagation::Stop
-            })),
-        ));
+        for (accel, msg) in [
+            ("Escape", Msg::FocusFileList),
+            ("Up", Msg::RecallUp),
+            ("Down", Msg::RecallDown),
+        ] {
+            let input = sender.input_sender().clone();
+            let msg = msg.clone();
+            shortcuts.add_shortcut(gtk::Shortcut::new(
+                gtk::ShortcutTrigger::parse_string(accel),
+                Some(gtk::CallbackAction::new(move |_, _| {
+                    input.emit(msg.clone());
+                    gtk::glib::Propagation::Stop
+                })),
+            ));
+        }
         command_entry.add_controller(shortcuts);
 
         // File shortcuts act on the file list only, so Delete in the path bar or the sidebar
@@ -564,6 +575,20 @@ impl Component for App {
                 self.command_error.set_visible(false);
                 None
             }
+            Msg::RecallUp => {
+                if let Some(text) = self.recall.up(self.command_entry.text().as_str()) {
+                    self.command_entry.set_text(&text);
+                    self.command_entry.set_position(text.chars().count() as i32);
+                }
+                None
+            }
+            Msg::RecallDown => {
+                if let Some(text) = self.recall.down() {
+                    self.command_entry.set_text(&text);
+                    self.command_entry.set_position(text.chars().count() as i32);
+                }
+                None
+            }
             Msg::RunCommand(input) => {
                 self.command_error.set_text("");
                 self.command_error.set_visible(false);
@@ -594,7 +619,7 @@ impl Component for App {
                                     None,
                                     file_ops::now(),
                                 );
-                                Cmd::CommandRecordAttempt
+                                Cmd::RecentCommands(history::recent_commands(&conn, 100))
                             });
                         }
                     }
@@ -791,7 +816,8 @@ impl Component for App {
                 }
                 Err(err) => self.toasts.add_toast(adw::Toast::new(&err)),
             },
-            Cmd::CommandRecordAttempt => {}
+            Cmd::RecentCommands(Ok(items)) => self.recall = command::Recall::new(items),
+            Cmd::RecentCommands(Err(_)) => {}
             Cmd::Validated(job, Ok(plan)) | Cmd::UndoPlanned(Ok(Some((job, Ok(plan))))) => {
                 let run = Msg::Run(job.clone(), plan.clone());
                 file_ops::confirm(root, &job, plan.plan(), sender.input_sender().clone(), run);
@@ -863,6 +889,9 @@ impl Component for App {
                 if let Some(warning) = warning {
                     self.toasts.add_toast(adw::Toast::new(&warning));
                 }
+                if matches!(job, Job::Command { .. }) {
+                    self.load_recent_commands(&sender);
+                }
                 sender.input(Msg::Open(self.cwd.clone()));
             }
             Cmd::Listed(dir, nav, result) => {
@@ -910,6 +939,7 @@ impl Component for App {
             Cmd::DbOpened(Ok(conn)) => {
                 self.db = Some(Arc::new(Mutex::new(conn)));
                 self.with_bookmarks(&sender, |_| Ok(()));
+                self.load_recent_commands(&sender);
             }
             Cmd::DbOpened(Err(err)) => self.bookmarks_unavailable(err),
             Cmd::Bookmarks(Ok(list)) => self.sidebar.emit(SidebarMsg::SetBookmarks(list)),
@@ -938,6 +968,14 @@ impl Component for App {
 }
 
 impl App {
+    fn load_recent_commands(&self, sender: &ComponentSender<Self>) {
+        let Some(db) = self.db.clone() else { return };
+        sender.spawn_oneshot_command(move || {
+            let conn = db.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            Cmd::RecentCommands(history::recent_commands(&conn, 100))
+        });
+    }
+
     /// Runs `op` against the database on a worker thread, then reloads the bookmark list
     /// and forwards it to the sidebar. A no-op if the database never opened.
     fn with_bookmarks<F>(&self, sender: &ComponentSender<Self>, op: F)

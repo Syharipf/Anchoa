@@ -1,0 +1,10 @@
+[package]
+name = "loom"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+relm4 = { version = "0.11.0", features = ["libadwaita"] }
+rusqlite = "0.40.2"
+thiserror = "2.0.21"

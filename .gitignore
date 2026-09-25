@@ -1,0 +1,17 @@
+/target
+
+# Local state, secrets, and large binaries — never commit
+.env
+.env.*
+*.db
+*.db-*
+*.gguf
+.claude/settings.local.json
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Local agent instructions
+CLAUDE.md

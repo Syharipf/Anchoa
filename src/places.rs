@@ -1,7 +1,7 @@
 //! Sidebar locations: XDG user directories and mounted drives.
 
 use relm4::gtk::glib;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Place {
@@ -50,12 +50,11 @@ pub fn standard_places() -> Vec<Place> {
     places
 }
 
-/// Directories that hold mount points: `/run/media/$USER` (udisks2) and `/mnt`.
+/// Directories that hold manual mount points (`/mnt`). Drives mounted through udisks2
+/// (`/run/media/$USER`) come from `gio::VolumeMonitor` instead, which also sees them before
+/// they are mounted.
 pub fn drive_roots() -> Vec<PathBuf> {
-    vec![
-        Path::new("/run/media").join(glib::user_name()),
-        PathBuf::from("/mnt"),
-    ]
+    vec![PathBuf::from("/mnt")]
 }
 
 /// One `Place` per sub-directory of each root (icon `drive-harddisk-symbolic`, label = directory
@@ -92,6 +91,7 @@ pub fn drives(roots: &[PathBuf]) -> Vec<Place> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("loom-{name}-{}", std::process::id()));
@@ -132,10 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn drive_roots_are_media_and_mnt() {
-        let roots = drive_roots();
-        assert_eq!(roots.len(), 2);
-        assert!(roots[0].starts_with("/run/media"));
-        assert_eq!(roots[1], Path::new("/mnt"));
+    fn drive_roots_is_mnt() {
+        assert_eq!(drive_roots(), [Path::new("/mnt")]);
     }
 }

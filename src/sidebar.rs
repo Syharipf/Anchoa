@@ -1,16 +1,16 @@
-//! Sidebar: standard places, mounted drives, and user bookmarks.
+//! Sidebar: standard places, drives, and user bookmarks.
 //!
 //! Rows are rebuilt from scratch whenever a section changes; the lists involved
 //! are small (a handful of places/drives/bookmarks), so this is simpler than
 //! diffing and keeps [`RowKind`] (the row -> item mapping) trivially in sync.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use loom::db::Bookmark;
 use loom::places::Place;
 use relm4::RelmRemoveAllExt;
 use relm4::gtk;
-use relm4::gtk::prelude::*;
+use relm4::gtk::{gdk, prelude::*};
 use relm4::prelude::*;
 
 /// What a row at a given index represents. Indexed the same as the `ListBox`'s rows.
@@ -19,13 +19,31 @@ enum RowKind {
     /// A non-selectable, non-activatable section title.
     Header,
     Place(PathBuf),
+    /// A volume that is not mounted yet, by unix device (`/dev/sdc1`).
+    Volume(String),
     Bookmark(i64, PathBuf),
+}
+
+/// A row in the Drives section.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Drive {
+    pub label: String,
+    /// Symbolic icon name.
+    pub icon: &'static str,
+    pub target: DriveTarget,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DriveTarget {
+    Mounted(PathBuf),
+    /// Mounted on activation; the unix device (`/dev/sdc1`) identifies the volume.
+    Unmounted(String),
 }
 
 pub struct Sidebar {
     list: gtk::ListBox,
     places: Vec<Place>,
-    drives: Vec<Place>,
+    drives: Vec<Drive>,
     bookmarks: Vec<Bookmark>,
     /// Row -> item mapping, rebuilt alongside `list`'s children.
     rows: Vec<RowKind>,
@@ -34,7 +52,7 @@ pub struct Sidebar {
 #[derive(Debug, Clone)]
 pub enum Msg {
     SetPlaces(Vec<Place>),
-    SetDrives(Vec<Place>),
+    SetDrives(Vec<Drive>),
     SetBookmarks(Vec<Bookmark>),
     /// Grab focus on the selected row, or the first activatable row.
     Focus,
@@ -44,6 +62,11 @@ pub enum Msg {
     DeleteSelected,
     /// Internal: Alt+Shift+Up/Down pressed while a row is selected (`true` = up).
     MoveSelected(bool),
+    /// Internal: bookmark `id` was dropped at `y` (list coordinates).
+    DropBookmark {
+        id: i64,
+        y: f64,
+    },
 }
 
 #[derive(Debug)]
@@ -51,6 +74,8 @@ pub enum Output {
     Open(PathBuf),
     RemoveBookmark(i64),
     MoveBookmark { id: i64, up: bool },
+    MoveBookmarkTo { id: i64, position: i64 },
+    Mount(String),
 }
 
 #[relm4::component(pub)]
@@ -107,6 +132,18 @@ impl SimpleComponent for Sidebar {
         }
         model.list.add_controller(shortcuts);
 
+        // Bookmarks are reordered by dragging one onto another (rows carry their id).
+        let drop = gtk::DropTarget::new(i64::static_type(), gdk::DragAction::MOVE);
+        let input = sender.input_sender().clone();
+        drop.connect_drop(move |_, value, _, y| {
+            let Ok(id) = value.get::<i64>() else {
+                return false;
+            };
+            input.emit(Msg::DropBookmark { id, y });
+            true
+        });
+        model.list.add_controller(drop);
+
         ComponentParts { model, widgets }
     }
 
@@ -125,11 +162,15 @@ impl SimpleComponent for Sidebar {
                 self.rebuild();
             }
             Msg::Focus => self.focus(),
-            Msg::RowActivated(index) => {
-                if let Some(path) = self.rows.get(index as usize).and_then(RowKind::path) {
+            Msg::RowActivated(index) => match self.rows.get(index as usize) {
+                Some(RowKind::Place(path) | RowKind::Bookmark(_, path)) => {
                     let _ = sender.output(Output::Open(path.clone()));
                 }
-            }
+                Some(RowKind::Volume(device)) => {
+                    let _ = sender.output(Output::Mount(device.clone()));
+                }
+                Some(RowKind::Header) | None => {}
+            },
             Msg::DeleteSelected => {
                 if let Some(RowKind::Bookmark(id, _)) = self.selected_kind() {
                     let _ = sender.output(Output::RemoveBookmark(id));
@@ -140,15 +181,18 @@ impl SimpleComponent for Sidebar {
                     let _ = sender.output(Output::MoveBookmark { id, up });
                 }
             }
-        }
-    }
-}
-
-impl RowKind {
-    fn path(&self) -> Option<&PathBuf> {
-        match self {
-            RowKind::Header => None,
-            RowKind::Place(path) | RowKind::Bookmark(_, path) => Some(path),
+            Msg::DropBookmark { id, y } => {
+                let target = self
+                    .list
+                    .row_at_y(y as i32)
+                    .and_then(|row| self.rows.get(row.index() as usize));
+                if let Some(RowKind::Bookmark(target, _)) = target
+                    && let Some(position) = self.bookmarks.iter().position(|b| b.id == *target)
+                {
+                    let position = position as i64;
+                    let _ = sender.output(Output::MoveBookmarkTo { id, position });
+                }
+            }
         }
     }
 }
@@ -195,7 +239,17 @@ impl Sidebar {
         if !self.drives.is_empty() {
             self.push_header("Drives");
             for drive in self.drives.clone() {
-                self.push_place(drive);
+                let kind = match drive.target {
+                    DriveTarget::Mounted(path) => RowKind::Place(path),
+                    DriveTarget::Unmounted(device) => RowKind::Volume(device),
+                };
+                let tooltip = match &kind {
+                    RowKind::Place(path) => path.to_string_lossy().into_owned(),
+                    _ => "Not mounted: activate to mount".to_string(),
+                };
+                self.list
+                    .append(&Self::item_row(drive.icon, &drive.label, &tooltip));
+                self.rows.push(kind);
             }
         }
 
@@ -223,17 +277,32 @@ impl Sidebar {
     }
 
     fn push_place(&mut self, place: Place) {
-        self.list
-            .append(&Self::item_row(place.icon, &place.label, &place.path));
+        self.list.append(&Self::item_row(
+            place.icon,
+            &place.label,
+            &place.path.to_string_lossy(),
+        ));
         self.rows.push(RowKind::Place(place.path));
     }
 
     fn push_bookmark(&mut self, bookmark: Bookmark) {
-        self.list.append(&Self::item_row(
+        let row = Self::item_row(
             "folder-symbolic",
             &bookmark.label,
-            &bookmark.path,
-        ));
+            &bookmark.path.to_string_lossy(),
+        );
+        let drag = gtk::DragSource::new();
+        drag.set_actions(gdk::DragAction::MOVE);
+        drag.set_content(Some(&gdk::ContentProvider::for_value(
+            &bookmark.id.to_value(),
+        )));
+        drag.connect_drag_begin(|source, _| {
+            if let Some(row) = source.widget() {
+                source.set_icon(Some(&gtk::WidgetPaintable::new(Some(&row))), 0, 0);
+            }
+        });
+        row.add_controller(drag);
+        self.list.append(&row);
         self.rows
             .push(RowKind::Bookmark(bookmark.id, bookmark.path));
     }
@@ -254,7 +323,7 @@ impl Sidebar {
         row
     }
 
-    fn item_row(icon: &str, label: &str, path: &Path) -> gtk::ListBoxRow {
+    fn item_row(icon: &str, label: &str, tooltip: &str) -> gtk::ListBoxRow {
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         content.append(&gtk::Image::from_icon_name(icon));
         content.append(
@@ -266,7 +335,7 @@ impl Sidebar {
         );
         let row = gtk::ListBoxRow::new();
         row.set_child(Some(&content));
-        row.set_tooltip_text(Some(&path.to_string_lossy()));
+        row.set_tooltip_text(Some(tooltip));
         row
     }
 }

@@ -142,23 +142,36 @@ pub fn remove_bookmark(conn: &mut Connection, id: i64) -> Result<(), DbError> {
     Ok(())
 }
 
-/// Swaps a bookmark with its neighbour: `up = true` moves it one place earlier.
+/// Moves a bookmark one place: `up = true` moves it one place earlier.
 /// No-op at either end or for an unknown `id`.
 pub fn move_bookmark(conn: &mut Connection, id: i64, up: bool) -> Result<(), DbError> {
+    let Some(position) = position_of(conn, id)? else {
+        return Ok(());
+    };
+    move_bookmark_to(conn, id, if up { position - 1 } else { position + 1 })
+}
+
+/// Moves a bookmark to `position` (clamped to the list), shifting the ones in between.
+/// No-op for an unknown `id`.
+pub fn move_bookmark_to(conn: &mut Connection, id: i64, position: i64) -> Result<(), DbError> {
     let tx = conn.transaction()?;
-    if let Some(position) = position_of(&tx, id)? {
-        let target = if up { position - 1 } else { position + 1 };
-        // Positions are contiguous, so the neighbour (if any) sits exactly at `target`.
-        let swapped = tx.execute(
-            "UPDATE bookmark SET position = ?1 WHERE position = ?2",
-            [position, target],
-        )?;
-        if swapped == 1 {
+    if let Some(from) = position_of(&tx, id)? {
+        let last: i64 = tx.query_row("SELECT MAX(position) FROM bookmark", [], |row| row.get(0))?;
+        let to = position.clamp(0, last);
+        // Positions are contiguous, so shifting the range between `from` and `to` by one
+        // leaves exactly the gap at `to`.
+        if to < from {
             tx.execute(
-                "UPDATE bookmark SET position = ?1 WHERE id = ?2",
-                [target, id],
+                "UPDATE bookmark SET position = position + 1 WHERE position >= ?1 AND position < ?2",
+                [to, from],
+            )?;
+        } else {
+            tx.execute(
+                "UPDATE bookmark SET position = position - 1 WHERE position > ?1 AND position <= ?2",
+                [from, to],
             )?;
         }
+        tx.execute("UPDATE bookmark SET position = ?1 WHERE id = ?2", [to, id])?;
     }
     tx.commit()?;
     Ok(())
@@ -263,6 +276,25 @@ mod tests {
         move_bookmark(&mut conn, b, false).unwrap();
         assert_eq!(labels(&conn), ["c", "a", "b"]);
         assert_eq!(positions(&conn), [0, 1, 2]);
+    }
+
+    #[test]
+    fn move_bookmark_to_inserts_at_position_and_clamps() {
+        let mut conn = db();
+        for name in ["a", "b", "c", "d"] {
+            add_bookmark(&conn, &Path::new("/").join(name), name).unwrap();
+        }
+        let (a, d) = (id_of(&conn, "a"), id_of(&conn, "d"));
+        move_bookmark_to(&mut conn, a, 2).unwrap();
+        assert_eq!(labels(&conn), ["b", "c", "a", "d"]);
+        move_bookmark_to(&mut conn, d, 0).unwrap();
+        assert_eq!(labels(&conn), ["d", "b", "c", "a"]);
+        move_bookmark_to(&mut conn, d, 99).unwrap();
+        assert_eq!(labels(&conn), ["b", "c", "a", "d"]);
+        move_bookmark_to(&mut conn, a, -5).unwrap();
+        move_bookmark_to(&mut conn, 9999, 0).unwrap();
+        assert_eq!(labels(&conn), ["a", "b", "c", "d"]);
+        assert_eq!(positions(&conn), [0, 1, 2, 3]);
     }
 
     fn user_version(conn: &Connection) -> u32 {

@@ -7,12 +7,13 @@ use std::sync::{Arc, Mutex};
 use loom::db::{self, Bookmark, DbError};
 use loom::fs::{self, Entry};
 use loom::places::{self, Place};
+use relm4::gtk::gio;
 use relm4::gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::typed_view::OrdFn;
 use relm4::typed_view::column::{LabelColumn, RelmColumn, TypedColumnView};
 use relm4::{adw, gtk};
-use sidebar::{Msg as SidebarMsg, Output as SidebarOutput, Sidebar};
+use sidebar::{Drive, DriveTarget, Msg as SidebarMsg, Output as SidebarOutput, Sidebar};
 
 const APP_ID: &str = "io.github.syharipf.Loom";
 
@@ -136,7 +137,9 @@ struct App {
     /// then simply unavailable, core navigation keeps working regardless.
     db: Option<Arc<Mutex<rusqlite::Connection>>>,
     /// Held only to keep drive-mount notifications firing.
-    _drive_monitors: Vec<gtk::gio::FileMonitor>,
+    _drive_monitors: Vec<gio::FileMonitor>,
+    /// Plugged-in volumes, mounted or not (via udisks2); also fires on (un)plug and (un)mount.
+    volumes: gio::VolumeMonitor,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -165,7 +168,14 @@ enum Msg {
         id: i64,
         up: bool,
     },
+    MoveBookmarkTo {
+        id: i64,
+        position: i64,
+    },
     RefreshDrives,
+    /// Mount the volume with this unix device, then open it.
+    MountVolume(String),
+    Mounted(Result<PathBuf, String>),
 }
 
 #[derive(Debug)]
@@ -268,6 +278,10 @@ impl Component for App {
                     SidebarOutput::Open(path) => Msg::Open(path),
                     SidebarOutput::RemoveBookmark(id) => Msg::RemoveBookmark(id),
                     SidebarOutput::MoveBookmark { id, up } => Msg::MoveBookmark { id, up },
+                    SidebarOutput::MoveBookmarkTo { id, position } => {
+                        Msg::MoveBookmarkTo { id, position }
+                    }
+                    SidebarOutput::Mount(device) => Msg::MountVolume(device),
                 });
 
         // Drive contents are read on a worker thread; live updates just re-trigger that scan.
@@ -275,17 +289,32 @@ impl Component for App {
         let drive_monitors = drive_roots
             .iter()
             .filter_map(|root| {
-                let monitor = gtk::gio::File::for_path(root)
-                    .monitor_directory(
-                        gtk::gio::FileMonitorFlags::NONE,
-                        gtk::gio::Cancellable::NONE,
-                    )
+                let monitor = gio::File::for_path(root)
+                    .monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
                     .ok()?;
                 let input = sender.input_sender().clone();
                 monitor.connect_changed(move |_, _, _, _| input.emit(Msg::RefreshDrives));
                 Some(monitor)
             })
             .collect();
+        let volumes = gio::VolumeMonitor::get();
+        let refresh = {
+            let input = sender.input_sender().clone();
+            move || input.emit(Msg::RefreshDrives)
+        };
+        {
+            let refresh = refresh.clone();
+            volumes.connect_volume_added(move |_, _| refresh());
+        }
+        {
+            let refresh = refresh.clone();
+            volumes.connect_volume_removed(move |_, _| refresh());
+        }
+        {
+            let refresh = refresh.clone();
+            volumes.connect_mount_added(move |_, _| refresh());
+        }
+        volumes.connect_mount_removed(move |_, _| refresh());
         sender.spawn_oneshot_command(|| Cmd::Places(places::standard_places()));
         sender.spawn_oneshot_command(move || Cmd::Drives(places::drives(&drive_roots)));
 
@@ -301,6 +330,7 @@ impl Component for App {
             sidebar,
             db: None,
             _drive_monitors: drive_monitors,
+            volumes,
         };
         let path_entry = &model.path_entry;
         let toasts = &model.toasts;
@@ -370,9 +400,7 @@ impl Component for App {
                 None
             }
             Msg::ToggleSidebarFocus => {
-                let focus_in_sidebar = gtk::prelude::RootExt::focus(root)
-                    .is_some_and(|widget| widget.is_ancestor(self.sidebar.widget()));
-                if focus_in_sidebar {
+                if self.sidebar_has_focus(root) {
                     self.entries.view.grab_focus();
                 } else {
                     self.sidebar.emit(SidebarMsg::Focus);
@@ -391,6 +419,22 @@ impl Component for App {
                 self.with_bookmarks(&sender, move |conn| db::move_bookmark(conn, id, up));
                 None
             }
+            Msg::MoveBookmarkTo { id, position } => {
+                self.with_bookmarks(&sender, move |conn| {
+                    db::move_bookmark_to(conn, id, position)
+                });
+                None
+            }
+            Msg::MountVolume(device) => {
+                self.mount(&device, &sender, root);
+                None
+            }
+            Msg::Mounted(Ok(path)) => Some((path, Nav::New)),
+            Msg::Mounted(Err(err)) => {
+                self.toasts
+                    .add_toast(adw::Toast::new(&format!("Cannot mount: {err}")));
+                None
+            }
             Msg::RefreshDrives => {
                 sender
                     .spawn_oneshot_command(|| Cmd::Drives(places::drives(&places::drive_roots())));
@@ -406,7 +450,7 @@ impl Component for App {
         }
     }
 
-    fn update_cmd(&mut self, cmd: Cmd, sender: ComponentSender<Self>, _: &Self::Root) {
+    fn update_cmd(&mut self, cmd: Cmd, sender: ComponentSender<Self>, root: &Self::Root) {
         match cmd {
             Cmd::Listed(dir, nav, result) => {
                 if self.requested.as_ref() != Some(&(dir.clone(), nav)) {
@@ -443,7 +487,11 @@ impl Component for App {
                 self.entries.clear();
                 self.entries.extend_from_iter(list);
                 self.path_entry.set_text(&self.cwd.to_string_lossy());
-                self.entries.view.grab_focus();
+                // Opened from the sidebar: keep focus there, so Delete and reordering still
+                // act on the row that was just clicked.
+                if !self.sidebar_has_focus(root) {
+                    self.entries.view.grab_focus();
+                }
             }
             Cmd::DbOpened(Ok(conn)) => {
                 self.db = Some(Arc::new(Mutex::new(conn)));
@@ -462,7 +510,15 @@ impl Component for App {
             }
             Cmd::BookmarkAdded(Err(err)) => self.bookmarks_unavailable(err),
             Cmd::Places(list) => self.sidebar.emit(SidebarMsg::SetPlaces(list)),
-            Cmd::Drives(list) => self.sidebar.emit(SidebarMsg::SetDrives(list)),
+            Cmd::Drives(mnt) => {
+                let mut drives = volume_drives(&self.volumes);
+                drives.extend(mnt.into_iter().map(|place| Drive {
+                    label: place.label,
+                    icon: place.icon,
+                    target: DriveTarget::Mounted(place.path),
+                }));
+                self.sidebar.emit(SidebarMsg::SetDrives(drives));
+            }
         }
     }
 }
@@ -507,10 +563,72 @@ impl App {
         });
     }
 
+    fn sidebar_has_focus(&self, root: &adw::ApplicationWindow) -> bool {
+        gtk::prelude::RootExt::focus(root)
+            .is_some_and(|widget| widget.is_ancestor(self.sidebar.widget()))
+    }
+
+    /// Mounts the volume asynchronously (udisks2 may ask for a password through `root`),
+    /// then opens it via [`Msg::Mounted`].
+    fn mount(&self, device: &str, sender: &ComponentSender<Self>, root: &adw::ApplicationWindow) {
+        let Some(volume) = self
+            .volumes
+            .volumes()
+            .into_iter()
+            .find(|v| v.identifier("unix-device").as_deref() == Some(device))
+        else {
+            return;
+        };
+        let input = sender.input_sender().clone();
+        let mounted = volume.clone();
+        volume.mount(
+            gio::MountMountFlags::NONE,
+            Some(&gtk::MountOperation::new(Some(root))),
+            gio::Cancellable::NONE,
+            move |result| {
+                let path = result
+                    .map_err(|err| err.message().to_owned())
+                    .and_then(|()| {
+                        mounted
+                            .get_mount()
+                            .and_then(|mount| mount.root().path())
+                            .ok_or_else(|| "mounted, but it has no local folder".to_owned())
+                    });
+                input.emit(Msg::Mounted(path));
+            },
+        );
+    }
+
     fn bookmarks_unavailable(&self, err: DbError) {
         self.toasts
             .add_toast(adw::Toast::new(&format!("Bookmarks unavailable: {err}")));
     }
+}
+
+/// Local volumes from udisks2, mounted or not. Network mounts are left out: they have no
+/// unix device, and remote locations are out of scope for v1.
+fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {
+    monitor
+        .volumes()
+        .into_iter()
+        .filter_map(|volume| {
+            let device = volume.identifier("unix-device")?;
+            let removable = volume.drive().is_some_and(|drive| drive.is_removable());
+            let target = match volume.get_mount().and_then(|mount| mount.root().path()) {
+                Some(path) => DriveTarget::Mounted(path),
+                None => DriveTarget::Unmounted(device.into()),
+            };
+            Some(Drive {
+                label: volume.name().into(),
+                icon: if removable {
+                    "drive-removable-media-symbolic"
+                } else {
+                    "drive-harddisk-symbolic"
+                },
+                target,
+            })
+        })
+        .collect()
 }
 
 fn main() {

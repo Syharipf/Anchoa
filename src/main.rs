@@ -117,23 +117,41 @@ impl LabelColumn for ModifiedColumn {
 
 struct App {
     cwd: PathBuf,
-    /// Directory whose listing is in flight; results for any other path are stale.
-    requested: PathBuf,
+    /// Listing in flight and how we got there; results for any other path are stale.
+    requested: Option<(PathBuf, Nav)>,
+    back: Vec<PathBuf>,
+    forward: Vec<PathBuf>,
+    show_hidden: bool,
     entries: TypedColumnView<Entry, gtk::SingleSelection>,
+    path_entry: gtk::Entry,
     toasts: adw::ToastOverlay,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Nav {
+    New,
+    Back,
+    Forward,
+}
+
+#[derive(Debug, Clone)]
 enum Msg {
     Open(PathBuf),
+    OpenInput(String),
     Up,
+    Back,
+    Forward,
     Activate(u32),
+    FocusPath,
+    ToggleHidden,
 }
 
 #[derive(Debug)]
 enum Cmd {
-    Listed(PathBuf, io::Result<Vec<Entry>>),
+    Listed(PathBuf, Nav, io::Result<Vec<Entry>>),
 }
+
+const HIDDEN_FILTER: usize = 0;
 
 #[relm4::component]
 impl Component for App {
@@ -144,6 +162,7 @@ impl Component for App {
 
     view! {
         adw::ApplicationWindow {
+            set_title: Some("Loom"),
             set_default_size: (960, 640),
 
             gtk::Box {
@@ -151,16 +170,33 @@ impl Component for App {
 
                 adw::HeaderBar {
                     pack_start = &gtk::Button {
+                        set_icon_name: "go-previous-symbolic",
+                        set_tooltip_text: Some("Back (Alt+Left)"),
+                        #[watch]
+                        set_sensitive: !model.back.is_empty(),
+                        connect_clicked => Msg::Back,
+                    },
+                    pack_start = &gtk::Button {
+                        set_icon_name: "go-next-symbolic",
+                        set_tooltip_text: Some("Forward (Alt+Right)"),
+                        #[watch]
+                        set_sensitive: !model.forward.is_empty(),
+                        connect_clicked => Msg::Forward,
+                    },
+                    pack_start = &gtk::Button {
                         set_icon_name: "go-up-symbolic",
                         set_tooltip_text: Some("Parent folder (Alt+Up)"),
                         connect_clicked => Msg::Up,
                     },
 
+                    #[local_ref]
                     #[wrap(Some)]
-                    set_title_widget = &adw::WindowTitle {
-                        set_title: "Loom",
-                        #[watch]
-                        set_subtitle: &model.cwd.to_string_lossy(),
+                    set_title_widget = path_entry -> gtk::Entry {
+                        set_hexpand: true,
+                        set_tooltip_text: Some("Location (Ctrl+L)"),
+                        connect_activate[sender] => move |entry| {
+                            sender.input(Msg::OpenInput(entry.text().into()));
+                        },
                     },
                 },
 
@@ -187,29 +223,41 @@ impl Component for App {
         entries.append_column::<SizeColumn>();
         entries.append_column::<PermissionColumn>();
         entries.append_column::<ModifiedColumn>();
-        // ponytail: hidden files always filtered; Ctrl+H toggle comes with the settings work.
         entries.add_filter(|e| !e.name.starts_with('.'));
 
         let model = App {
             cwd: dir.clone(),
-            requested: PathBuf::new(),
+            requested: None,
+            back: Vec::new(),
+            forward: Vec::new(),
+            show_hidden: false,
             entries,
+            path_entry: gtk::Entry::new(),
             toasts: adw::ToastOverlay::new(),
         };
+        let path_entry = &model.path_entry;
         let toasts = &model.toasts;
         let entries_view = &model.entries.view;
         let widgets = view_output!();
 
         let shortcuts = gtk::ShortcutController::new();
         shortcuts.set_scope(gtk::ShortcutScope::Global);
-        let up = sender.input_sender().clone();
-        shortcuts.add_shortcut(gtk::Shortcut::new(
-            gtk::ShortcutTrigger::parse_string("<Alt>Up"),
-            Some(gtk::CallbackAction::new(move |_, _| {
-                up.emit(Msg::Up);
-                gtk::glib::Propagation::Stop
-            })),
-        ));
+        for (accel, msg) in [
+            ("<Alt>Up", Msg::Up),
+            ("<Alt>Left", Msg::Back),
+            ("<Alt>Right", Msg::Forward),
+            ("<Ctrl>L", Msg::FocusPath),
+            ("<Ctrl>H", Msg::ToggleHidden),
+        ] {
+            let input = sender.input_sender().clone();
+            shortcuts.add_shortcut(gtk::Shortcut::new(
+                gtk::ShortcutTrigger::parse_string(accel),
+                Some(gtk::CallbackAction::new(move |_, _| {
+                    input.emit(msg.clone());
+                    gtk::glib::Propagation::Stop
+                })),
+            ));
+        }
         root.add_controller(shortcuts);
 
         sender.input(Msg::Open(dir));
@@ -217,47 +265,78 @@ impl Component for App {
     }
 
     fn update(&mut self, msg: Msg, sender: ComponentSender<Self>, _: &Self::Root) {
-        match msg {
-            Msg::Open(dir) => {
-                self.requested = dir.clone();
-                sender.spawn_oneshot_command(move || {
-                    let result = fs::list_dir(&dir);
-                    Cmd::Listed(dir, result)
-                });
+        let target = match msg {
+            Msg::Open(dir) => Some((dir, Nav::New)),
+            Msg::OpenInput(text) => Some((
+                fs::resolve_input(&text, &self.cwd, &gtk::glib::home_dir()),
+                Nav::New,
+            )),
+            Msg::Up => self.cwd.parent().map(|p| (p.to_path_buf(), Nav::New)),
+            Msg::Back => self.back.last().map(|p| (p.clone(), Nav::Back)),
+            Msg::Forward => self.forward.last().map(|p| (p.clone(), Nav::Forward)),
+            Msg::Activate(position) => self
+                .entries
+                .get_visible(position)
+                .map(|item| item.borrow().clone())
+                .filter(|entry| entry.is_dir)
+                .map(|entry| (entry.path, Nav::New)),
+            Msg::FocusPath => {
+                self.path_entry.grab_focus();
+                None
             }
-            Msg::Up => {
-                if let Some(parent) = self.cwd.parent() {
-                    sender.input(Msg::Open(parent.to_path_buf()));
-                }
+            Msg::ToggleHidden => {
+                self.show_hidden = !self.show_hidden;
+                self.entries
+                    .set_filter_status(HIDDEN_FILTER, !self.show_hidden);
+                None
             }
-            Msg::Activate(position) => {
-                let Some(item) = self.entries.get_visible(position) else {
-                    return;
-                };
-                let entry = item.borrow();
-                if entry.is_dir {
-                    sender.input(Msg::Open(entry.path.clone()));
-                }
-            }
+        };
+        if let Some((dir, nav)) = target {
+            self.requested = Some((dir.clone(), nav));
+            sender.spawn_oneshot_command(move || {
+                let result = fs::list_dir(&dir);
+                Cmd::Listed(dir, nav, result)
+            });
         }
     }
 
     fn update_cmd(&mut self, cmd: Cmd, _: ComponentSender<Self>, _: &Self::Root) {
-        let Cmd::Listed(dir, result) = cmd;
-        if dir != self.requested {
+        let Cmd::Listed(dir, nav, result) = cmd;
+        if self.requested.as_ref() != Some(&(dir.clone(), nav)) {
             return;
         }
-        match result {
-            Ok(list) => {
-                self.entries.clear();
-                self.entries.extend_from_iter(list);
-                self.cwd = dir;
+        self.requested = None;
+        let list = match result {
+            Ok(list) => list,
+            Err(err) => {
+                self.toasts.add_toast(adw::Toast::new(&format!(
+                    "Cannot open {}: {err}",
+                    dir.display()
+                )));
+                return;
             }
-            Err(err) => self.toasts.add_toast(adw::Toast::new(&format!(
-                "Cannot open {}: {err}",
-                dir.display()
-            ))),
+        };
+        if dir != self.cwd {
+            let previous = std::mem::replace(&mut self.cwd, dir);
+            match nav {
+                Nav::New => {
+                    self.back.push(previous);
+                    self.forward.clear();
+                }
+                Nav::Back => {
+                    self.back.pop();
+                    self.forward.push(previous);
+                }
+                Nav::Forward => {
+                    self.forward.pop();
+                    self.back.push(previous);
+                }
+            }
         }
+        self.entries.clear();
+        self.entries.extend_from_iter(list);
+        self.path_entry.set_text(&self.cwd.to_string_lossy());
+        self.entries.view.grab_focus();
     }
 }
 

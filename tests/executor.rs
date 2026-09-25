@@ -109,13 +109,14 @@ fn move_rename_mkdir_chmod() {
                 src: a.clone(),
                 dst: moved.clone(),
             },
+            // Validation sees the disk before the plan runs, so chmod the name that exists now.
+            Action::Chmod {
+                path: b.clone(),
+                mode: 0o600,
+            },
             Action::Rename {
                 src: b.clone(),
                 dst: renamed.clone(),
-            },
-            Action::Chmod {
-                path: renamed.clone(),
-                mode: 0o600,
             },
         ],
         None,
@@ -125,8 +126,8 @@ fn move_rename_mkdir_chmod() {
         [
             ItemStatus::Done { dst: None },
             done(&moved),
+            ItemStatus::Done { dst: None },
             done(&renamed),
-            ItemStatus::Done { dst: None }
         ]
     );
     assert!(!a.exists() && !b.exists());

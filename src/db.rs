@@ -70,6 +70,12 @@ const MIGRATIONS: &[&str] = &[
         created_at INTEGER NOT NULL
     );
     ",
+    // v2: per-item kind, since one plan mixes kinds (`mkdir` for the destination + `move`).
+    // NULL only for rows written before v2.
+    "
+    ALTER TABLE operation_item ADD COLUMN kind TEXT
+        CHECK (kind IN ('move', 'copy', 'trash', 'rename', 'mkdir', 'chmod'));
+    ",
 ];
 
 /// Opens (creating if needed) the database at `path` and applies pending migrations.

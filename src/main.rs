@@ -610,7 +610,9 @@ impl Component for App {
             Msg::ToggleSidebarFocus => {
                 if self.sidebar_has_focus(root) {
                     self.entries.view.grab_focus();
-                } else if self.command_entry.has_focus() {
+                } else if gtk::prelude::RootExt::focus(root)
+                    .is_some_and(|widget| widget.is_ancestor(&self.command_entry))
+                {
                     self.sidebar.emit(SidebarMsg::Focus);
                 } else {
                     self.command_entry.grab_focus();

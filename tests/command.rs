@@ -2,8 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use loom::command::{EXAMPLES, Preview, examples, preview};
-use loom::plan::{Action, ActionPlan};
+use anchoa::command::{EXAMPLES, Preview, examples, preview};
+use anchoa::plan::{Action, ActionPlan};
 
 fn verb(example: &str) -> &str {
     example.split_whitespace().next().unwrap()

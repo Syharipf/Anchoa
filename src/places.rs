@@ -110,7 +110,7 @@ mod tests {
     use std::path::Path;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("loom-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("anchoa-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -127,7 +127,7 @@ mod tests {
 
         let found = drives(&[
             media.clone(),
-            Path::new("/nonexistent/loom").into(),
+            Path::new("/nonexistent/anchoa").into(),
             mnt.clone(),
         ]);
         let labels: Vec<_> = found.iter().map(|p| p.label.as_str()).collect();

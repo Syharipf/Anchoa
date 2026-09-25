@@ -7,11 +7,11 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 
-use loom::executor::{ItemStatus, execute};
-use loom::history::{self, ResolvedBy, SkipReason, Skipped, Source, UndoPlan};
-use loom::plan::{Action, ActionPlan, ConflictPolicy};
-use loom::trash::Trashed;
-use loom::validator::{ValidatedPlan, Validator};
+use anchoa::executor::{ItemStatus, execute};
+use anchoa::history::{self, ResolvedBy, SkipReason, Skipped, Source, UndoPlan};
+use anchoa::plan::{Action, ActionPlan, ConflictPolicy};
+use anchoa::trash::Trashed;
+use anchoa::validator::{ValidatedPlan, Validator};
 use rusqlite::Connection;
 
 const NOW: i64 = 1_800_000_000;
@@ -40,7 +40,7 @@ impl Fixture {
             .join(format!("history-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("files")).unwrap();
-        let conn = loom::db::open(&root.join("history.db")).unwrap();
+        let conn = anchoa::db::open(&root.join("history.db")).unwrap();
         Self { root, conn }
     }
 

@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "anchoa"
+version = "0.1.0"
+dependencies = [
+ "libadwaita",
+ "relm4",
+ "rusqlite",
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -591,18 +603,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
-]
-
-[[package]]
-name = "loom"
-version = "0.1.0"
-dependencies = [
- "libadwaita",
- "relm4",
- "rusqlite",
- "serde",
- "thiserror",
- "toml",
 ]
 
 [[package]]

@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn open_creates_parent_dir_and_cascades_items() {
-        let dir = std::env::temp_dir().join(format!("loom-db-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("anchoa-db-test-{}", std::process::id()));
         let conn = open(&dir.join("nested/history.db")).unwrap();
         conn.execute_batch(
             "INSERT INTO operation (id, kind, source, status, created_at) VALUES (1, 'move', 'rule', 'done', 0);

@@ -36,7 +36,7 @@ Perintah yang dibatalkan di dialog konfirmasi tidak dicatat — `command_history
 
 ## Unit baru
 
-### `loom::command` (baru, `src/command.rs`)
+### `anchoa::command` (baru, `src/command.rs`)
 
 - `EXAMPLES: [&str; 6]` — contoh dari PRD §4.5, urutan move, trash, copy, rename, mkdir, chmod.
 - `examples(input) -> Vec<&'static str>`: tepat 3 contoh. Kata pertama input (lowercase) dibandingkan dengan verb tiap contoh; contoh yang verbnya diawali kata itu, atau kata itu diawali verbnya, didahulukan. Sisanya diisi urutan `EXAMPLES`. Tanpa duplikat.
@@ -45,7 +45,7 @@ Perintah yang dibatalkan di dialog konfirmasi tidak dicatat — `command_history
   - `bytes`: total ukuran sumber aksi `Move`/`Copy`/`Trash` yang berupa file (`symlink_metadata`); folder dihitung 0 — ponytail: tanpa hitung rekursif, tambahkan bila perlu. Sumber yang tidak bisa di-stat dilewati.
   - `new_dirs`: path semua aksi `Mkdir`, urutan plan.
 
-### `loom::history` (tambahan)
+### `anchoa::history` (tambahan)
 
 - `ResolvedBy { Rule, Llm, None }` → kolom `resolved_by` (`rule`/`llm`/`none`).
 - `record_command(conn, input, resolved_by, confidence: Option<f64>, operation_id: Option<i64>, now) -> Result<i64, DbError>`.

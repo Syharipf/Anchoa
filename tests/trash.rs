@@ -3,23 +3,23 @@
 //! Ignored by default: it needs a running gvfs and touches the user's own trash (one
 //! uniquely named file, restored again). Run with `cargo test --test trash -- --ignored`.
 
-use loom::executor::{ItemStatus, execute};
-use loom::history::{self, Source};
-use loom::plan::{Action, ActionPlan};
-use loom::validator::Validator;
+use anchoa::executor::{ItemStatus, execute};
+use anchoa::history::{self, Source};
+use anchoa::plan::{Action, ActionPlan};
+use anchoa::validator::Validator;
 use relm4::gtk::prelude::*;
 
 #[test]
 #[ignore = "needs gvfs and uses the real home trash"]
 fn trashed_file_comes_back_on_undo() {
     let home = relm4::gtk::glib::home_dir();
-    let name = format!("loom-trash-e2e-{}.txt", std::process::id());
+    let name = format!("anchoa-trash-e2e-{}.txt", std::process::id());
     let path = home.join(&name);
     std::fs::write(&path, "restore me").unwrap();
     let db_path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join(format!("trash-e2e-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&db_path);
-    let conn = loom::db::open(&db_path).unwrap();
+    let conn = anchoa::db::open(&db_path).unwrap();
     let validator = Validator::new([home.clone()]);
     let now = || {
         std::time::SystemTime::now()
@@ -62,7 +62,7 @@ fn trashed_file_comes_back_on_undo() {
 #[ignore = "needs gvfs and uses the real home trash"]
 fn trashed_file_and_folder_can_be_deleted_for_good() {
     let home = relm4::gtk::glib::home_dir();
-    let tag = format!("loom-delete-e2e-{}", std::process::id());
+    let tag = format!("anchoa-delete-e2e-{}", std::process::id());
     let file = home.join(format!("{tag}.txt"));
     let dir = home.join(&tag);
     std::fs::write(&file, "bye").unwrap();
@@ -74,7 +74,7 @@ fn trashed_file_and_folder_can_be_deleted_for_good() {
             .unwrap();
     }
     std::thread::sleep(std::time::Duration::from_secs(1));
-    let in_trash: Vec<_> = loom::trash::contents()
+    let in_trash: Vec<_> = anchoa::trash::contents()
         .unwrap()
         .into_iter()
         .filter(|t| t.orig == file || t.orig == dir)
@@ -82,8 +82,8 @@ fn trashed_file_and_folder_can_be_deleted_for_good() {
         .collect();
     assert_eq!(in_trash.len(), 2);
 
-    assert_eq!(loom::trash::delete_files(&in_trash).unwrap(), 2);
-    let left = loom::trash::contents().unwrap();
+    assert_eq!(anchoa::trash::delete_files(&in_trash).unwrap(), 2);
+    let left = anchoa::trash::contents().unwrap();
     assert!(left.iter().all(|t| t.orig != file && t.orig != dir));
     assert!(in_trash.iter().all(|p| !p.exists()));
 }

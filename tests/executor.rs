@@ -7,9 +7,9 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 
-use loom::executor::{ItemStatus, execute};
-use loom::plan::{Action, ActionPlan, ConflictPolicy};
-use loom::validator::{ValidatedPlan, Validator};
+use anchoa::executor::{ItemStatus, execute};
+use anchoa::plan::{Action, ActionPlan, ConflictPolicy};
+use anchoa::validator::{ValidatedPlan, Validator};
 
 fn data_home() -> PathBuf {
     Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("executor-xdg-{}", std::process::id()))
@@ -386,7 +386,7 @@ fn move_across_filesystems_copies_then_removes_source() {
         return;
     }
     let f = Fixture::new("xdev");
-    let src_root = shm.join(format!("loom-executor-xdev-{}", std::process::id()));
+    let src_root = shm.join(format!("anchoa-executor-xdev-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&src_root);
     std::fs::create_dir_all(src_root.join("dir/sub")).unwrap();
     std::fs::write(src_root.join("dir/sub/f.txt"), "f").unwrap();

@@ -677,8 +677,11 @@ fn undoing_a_restore_trashes_the_item_again() {
     assert_eq!(undo.skipped, []);
 }
 
-/// `(input, resolved_by, confidence, operation_id, created_at)` of each command, by id.
-fn commands(conn: &Connection) -> Vec<(String, String, Option<f64>, Option<i64>, i64)> {
+/// `(input, resolved_by, confidence, operation_id, created_at)`.
+type CommandRow = (String, String, Option<f64>, Option<i64>, i64);
+
+/// Each command, by id.
+fn commands(conn: &Connection) -> Vec<CommandRow> {
     let mut stmt = conn
         .prepare(
             "SELECT input, resolved_by, confidence, operation_id, created_at

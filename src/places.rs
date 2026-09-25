@@ -1,5 +1,6 @@
 //! Sidebar locations: XDG user directories and mounted drives.
 
+use relm4::gtk::glib;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,20 +15,78 @@ pub struct Place {
 /// are configured, exist, and are not the home directory itself — in that order.
 /// Uses `glib::home_dir()` and `glib::user_special_dir()`; cheap, safe on the UI thread.
 pub fn standard_places() -> Vec<Place> {
-    todo!()
+    let mut places = Vec::new();
+    let home = glib::home_dir();
+    if home.is_dir() {
+        places.push(Place {
+            label: "Home".to_string(),
+            path: home.clone(),
+            icon: "user-home-symbolic",
+        });
+    }
+
+    let xdg_dirs = [
+        (glib::UserDirectory::Documents, "folder-documents-symbolic"),
+        (glib::UserDirectory::Downloads, "folder-download-symbolic"),
+        (glib::UserDirectory::Music, "folder-music-symbolic"),
+        (glib::UserDirectory::Pictures, "folder-pictures-symbolic"),
+        (glib::UserDirectory::Videos, "folder-videos-symbolic"),
+    ];
+
+    for (dir_type, icon) in xdg_dirs {
+        if let Some(path) = glib::user_special_dir(dir_type)
+            && path.is_dir()
+            && path != home
+            && let Some(name) = path.file_name()
+        {
+            places.push(Place {
+                label: name.to_string_lossy().into_owned(),
+                path,
+                icon,
+            });
+        }
+    }
+
+    places
 }
 
 /// Directories that hold mount points: `/run/media/$USER` (udisks2) and `/mnt`.
 pub fn drive_roots() -> Vec<PathBuf> {
-    todo!()
+    vec![
+        Path::new("/run/media").join(glib::user_name()),
+        PathBuf::from("/mnt"),
+    ]
 }
 
 /// One `Place` per sub-directory of each root (icon `drive-harddisk-symbolic`, label = directory
 /// name), sorted by label within each root, roots in the given order. Missing or unreadable roots
 /// and non-directory entries are skipped. Blocks on I/O: call from a worker thread.
 pub fn drives(roots: &[PathBuf]) -> Vec<Place> {
-    let _ = roots;
-    todo!()
+    let mut places = Vec::new();
+
+    for root in roots {
+        let Ok(entries) = std::fs::read_dir(root) else {
+            continue;
+        };
+
+        let mut root_places = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let label = entry.file_name().to_string_lossy().into_owned();
+                root_places.push(Place {
+                    label,
+                    path,
+                    icon: "drive-harddisk-symbolic",
+                });
+            }
+        }
+
+        root_places.sort_by(|a, b| a.label.cmp(&b.label));
+        places.extend(root_places);
+    }
+
+    places
 }
 
 #[cfg(test)]

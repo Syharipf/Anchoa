@@ -3,9 +3,11 @@
 //! The schema version is tracked in `PRAGMA user_version`: migration `i` in
 //! [`MIGRATIONS`] brings the database from version `i` to `i + 1`.
 
+use std::ffi::OsString;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension, params};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -104,27 +106,70 @@ pub struct Bookmark {
 
 /// All bookmarks in display order (`position` ascending).
 pub fn bookmarks(conn: &Connection) -> Result<Vec<Bookmark>, DbError> {
-    let _ = conn;
-    todo!()
+    let mut stmt = conn.prepare("SELECT id, path, label FROM bookmark ORDER BY position")?;
+    let rows = stmt.query_map([], |row| {
+        Ok(Bookmark {
+            id: row.get(0)?,
+            path: OsString::from_vec(row.get(1)?).into(),
+            label: row.get(2)?,
+        })
+    })?;
+    Ok(rows.collect::<Result<_, _>>()?)
 }
 
 /// Appends a bookmark at the end. Returns `false` (and changes nothing) if `path` is already bookmarked.
 pub fn add_bookmark(conn: &Connection, path: &Path, label: &str) -> Result<bool, DbError> {
-    let _ = (conn, path, label);
-    todo!()
+    let inserted = conn.execute(
+        "INSERT INTO bookmark (path, label, position)
+         VALUES (?1, ?2, (SELECT COALESCE(MAX(position), -1) + 1 FROM bookmark))
+         ON CONFLICT (path) DO NOTHING",
+        params![path.as_os_str().as_bytes(), label],
+    )?;
+    Ok(inserted == 1)
 }
 
 /// Removes a bookmark and renumbers the rest so positions stay `0..n`. Unknown `id` is a no-op.
 pub fn remove_bookmark(conn: &mut Connection, id: i64) -> Result<(), DbError> {
-    let _ = (conn, id);
-    todo!()
+    let tx = conn.transaction()?;
+    if let Some(position) = position_of(&tx, id)? {
+        tx.execute("DELETE FROM bookmark WHERE id = ?1", [id])?;
+        tx.execute(
+            "UPDATE bookmark SET position = position - 1 WHERE position > ?1",
+            [position],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
 }
 
 /// Swaps a bookmark with its neighbour: `up = true` moves it one place earlier.
 /// No-op at either end or for an unknown `id`.
 pub fn move_bookmark(conn: &mut Connection, id: i64, up: bool) -> Result<(), DbError> {
-    let _ = (conn, id, up);
-    todo!()
+    let tx = conn.transaction()?;
+    if let Some(position) = position_of(&tx, id)? {
+        let target = if up { position - 1 } else { position + 1 };
+        // Positions are contiguous, so the neighbour (if any) sits exactly at `target`.
+        let swapped = tx.execute(
+            "UPDATE bookmark SET position = ?1 WHERE position = ?2",
+            [position, target],
+        )?;
+        if swapped == 1 {
+            tx.execute(
+                "UPDATE bookmark SET position = ?1 WHERE id = ?2",
+                [target, id],
+            )?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+fn position_of(conn: &Connection, id: i64) -> Result<Option<i64>, DbError> {
+    Ok(conn
+        .query_row("SELECT position FROM bookmark WHERE id = ?1", [id], |row| {
+            row.get(0)
+        })
+        .optional()?)
 }
 
 #[cfg(test)]

@@ -96,8 +96,10 @@ impl Validator {
         }
     }
 
-    /// Returns the first problem with `action`. Destinations of accepted actions are
-    /// recorded in `destinations` to catch two actions writing to the same place.
+    /// Returns the first problem with `action`. A move or copy onto itself is allowed only with
+    /// `KeepBoth`; destinations strictly inside the source are always rejected. Destinations of
+    /// accepted actions are recorded in `destinations` to catch two actions writing to the same
+    /// place.
     fn check<'a>(
         &self,
         action: &'a Action,
@@ -136,7 +138,13 @@ impl Validator {
         if matches!(action, Action::Rename { .. }) && src.parent() != dst.parent() {
             return Err((dst, Reason::RenameChangesFolder));
         }
-        if dst_resolved.starts_with(&src_resolved) {
+        if dst_resolved == src_resolved
+            && (!matches!(action, Action::Move { .. } | Action::Copy { .. })
+                || policy != Some(ConflictPolicy::KeepBoth))
+        {
+            return Err((dst, Reason::IntoItself));
+        }
+        if dst_resolved.starts_with(&src_resolved) && dst_resolved != src_resolved {
             return Err((dst, Reason::IntoItself));
         }
         if policy.is_none() && dst.symlink_metadata().is_ok() {

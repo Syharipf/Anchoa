@@ -1,12 +1,18 @@
+mod sidebar;
+
 use std::io;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
+use loom::db::{self, Bookmark, DbError};
 use loom::fs::{self, Entry};
+use loom::places::{self, Place};
 use relm4::gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::typed_view::OrdFn;
 use relm4::typed_view::column::{LabelColumn, RelmColumn, TypedColumnView};
 use relm4::{adw, gtk};
+use sidebar::{Msg as SidebarMsg, Output as SidebarOutput, Sidebar};
 
 const APP_ID: &str = "io.github.syharipf.Loom";
 
@@ -125,6 +131,12 @@ struct App {
     entries: TypedColumnView<Entry, gtk::SingleSelection>,
     path_entry: gtk::Entry,
     toasts: adw::ToastOverlay,
+    sidebar: Controller<Sidebar>,
+    /// `None` until opened, or forever if opening the database failed; bookmarks are
+    /// then simply unavailable, core navigation keeps working regardless.
+    db: Option<Arc<Mutex<rusqlite::Connection>>>,
+    /// Held only to keep drive-mount notifications firing.
+    _drive_monitors: Vec<gtk::gio::FileMonitor>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,11 +156,25 @@ enum Msg {
     Activate(u32),
     FocusPath,
     ToggleHidden,
+    /// F6: toggle keyboard focus between the sidebar and the file list.
+    ToggleSidebarFocus,
+    /// Ctrl+D: bookmark the current directory.
+    BookmarkCwd,
+    RemoveBookmark(i64),
+    MoveBookmark {
+        id: i64,
+        up: bool,
+    },
+    RefreshDrives,
 }
 
 #[derive(Debug)]
 enum Cmd {
     Listed(PathBuf, Nav, io::Result<Vec<Entry>>),
+    DbOpened(Result<rusqlite::Connection, DbError>),
+    Bookmarks(Result<Vec<Bookmark>, DbError>),
+    BookmarkAdded(Result<(bool, Vec<Bookmark>), DbError>),
+    Drives(Vec<Place>),
 }
 
 const HIDDEN_FILTER: usize = 0;
@@ -200,15 +226,24 @@ impl Component for App {
                     },
                 },
 
-                #[local_ref]
-                toasts -> adw::ToastOverlay {
-                    gtk::ScrolledWindow {
-                        set_vexpand: true,
+                gtk::Paned {
+                    set_orientation: gtk::Orientation::Horizontal,
+                    set_shrink_start_child: false,
+                    set_resize_start_child: false,
+                    set_position: 200,
+                    set_start_child: Some(model.sidebar.widget()),
 
-                        #[local_ref]
-                        entries_view -> gtk::ColumnView {
-                            connect_activate[sender] => move |_, position| {
-                                sender.input(Msg::Activate(position));
+                    #[local_ref]
+                    #[wrap(Some)]
+                    set_end_child = toasts -> adw::ToastOverlay {
+                        gtk::ScrolledWindow {
+                            set_vexpand: true,
+
+                            #[local_ref]
+                            entries_view -> gtk::ColumnView {
+                                connect_activate[sender] => move |_, position| {
+                                    sender.input(Msg::Activate(position));
+                                },
                             },
                         },
                     },
@@ -225,6 +260,34 @@ impl Component for App {
         entries.append_column::<ModifiedColumn>();
         entries.add_filter(|e| !e.name.starts_with('.'));
 
+        let sidebar =
+            Sidebar::builder()
+                .launch(())
+                .forward(sender.input_sender(), |out| match out {
+                    SidebarOutput::Open(path) => Msg::Open(path),
+                    SidebarOutput::RemoveBookmark(id) => Msg::RemoveBookmark(id),
+                    SidebarOutput::MoveBookmark { id, up } => Msg::MoveBookmark { id, up },
+                });
+        sidebar.emit(SidebarMsg::SetPlaces(places::standard_places()));
+
+        // Drive contents are read on a worker thread; live updates just re-trigger that scan.
+        let drive_roots = places::drive_roots();
+        let drive_monitors = drive_roots
+            .iter()
+            .filter_map(|root| {
+                let monitor = gtk::gio::File::for_path(root)
+                    .monitor_directory(
+                        gtk::gio::FileMonitorFlags::NONE,
+                        gtk::gio::Cancellable::NONE,
+                    )
+                    .ok()?;
+                let input = sender.input_sender().clone();
+                monitor.connect_changed(move |_, _, _, _| input.emit(Msg::RefreshDrives));
+                Some(monitor)
+            })
+            .collect();
+        sender.spawn_oneshot_command(move || Cmd::Drives(places::drives(&drive_roots)));
+
         let model = App {
             cwd: dir.clone(),
             requested: None,
@@ -234,6 +297,9 @@ impl Component for App {
             entries,
             path_entry: gtk::Entry::new(),
             toasts: adw::ToastOverlay::new(),
+            sidebar,
+            db: None,
+            _drive_monitors: drive_monitors,
         };
         let path_entry = &model.path_entry;
         let toasts = &model.toasts;
@@ -248,6 +314,8 @@ impl Component for App {
             ("<Alt>Right", Msg::Forward),
             ("<Ctrl>L", Msg::FocusPath),
             ("<Ctrl>H", Msg::ToggleHidden),
+            ("<Ctrl>D", Msg::BookmarkCwd),
+            ("F6", Msg::ToggleSidebarFocus),
         ] {
             let input = sender.input_sender().clone();
             shortcuts.add_shortcut(gtk::Shortcut::new(
@@ -264,11 +332,17 @@ impl Component for App {
         ));
         root.add_controller(shortcuts);
 
+        // Never blocks the UI thread: opens (and migrates) the database on a worker thread.
+        sender.spawn_oneshot_command(|| {
+            let path = gtk::glib::user_data_dir().join("loom").join("history.db");
+            Cmd::DbOpened(db::open(&path))
+        });
+
         sender.input(Msg::Open(dir));
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Msg, sender: ComponentSender<Self>, _: &Self::Root) {
+    fn update(&mut self, msg: Msg, sender: ComponentSender<Self>, root: &Self::Root) {
         let target = match msg {
             Msg::Open(dir) => Some((dir, Nav::New)),
             Msg::OpenInput(text) => Some((
@@ -294,6 +368,33 @@ impl Component for App {
                     .set_filter_status(HIDDEN_FILTER, !self.show_hidden);
                 None
             }
+            Msg::ToggleSidebarFocus => {
+                let focus_in_sidebar = gtk::prelude::RootExt::focus(root)
+                    .is_some_and(|widget| widget.is_ancestor(self.sidebar.widget()));
+                if focus_in_sidebar {
+                    self.entries.view.grab_focus();
+                } else {
+                    self.sidebar.emit(SidebarMsg::Focus);
+                }
+                None
+            }
+            Msg::BookmarkCwd => {
+                self.bookmark_cwd(&sender);
+                None
+            }
+            Msg::RemoveBookmark(id) => {
+                self.with_bookmarks(&sender, move |conn| db::remove_bookmark(conn, id));
+                None
+            }
+            Msg::MoveBookmark { id, up } => {
+                self.with_bookmarks(&sender, move |conn| db::move_bookmark(conn, id, up));
+                None
+            }
+            Msg::RefreshDrives => {
+                sender
+                    .spawn_oneshot_command(|| Cmd::Drives(places::drives(&places::drive_roots())));
+                None
+            }
         };
         if let Some((dir, nav)) = target {
             self.requested = Some((dir.clone(), nav));
@@ -304,43 +405,109 @@ impl Component for App {
         }
     }
 
-    fn update_cmd(&mut self, cmd: Cmd, _: ComponentSender<Self>, _: &Self::Root) {
-        let Cmd::Listed(dir, nav, result) = cmd;
-        if self.requested.as_ref() != Some(&(dir.clone(), nav)) {
+    fn update_cmd(&mut self, cmd: Cmd, sender: ComponentSender<Self>, _: &Self::Root) {
+        match cmd {
+            Cmd::Listed(dir, nav, result) => {
+                if self.requested.as_ref() != Some(&(dir.clone(), nav)) {
+                    return;
+                }
+                self.requested = None;
+                let list = match result {
+                    Ok(list) => list,
+                    Err(err) => {
+                        self.toasts.add_toast(adw::Toast::new(&format!(
+                            "Cannot open {}: {err}",
+                            dir.display()
+                        )));
+                        return;
+                    }
+                };
+                if dir != self.cwd {
+                    let previous = std::mem::replace(&mut self.cwd, dir);
+                    match nav {
+                        Nav::New => {
+                            self.back.push(previous);
+                            self.forward.clear();
+                        }
+                        Nav::Back => {
+                            self.back.pop();
+                            self.forward.push(previous);
+                        }
+                        Nav::Forward => {
+                            self.forward.pop();
+                            self.back.push(previous);
+                        }
+                    }
+                }
+                self.entries.clear();
+                self.entries.extend_from_iter(list);
+                self.path_entry.set_text(&self.cwd.to_string_lossy());
+                self.entries.view.grab_focus();
+            }
+            Cmd::DbOpened(Ok(conn)) => {
+                self.db = Some(Arc::new(Mutex::new(conn)));
+                self.with_bookmarks(&sender, |_| Ok(()));
+            }
+            Cmd::DbOpened(Err(err)) => self.bookmarks_unavailable(err),
+            Cmd::Bookmarks(Ok(list)) => self.sidebar.emit(SidebarMsg::SetBookmarks(list)),
+            Cmd::Bookmarks(Err(err)) => self.bookmarks_unavailable(err),
+            Cmd::BookmarkAdded(Ok((added, list))) => {
+                self.toasts.add_toast(adw::Toast::new(if added {
+                    "Bookmark added"
+                } else {
+                    "Already bookmarked"
+                }));
+                self.sidebar.emit(SidebarMsg::SetBookmarks(list));
+            }
+            Cmd::BookmarkAdded(Err(err)) => self.bookmarks_unavailable(err),
+            Cmd::Drives(list) => self.sidebar.emit(SidebarMsg::SetDrives(list)),
+        }
+    }
+}
+
+impl App {
+    /// Runs `op` against the database on a worker thread, then reloads the bookmark list
+    /// and forwards it to the sidebar. A no-op if the database never opened.
+    fn with_bookmarks<F>(&self, sender: &ComponentSender<Self>, op: F)
+    where
+        F: FnOnce(&mut rusqlite::Connection) -> Result<(), DbError> + Send + 'static,
+    {
+        let Some(db) = self.db.clone() else { return };
+        sender.spawn_oneshot_command(move || {
+            let result = (|| {
+                let mut conn = db.lock().unwrap();
+                op(&mut conn)?;
+                db::bookmarks(&conn)
+            })();
+            Cmd::Bookmarks(result)
+        });
+    }
+
+    /// Bookmarks `self.cwd`, labelled by its file name (or "/" for the root).
+    fn bookmark_cwd(&self, sender: &ComponentSender<Self>) {
+        let Some(db) = self.db.clone() else {
+            self.toasts
+                .add_toast(adw::Toast::new("Bookmarks unavailable"));
             return;
-        }
-        self.requested = None;
-        let list = match result {
-            Ok(list) => list,
-            Err(err) => {
-                self.toasts.add_toast(adw::Toast::new(&format!(
-                    "Cannot open {}: {err}",
-                    dir.display()
-                )));
-                return;
-            }
         };
-        if dir != self.cwd {
-            let previous = std::mem::replace(&mut self.cwd, dir);
-            match nav {
-                Nav::New => {
-                    self.back.push(previous);
-                    self.forward.clear();
-                }
-                Nav::Back => {
-                    self.back.pop();
-                    self.forward.push(previous);
-                }
-                Nav::Forward => {
-                    self.forward.pop();
-                    self.back.push(previous);
-                }
-            }
-        }
-        self.entries.clear();
-        self.entries.extend_from_iter(list);
-        self.path_entry.set_text(&self.cwd.to_string_lossy());
-        self.entries.view.grab_focus();
+        let path = self.cwd.clone();
+        let label = path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "/".to_string());
+        sender.spawn_oneshot_command(move || {
+            let result = (|| {
+                let conn = db.lock().unwrap();
+                let added = db::add_bookmark(&conn, &path, &label)?;
+                Ok((added, db::bookmarks(&conn)?))
+            })();
+            Cmd::BookmarkAdded(result)
+        });
+    }
+
+    fn bookmarks_unavailable(&self, err: DbError) {
+        self.toasts
+            .add_toast(adw::Toast::new(&format!("Bookmarks unavailable: {err}")));
     }
 }
 

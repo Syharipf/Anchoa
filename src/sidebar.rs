@@ -181,6 +181,8 @@ impl Sidebar {
     /// still exists.
     fn rebuild(&mut self) {
         let previous = self.selected_kind();
+        // Rebuilding destroys the focused row; remember to hand focus back afterwards.
+        let had_focus = self.list.focus_child().is_some();
 
         self.list.remove_all();
         self.rows.clear();
@@ -209,6 +211,9 @@ impl Sidebar {
         {
             self.list
                 .select_row(self.list.row_at_index(index as i32).as_ref());
+        }
+        if had_focus {
+            self.focus();
         }
     }
 

@@ -174,6 +174,7 @@ enum Cmd {
     DbOpened(Result<rusqlite::Connection, DbError>),
     Bookmarks(Result<Vec<Bookmark>, DbError>),
     BookmarkAdded(Result<(bool, Vec<Bookmark>), DbError>),
+    Places(Vec<Place>),
     Drives(Vec<Place>),
 }
 
@@ -268,7 +269,6 @@ impl Component for App {
                     SidebarOutput::RemoveBookmark(id) => Msg::RemoveBookmark(id),
                     SidebarOutput::MoveBookmark { id, up } => Msg::MoveBookmark { id, up },
                 });
-        sidebar.emit(SidebarMsg::SetPlaces(places::standard_places()));
 
         // Drive contents are read on a worker thread; live updates just re-trigger that scan.
         let drive_roots = places::drive_roots();
@@ -286,6 +286,7 @@ impl Component for App {
                 Some(monitor)
             })
             .collect();
+        sender.spawn_oneshot_command(|| Cmd::Places(places::standard_places()));
         sender.spawn_oneshot_command(move || Cmd::Drives(places::drives(&drive_roots)));
 
         let model = App {
@@ -460,6 +461,7 @@ impl Component for App {
                 self.sidebar.emit(SidebarMsg::SetBookmarks(list));
             }
             Cmd::BookmarkAdded(Err(err)) => self.bookmarks_unavailable(err),
+            Cmd::Places(list) => self.sidebar.emit(SidebarMsg::SetPlaces(list)),
             Cmd::Drives(list) => self.sidebar.emit(SidebarMsg::SetDrives(list)),
         }
     }

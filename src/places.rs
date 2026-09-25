@@ -13,7 +13,7 @@ pub struct Place {
 
 /// Home plus the XDG user directories (Documents, Downloads, Music, Pictures, Videos) that
 /// are configured, exist, and are not the home directory itself — in that order.
-/// Uses `glib::home_dir()` and `glib::user_special_dir()`; cheap, safe on the UI thread.
+/// Checks each directory exists, which may block on slow mounts: call from a worker thread.
 pub fn standard_places() -> Vec<Place> {
     let mut places = Vec::new();
     let home = glib::home_dir();

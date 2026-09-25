@@ -429,6 +429,30 @@ fn moving_or_copying_into_itself_is_rejected() {
 }
 
 #[test]
+fn destination_must_end_in_a_name() {
+    let f = Fixture::new("noname");
+    std::fs::create_dir(f.h("dir/sub")).unwrap();
+    let dotdot = f.h("dir/sub/..");
+    f.rejects(
+        Action::Move {
+            src: f.h("a.txt"),
+            dst: dotdot.clone(),
+        },
+        Some(ConflictPolicy::Replace),
+        &dotdot,
+        Reason::NoName,
+    );
+    f.rejects(
+        Action::Mkdir {
+            path: dotdot.clone(),
+        },
+        None,
+        &dotdot,
+        Reason::NoName,
+    );
+}
+
+#[test]
 fn rename_cannot_change_folder() {
     let f = Fixture::new("rename");
     let dst = f.h("dir/a.txt");

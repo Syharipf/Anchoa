@@ -6,4 +6,5 @@ pub mod history;
 pub mod parser;
 pub mod places;
 pub mod plan;
+pub mod planner;
 pub mod validator;

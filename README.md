@@ -99,7 +99,15 @@ sudo pacman -S gtk4 libadwaita sqlite
 cargo run --release
 ```
 
-AUR and Flatpak packages are planned once v1 is usable.
+### Arch Linux (AUR)
+
+[`packaging/aur/PKGBUILD`](packaging/aur/PKGBUILD) builds `anchoa-git` from the latest commit:
+
+```bash
+cd packaging/aur && makepkg -si
+```
+
+A Flatpak is planned once v1 is usable.
 
 ## Data
 

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Anchoa
+GenericName=File Manager
+Comment=Keyboard-first file manager with a command panel for batch operations
+Exec=anchoa
+Icon=system-file-manager
+Terminal=false
+Categories=GTK;System;FileTools;FileManager;Core;
+Keywords=folder;files;explorer;batch;rename;trash;
+StartupNotify=true

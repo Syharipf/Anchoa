@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.syharipf.Anchoa</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Anchoa</name>
+  <summary>Keyboard-first file manager with a command panel</summary>
+  <description>
+    <p>
+      Anchoa is a file manager for the Linux desktop, built with GTK 4 and libadwaita,
+      with a command panel for batch and conditional file operations such as moving every
+      photo older than 30 days into an archive folder.
+    </p>
+    <ul>
+      <li>Every command is previewed and confirmed before it runs, and can be undone</li>
+      <li>Deleting means moving to the trash</li>
+      <li>Works fully offline; no file contents ever leave the computer</li>
+      <li>Full keyboard navigation</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.syharipf.Anchoa.desktop</launchable>
+  <url type="homepage">https://github.com/Syharipf/Anchoa</url>
+  <url type="bugtracker">https://github.com/Syharipf/Anchoa/issues</url>
+  <developer id="io.github.syharipf">
+    <name>Syharipf</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <releases>
+    <release version="0.1.0" date="2026-09-26">
+      <description>
+        <p>Early development snapshot.</p>
+      </description>
+    </release>
+  </releases>
+</component>

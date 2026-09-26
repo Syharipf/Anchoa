@@ -5,6 +5,7 @@ pub mod executor;
 pub mod fs;
 pub mod history;
 pub mod parser;
+pub mod paste;
 pub mod places;
 pub mod plan;
 pub mod planner;

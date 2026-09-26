@@ -1,5 +1,6 @@
 //! Filesystem reads. Everything here blocks, so call it from a worker thread only.
 
+use std::cmp::Ordering;
 use std::io;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
@@ -15,6 +16,33 @@ pub struct Entry {
     pub modified: i64,
 }
 
+/// Describes a single path the same way [`list_dir`] does.
+///
+/// Symlinks are described by their target; a broken symlink falls back to the link itself.
+/// Returns `None` when neither stat works.
+pub fn stat_entry(path: &Path) -> Option<Entry> {
+    let meta = std::fs::metadata(path)
+        .or_else(|_| std::fs::symlink_metadata(path))
+        .ok()?;
+    Some(Entry {
+        name: path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+        is_dir: meta.is_dir(),
+        size: meta.len(),
+        mode: meta.mode(),
+        modified: meta.mtime(),
+        path: path.to_path_buf(),
+    })
+}
+
+/// Orders entries the way [`list_dir`] returns them: folders first, then case-insensitive name.
+pub fn compare(a: &Entry, b: &Entry) -> Ordering {
+    (!a.is_dir, a.name.to_lowercase()).cmp(&(!b.is_dir, b.name.to_lowercase()))
+}
+
 /// Lists `dir`, directories first, then by case-insensitive name.
 ///
 /// Symlinks are described by their target; a broken symlink falls back to the link itself.
@@ -23,24 +51,11 @@ pub fn list_dir(dir: &Path) -> io::Result<Vec<Entry>> {
     let mut entries = Vec::new();
     for dirent in std::fs::read_dir(dir)? {
         let path = dirent?.path();
-        let Ok(meta) = std::fs::metadata(&path).or_else(|_| std::fs::symlink_metadata(&path))
-        else {
-            continue;
-        };
-        entries.push(Entry {
-            name: path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned(),
-            is_dir: meta.is_dir(),
-            size: meta.len(),
-            mode: meta.mode(),
-            modified: meta.mtime(),
-            path,
-        });
+        if let Some(entry) = stat_entry(&path) {
+            entries.push(entry);
+        }
     }
-    entries.sort_by_cached_key(|e| (!e.is_dir, e.name.to_lowercase()));
+    entries.sort_by(compare);
     Ok(entries)
 }
 

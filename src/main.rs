@@ -1,6 +1,7 @@
 mod file_ops;
 mod sidebar;
 
+use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -12,10 +13,11 @@ use anchoa::history::ResolvedBy;
 use anchoa::places::{self, Place};
 use anchoa::plan::{Action, ActionPlan};
 use anchoa::validator::{Rejection, ValidatedPlan};
-use anchoa::{command, config, history, parser, planner, trash};
+use anchoa::{command, config, history, parser, paste, planner, trash};
 use file_ops::Job;
-use relm4::gtk::gio;
+use relm4::gtk::gio::prelude::*;
 use relm4::gtk::prelude::*;
+use relm4::gtk::{gdk, gio};
 use relm4::prelude::*;
 use relm4::typed_view::OrdFn;
 use relm4::typed_view::column::{LabelColumn, RelmColumn, TypedColumnView};
@@ -147,6 +149,15 @@ struct App {
     db: Option<Arc<Mutex<rusqlite::Connection>>>,
     /// Held only to keep drive-mount notifications firing.
     _drive_monitors: Vec<gio::FileMonitor>,
+    /// Watches `cwd` for changes made by other apps; held only to keep it firing.
+    dir_monitor: Option<gio::FileMonitor>,
+    stat_seq: u64,
+    /// Latest stat request per path; a result is applied only if it is still the latest,
+    /// so out-of-order or pre-reload results are dropped.
+    pending_stats: HashMap<PathBuf, u64>,
+    /// Paths whose stat finished while a listing was in flight; re-stat after it lands,
+    /// since the listing may be older.
+    restat: Vec<PathBuf>,
     /// Plugged-in volumes, mounted or not (via udisks2); also fires on (un)plug and (un)mount.
     volumes: gio::VolumeMonitor,
     /// `cwd` is a trash folder: show the restore / empty bar.
@@ -176,6 +187,20 @@ enum Msg {
     FocusFileList,
     CommandTextChanged,
     RunCommand(String),
+    CopySelected,
+    CutSelected,
+    PasteSelected,
+    ClipboardRead(Option<(Vec<PathBuf>, bool)>),
+    Paste {
+        sources: Vec<PathBuf>,
+        dest: Option<PathBuf>,
+        cut: Option<bool>,
+    },
+    PasteConflictAccepted {
+        cut: bool,
+        from_clipboard: bool,
+        plan: ActionPlan,
+    },
     ToggleHidden,
     /// F6: cycle keyboard focus between the sidebar, file list and command panel.
     ToggleSidebarFocus,
@@ -213,6 +238,8 @@ enum Msg {
     /// Ask, then delete trash items for good: the selected ones, or all for `None`.
     DeleteForGood(Option<Vec<PathBuf>>),
     DeleteForGoodConfirmed(Option<Vec<PathBuf>>),
+    /// A path in the open folder changed on disk; re-stat just that row.
+    EntryChanged(PathBuf),
 }
 
 #[derive(Debug)]
@@ -230,6 +257,13 @@ enum Cmd {
         result: Result<(command::Preview, ActionPlan), String>,
     },
     CommandRecordAttempt,
+    PastePlanned {
+        dest: PathBuf,
+        cut: bool,
+        from_clipboard: bool,
+        plan: ActionPlan,
+        conflicts: Vec<PathBuf>,
+    },
     Validated(Job, Result<ValidatedPlan, Vec<Rejection>>),
     Ran(Job, Vec<ItemStatus>, Option<String>),
     UndoPlanned(file_ops::UndoPlanned),
@@ -237,9 +271,14 @@ enum Cmd {
     DeletedForGood(io::Result<usize>),
     /// Old trash items deleted at startup.
     TrashExpired(io::Result<usize>),
+    /// Fresh stat for one row of the open folder (`None` when it is gone); applied only
+    /// if `seq` is still the latest request for the path.
+    EntryStat(PathBuf, u64, Option<Entry>),
 }
 
 const HIDDEN_FILTER: usize = 0;
+const GNOME_COPIED_FILES_MIME: &str = "x-special/gnome-copied-files";
+const PLAIN_TEXT_MIME: &str = "text/plain";
 
 #[relm4::component]
 impl Component for App {
@@ -374,6 +413,28 @@ impl Component for App {
         entries.append_column::<SizeColumn>();
         entries.append_column::<PermissionColumn>();
         entries.append_column::<ModifiedColumn>();
+        let row_input = sender.input_sender().clone();
+        if let Some(factory) = entries
+            .get_columns()
+            .get(NameColumn::COLUMN_NAME)
+            .and_then(|column| column.factory())
+            .and_downcast::<gtk::SignalListItemFactory>()
+        {
+            factory.connect_setup(move |_, object| {
+                if let Some(item) = object.downcast_ref::<gtk::ListItem>() {
+                    setup_file_row(item, &row_input);
+                }
+            });
+        }
+        let list_input = sender.input_sender().clone();
+        let list_drop = gtk::DropTarget::new(
+            gdk::FileList::static_type(),
+            gdk::DragAction::COPY | gdk::DragAction::MOVE,
+        );
+        list_drop.connect_drop(move |target, value, _, _| {
+            emit_file_drop(&list_input, target, value, None)
+        });
+        entries.view.add_controller(list_drop);
         entries.add_filter(|e| !e.name.starts_with('.'));
 
         let sidebar =
@@ -386,6 +447,20 @@ impl Component for App {
                     SidebarOutput::MoveBookmarkTo { id, position } => {
                         Msg::MoveBookmarkTo { id, position }
                     }
+                    SidebarOutput::Paste { sources, dest, cut } => Msg::Paste {
+                        sources,
+                        dest: Some(dest),
+                        cut,
+                    },
+                    SidebarOutput::TrashDrop { sources } => Msg::Submit(
+                        Job::Trash,
+                        plan(
+                            sources
+                                .into_iter()
+                                .map(|path| Action::Trash { path })
+                                .collect(),
+                        ),
+                    ),
                     SidebarOutput::Mount(device) => Msg::MountVolume(device),
                 });
 
@@ -437,6 +512,10 @@ impl Component for App {
             sidebar,
             db: None,
             _drive_monitors: drive_monitors,
+            dir_monitor: None,
+            stat_seq: 0,
+            pending_stats: HashMap::new(),
+            restat: Vec::new(),
             volumes,
             in_trash: false,
         };
@@ -500,18 +579,27 @@ impl Component for App {
         ));
         path_entry_widget.add_controller(shortcuts);
 
-        // File shortcuts act on the file list only, so Delete in the path bar or the sidebar
-        // keeps its own meaning; undo and new folder work anywhere in the two panes.
+        // Copy/cut act on the selection so they stay on the file list only; paste targets
+        // the current folder, so like undo and new folder it works anywhere in the two panes.
         let file_list: &gtk::Widget = model.entries.view.upcast_ref();
         let panes: &gtk::Widget = widgets.panes.upcast_ref();
         for (widget, accels) in [
             (
                 file_list,
-                &[("Delete", Msg::TrashSelected), ("F2", Msg::RenameSelected)][..],
+                &[
+                    ("Delete", Msg::TrashSelected),
+                    ("F2", Msg::RenameSelected),
+                    ("<Ctrl>c", Msg::CopySelected),
+                    ("<Ctrl>x", Msg::CutSelected),
+                ][..],
             ),
             (
                 panes,
-                &[("<Ctrl>z", Msg::Undo), ("<Ctrl><Shift>n", Msg::NewFolder)][..],
+                &[
+                    ("<Ctrl>v", Msg::PasteSelected),
+                    ("<Ctrl>z", Msg::Undo),
+                    ("<Ctrl><Shift>n", Msg::NewFolder),
+                ][..],
             ),
         ] {
             let shortcuts = gtk::ShortcutController::new();
@@ -627,6 +715,69 @@ impl Component for App {
                         }
                     }
                 }
+                None
+            }
+            Msg::CopySelected => {
+                self.copy_selected(false, root);
+                None
+            }
+            Msg::CutSelected => {
+                self.copy_selected(true, root);
+                None
+            }
+            Msg::PasteSelected => {
+                if self.in_trash {
+                    self.toasts
+                        .add_toast(adw::Toast::new("Cannot paste into the trash"));
+                } else {
+                    let clipboard = gtk::prelude::RootExt::display(root).clipboard();
+                    let input = sender.input_sender().clone();
+                    relm4::spawn_local(async move {
+                        let contents = read_system_clipboard(&clipboard).await;
+                        input.emit(Msg::ClipboardRead(contents));
+                    });
+                }
+                None
+            }
+            Msg::ClipboardRead(Some((sources, cut))) => {
+                if self.in_trash {
+                    self.toasts
+                        .add_toast(adw::Toast::new("Cannot paste into the trash"));
+                } else {
+                    self.spawn_paste(sources, self.cwd.clone(), Some(cut), true, &sender);
+                }
+                None
+            }
+            Msg::ClipboardRead(None) => None,
+            Msg::Paste { sources, dest, cut } => {
+                if !sources.is_empty() {
+                    if dest.is_none() && self.in_trash {
+                        self.toasts
+                            .add_toast(adw::Toast::new("Cannot paste into the trash"));
+                    } else {
+                        self.spawn_paste(
+                            sources,
+                            dest.unwrap_or_else(|| self.cwd.clone()),
+                            cut,
+                            false,
+                            &sender,
+                        );
+                    }
+                }
+                None
+            }
+            Msg::PasteConflictAccepted {
+                cut,
+                from_clipboard,
+                plan,
+            } => {
+                sender.input(Msg::Submit(
+                    Job::Paste {
+                        cut,
+                        from_clipboard,
+                    },
+                    plan,
+                ));
                 None
             }
             Msg::ToggleHidden => {
@@ -801,9 +952,29 @@ impl Component for App {
                     .spawn_oneshot_command(|| Cmd::Drives(places::drives(&places::drive_roots())));
                 None
             }
+            Msg::EntryChanged(path) => {
+                // ponytail: one stat per event with no coalescing; coalesce if bulk
+                // changes (thousands of files) ever feel slow. Re-inserting a changed
+                // row drops that row's own selection; preserve it if that ever matters.
+                if path.parent() != Some(self.cwd.as_path()) {
+                    None
+                } else {
+                    self.stat_seq += 1;
+                    let seq = self.stat_seq;
+                    self.pending_stats.insert(path.clone(), seq);
+                    sender.spawn_oneshot_command(move || {
+                        let entry = fs::stat_entry(&path);
+                        Cmd::EntryStat(path, seq, entry)
+                    });
+                    None
+                }
+            }
         };
         if let Some((dir, nav)) = target {
             self.requested = Some((dir.clone(), nav));
+            // Only stats requested before this listing are superseded by it; a stat
+            // requested while `list_dir` runs is newer and must still be applied after.
+            self.pending_stats.clear();
             sender.spawn_oneshot_command(move || {
                 let result = fs::list_dir(&dir);
                 Cmd::Listed(dir, nav, result)
@@ -813,6 +984,40 @@ impl Component for App {
 
     fn update_cmd(&mut self, cmd: Cmd, sender: ComponentSender<Self>, root: &Self::Root) {
         match cmd {
+            Cmd::PastePlanned {
+                dest,
+                cut,
+                from_clipboard,
+                mut plan,
+                conflicts,
+            } => {
+                if !plan.actions.is_empty() {
+                    if conflicts.is_empty() {
+                        sender.input(Msg::Submit(
+                            Job::Paste {
+                                cut,
+                                from_clipboard,
+                            },
+                            plan,
+                        ));
+                    } else {
+                        file_ops::ask_conflict(
+                            root,
+                            &conflicts,
+                            &dest,
+                            sender.input_sender().clone(),
+                            move |policy| {
+                                plan.on_conflict = Some(policy);
+                                Msg::PasteConflictAccepted {
+                                    cut,
+                                    from_clipboard,
+                                    plan,
+                                }
+                            },
+                        );
+                    }
+                }
+            }
             Cmd::CommandPlanned { input, result } => match result {
                 Ok((preview, plan)) => {
                     sender.input(Msg::Submit(Job::Command { input, preview }, plan));
@@ -872,6 +1077,20 @@ impl Component for App {
                 .toasts
                 .add_toast(adw::Toast::new(&format!("Undo failed: {err}"))),
             Cmd::Ran(job, statuses, warning) => {
+                if matches!(
+                    &job,
+                    Job::Paste {
+                        cut: true,
+                        from_clipboard: true,
+                    }
+                ) && !statuses
+                    .iter()
+                    .any(|status| matches!(status, ItemStatus::Failed(_)))
+                {
+                    let _ = gtk::prelude::RootExt::display(root)
+                        .clipboard()
+                        .set_content(None::<&gdk::ContentProvider>);
+                }
                 if let Job::Command { input, .. } = &job
                     && self.command_entry.text().as_str() == input
                     && !statuses
@@ -906,6 +1125,10 @@ impl Component for App {
                     return;
                 }
                 self.requested = None;
+                // Re-stat paths whose stat finished mid-listing; EntryChanged drops others.
+                for path in std::mem::take(&mut self.restat) {
+                    sender.input(Msg::EntryChanged(path));
+                }
                 let list = match result {
                     Ok(list) => list,
                     Err(err) => {
@@ -942,6 +1165,44 @@ impl Component for App {
                 if !self.sidebar_has_focus(root) {
                     self.entries.view.grab_focus();
                 }
+                // Watch the open folder for changes made by other apps.
+                if let Some(old) = self.dir_monitor.take() {
+                    old.cancel();
+                }
+                self.dir_monitor = gio::File::for_path(&self.cwd)
+                    .monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
+                    .ok()
+                    .inspect(|monitor| {
+                        let input = sender.input_sender().clone();
+                        monitor.connect_changed(move |_, file, other_file, _| {
+                            if let Some(path) = file.path() {
+                                input.emit(Msg::EntryChanged(path));
+                            }
+                            if let Some(other) = other_file.and_then(|f| f.path()) {
+                                input.emit(Msg::EntryChanged(other));
+                            }
+                        });
+                    });
+            }
+            Cmd::EntryStat(path, seq, entry) => {
+                if self.pending_stats.get(&path) != Some(&seq) {
+                    return;
+                }
+                self.pending_stats.remove(&path);
+                if self.requested.is_some() {
+                    self.restat.push(path);
+                    return;
+                }
+                if path.parent() != Some(self.cwd.as_path()) {
+                    return;
+                }
+                // Update just this row: selection, scroll and focus of the rest stay as they are.
+                if let Some(pos) = self.entries.find(|e| e.path == path) {
+                    self.entries.remove(pos);
+                }
+                if let Some(entry) = entry {
+                    self.entries.insert_sorted(entry, fs::compare);
+                }
             }
             Cmd::DbOpened(Ok(conn)) => {
                 self.db = Some(Arc::new(Mutex::new(conn)));
@@ -974,6 +1235,67 @@ impl Component for App {
 }
 
 impl App {
+    fn copy_selected(&mut self, cut: bool, root: &adw::ApplicationWindow) {
+        let sources: Vec<_> = self
+            .selected()
+            .into_iter()
+            .map(|entry| entry.path)
+            .collect();
+        if sources.is_empty() {
+            return;
+        }
+        let files: Vec<_> = sources.iter().map(gio::File::for_path).collect();
+        let file_value = gdk::FileList::from_array(&files).to_value();
+        let gnome_bytes =
+            gtk::glib::Bytes::from_owned(paste::gnome_copied_files(&sources, cut).into_bytes());
+        let text = sources
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let text_bytes = gtk::glib::Bytes::from_owned(text.into_bytes());
+        let file_provider = gdk::ContentProvider::for_value(&file_value);
+        let gnome_provider = gdk::ContentProvider::for_bytes(GNOME_COPIED_FILES_MIME, &gnome_bytes);
+        let text_provider = gdk::ContentProvider::for_bytes(PLAIN_TEXT_MIME, &text_bytes);
+        let provider =
+            gdk::ContentProvider::new_union(&[file_provider, gnome_provider, text_provider]);
+        let _ = gtk::prelude::RootExt::display(root)
+            .clipboard()
+            .set_content(Some(&provider));
+        let count = sources.len();
+        let noun = if count == 1 { "item" } else { "items" };
+        self.toasts.add_toast(adw::Toast::new(&format!(
+            "{} {count} {noun}",
+            if cut { "Cut" } else { "Copied" }
+        )));
+    }
+
+    fn spawn_paste(
+        &self,
+        sources: Vec<PathBuf>,
+        dest: PathBuf,
+        cut: Option<bool>,
+        from_clipboard: bool,
+        sender: &ComponentSender<Self>,
+    ) {
+        sender.spawn_oneshot_command(move || {
+            let cut = cut.unwrap_or_else(|| {
+                sources
+                    .iter()
+                    .all(|source| paste::same_device(source, &dest))
+            });
+            let plan = paste::plan(&sources, &dest, cut);
+            let conflicts = paste::conflicts(&plan);
+            Cmd::PastePlanned {
+                dest,
+                cut,
+                from_clipboard,
+                plan,
+                conflicts,
+            }
+        });
+    }
+
     /// Runs `op` against the database on a worker thread, then reloads the bookmark list
     /// and forwards it to the sidebar. A no-op if the database never opened.
     fn with_bookmarks<F>(&self, sender: &ComponentSender<Self>, op: F)
@@ -1064,6 +1386,114 @@ impl App {
     }
 }
 
+fn setup_file_row(item: &gtk::ListItem, input: &relm4::Sender<Msg>) {
+    let Some(root) = item.child() else {
+        return;
+    };
+    let weak = item.downgrade();
+    let drag = gtk::DragSource::new();
+    drag.set_actions(gdk::DragAction::COPY | gdk::DragAction::MOVE);
+    drag.connect_prepare(move |source, _, _| {
+        let item = weak.upgrade()?;
+        let widget = source.widget()?;
+        let paths = drag_paths(&item, &widget)?;
+        let files: Vec<_> = paths.into_iter().map(gio::File::for_path).collect();
+        let value = gdk::FileList::from_array(&files).to_value();
+        Some(gdk::ContentProvider::for_value(&value))
+    });
+    root.add_controller(drag);
+
+    let weak = item.downgrade();
+    let drop = gtk::DropTarget::new(
+        gdk::FileList::static_type(),
+        gdk::DragAction::COPY | gdk::DragAction::MOVE,
+    );
+    let input = input.clone();
+    drop.connect_drop(move |target, value, _, _| {
+        let Some(item) = weak.upgrade() else {
+            return false;
+        };
+        let Some(entry) = list_item_entry(&item) else {
+            return false;
+        };
+        entry.is_dir && emit_file_drop(&input, target, value, Some(entry.path))
+    });
+    root.add_controller(drop);
+}
+
+fn emit_file_drop(
+    input: &relm4::Sender<Msg>,
+    target: &gtk::DropTarget,
+    value: &gtk::glib::Value,
+    dest: Option<PathBuf>,
+) -> bool {
+    let sources = dropped_paths(value);
+    if sources.is_empty() {
+        return false;
+    }
+    input.emit(Msg::Paste {
+        sources,
+        dest,
+        cut: drop_cut(target),
+    });
+    true
+}
+
+fn drag_paths(item: &gtk::ListItem, widget: &gtk::Widget) -> Option<Vec<PathBuf>> {
+    let entry = list_item_entry(item)?;
+    let view = widget
+        .ancestor(gtk::ColumnView::static_type())
+        .and_downcast::<gtk::ColumnView>()?;
+    let model = view.model()?;
+    if model.is_selected(item.position()) {
+        let selection = model.selection();
+        let paths: Vec<_> = (0..selection.size())
+            .filter_map(|index| model.item(selection.nth(index as u32)))
+            .filter_map(|object| {
+                object
+                    .downcast_ref::<gtk::glib::BoxedAnyObject>()?
+                    .try_borrow::<Entry>()
+                    .ok()
+                    .map(|entry| entry.path.clone())
+            })
+            .collect();
+        if !paths.is_empty() {
+            return Some(paths);
+        }
+    }
+    Some(vec![entry.path])
+}
+
+fn list_item_entry(item: &gtk::ListItem) -> Option<Entry> {
+    let object = item.item()?;
+    let boxed = object.downcast_ref::<gtk::glib::BoxedAnyObject>()?;
+    boxed.try_borrow::<Entry>().ok().map(|entry| entry.clone())
+}
+
+fn dropped_paths(value: &gtk::glib::Value) -> Vec<PathBuf> {
+    value
+        .get::<gdk::FileList>()
+        .map(|files| {
+            files
+                .files()
+                .into_iter()
+                .filter_map(|file| file.path())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn drop_cut(target: &gtk::DropTarget) -> Option<bool> {
+    let state = target.current_drop()?.device().modifier_state();
+    if state.contains(gdk::ModifierType::CONTROL_MASK) {
+        Some(false)
+    } else if state.contains(gdk::ModifierType::SHIFT_MASK) {
+        Some(true)
+    } else {
+        None
+    }
+}
+
 /// Local volumes from udisks2, mounted or not. Network mounts are left out: they have no
 /// unix device, and remote locations are out of scope for v1.
 fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {
@@ -1088,6 +1518,52 @@ fn volume_drives(monitor: &gio::VolumeMonitor) -> Vec<Drive> {
             })
         })
         .collect()
+}
+
+async fn read_system_clipboard(clipboard: &gdk::Clipboard) -> Option<(Vec<PathBuf>, bool)> {
+    if clipboard
+        .formats()
+        .contain_mime_type(GNOME_COPIED_FILES_MIME)
+        && let Ok((stream, mime)) = clipboard
+            .read_future(&[GNOME_COPIED_FILES_MIME], gtk::glib::Priority::DEFAULT)
+            .await
+        && mime.as_str() == GNOME_COPIED_FILES_MIME
+        && let Some(bytes) = read_clipboard_stream(stream).await
+        && let Ok(text) = String::from_utf8(bytes)
+        && let Some(parsed) = paste::parse_gnome_copied_files(&text)
+    {
+        return Some(parsed);
+    }
+    let value = clipboard
+        .read_value_future(gdk::FileList::static_type(), gtk::glib::Priority::DEFAULT)
+        .await
+        .ok()?;
+    let files = value.get::<gdk::FileList>().ok()?;
+    let sources: Vec<_> = files
+        .files()
+        .into_iter()
+        .filter_map(|file| file.path())
+        .collect();
+    (!sources.is_empty()).then_some((sources, false))
+}
+
+async fn read_clipboard_stream(stream: gio::InputStream) -> Option<Vec<u8>> {
+    const CHUNK_SIZE: usize = 64 * 1024;
+    const MAX_SIZE: usize = 16 * 1024 * 1024;
+    let mut data = Vec::new();
+    loop {
+        let bytes = stream
+            .read_bytes_future(CHUNK_SIZE, gtk::glib::Priority::DEFAULT)
+            .await
+            .ok()?;
+        if bytes.is_empty() {
+            return Some(data);
+        }
+        if data.len().saturating_add(bytes.len()) > MAX_SIZE {
+            return None;
+        }
+        data.extend_from_slice(bytes.as_ref());
+    }
 }
 
 fn plan(actions: Vec<Action>) -> ActionPlan {

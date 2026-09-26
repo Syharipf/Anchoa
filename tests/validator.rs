@@ -555,3 +555,39 @@ fn roots_are_canonicalized_and_missing_roots_dropped() {
         Reason::OutsideRoots
     );
 }
+
+#[test]
+fn copying_onto_itself_needs_keep_both() {
+    let f = Fixture::new("onto-itself");
+    for src in [f.h("a.txt"), f.h("dir")] {
+        let copy = Action::Copy {
+            src: src.clone(),
+            dst: src.clone(),
+        };
+        // Keep Both lands on a free `name (2)` next to it: pasting a copy in the same folder.
+        assert_eq!(
+            f.check(vec![copy.clone()], Some(ConflictPolicy::KeepBoth)),
+            []
+        );
+        // Replace would trash the source before copying it; Skip and no policy do nothing
+        // useful. All three stay rejected.
+        for policy in [
+            None,
+            Some(ConflictPolicy::Skip),
+            Some(ConflictPolicy::Replace),
+        ] {
+            f.rejects(copy.clone(), policy, &src, Reason::IntoItself);
+        }
+    }
+    // Strictly inside is still rejected, whatever the policy.
+    let dst = f.h("dir/sub");
+    f.rejects(
+        Action::Copy {
+            src: f.h("dir"),
+            dst: dst.clone(),
+        },
+        Some(ConflictPolicy::KeepBoth),
+        &dst,
+        Reason::IntoItself,
+    );
+}

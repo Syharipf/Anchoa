@@ -6,6 +6,7 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use anchoa::config::{Config, ConfigError};
 use anchoa::db::{self, Bookmark, DbError};
 use anchoa::executor::ItemStatus;
 use anchoa::fs::{self, Entry};
@@ -15,8 +16,7 @@ use anchoa::plan::{Action, ActionPlan};
 use anchoa::validator::{Rejection, ValidatedPlan};
 use anchoa::{command, config, history, parser, paste, planner, trash};
 use file_ops::Job;
-use relm4::gtk::gio::prelude::*;
-use relm4::gtk::prelude::*;
+use relm4::adw::prelude::*;
 use relm4::gtk::{gdk, gio};
 use relm4::prelude::*;
 use relm4::typed_view::OrdFn;
@@ -138,6 +138,11 @@ struct App {
     back: Vec<PathBuf>,
     forward: Vec<PathBuf>,
     show_hidden: bool,
+    /// Set once the user changes `show_hidden` (Ctrl+H or the dialog switch); the config
+    /// loaded at startup then must not overwrite it if it arrives afterwards.
+    show_hidden_overridden: bool,
+    /// Cached from config, so the settings dialog opens without a worker round-trip.
+    trash_auto_delete_days: u32,
     entries: TypedColumnView<Entry, gtk::MultiSelection>,
     path_entry: gtk::Entry,
     command_entry: gtk::Entry,
@@ -199,6 +204,12 @@ enum Msg {
         plan: ActionPlan,
     },
     ToggleHidden,
+    /// Ctrl+,: open the settings dialog.
+    OpenSettings,
+    /// Ctrl+H and the settings dialog's switch both go through this.
+    SetShowHidden(bool),
+    /// The settings dialog's spin row changed.
+    SetTrashAutoDeleteDays(u32),
     /// F6: cycle keyboard focus between the sidebar, file list and command panel.
     ToggleSidebarFocus,
     /// Ctrl+D: bookmark the current directory.
@@ -264,8 +275,13 @@ enum Cmd {
     UndoPlanned(file_ops::UndoPlanned),
     RestorePlanned(Result<(Result<ValidatedPlan, Vec<Rejection>>, usize), String>),
     DeletedForGood(io::Result<usize>),
-    /// Old trash items deleted at startup.
+    /// Config read at startup (defaults if invalid) — the first, fast half of startup, so
+    /// `show_hidden` applies without waiting on the trash scan below.
+    ConfigLoaded(Config, bool),
+    /// Trash items past the loaded `trash_auto_delete_days` deleted at startup.
     TrashExpired(io::Result<usize>),
+    /// A setting saved via [`config::update`] on a worker.
+    SettingsSaved(Result<(), ConfigError>),
     /// Fresh stat for one row of the open folder (`None` when it is gone); applied only
     /// if `seq` is still the latest request for the path.
     EntryStat(PathBuf, u64, Option<Entry>),
@@ -499,6 +515,8 @@ impl Component for App {
             back: Vec::new(),
             forward: Vec::new(),
             show_hidden: false,
+            show_hidden_overridden: false,
+            trash_auto_delete_days: Config::default().trash_auto_delete_days,
             entries,
             path_entry: gtk::Entry::new(),
             command_entry: gtk::Entry::new(),
@@ -530,6 +548,7 @@ impl Component for App {
             ("<Ctrl>L", Msg::FocusPath),
             ("<Ctrl>K", Msg::FocusCommand),
             ("<Ctrl>H", Msg::ToggleHidden),
+            ("<Ctrl>comma", Msg::OpenSettings),
             ("<Ctrl>D", Msg::BookmarkCwd),
             ("F6", Msg::ToggleSidebarFocus),
         ] {
@@ -607,12 +626,15 @@ impl Component for App {
             }))
         });
 
-        // Trash items past the configured age are deleted for good (default 30 days).
+        // Config alone is read first, so `show_hidden` applies (and a quick Ctrl+H is not
+        // overwritten) without waiting on the trash scan, which is spawned separately once the
+        // config arrives. An invalid file falls back to defaults untouched.
         sender.spawn_oneshot_command(|| {
-            let days = config::load(&config::path())
-                .unwrap_or_default()
-                .trash_auto_delete_days;
-            Cmd::TrashExpired(trash::delete_expired(days, file_ops::now()))
+            let (config, valid) = match config::load(&config::path()) {
+                Ok(config) => (config, true),
+                Err(_) => (Config::default(), false),
+            };
+            Cmd::ConfigLoaded(config, valid)
         });
 
         sender.input(Msg::Open(dir));
@@ -753,9 +775,25 @@ impl Component for App {
                 None
             }
             Msg::ToggleHidden => {
-                self.show_hidden = !self.show_hidden;
-                self.entries
-                    .set_filter_status(HIDDEN_FILTER, !self.show_hidden);
+                self.set_show_hidden(!self.show_hidden, &sender);
+                None
+            }
+            Msg::SetShowHidden(show_hidden) => {
+                self.set_show_hidden(show_hidden, &sender);
+                None
+            }
+            Msg::SetTrashAutoDeleteDays(days) => {
+                self.trash_auto_delete_days = days;
+                sender.spawn_oneshot_command(move || {
+                    Cmd::SettingsSaved(
+                        config::update(&config::path(), |c| c.trash_auto_delete_days = days)
+                            .map(|_| ()),
+                    )
+                });
+                None
+            }
+            Msg::OpenSettings => {
+                self.open_settings(&sender, root);
                 None
             }
             Msg::ToggleSidebarFocus => {
@@ -1031,11 +1069,33 @@ impl Component for App {
                 self.toasts.add_toast(adw::Toast::new(&text));
                 sender.input(Msg::Open(self.cwd.clone()));
             }
+            Cmd::ConfigLoaded(config, valid) => {
+                if !valid {
+                    self.toasts
+                        .add_toast(adw::Toast::new("Settings file is invalid; using defaults"));
+                }
+                // A Ctrl+H (or dialog switch) pressed before this arrived already saved its
+                // own value; the file just read must not stomp on it.
+                if !self.show_hidden_overridden {
+                    self.show_hidden = config.show_hidden;
+                    self.entries
+                        .set_filter_status(HIDDEN_FILTER, !self.show_hidden);
+                }
+                self.trash_auto_delete_days = config.trash_auto_delete_days;
+                let days = config.trash_auto_delete_days;
+                sender.spawn_oneshot_command(move || {
+                    Cmd::TrashExpired(trash::delete_expired(days, file_ops::now()))
+                });
+            }
             // Without gvfs there is nothing to expire; stay quiet about it.
             Cmd::TrashExpired(Ok(0) | Err(_)) => {}
             Cmd::TrashExpired(Ok(n)) => self.toasts.add_toast(adw::Toast::new(&format!(
                 "Deleted {n} item(s) that were in the trash for over the time limit"
             ))),
+            Cmd::SettingsSaved(Ok(())) => {}
+            Cmd::SettingsSaved(Err(err)) => self
+                .toasts
+                .add_toast(adw::Toast::new(&format!("Cannot save settings: {err}"))),
             Cmd::UndoPlanned(Ok(None)) => self.toasts.add_toast(adw::Toast::new("Nothing to undo")),
             Cmd::UndoPlanned(Err(err)) => self
                 .toasts
@@ -1347,6 +1407,57 @@ impl App {
     fn bookmarks_unavailable(&self, err: DbError) {
         self.toasts
             .add_toast(adw::Toast::new(&format!("Bookmarks unavailable: {err}")));
+    }
+
+    /// Applies `show_hidden` to the list and persists it — the single place Ctrl+H and the
+    /// settings dialog's switch both go through, so the two never disagree. Marks it as
+    /// user-chosen, so a config load still in flight from startup will not overwrite it.
+    fn set_show_hidden(&mut self, show_hidden: bool, sender: &ComponentSender<Self>) {
+        self.show_hidden = show_hidden;
+        self.show_hidden_overridden = true;
+        self.entries.set_filter_status(HIDDEN_FILTER, !show_hidden);
+        sender.spawn_oneshot_command(move || {
+            Cmd::SettingsSaved(
+                config::update(&config::path(), |c| c.show_hidden = show_hidden).map(|_| ()),
+            )
+        });
+    }
+
+    /// Ctrl+,: a one-page "General" settings dialog. Each change saves immediately (GNOME's
+    /// no-Apply-button pattern) via [`config::update`] on a worker.
+    fn open_settings(&self, sender: &ComponentSender<Self>, root: &adw::ApplicationWindow) {
+        let show_hidden_row = adw::SwitchRow::builder()
+            .title("Show hidden files")
+            .active(self.show_hidden)
+            .build();
+        {
+            let input = sender.input_sender().clone();
+            show_hidden_row.connect_active_notify(move |row| {
+                input.emit(Msg::SetShowHidden(row.is_active()));
+            });
+        }
+
+        let trash_days_row = adw::SpinRow::with_range(0.0, 365.0, 1.0);
+        trash_days_row.set_title("Delete trash items after (days)");
+        trash_days_row.set_subtitle("0 keeps them until you empty the trash");
+        trash_days_row.set_value(self.trash_auto_delete_days as f64);
+        {
+            let input = sender.input_sender().clone();
+            trash_days_row.connect_value_notify(move |row| {
+                input.emit(Msg::SetTrashAutoDeleteDays(row.value() as u32));
+            });
+        }
+
+        let group = adw::PreferencesGroup::new();
+        group.add(&show_hidden_row);
+        group.add(&trash_days_row);
+
+        let page = adw::PreferencesPage::builder().title("General").build();
+        page.add(&group);
+
+        let dialog = adw::PreferencesDialog::new();
+        dialog.add(&page);
+        dialog.present(Some(root));
     }
 }
 

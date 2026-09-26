@@ -541,8 +541,8 @@ impl Component for App {
         ));
         command_entry.add_controller(shortcuts);
 
-        // File shortcuts act on the file list only, so Delete in the path bar or the sidebar
-        // keeps its own meaning; undo and new folder work anywhere in the two panes.
+        // Copy/cut act on the selection so they stay on the file list only; paste targets
+        // the current folder, so like undo and new folder it works anywhere in the two panes.
         let file_list: &gtk::Widget = model.entries.view.upcast_ref();
         let panes: &gtk::Widget = widgets.panes.upcast_ref();
         for (widget, accels) in [
@@ -553,12 +553,15 @@ impl Component for App {
                     ("F2", Msg::RenameSelected),
                     ("<Ctrl>c", Msg::CopySelected),
                     ("<Ctrl>x", Msg::CutSelected),
-                    ("<Ctrl>v", Msg::PasteSelected),
                 ][..],
             ),
             (
                 panes,
-                &[("<Ctrl>z", Msg::Undo), ("<Ctrl><Shift>n", Msg::NewFolder)][..],
+                &[
+                    ("<Ctrl>v", Msg::PasteSelected),
+                    ("<Ctrl>z", Msg::Undo),
+                    ("<Ctrl><Shift>n", Msg::NewFolder),
+                ][..],
             ),
         ] {
             let shortcuts = gtk::ShortcutController::new();

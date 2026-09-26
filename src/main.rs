@@ -2,6 +2,7 @@ mod file_ops;
 mod sidebar;
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -158,6 +159,15 @@ struct App {
     db: Option<Arc<Mutex<rusqlite::Connection>>>,
     /// Held only to keep drive-mount notifications firing.
     _drive_monitors: Vec<gio::FileMonitor>,
+    /// Watches `cwd` for changes made by other apps; held only to keep it firing.
+    dir_monitor: Option<gio::FileMonitor>,
+    stat_seq: u64,
+    /// Latest stat request per path; a result is applied only if it is still the latest,
+    /// so out-of-order or pre-reload results are dropped.
+    pending_stats: HashMap<PathBuf, u64>,
+    /// Paths whose stat finished while a listing was in flight; re-stat after it lands,
+    /// since the listing may be older.
+    restat: Vec<PathBuf>,
     /// Plugged-in volumes, mounted or not (via udisks2); also fires on (un)plug and (un)mount.
     volumes: gio::VolumeMonitor,
     /// `cwd` is a trash folder: show the restore / empty bar.
@@ -253,6 +263,8 @@ enum Msg {
     SearchOpened,
     /// The search bar closed (Esc): cancels a running search and restores the folder listing.
     SearchClosed,
+    /// A path in the open folder changed on disk; re-stat just that row.
+    EntryChanged(PathBuf),
 }
 
 #[derive(Debug)]
@@ -285,6 +297,9 @@ enum Cmd {
     /// Result of a [`search::walk`]; ignored unless `cancel` still matches `search_cancel`
     /// (a stale or superseded search).
     SearchResults(Arc<AtomicBool>, Vec<Entry>),
+    /// Fresh stat for one row of the open folder (`None` when it is gone); applied only
+    /// if `seq` is still the latest request for the path.
+    EntryStat(PathBuf, u64, Option<Entry>),
 }
 
 const HIDDEN_FILTER: usize = 0;
@@ -570,6 +585,10 @@ impl Component for App {
             sidebar,
             db: None,
             _drive_monitors: drive_monitors,
+            dir_monitor: None,
+            stat_seq: 0,
+            pending_stats: HashMap::new(),
+            restat: Vec::new(),
             volumes,
             in_trash: false,
         };
@@ -636,8 +655,8 @@ impl Component for App {
         ));
         command_entry.add_controller(shortcuts);
 
-        // File shortcuts act on the file list only, so Delete in the path bar or the sidebar
-        // keeps its own meaning; undo and new folder work anywhere in the two panes.
+        // Copy/cut act on the selection so they stay on the file list only; paste targets
+        // the current folder, so like undo and new folder it works anywhere in the two panes.
         let file_list: &gtk::Widget = model.entries.view.upcast_ref();
         let panes: &gtk::Widget = widgets.panes.upcast_ref();
         for (widget, accels) in [
@@ -648,12 +667,15 @@ impl Component for App {
                     ("F2", Msg::RenameSelected),
                     ("<Ctrl>c", Msg::CopySelected),
                     ("<Ctrl>x", Msg::CutSelected),
-                    ("<Ctrl>v", Msg::PasteSelected),
                 ][..],
             ),
             (
                 panes,
-                &[("<Ctrl>z", Msg::Undo), ("<Ctrl><Shift>n", Msg::NewFolder)][..],
+                &[
+                    ("<Ctrl>v", Msg::PasteSelected),
+                    ("<Ctrl>z", Msg::Undo),
+                    ("<Ctrl><Shift>n", Msg::NewFolder),
+                ][..],
             ),
         ] {
             let shortcuts = gtk::ShortcutController::new();
@@ -1068,6 +1090,23 @@ impl Component for App {
                     None
                 }
             }
+            Msg::EntryChanged(path) => {
+                // ponytail: one stat per event with no coalescing; coalesce if bulk
+                // changes (thousands of files) ever feel slow. Re-inserting a changed
+                // row drops that row's own selection; preserve it if that ever matters.
+                if path.parent() != Some(self.cwd.as_path()) {
+                    None
+                } else {
+                    self.stat_seq += 1;
+                    let seq = self.stat_seq;
+                    self.pending_stats.insert(path.clone(), seq);
+                    sender.spawn_oneshot_command(move || {
+                        let entry = fs::stat_entry(&path);
+                        Cmd::EntryStat(path, seq, entry)
+                    });
+                    None
+                }
+            }
         };
         // Any navigation (including the reload `Msg::SearchClosed` triggers to restore the
         // folder listing) leaves search behind, so stale results or a leftover filter can
@@ -1080,6 +1119,9 @@ impl Component for App {
         }
         if let Some((dir, nav)) = target {
             self.requested = Some((dir.clone(), nav));
+            // Only stats requested before this listing are superseded by it; a stat
+            // requested while `list_dir` runs is newer and must still be applied after.
+            self.pending_stats.clear();
             sender.spawn_oneshot_command(move || {
                 let result = fs::list_dir(&dir);
                 Cmd::Listed(dir, nav, result)
@@ -1222,6 +1264,10 @@ impl Component for App {
                     return;
                 }
                 self.requested = None;
+                // Re-stat paths whose stat finished mid-listing; EntryChanged drops others.
+                for path in std::mem::take(&mut self.restat) {
+                    sender.input(Msg::EntryChanged(path));
+                }
                 let list = match result {
                     Ok(list) => list,
                     Err(err) => {
@@ -1257,6 +1303,45 @@ impl Component for App {
                 // act on the row that was just clicked.
                 if !self.sidebar_has_focus(root) {
                     self.entries.view.grab_focus();
+                }
+                // Watch the open folder for changes made by other apps.
+                if let Some(old) = self.dir_monitor.take() {
+                    old.cancel();
+                }
+                self.dir_monitor = gio::File::for_path(&self.cwd)
+                    .monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
+                    .ok()
+                    .inspect(|monitor| {
+                        let input = sender.input_sender().clone();
+                        monitor.connect_changed(move |_, file, other_file, _| {
+                            if let Some(path) = file.path() {
+                                input.emit(Msg::EntryChanged(path));
+                            }
+                            if let Some(other) = other_file.and_then(|f| f.path()) {
+                                input.emit(Msg::EntryChanged(other));
+                            }
+                        });
+                    });
+            }
+            Cmd::EntryStat(path, seq, entry) => {
+                if self.pending_stats.get(&path) != Some(&seq) {
+                    return;
+                }
+                self.pending_stats.remove(&path);
+                if self.requested.is_some() {
+                    self.restat.push(path);
+                    return;
+                }
+                // Search results replace the folder rows; closing search relists the folder.
+                if self.showing_results || path.parent() != Some(self.cwd.as_path()) {
+                    return;
+                }
+                // Update just this row: selection, scroll and focus of the rest stay as they are.
+                if let Some(pos) = self.entries.find(|e| e.path == path) {
+                    self.entries.remove(pos);
+                }
+                if let Some(entry) = entry {
+                    self.entries.insert_sorted(entry, fs::compare);
                 }
             }
             Cmd::DbOpened(Ok(conn)) => {

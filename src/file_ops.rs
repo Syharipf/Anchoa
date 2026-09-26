@@ -9,14 +9,14 @@
 //!   -> confirm dialog (trash, undo) -> Msg::Run(job, plan) -> [worker] execute + record -> Cmd::Ran
 //! ```
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anchoa::command::Preview;
 use anchoa::executor::{self, ItemStatus};
 use anchoa::history::{self, ResolvedBy, Skipped, Source};
-use anchoa::plan::{Action, ActionPlan};
+use anchoa::plan::{Action, ActionPlan, ConflictPolicy};
 use anchoa::validator::{Rejection, ValidatedPlan, Validator};
 use relm4::adw::prelude::*;
 use relm4::{Sender, adw, gtk};
@@ -35,6 +35,10 @@ pub enum Job {
     Restore,
     Rename,
     NewFolder,
+    Paste {
+        cut: bool,
+        from_clipboard: bool,
+    },
     Undo {
         operation_id: i64,
         skipped: Vec<Skipped>,
@@ -139,6 +143,18 @@ pub fn summary(job: &Job, statuses: &[ItemStatus]) -> String {
         Job::Restore => format!("Restored {}", items(done)),
         Job::Rename => "Renamed".into(),
         Job::NewFolder => "Folder created".into(),
+        Job::Paste { .. } => {
+            let skipped = statuses
+                .iter()
+                .filter(|status| matches!(status, ItemStatus::Skipped))
+                .count();
+            let skipped = if skipped == 0 {
+                String::new()
+            } else {
+                format!(", {skipped} skipped")
+            };
+            format!("Pasted {}{skipped}", items(done))
+        }
         Job::Undo { .. } => "Undone".into(),
     }
 }
@@ -200,7 +216,9 @@ pub fn confirm<M: Send + 'static>(
             ("Undo the last operation?".to_string(), label, lines)
         }
         // Explicit already: a dialog asked for the name, or the user pressed Restore.
-        Job::Restore | Job::Rename | Job::NewFolder => return sender.emit(on_confirm),
+        Job::Restore | Job::Rename | Job::NewFolder | Job::Paste { .. } => {
+            return sender.emit(on_confirm);
+        }
     };
     shorten(&mut lines);
     let dialog = adw::AlertDialog::new(Some(&heading), Some(&lines.join("\n")));
@@ -224,6 +242,53 @@ pub fn confirm<M: Send + 'static>(
     dialog.choose(Some(root), gtk::gio::Cancellable::NONE, move |response| {
         if response == "confirm" {
             sender.emit(on_confirm);
+        }
+    });
+}
+
+pub fn ask_conflict<M: Send + 'static>(
+    root: &adw::ApplicationWindow,
+    conflicts: &[PathBuf],
+    dest: &Path,
+    sender: Sender<M>,
+    on_policy: impl FnOnce(ConflictPolicy) -> M + 'static,
+) {
+    let mut lines: Vec<_> = conflicts
+        .iter()
+        .filter_map(|path| path.file_name())
+        .map(|name| name.to_string_lossy().into_owned())
+        .collect();
+    shorten(&mut lines);
+    let exists = if conflicts.len() == 1 {
+        "already exists"
+    } else {
+        "already exist"
+    };
+    let folder = dest
+        .file_name()
+        .unwrap_or(dest.as_os_str())
+        .to_string_lossy();
+    let dialog = adw::AlertDialog::new(
+        Some(&format!("{} {exists} in {folder}", items(conflicts.len()))),
+        Some(&lines.join("\n")),
+    );
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("skip", "Skip");
+    dialog.add_response("keep", "Keep Both");
+    dialog.add_response("replace", "Replace");
+    dialog.set_response_appearance("keep", adw::ResponseAppearance::Suggested);
+    dialog.set_response_appearance("replace", adw::ResponseAppearance::Destructive);
+    dialog.set_default_response(Some("keep"));
+    dialog.set_close_response("cancel");
+    dialog.choose(Some(root), gtk::gio::Cancellable::NONE, move |response| {
+        let policy = match response.as_str() {
+            "skip" => Some(ConflictPolicy::Skip),
+            "keep" => Some(ConflictPolicy::KeepBoth),
+            "replace" => Some(ConflictPolicy::Replace),
+            _ => None,
+        };
+        if let Some(policy) = policy {
+            sender.emit(on_policy(policy));
         }
     });
 }

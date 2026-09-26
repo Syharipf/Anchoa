@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use anchoa::db::Bookmark;
 use anchoa::places::Place;
-use relm4::RelmRemoveAllExt;
+use relm4::Sender;
 use relm4::gtk;
 use relm4::gtk::{gdk, prelude::*};
 use relm4::prelude::*;
@@ -45,6 +45,7 @@ pub struct Sidebar {
     places: Vec<Place>,
     drives: Vec<Drive>,
     bookmarks: Vec<Bookmark>,
+    output: Sender<Output>,
     /// Row -> item mapping, rebuilt alongside `list`'s children.
     rows: Vec<RowKind>,
 }
@@ -74,8 +75,22 @@ pub enum Msg {
 pub enum Output {
     Open(PathBuf),
     RemoveBookmark(i64),
-    MoveBookmark { id: i64, up: bool },
-    MoveBookmarkTo { id: i64, position: i64 },
+    MoveBookmark {
+        id: i64,
+        up: bool,
+    },
+    MoveBookmarkTo {
+        id: i64,
+        position: i64,
+    },
+    Paste {
+        sources: Vec<PathBuf>,
+        dest: PathBuf,
+        cut: Option<bool>,
+    },
+    TrashDrop {
+        sources: Vec<PathBuf>,
+    },
     Mount(String),
 }
 
@@ -111,6 +126,7 @@ impl SimpleComponent for Sidebar {
             places: Vec::new(),
             drives: Vec::new(),
             bookmarks: Vec::new(),
+            output: sender.output_sender().clone(),
             rows: Vec::new(),
         };
         let list = &model.list;
@@ -274,8 +290,11 @@ impl Sidebar {
                     RowKind::Place(path) => path.to_string_lossy().into_owned(),
                     _ => "Not mounted: activate to mount".to_string(),
                 };
-                self.list
-                    .append(&Self::item_row(drive.icon, &drive.label, &tooltip));
+                let row = Self::item_row(drive.icon, &drive.label, &tooltip);
+                if let RowKind::Place(path) = &kind {
+                    Self::add_file_drop(&row, path.clone(), &self.output);
+                }
+                self.list.append(&row);
                 self.rows.push(kind);
             }
         }
@@ -304,11 +323,13 @@ impl Sidebar {
     }
 
     fn push_place(&mut self, place: Place) {
-        self.list.append(&Self::item_row(
-            place.icon,
-            &place.label,
-            &place.path.to_string_lossy(),
-        ));
+        let row = Self::item_row(place.icon, &place.label, &place.path.to_string_lossy());
+        if place.label == "Trash" {
+            Self::add_trash_drop(&row, &self.output);
+        } else {
+            Self::add_file_drop(&row, place.path.clone(), &self.output);
+        }
+        self.list.append(&row);
         self.rows.push(RowKind::Place(place.path));
     }
 
@@ -318,6 +339,7 @@ impl Sidebar {
             &bookmark.label,
             &bookmark.path.to_string_lossy(),
         );
+        Self::add_file_drop(&row, bookmark.path.clone(), &self.output);
         let drag = gtk::DragSource::new();
         drag.set_actions(gdk::DragAction::MOVE);
         drag.set_content(Some(&gdk::ContentProvider::for_value(
@@ -333,6 +355,62 @@ impl Sidebar {
         self.list.append(&row);
         self.rows
             .push(RowKind::Bookmark(bookmark.id, bookmark.path));
+    }
+
+    fn add_trash_drop(row: &gtk::ListBoxRow, output: &Sender<Output>) {
+        let drop = gtk::DropTarget::new(
+            gdk::FileList::static_type(),
+            gdk::DragAction::COPY | gdk::DragAction::MOVE,
+        );
+        let output = output.clone();
+        drop.connect_drop(move |_, value, _, _| {
+            let sources = value
+                .get::<gdk::FileList>()
+                .map(|files| {
+                    files
+                        .files()
+                        .into_iter()
+                        .filter_map(|file| file.path())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if sources.is_empty() {
+                return false;
+            }
+            output.emit(Output::TrashDrop { sources });
+            true
+        });
+        row.add_controller(drop);
+    }
+
+    fn add_file_drop(row: &gtk::ListBoxRow, dest: PathBuf, output: &Sender<Output>) {
+        let drop = gtk::DropTarget::new(
+            gdk::FileList::static_type(),
+            gdk::DragAction::COPY | gdk::DragAction::MOVE,
+        );
+        let output = output.clone();
+        drop.connect_drop(move |target, value, _, _| {
+            let sources = value
+                .get::<gdk::FileList>()
+                .map(|files| {
+                    files
+                        .files()
+                        .into_iter()
+                        .filter_map(|file| file.path())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if sources.is_empty() {
+                return false;
+            }
+            output.emit(Output::Paste {
+                sources,
+                dest: dest.clone(),
+                cut: drop_cut(target),
+            });
+            true
+        });
+        row.add_controller(drop);
     }
 
     fn header_row(text: &str) -> gtk::ListBoxRow {
@@ -373,6 +451,17 @@ pub const CSS: &str = "
 .navigation-sidebar row.drop-before { box-shadow: inset 0 2px @accent_color; }
 .navigation-sidebar row.drop-after { box-shadow: inset 0 -2px @accent_color; }
 ";
+
+fn drop_cut(target: &gtk::DropTarget) -> Option<bool> {
+    let state = target.current_drop()?.device().modifier_state();
+    if state.contains(gdk::ModifierType::CONTROL_MASK) {
+        Some(false)
+    } else if state.contains(gdk::ModifierType::SHIFT_MASK) {
+        Some(true)
+    } else {
+        None
+    }
+}
 
 /// The bookmark row under `y` (list coordinates), and whether `y` is in its lower half.
 fn bookmark_row_at(list: &gtk::ListBox, y: f64) -> Option<(gtk::ListBoxRow, bool)> {

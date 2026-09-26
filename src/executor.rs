@@ -49,6 +49,43 @@ pub enum ItemStatus {
     Pending,
 }
 
+/// Counts of each [`ItemStatus`] outcome in a batch, for the progress dialog and toasts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Tally {
+    pub done: usize,
+    pub skipped: usize,
+    pub failed: usize,
+    pub pending: usize,
+}
+
+impl Tally {
+    /// Counts `statuses` by outcome.
+    pub fn of(statuses: &[ItemStatus]) -> Self {
+        let mut tally = Tally {
+            done: 0,
+            skipped: 0,
+            failed: 0,
+            pending: 0,
+        };
+        for status in statuses {
+            match status {
+                ItemStatus::Done { .. } => tally.done += 1,
+                ItemStatus::Skipped => tally.skipped += 1,
+                ItemStatus::Failed(_) => tally.failed += 1,
+                ItemStatus::Pending => tally.pending += 1,
+            }
+        }
+        tally
+    }
+
+    /// The batch stopped partway through: something finished and something didn't, whether
+    /// from a failure or a cancel. Worth offering a rollback for; an all-or-nothing result
+    /// (including one that never got anywhere) is not.
+    pub fn is_partial(&self) -> bool {
+        self.done > 0 && (self.failed > 0 || self.pending > 0)
+    }
+}
+
 /// Runs `plan` in order. `keep_going(i)` is called before action `i`; returning `false`
 /// cancels the rest, which stay `Pending`.
 pub fn execute(plan: &ValidatedPlan, mut keep_going: impl FnMut(usize) -> bool) -> Vec<ItemStatus> {

@@ -121,6 +121,19 @@ check_backup() {
   stop_app
 }
 
+check_assistant() {
+  fresh
+  start_app
+  click 1091 750        # mic: idle -> listening
+  shot 8-assistant-listening   # expect: chip "Mendengarkan…" coral, pulse ring, "Mikrofon aktif"
+  click 1011 750        # keyboard: reveals the text field
+  shot 8-assistant-typing      # expect: text field above the controls, send disabled
+  click 1091 750        # mic again: back to idle
+  shot 8-assistant-idle        # expect: chip "Siap", school dimmed
+  xdotool search --name '^Anchoa$' >/dev/null || fail "app window disappeared"
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -132,4 +145,5 @@ check_corrupt_db
 check_items
 check_dashboard
 check_backup
+check_assistant
 echo "PASS. Screenshots in $WORK"

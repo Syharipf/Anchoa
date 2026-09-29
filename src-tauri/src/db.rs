@@ -6,7 +6,10 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
-pub const MIGRATIONS: &[&str] = &[include_str!("../migrations/001_init.sql")];
+pub const MIGRATIONS: &[&str] = &[
+    include_str!("../migrations/001_init.sql"),
+    include_str!("../migrations/002_item_completion.sql"),
+];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
 /// and the frontend shows an error screen; no new database is created.
@@ -102,7 +105,7 @@ mod tests {
         assert_eq!(version(&conn), MIGRATIONS.len() as i64);
         let fk: i64 = conn.pragma_query_value(None, "foreign_keys", |r| r.get(0)).unwrap();
         assert_eq!(fk, 1);
-        conn.execute("SELECT id, type, title, body, parent_id, due_at, created_at, updated_at, opened_at, deleted_at FROM items", [])
+        conn.execute("SELECT id, type, title, body, parent_id, due_at, created_at, updated_at, opened_at, deleted_at, completed_at FROM items", [])
             .unwrap();
     }
 

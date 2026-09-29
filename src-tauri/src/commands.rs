@@ -52,6 +52,11 @@ pub fn update_item(db: State<'_, Db>, id: String, patch: ItemPatch) -> Result<It
 }
 
 #[tauri::command]
+pub fn complete_item(db: State<'_, Db>, id: String, done: bool) -> Result<Item, AppError> {
+    items::complete(&*db.conn()?, &id, done, time::now_ms())
+}
+
+#[tauri::command]
 pub fn delete_item(db: State<'_, Db>, id: String) -> Result<(), AppError> {
     items::delete(&*db.conn()?, &id, time::now_ms())
 }

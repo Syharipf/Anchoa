@@ -5,7 +5,7 @@ import { ItemRow } from "../shell/ItemRow";
 
 export function TodayWidget({ today, onOpen }: Readonly<{ today?: Dashboard["today"]; onOpen: (id: string) => void }>) {
   const now = new Date();
-  const empty = today && today.overdue.length === 0 && today.dueToday.length === 0;
+  const empty = today?.overdue.length === 0 && today.dueToday.length === 0;
 
   return (
     <Card title="Hari ini">

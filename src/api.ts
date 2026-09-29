@@ -28,6 +28,11 @@ export interface ItemPatch {
   dueAt?: number | null;
 }
 
+export interface Dashboard {
+  today: { dueToday: ItemSummary[]; overdue: ItemSummary[] };
+  recent: ItemSummary[];
+}
+
 export interface DbStatus {
   path: string;
   error: string | null;
@@ -43,6 +48,7 @@ export const api = {
   updateItem: (id: string, patch: ItemPatch) => invoke<Item>("update_item", { id, patch }),
   deleteItem: (id: string) => invoke<void>("delete_item", { id }),
   listInbox: () => invoke<ItemSummary[]>("list_inbox"),
+  getDashboard: () => invoke<Dashboard>("get_dashboard"),
 };
 
 /** Backend errors arrive as `{ code, message }`. */

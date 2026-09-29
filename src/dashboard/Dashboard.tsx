@@ -1,10 +1,31 @@
+import { useCallback, useEffect, useState } from "react";
+import { api, errorMessage, type Dashboard as DashboardData } from "../api";
+import { useToast } from "../shell/toast";
+import { FinanceWidget } from "./FinanceWidget";
 import { QuickCapture } from "./QuickCapture";
+import { RecentWidget } from "./RecentWidget";
+import { TodayWidget } from "./TodayWidget";
 
-/** Widgets arrive in PR #4; for now the dashboard is quick capture only. */
-export function Dashboard({ focusCapture }: Readonly<{ focusCapture: number }>) {
+export function Dashboard({ onOpen, focusCapture }: Readonly<{ onOpen: (id: string) => void; focusCapture: number }>) {
+  const toast = useToast();
+  const [data, setData] = useState<DashboardData | null>(null);
+
+  const load = useCallback(() => {
+    api.getDashboard().then(setData, (e) => toast(errorMessage(e), "error"));
+  }, [toast]);
+
+  useEffect(load, [load]);
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4">
-      <QuickCapture onSaved={() => {}} focusSignal={focusCapture} />
+      <QuickCapture onSaved={load} focusSignal={focusCapture} />
+      <div className="grid grid-cols-2 gap-4">
+        <TodayWidget today={data?.today} onOpen={onOpen} />
+        <FinanceWidget />
+        <div className="col-span-2">
+          <RecentWidget items={data?.recent} onOpen={onOpen} />
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // Run with TZ=Asia/Jakarta (see the "test" script in package.json).
 import { describe, expect, test } from "bun:test";
-import { dateInputToMs, msToDateInput, relativeTime, shortDate } from "./format";
+import { dateInputToMs, fullDate, greeting, msToDateInput, relativeTime, shortDate } from "./format";
 
 const at = (iso: string) => new Date(iso).getTime();
 
@@ -27,5 +27,24 @@ describe("dates", () => {
     expect(msToDateInput(at("2026-10-01T00:00:00+07:00"))).toBe("2026-10-01");
     expect(dateInputToMs("")).toBeNull();
     expect(msToDateInput(null)).toBe("");
+  });
+});
+
+describe("greeting", () => {
+  test("follows the hour boundaries", () => {
+    expect(greeting(4)).toBe("Selamat pagi");
+    expect(greeting(10)).toBe("Selamat pagi");
+    expect(greeting(11)).toBe("Selamat siang");
+    expect(greeting(14)).toBe("Selamat siang");
+    expect(greeting(15)).toBe("Selamat sore");
+    expect(greeting(17)).toBe("Selamat sore");
+    expect(greeting(18)).toBe("Selamat malam");
+    expect(greeting(3)).toBe("Selamat malam");
+  });
+});
+
+describe("fullDate", () => {
+  test("weekday, day and month in Indonesian", () => {
+    expect(fullDate(at("2026-09-29T08:00:00+07:00"))).toBe("Selasa, 29 September");
   });
 });

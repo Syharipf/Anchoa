@@ -42,7 +42,7 @@ export function App() {
     <div className="flex h-full">
       <Sidebar current={page.name} onSelect={(name) => setStack([{ name }])} />
       <main className="min-w-0 flex-1 overflow-y-auto p-6">
-        {page.name === "dashboard" && <Dashboard focusCapture={focusCapture} />}
+        {page.name === "dashboard" && <Dashboard onOpen={openItem} focusCapture={focusCapture} />}
         {page.name === "inbox" && <Inbox onOpen={openItem} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
       </main>

@@ -16,6 +16,7 @@ Status: Fase 1 is being implemented PR by PR; see the plan in `docs/superpowers/
 - `bun install`: install JS dependencies.
 - `bun tauri dev`: run the app with hot reload.
 - `bun run typecheck`: TypeScript check.
+- `bun run test`: frontend unit tests (`bun test` with `TZ=Asia/Jakarta`). Run one file with `TZ=Asia/Jakarta bun test src/format.test.ts`.
 - `cd src-tauri && cargo test`: backend tests. Run one test with `cargo test gpu::tests::leaves_nvidia_only_machines_alone`.
 - `cd src-tauri && cargo clippy --all-targets -- -D warnings`: lint (CI fails on any warning).
 - `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`: end-to-end check on Xvfb. Screenshots go to `~/.cache/anchoa-e2e/`.

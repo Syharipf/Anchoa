@@ -1,7 +1,36 @@
 @import "tailwindcss";
 
+/* Design D tokens (docs/design/DESIGN.md §2). Dark only. */
+@theme {
+  --color-canvas: #0f1115;
+  --color-sidebar: #0b0d10;
+  --color-surface: #171a21;
+  --color-surface-2: #1d2129;
+  --color-stage: #12151b;
+  --color-stage-disc: #171b22;
+  --color-line: #262b35;
+  --color-ink: #e7e9ee;
+  --color-muted: #9aa3b2;
+  --color-done: #8a93a3;
+  --color-disabled: #3a4150;
+  --color-accent: #c6f36b;
+  --color-accent-hover: #ddfa9e;
+  --color-danger: #ff8a7a;
+  --color-danger-row: #221a1c;
+  --color-field-focus: #4e6a26;
+  --color-heat-0: #1a1e25;
+  --color-heat-1: #2f3b1e;
+  --color-heat-2: #4e6a26;
+  --color-heat-3: #86b33a;
+  --color-heat-4: #c6f36b;
+
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
 html,
@@ -11,5 +40,44 @@ body,
 }
 
 body {
-  @apply bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+  @apply bg-canvas font-sans text-ink;
+  margin: 0;
+}
+
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@keyframes anchoa-school {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes anchoa-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes anchoa-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-anim] {
+    animation: none !important;
+  }
 }

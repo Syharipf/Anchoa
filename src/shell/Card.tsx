@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
+import { H2, PANEL } from "./ui";
 
 export function Card({ title, children }: Readonly<{ title: string; children: ReactNode }>) {
   return (
-    <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <h2 className="mb-2 font-semibold">{title}</h2>
+    <section className={`${PANEL} flex flex-col gap-1`}>
+      <h2 className={`${H2} mb-2`}>{title}</h2>
       {children}
     </section>
   );

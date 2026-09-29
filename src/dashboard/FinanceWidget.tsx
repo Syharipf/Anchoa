@@ -4,7 +4,7 @@ import { Card } from "../shell/Card";
 export function FinanceWidget() {
   return (
     <Card title="Keuangan bulan ini">
-      <p className="text-sm text-neutral-500">Modul keuangan belum aktif</p>
+      <p className="text-sm text-muted">Modul keuangan belum aktif</p>
     </Card>
   );
 }

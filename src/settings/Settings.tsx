@@ -2,8 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
 import { api, errorMessage, type DataPaths, type FolderKind } from "../api";
 import { useToast } from "../shell/toast";
-
-const BUTTON = "rounded-md border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800";
+import { H1, H2, LABEL, PANEL, SECONDARY } from "../shell/ui";
 
 export function Settings() {
   const toast = useToast();
@@ -26,27 +25,27 @@ export function Settings() {
   const open = (kind: FolderKind) => api.openFolder(kind).catch((e) => toast(errorMessage(e), "error"));
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <h1 className="text-xl font-bold">Pengaturan</h1>
-      <section className="flex flex-col gap-3">
-        <h2 className="font-semibold">Data</h2>
-        <p className="break-all font-mono text-xs text-neutral-500">{paths?.dataDir}</p>
+    <div className="flex max-w-3xl flex-col gap-[18px]">
+      <h1 className={H1}>Pengaturan</h1>
+      <section className={`${PANEL} flex flex-col gap-3`}>
+        <h2 className={H2}>Data</h2>
+        <p className="m-0 break-all font-mono text-xs text-muted">{paths?.dataDir}</p>
         <div className="flex gap-2">
-          <button onClick={() => void backup()} className={BUTTON}>
+          <button onClick={() => void backup()} className={SECONDARY}>
             Backup sekarang
           </button>
-          <button onClick={() => void open("backup")} className={BUTTON}>
+          <button onClick={() => void open("backup")} className={SECONDARY}>
             Buka folder backup
           </button>
-          <button onClick={() => void open("data")} className={BUTTON}>
+          <button onClick={() => void open("data")} className={SECONDARY}>
             Buka folder data
           </button>
         </div>
-        <p className="text-xs text-neutral-500">
+        <p className="m-0 text-xs text-muted">
           Backup harian dibuat otomatis saat aplikasi dibuka; 7 backup terbaru disimpan.
         </p>
       </section>
-      <p className="text-sm text-neutral-500">Anchoa versi {version}</p>
+      <p className={LABEL}>Anchoa versi {version}</p>
     </div>
   );
 }

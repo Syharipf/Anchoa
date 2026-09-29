@@ -17,9 +17,9 @@ export function Dashboard({ onOpen, focusCapture }: Readonly<{ onOpen: (id: stri
   useEffect(load, [load]);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4">
+    <div className="flex flex-col gap-[18px]">
       <QuickCapture onSaved={load} focusSignal={focusCapture} />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3.5">
         <TodayWidget today={data?.today} onOpen={onOpen} />
         <FinanceWidget />
         <div className="col-span-2">

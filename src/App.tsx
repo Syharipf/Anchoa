@@ -4,7 +4,7 @@ import { Dashboard } from "./dashboard/Dashboard";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
 import { Settings } from "./settings/Settings";
-import { AiColumn } from "./shell/AiColumn";
+import { Aside } from "./shell/Aside";
 import { ErrorScreen } from "./shell/ErrorScreen";
 import { Sidebar, type TopPage } from "./shell/Sidebar";
 import { useToast } from "./shell/toast";
@@ -45,15 +45,15 @@ export function App() {
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full bg-canvas">
       <Sidebar current={page.name} onSelect={(name) => setStack([{ name }])} />
-      <main className="min-w-0 flex-1 overflow-y-auto p-6">
+      <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         {page.name === "dashboard" && <Dashboard onOpen={openItem} focusCapture={focusCapture} />}
         {page.name === "inbox" && <Inbox onOpen={openItem} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings />}
       </main>
-      <AiColumn />
+      <Aside />
     </div>
   );
 }

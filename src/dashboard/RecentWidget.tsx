@@ -7,7 +7,7 @@ export function RecentWidget({ items, onOpen }: Readonly<{ items?: ItemSummary[]
   const now = Date.now();
   return (
     <Card title="Item terbaru">
-      {items?.length === 0 && <p className="text-sm text-neutral-500">Belum ada item</p>}
+      {items?.length === 0 && <p className="text-sm text-muted">Belum ada item</p>}
       {items?.map((i) => (
         <ItemRow key={i.id} item={i} detail={relativeTime(i.lastActivityAt, now)} onOpen={onOpen} />
       ))}

@@ -1,4 +1,4 @@
-export type TopPage = "dashboard" | "inbox";
+export type TopPage = "dashboard" | "inbox" | "settings";
 
 export function Sidebar({ current, onSelect }: Readonly<{ current: string; onSelect: (page: TopPage) => void }>) {
   const link = (page: TopPage, label: string) => (
@@ -20,6 +20,7 @@ export function Sidebar({ current, onSelect }: Readonly<{ current: string; onSel
       <div className="mb-4 px-3 text-lg font-bold">Anchoa</div>
       {link("dashboard", "Dashboard")}
       {link("inbox", "Inbox")}
+      <div className="mt-auto">{link("settings", "Pengaturan")}</div>
     </nav>
   );
 }

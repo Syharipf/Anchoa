@@ -36,9 +36,16 @@ export interface Dashboard {
 export interface DbStatus {
   path: string;
   error: string | null;
+  backupError: string | null;
 }
 
-export type FolderKind = "data" | "log";
+export interface DataPaths {
+  dataDir: string;
+  backupDir: string;
+  logDir: string;
+}
+
+export type FolderKind = "data" | "backup" | "log";
 
 export const api = {
   dbStatus: () => invoke<DbStatus>("db_status"),
@@ -49,6 +56,8 @@ export const api = {
   deleteItem: (id: string) => invoke<void>("delete_item", { id }),
   listInbox: () => invoke<ItemSummary[]>("list_inbox"),
   getDashboard: () => invoke<Dashboard>("get_dashboard"),
+  backupNow: () => invoke<string>("backup_now"),
+  dataPaths: () => invoke<DataPaths>("data_paths"),
 };
 
 /** Backend errors arrive as `{ code, message }`. */

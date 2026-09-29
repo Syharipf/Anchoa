@@ -3,21 +3,27 @@ import { api, type DbStatus } from "./api";
 import { Dashboard } from "./dashboard/Dashboard";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
+import { Settings } from "./settings/Settings";
 import { AiColumn } from "./shell/AiColumn";
 import { ErrorScreen } from "./shell/ErrorScreen";
 import { Sidebar, type TopPage } from "./shell/Sidebar";
+import { useToast } from "./shell/toast";
 
 type Page = { name: TopPage } | { name: "item"; id: string };
 
 export function App() {
+  const toast = useToast();
   const [status, setStatus] = useState<DbStatus | null>(null);
   const [stack, setStack] = useState<Page[]>([{ name: "dashboard" }]);
   const [focusCapture, setFocusCapture] = useState(0);
   const page = stack[stack.length - 1];
 
   useEffect(() => {
-    api.dbStatus().then(setStatus);
-  }, []);
+    api.dbStatus().then((s) => {
+      setStatus(s);
+      if (s.backupError) toast(`Backup harian gagal: ${s.backupError}`, "error");
+    });
+  }, [toast]);
 
   // Ctrl+N: jump to the dashboard and focus quick capture.
   useEffect(() => {
@@ -45,6 +51,7 @@ export function App() {
         {page.name === "dashboard" && <Dashboard onOpen={openItem} focusCapture={focusCapture} />}
         {page.name === "inbox" && <Inbox onOpen={openItem} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
+        {page.name === "settings" && <Settings />}
       </main>
       <AiColumn />
     </div>

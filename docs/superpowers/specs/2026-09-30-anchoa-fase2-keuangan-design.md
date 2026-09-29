@@ -109,7 +109,7 @@ Semua mengembalikan `Result<T, AppError>`. Nama field JSON memakai camelCase. Ju
 ```
 AccountView     { id, name, kind, currency, openingBalance, balance }
 TransactionView { id, title, body, amount, category, accountId, accountName,
-                  occurredAt, createdAt, transferId, counterAccountName }
+                  occurredAt, createdAt, transferId, counterAccountId, counterAccountName }
 TransactionInput { id?, kind: "expense" | "income", amount (> 0), accountId,
                    occurredAt, category?, title, body? }
 TransferInput    { transferId?, fromAccountId, toAccountId, amount (> 0),
@@ -229,13 +229,14 @@ Kalau belum ada akun: "Belum ada akun", dengan tombol "Buat akun" yang membuka t
 
 ## 10. Rencana PR
 
+Rinciannya ada di `docs/superpowers/plans/2026-09-30-anchoa-fase2-keuangan.md`.
+
 | PR | Isi |
 |---|---|
-| F2-1 | Migrasi 002, backend akun (CRUD + saldo), filter Inbox dan recent ke `note` |
-| F2-2 | Backend transaksi, transfer, ringkasan bulanan, `finance` di dashboard |
-| F2-3 | Halaman Keuangan, format uang, tab Akun |
-| F2-4 | Tab Transaksi dan formulir (termasuk transfer) |
-| F2-5 | Tab Ringkasan, widget dashboard aktif, E2E |
+| F2-1 | Migrasi 002, backend akun (CRUD + saldo), filter Inbox dan Item terbaru ke `note` |
+| F2-2 | Backend transaksi, transfer, ringkasan bulanan, kategori, `finance` di dashboard |
+| F2-3 | Halaman Keuangan, format uang, tab Transaksi dan Akun, formulir, E2E keuangan |
+| F2-4 | Tab Ringkasan, widget dashboard aktif, E2E ringkasan dan dashboard |
 
 ## 11. Pertanyaan terbuka
 

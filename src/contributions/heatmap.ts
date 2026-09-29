@@ -60,7 +60,8 @@ function monthView(year: number, month: number, counts: Map<string, number>, tod
     run = count > 0 ? run + 1 : 0;
     streak = Math.max(streak, run);
   }
-  for (let i = 0; slots.length % 7; i++) slots.push({ key: `after-${i}`, cell: null });
+  const trailing = (7 - (slots.length % 7)) % 7;
+  for (let i = 0; i < trailing; i++) slots.push({ key: `after-${i}`, cell: null });
   return {
     key: `${year}-${pad(month + 1)}`,
     label: first.toLocaleDateString("id-ID", { month: "short", year: "numeric" }),

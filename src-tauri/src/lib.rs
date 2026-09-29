@@ -3,6 +3,7 @@ mod commands;
 mod dashboard;
 mod db;
 mod error;
+mod github;
 mod gpu;
 mod items;
 mod time;
@@ -56,6 +57,10 @@ pub fn run() {
             commands::delete_item,
             commands::list_inbox,
             commands::get_dashboard,
+            commands::github_status,
+            commands::connect_github,
+            commands::disconnect_github,
+            commands::get_contributions,
             commands::backup_now,
             commands::data_paths,
             commands::open_folder,

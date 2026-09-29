@@ -147,20 +147,23 @@ Semua command mengembalikan `Result<T, AppError>`.
 |---|---|---|---|
 | `capture_note` | `text` | `Item` | Membuat item `note` dengan judul = teks yang sudah di-trim dan `parent_id` NULL. Teks kosong ditolak (`code: "empty"`). |
 | `open_item` | `id` | `Item` | Mengisi `opened_at = now` lalu mengembalikan item. |
-| `update_item` | `id`, `title?`, `body?`, `due_at?` (boleh `null` untuk menghapus) | `Item` | Mengubah field yang dikirim dan mengisi `updated_at = now`. |
+| `update_item` | `id`, `patch: { title?, body?, dueAt? }` (`dueAt: null` menghapus tanggal) | `Item` | Mengubah field yang dikirim dan mengisi `updated_at = now`. Patch kosong tidak mengubah apa pun. |
 | `delete_item` | `id` | `()` | Soft delete: `deleted_at = now`. |
 | `list_inbox` | - | `ItemSummary[]` | Item dengan `parent_id IS NULL`, diurutkan `created_at` terbaru dulu. |
 | `get_dashboard` | - | `Dashboard` | Lihat di bawah. |
+| `db_status` | - | `{ path, error, backupError }` | Dipanggil saat start untuk layar error DB dan toast backup gagal. |
 | `backup_now` | - | `path` | Membuat backup manual. |
-| `data_paths` | - | `{ data_dir, backup_dir, log_dir }` | Untuk halaman Pengaturan. Folder dibuka lewat plugin opener. |
+| `data_paths` | - | `{ dataDir, backupDir, logDir }` | Untuk halaman Pengaturan. |
+| `open_folder` | `kind`: `data`, `backup`, atau `log` | `()` | Membuka folder milik app lewat `tauri-plugin-opener` dari sisi Rust. Frontend tidak pernah mengirim path. |
+
+Nama field di JSON memakai camelCase.
 
 ```
 Dashboard {
-  today:   { due_today: ItemSummary[], overdue: ItemSummary[] },
-  recent:  ItemSummary[],   // maksimal 8
-  finance: null             // Fase 2 mengisi { balance, income, expense }
-}
-ItemSummary { id, type, title, due_at, last_activity_at }
+  today:   { dueToday: ItemSummary[], overdue: ItemSummary[] },
+  recent:  ItemSummary[]    // maksimal 8
+}                           // Fase 2 menambah finance: { balance, income, expense }
+ItemSummary { id, type, title, dueAt, lastActivityAt }
 ```
 
 - `due_today`: `start_of_today <= due_at < start_of_tomorrow` (waktu lokal).
@@ -221,6 +224,7 @@ Data dashboard dimuat saat halaman dibuka dan setelah setiap aksi. Tidak ada pem
 ### Halaman item
 
 - **Field:** judul (input), jatuh tempo (`<input type="date">` dengan tombol hapus tanggal), dan isi (textarea Markdown).
+- **Input tanggal kosong ditampilkan abu-abu.** WebKitGTK menampilkan tanggal hari ini di input tanggal yang kosong, sehingga tanpa pembeda terlihat seolah sudah di-set.
 - **Autosave:** 500 ms setelah berhenti mengetik dan saat fokus pindah. Status tampil sebagai "Menyimpan…", "Tersimpan", atau "Gagal menyimpan".
 - **Kalau simpan gagal:** isi editor tidak diubah, dan penyimpanan dicoba lagi pada perubahan berikutnya.
 - **Tombol Hapus:** meminta konfirmasi, lalu soft delete dan kembali ke halaman sebelumnya.
@@ -278,9 +282,9 @@ Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat
   - pemilihan render node di perbaikan GPU, diuji dengan daftar node palsu.
 - **Frontend:**
   - `tsc --noEmit`;
-  - Vitest untuk fungsi murni: sapaan per jam dan format waktu relatif.
-- **End-to-end:** app dijalankan di Xvfb dan dikendalikan dengan xdotool, hasilnya dicek lewat screenshot dan isi DB di disk. Pengembang hanya menguji manual hal yang tidak bisa diotomatisasi, misalnya rendering di GPU asli.
-- **CI:** GitHub Actions di Linux, berjalan di setiap PR: `cargo test`, `cargo clippy -- -D warnings`, `tsc --noEmit`, dan Vitest. CI hijau adalah syarat merge. Build Windows dan Android menyusul di Fase 6.
+  - `bun test` (test runner bawaan bun, dijalankan dengan `TZ=Asia/Jakarta`) untuk fungsi murni: sapaan per jam, format tanggal, dan waktu relatif.
+- **End-to-end:** `scripts/e2e-smoke.sh` menjalankan app di Xvfb dengan folder data dan D-Bus sendiri, mengendalikannya dengan xdotool, lalu mengecek hasilnya lewat screenshot dan isi DB di disk. Pengembang hanya menguji manual hal yang tidak bisa diotomatisasi, misalnya rendering di GPU asli.
+- **CI:** GitHub Actions di Linux, berjalan di setiap PR: `cargo test`, `cargo clippy -- -D warnings`, `tsc --noEmit`, dan `bun test`. CI hijau adalah syarat merge. Build Windows dan Android menyusul di Fase 6.
 
 ## 12. Kriteria selesai Fase 1
 

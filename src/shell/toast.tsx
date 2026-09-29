@@ -1,0 +1,36 @@
+import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+
+type Kind = "info" | "error";
+type Toast = { id: number; text: string; kind: Kind };
+
+const ToastContext = createContext<(text: string, kind?: Kind) => void>(() => {});
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const show = useCallback((text: string, kind: Kind = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts((list) => [...list, { id, text, kind }]);
+    setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), 3000);
+  }, []);
+
+  return (
+    <ToastContext.Provider value={show}>
+      {children}
+      <div role="status" aria-live="polite" className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`rounded-md px-4 py-2 text-sm shadow-lg ${
+              t.kind === "error" ? "bg-red-600 text-white" : "bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900"
+            }`}
+          >
+            {t.text}
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export const useToast = () => useContext(ToastContext);

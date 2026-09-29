@@ -1,3 +1,5 @@
+mod db;
+mod error;
 mod gpu;
 
 use tauri::Manager;

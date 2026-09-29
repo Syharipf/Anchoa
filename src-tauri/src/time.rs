@@ -1,4 +1,4 @@
-use jiff::{Timestamp, tz::TimeZone};
+use jiff::{Timestamp, Zoned, tz::TimeZone};
 
 pub fn now_ms() -> i64 {
     Timestamp::now().as_millisecond()
@@ -10,6 +10,16 @@ pub fn day_bounds(now_ms: i64, tz: &TimeZone) -> Result<(i64, i64), jiff::Error>
     let start = today.to_zoned(tz.clone())?;
     let end = today.tomorrow()?.to_zoned(tz.clone())?;
     Ok((start.timestamp().as_millisecond(), end.timestamp().as_millisecond()))
+}
+
+/// Local date for daily backup names, e.g. `2026-09-29`.
+pub fn today_stamp() -> String {
+    Zoned::now().strftime("%Y-%m-%d").to_string()
+}
+
+/// Local date and time for manual backup names, e.g. `2026-09-29-142501`.
+pub fn now_stamp() -> String {
+    Zoned::now().strftime("%Y-%m-%d-%H%M%S").to_string()
 }
 
 #[cfg(test)]

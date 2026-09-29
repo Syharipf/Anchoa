@@ -1,3 +1,4 @@
+mod backup;
 mod commands;
 mod dashboard;
 mod db;

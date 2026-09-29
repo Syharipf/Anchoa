@@ -27,6 +27,8 @@
   "bundle": {
     "active": true,
     "targets": ["rpm"],
+    "category": "Productivity",
+    "shortDescription": "Kelola catatan, task, dan keuangan di satu tempat",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

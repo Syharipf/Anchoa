@@ -4,12 +4,13 @@ type Kind = "info" | "error";
 type Toast = { id: number; text: string; kind: Kind };
 
 const ToastContext = createContext<(text: string, kind?: Kind) => void>(() => {});
+let nextId = 0;
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const show = useCallback((text: string, kind: Kind = "info") => {
-    const id = Date.now() + Math.random();
+    const id = ++nextId;
     setToasts((list) => [...list, { id, text, kind }]);
     setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), 3000);
   }, []);

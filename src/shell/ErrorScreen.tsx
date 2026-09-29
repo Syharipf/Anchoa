@@ -1,6 +1,6 @@
 import { api } from "../api";
 
-export function ErrorScreen({ path, message }: { path: string; message: string }) {
+export function ErrorScreen({ path, message }: Readonly<{ path: string; message: string }>) {
   return (
     <div className="flex h-full items-center justify-center p-8">
       <div className="flex max-w-lg flex-col gap-4">

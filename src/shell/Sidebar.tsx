@@ -1,6 +1,6 @@
 export type TopPage = "dashboard" | "inbox";
 
-export function Sidebar({ current, onSelect }: { current: string; onSelect: (page: TopPage) => void }) {
+export function Sidebar({ current, onSelect }: Readonly<{ current: string; onSelect: (page: TopPage) => void }>) {
   const link = (page: TopPage, label: string) => (
     <button
       onClick={() => onSelect(page)}

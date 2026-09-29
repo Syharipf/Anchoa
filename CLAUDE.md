@@ -41,6 +41,14 @@ Spec sections 4 to 6 have the details.
 - Compute day boundaries ("today", "overdue") in Rust, in local time.
 - Commands return `Result<T, AppError>`. Do not panic on user-triggered paths. Never create a fresh DB over one that failed to open.
 
+## SonarCloud conventions
+
+SonarCloud analyses every PR, and its quality gate fails on any new security finding. To keep it green:
+
+- Wrap React component props in `Readonly<...>`.
+- Do not use `Math.random()`; use a counter for local IDs.
+- Use `[[ ... ]]` instead of `[ ... ]` in bash scripts.
+
 ## Linux GPU quirk
 
 On the dev laptop, NVIDIA is the X `PrimaryGPU`, and Intel is also present.

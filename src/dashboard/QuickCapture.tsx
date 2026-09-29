@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../api";
 import { useToast } from "../shell/toast";
 
-export function QuickCapture({ onSaved, focusSignal }: { onSaved: () => void; focusSignal: number }) {
+export function QuickCapture({ onSaved, focusSignal }: Readonly<{ onSaved: () => void; focusSignal: number }>) {
   const toast = useToast();
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);

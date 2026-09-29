@@ -1,6 +1,6 @@
 import type { ItemSummary } from "../api";
 
-export function ItemRow({ item, detail, onOpen }: { item: ItemSummary; detail: string; onOpen: (id: string) => void }) {
+export function ItemRow({ item, detail, onOpen }: Readonly<{ item: ItemSummary; detail: string; onOpen: (id: string) => void }>) {
   return (
     <button
       onClick={() => onOpen(item.id)}

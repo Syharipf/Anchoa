@@ -12,7 +12,7 @@ const SAVE_LABEL: Record<SaveState, string> = {
 };
 const AUTOSAVE_MS = 500;
 
-export function ItemPage({ id, onBack }: { id: string; onBack: () => void }) {
+export function ItemPage({ id, onBack }: Readonly<{ id: string; onBack: () => void }>) {
   const toast = useToast();
   const [item, setItem] = useState<Item | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

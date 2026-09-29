@@ -49,7 +49,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [ "$(sql 'PRAGMA user_version')" = 1 ] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 1 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -60,7 +60,7 @@ check_corrupt_db() {
   start_app
   shot 2-corrupt-db
   stop_app
-  [ "$(sha256sum "$DB")" = "$before" ] || fail "corrupt database was modified"
+  [[ "$(sha256sum "$DB")" = "$before" ]] || fail "corrupt database was modified"
 }
 
 check_items() {
@@ -70,7 +70,7 @@ check_items() {
   xdotool type --delay 20 'catatan dari e2e'
   xdotool key Return
   sleep 1
-  [ "$(sql "SELECT title FROM items")" = "catatan dari e2e" ] || fail "capture not saved"
+  [[ "$(sql "SELECT title FROM items")" = "catatan dari e2e" ]] || fail "capture not saved"
 
   click 43 118          # sidebar: Inbox
   shot 4-inbox
@@ -79,12 +79,12 @@ check_items() {
   xdotool type --delay 20 'isi dari e2e'
   sleep 1.5             # autosave fires after 500 ms
   shot 4-item
-  [ "$(sql "SELECT body FROM items")" = "isi dari e2e" ] || fail "autosave did not store the body"
+  [[ "$(sql "SELECT body FROM items")" = "isi dari e2e" ]] || fail "autosave did not store the body"
 
   click 986 34          # Hapus
   shot 4-confirm
   click 921 38          # Ya, hapus
-  [ -n "$(sql "SELECT deleted_at FROM items")" ] || fail "delete did not set deleted_at"
+  [[ -n "$(sql "SELECT deleted_at FROM items")" ]] || fail "delete did not set deleted_at"
   stop_app
 }
 

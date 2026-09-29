@@ -4,7 +4,7 @@ import { relativeTime, shortDate } from "../format";
 import { ItemRow } from "../shell/ItemRow";
 import { useToast } from "../shell/toast";
 
-export function Inbox({ onOpen }: { onOpen: (id: string) => void }) {
+export function Inbox({ onOpen }: Readonly<{ onOpen: (id: string) => void }>) {
   const toast = useToast();
   const [items, setItems] = useState<ItemSummary[] | null>(null);
 

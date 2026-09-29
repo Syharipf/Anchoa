@@ -1,0 +1,154 @@
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
+use std::time::Duration;
+
+use rusqlite::Connection;
+
+use crate::error::AppError;
+
+pub const MIGRATIONS: &[&str] = &[include_str!("../migrations/001_init.sql")];
+
+/// Managed Tauri state. When the database fails to open, `conn` is `None`
+/// and the frontend shows an error screen; no new database is created.
+pub struct Db {
+    conn: Option<Mutex<Connection>>,
+    pub path: PathBuf,
+    pub open_error: Option<String>,
+}
+
+impl Db {
+    pub fn open_at(path: PathBuf) -> Db {
+        match open(&path) {
+            Ok(conn) => Db { conn: Some(Mutex::new(conn)), path, open_error: None },
+            Err(e) => Db { conn: None, path, open_error: Some(e.to_string()) },
+        }
+    }
+
+    pub fn conn(&self) -> Result<MutexGuard<'_, Connection>, AppError> {
+        let conn = self.conn.as_ref().ok_or(AppError::DbUnavailable)?;
+        conn.lock().map_err(|_| AppError::DbUnavailable)
+    }
+}
+
+pub fn open(path: &Path) -> Result<Connection, AppError> {
+    let mut conn = Connection::open(path)?;
+    configure(&conn)?;
+    migrate(&mut conn, MIGRATIONS, Some(path))?;
+    Ok(conn)
+}
+
+#[cfg(test)]
+pub fn open_in_memory() -> Connection {
+    let mut conn = Connection::open_in_memory().unwrap();
+    configure(&conn).unwrap();
+    migrate(&mut conn, MIGRATIONS, None).unwrap();
+    conn
+}
+
+fn configure(conn: &Connection) -> Result<(), AppError> {
+    conn.busy_timeout(Duration::from_millis(5000))?;
+    conn.pragma_update(None, "foreign_keys", true)?;
+    conn.pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get::<_, String>(0))?;
+    Ok(())
+}
+
+/// Consistent copy of the live database, safe while it is open.
+pub fn vacuum_into(conn: &Connection, dest: &Path) -> Result<(), AppError> {
+    conn.execute("VACUUM INTO ?1", [dest.to_string_lossy()])?;
+    Ok(())
+}
+
+/// Applies `migrations[user_version..]`, one transaction each. An existing
+/// database is copied to `<db>.bak-v<old version>` first.
+pub fn migrate(conn: &mut Connection, migrations: &[&str], db_path: Option<&Path>) -> Result<(), AppError> {
+    let current: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    let latest = migrations.len() as i64;
+    if current > latest {
+        return Err(AppError::DbTooNew(current));
+    }
+    if current == latest {
+        return Ok(());
+    }
+    if current > 0 && let Some(path) = db_path {
+        let backup = PathBuf::from(format!("{}.bak-v{current}", path.display()));
+        if !backup.exists() {
+            vacuum_into(conn, &backup)?;
+        }
+    }
+    for (i, sql) in migrations.iter().enumerate().skip(current as usize) {
+        let tx = conn.transaction()?;
+        tx.execute_batch(sql)?;
+        tx.pragma_update(None, "user_version", i as i64 + 1)?;
+        tx.commit()?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const M1: &str = "CREATE TABLE a (x INTEGER);";
+    const M2: &str = "CREATE TABLE b (y INTEGER);";
+
+    fn version(conn: &Connection) -> i64 {
+        conn.pragma_query_value(None, "user_version", |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn fresh_database_gets_all_migrations_and_pragmas() {
+        let conn = open_in_memory();
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
+        let fk: i64 = conn.pragma_query_value(None, "foreign_keys", |r| r.get(0)).unwrap();
+        assert_eq!(fk, 1);
+        conn.execute("SELECT id, type, title, body, parent_id, due_at, created_at, updated_at, opened_at, deleted_at FROM items", [])
+            .unwrap();
+    }
+
+    #[test]
+    fn upgrade_backs_up_old_version_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &[M1], Some(&path)).unwrap();
+        conn.execute("INSERT INTO a VALUES (42)", []).unwrap();
+
+        migrate(&mut conn, &[M1, M2], Some(&path)).unwrap();
+
+        assert_eq!(version(&conn), 2);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v1")).unwrap();
+        assert_eq!(version(&backup), 1);
+        let x: i64 = backup.query_row("SELECT x FROM a", [], |r| r.get(0)).unwrap();
+        assert_eq!(x, 42);
+    }
+
+    #[test]
+    fn failed_migration_rolls_back() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate(&mut conn, &[M1], None).unwrap();
+        let err = migrate(&mut conn, &[M1, "CREATE TABLE broken (;"], None);
+        assert!(err.is_err());
+        assert_eq!(version(&conn), 1);
+    }
+
+    #[test]
+    fn refuses_database_from_newer_app() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate(&mut conn, &[M1, M2], None).unwrap();
+        assert!(matches!(migrate(&mut conn, &[M1], None), Err(AppError::DbTooNew(2))));
+    }
+
+    #[test]
+    fn corrupt_file_is_reported_and_left_untouched() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let garbage = vec![7u8; 4096];
+        std::fs::write(&path, &garbage).unwrap();
+
+        let db = Db::open_at(path.clone());
+
+        assert!(db.open_error.is_some());
+        assert!(matches!(db.conn(), Err(AppError::DbUnavailable)));
+        assert_eq!(std::fs::read(&path).unwrap(), garbage);
+    }
+}

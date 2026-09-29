@@ -1,4 +1,9 @@
+mod commands;
+mod db;
+mod error;
 mod gpu;
+mod items;
+mod time;
 
 use tauri::Manager;
 
@@ -15,12 +20,29 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_log::Builder::new().level(log::LevelFilter::Info).build())
-        .setup(move |_app| {
+        .plugin(tauri_plugin_opener::init())
+        .setup(move |app| {
             if let Some(node) = &gpu_node {
                 log::info!("NVIDIA workaround: WEBKIT_WEB_RENDER_DEVICE_FILE={node}");
             }
+            let data_dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&data_dir)?;
+            let db = db::Db::open_at(data_dir.join("anchoa.db"));
+            if let Some(e) = &db.open_error {
+                log::error!("database open failed: {e}");
+            }
+            app.manage(db);
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            commands::db_status,
+            commands::open_folder,
+            commands::capture_note,
+            commands::open_item,
+            commands::update_item,
+            commands::delete_item,
+            commands::list_inbox,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -1,4 +1,4 @@
-export type TopPage = "dashboard";
+export type TopPage = "dashboard" | "inbox";
 
 export function Sidebar({ current, onSelect }: { current: string; onSelect: (page: TopPage) => void }) {
   const link = (page: TopPage, label: string) => (
@@ -19,6 +19,7 @@ export function Sidebar({ current, onSelect }: { current: string; onSelect: (pag
     <nav className="flex w-52 shrink-0 flex-col gap-1 border-r border-neutral-200 bg-neutral-100 p-3 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="mb-4 px-3 text-lg font-bold">Anchoa</div>
       {link("dashboard", "Dashboard")}
+      {link("inbox", "Inbox")}
     </nav>
   );
 }

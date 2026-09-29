@@ -20,6 +20,14 @@ export function fullDate(ms: number): string {
   return new Date(ms).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
 }
 
+/** "Rab 30 Sep · 00:48" for the header clock. */
+export function clockLabel(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const weekday = d.toLocaleDateString("id-ID", { weekday: "short" });
+  return `${weekday} ${shortDate(ms)} · ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** "12 Sep" */
 export function shortDate(ms: number): string {
   return new Date(ms).toLocaleDateString("id-ID", { day: "numeric", month: "short" });

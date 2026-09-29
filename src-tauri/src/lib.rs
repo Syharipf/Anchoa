@@ -52,6 +52,7 @@ pub fn run() {
             commands::capture_note,
             commands::open_item,
             commands::update_item,
+            commands::complete_item,
             commands::delete_item,
             commands::list_inbox,
             commands::get_dashboard,

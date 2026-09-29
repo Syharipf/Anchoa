@@ -4,6 +4,13 @@
 
 > **Status: DRAF.** Rencana ini mengikuti draf spec yang asumsinya (A1–A10) belum disetujui. Kalau jawaban untuk Q1–Q8 di spec mengubah asumsi, perbarui spec dan rencana ini dulu sebelum mulai.
 
+> **Perlu disusun ulang (2026-09-30).** Redesign D (`docs/superpowers/specs/2026-09-30-anchoa-ui-d-design.md`) mengubah dasar dokumen ini:
+> - migrasi `002` sekarang dipakai `002_item_completion.sql`, jadi migrasi keuangan menjadi `003_finance.sql` (beserta test upgrade dan `user_version` di E2E);
+> - struktur `Dashboard` di backend berubah (`today: DayTask[]`, `inboxCount`);
+> - widget, sidebar, dan gaya UI sekarang mengikuti desain D (nav rail, kartu KPI "Saldo total" dan "Pengeluaran" yang menunggu modul ini).
+>
+> Keputusan A1–A10 tetap berlaku sebagai draf. Blok kode UI di rencana perlu dibuat ulang sebelum Fase 2 diimplementasikan.
+
 **Goal:** Menambah modul keuangan: akun, transaksi (pengeluaran, pemasukan, transfer), ringkasan bulanan, dan widget dashboard yang aktif.
 
 **Architecture:** Mengikuti Fase 1. Akun dan transaksi adalah baris di `items` (`type` = `account` atau `transaction`), dengan tabel tambahan `accounts` dan `transactions` yang memakai `item_id` yang sama. Logika ada di `finance.rs` berupa fungsi murni yang menerima `&Connection`, sedangkan `commands.rs` hanya berisi glue. Frontend memanggil backend hanya lewat `src/api.ts`.

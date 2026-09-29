@@ -1,0 +1,1 @@
+ALTER TABLE items ADD COLUMN completed_at INTEGER;

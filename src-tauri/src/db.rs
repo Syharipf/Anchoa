@@ -14,13 +14,14 @@ pub struct Db {
     conn: Option<Mutex<Connection>>,
     pub path: PathBuf,
     pub open_error: Option<String>,
+    pub backup_error: Option<String>,
 }
 
 impl Db {
     pub fn open_at(path: PathBuf) -> Db {
         match open(&path) {
-            Ok(conn) => Db { conn: Some(Mutex::new(conn)), path, open_error: None },
-            Err(e) => Db { conn: None, path, open_error: Some(e.to_string()) },
+            Ok(conn) => Db { conn: Some(Mutex::new(conn)), path, open_error: None, backup_error: None },
+            Err(e) => Db { conn: None, path, open_error: Some(e.to_string()), backup_error: None },
         }
     }
 

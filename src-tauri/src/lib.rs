@@ -29,22 +29,35 @@ pub fn run() {
             }
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            let db = db::Db::open_at(data_dir.join("anchoa.db"));
-            if let Some(e) = &db.open_error {
-                log::error!("database open failed: {e}");
+            let mut db = db::Db::open_at(data_dir.join("anchoa.db"));
+            match &db.open_error {
+                Some(e) => log::error!("database open failed: {e}"),
+                None => {
+                    let result = backup::daily(&*db.conn()?, &data_dir.join("backups"), &time::today_stamp());
+                    match result {
+                        Ok(Some(path)) => log::info!("daily backup: {}", path.display()),
+                        Ok(None) => {}
+                        Err(e) => {
+                            log::error!("daily backup failed: {e}");
+                            db.backup_error = Some(e.to_string());
+                        }
+                    }
+                }
             }
             app.manage(db);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::db_status,
-            commands::open_folder,
             commands::capture_note,
             commands::open_item,
             commands::update_item,
             commands::delete_item,
             commands::list_inbox,
             commands::get_dashboard,
+            commands::backup_now,
+            commands::data_paths,
+            commands::open_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

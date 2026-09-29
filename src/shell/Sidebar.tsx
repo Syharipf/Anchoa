@@ -53,13 +53,13 @@ export function Sidebar({
 
   return (
     <nav aria-label="Menu utama" className="flex w-[72px] shrink-0 flex-col items-center gap-2 border-r border-line bg-sidebar py-5">
-      <div
-        role="img"
-        aria-label="Logo Anchoa"
-        className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-accent font-display text-lg font-semibold text-canvas"
-      >
-        A
-      </div>
+      {/* Placeholder until the real Anchoa logo file exists. */}
+      <svg width="40" height="40" viewBox="0 0 40 40" role="img" aria-label="Logo Anchoa" className="mb-4">
+        <rect width="40" height="40" rx="12" className="fill-accent" />
+        <text x="20" y="26" textAnchor="middle" className="fill-canvas font-display text-lg font-semibold">
+          A
+        </text>
+      </svg>
       {link("dashboard")}
       {link("inbox")}
       <div className="mt-auto">{link("settings")}</div>

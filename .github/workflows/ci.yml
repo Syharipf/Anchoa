@@ -23,6 +23,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      - run: bun run test
       - name: Build frontend (embedded by tauri::generate_context!)
         run: bun run build
       - run: cargo clippy --all-targets -- -D warnings

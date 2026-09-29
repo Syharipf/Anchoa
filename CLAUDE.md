@@ -16,6 +16,7 @@ Status: Fase 1 is being implemented PR by PR; see the plan in `docs/superpowers/
 - `bun install`: install JS dependencies.
 - `bun tauri dev`: run the app with hot reload.
 - `bun run typecheck`: TypeScript check.
+- `bun run test`: frontend unit tests (`bun test` with `TZ=Asia/Jakarta`). Run one file with `TZ=Asia/Jakarta bun test src/format.test.ts`.
 - `cd src-tauri && cargo test`: backend tests. Run one test with `cargo test gpu::tests::leaves_nvidia_only_machines_alone`.
 - `cd src-tauri && cargo clippy --all-targets -- -D warnings`: lint (CI fails on any warning).
 - `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`: end-to-end check on Xvfb. Screenshots go to `~/.cache/anchoa-e2e/`.
@@ -39,6 +40,14 @@ Spec sections 4 to 6 have the details.
 - IDs are UUIDv7. Timestamps are epoch ms UTC. Deletes are soft (`deleted_at`), and every query must filter out deleted rows. Store money as integer minor units, never as float. These choices keep future multi-device sync possible without a big migration.
 - Compute day boundaries ("today", "overdue") in Rust, in local time.
 - Commands return `Result<T, AppError>`. Do not panic on user-triggered paths. Never create a fresh DB over one that failed to open.
+
+## SonarCloud conventions
+
+SonarCloud analyses every PR, and its quality gate fails on any new security finding. To keep it green:
+
+- Wrap React component props in `Readonly<...>`.
+- Do not use `Math.random()`; use a counter for local IDs.
+- Use `[[ ... ]]` instead of `[ ... ]` in bash scripts.
 
 ## Linux GPU quirk
 

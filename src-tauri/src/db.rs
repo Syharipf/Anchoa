@@ -9,6 +9,7 @@ use crate::error::AppError;
 pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/001_init.sql"),
     include_str!("../migrations/002_item_completion.sql"),
+    include_str!("../migrations/003_contributions.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`

@@ -18,6 +18,8 @@ export function App() {
   const [focusCapture, setFocusCapture] = useState(0);
   const [inboxCount, setInboxCount] = useState(0);
   const onInboxCount = useCallback((count: number) => setInboxCount(count), []);
+  const [contributionsVersion, setContributionsVersion] = useState(0);
+  const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const page = stack[stack.length - 1];
 
   useEffect(() => {
@@ -56,9 +58,9 @@ export function App() {
         )}
         {page.name === "inbox" && <Inbox onOpen={openItem} onCount={onInboxCount} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
-        {page.name === "settings" && <Settings />}
+        {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
       </main>
-      <Aside />
+      <Aside contributionsVersion={contributionsVersion} onOpenSettings={() => setStack([{ name: "settings" }])} />
     </div>
   );
 }

@@ -1,0 +1,17 @@
+[package]
+name = "anchoa"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "anchoa_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-log = "2"
+tauri-plugin-single-instance = "2"
+log = "0.4"

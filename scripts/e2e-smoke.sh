@@ -106,8 +106,20 @@ check_dashboard() {
   stop_app
 }
 
+check_backup() {
+  fresh
+  start_app
+  ls "$APPDATA"/backups/anchoa-*.db >/dev/null 2>&1 || fail "no daily backup at startup"
+  click 63 770          # sidebar: Pengaturan
+  click 310 158         # Backup sekarang
+  shot 6-settings
+  [[ "$(ls "$APPDATA"/backups/anchoa-*.db | wc -l)" -eq 2 ]] || fail "manual backup was not created"
+  stop_app
+}
+
 check_shell
 check_corrupt_db
 check_items
 check_dashboard
+check_backup
 echo "PASS. Screenshots in $WORK"

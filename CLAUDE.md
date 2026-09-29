@@ -9,7 +9,17 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Specs: `docs/superpowers/specs/`. The current one is `2026-09-29-anchoa-fase1-design.md` (Fase 1: foundation + dashboard). The roadmap is in its section 13.
 - Plans: `docs/superpowers/plans/`
 
-Status: Fase 1 is in planning. There is no application code yet. Add the build, lint and test commands to this file in the scaffold PR.
+Status: Fase 1 is being implemented PR by PR; see the plan in `docs/superpowers/plans/`.
+
+## Commands
+
+- `bun install`: install JS dependencies.
+- `bun tauri dev`: run the app with hot reload.
+- `bun run typecheck`: TypeScript check.
+- `cd src-tauri && cargo test`: backend tests. Run one test with `cargo test gpu::tests::leaves_nvidia_only_machines_alone`.
+- `cd src-tauri && cargo clippy --all-targets -- -D warnings`: lint (CI fails on any warning).
+- `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`: end-to-end check on Xvfb. Screenshots go to `~/.cache/anchoa-e2e/`.
+- `bun tauri build`: release RPM in `src-tauri/target/release/bundle/rpm/`.
 
 ## Stack
 

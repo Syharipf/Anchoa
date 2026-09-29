@@ -3,6 +3,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
+use crate::dashboard::{self, Dashboard};
 use crate::db::Db;
 use crate::error::AppError;
 use crate::items::{self, Item, ItemPatch, ItemSummary};
@@ -43,6 +44,11 @@ pub fn delete_item(db: State<'_, Db>, id: String) -> Result<(), AppError> {
 #[tauri::command]
 pub fn list_inbox(db: State<'_, Db>) -> Result<Vec<ItemSummary>, AppError> {
     items::list_inbox(&*db.conn()?)
+}
+
+#[tauri::command]
+pub fn get_dashboard(db: State<'_, Db>) -> Result<Dashboard, AppError> {
+    dashboard::get(&*db.conn()?, time::now_ms(), &jiff::tz::TimeZone::system())
 }
 
 /// Opens one of the app's own folders in the file manager. The frontend

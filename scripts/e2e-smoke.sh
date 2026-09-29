@@ -88,7 +88,26 @@ check_items() {
   stop_app
 }
 
+check_dashboard() {
+  fresh
+  start_app
+  xdotool key ctrl+n
+  xdotool type --delay 20 'tugas hari ini'
+  xdotool key Return
+  sleep 1
+  xdotool type --delay 20 'tugas terlambat'
+  xdotool key Return
+  sleep 1
+  sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas hari ini'"
+  sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
+  click 43 118          # Inbox, then back to Dashboard so it reloads
+  click 60 78
+  shot 5-dashboard      # expect: Terlambat + Jatuh tempo hari ini + both in Item terbaru
+  stop_app
+}
+
 check_shell
 check_corrupt_db
 check_items
+check_dashboard
 echo "PASS. Screenshots in $WORK"

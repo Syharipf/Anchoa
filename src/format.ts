@@ -8,6 +8,18 @@ function startOfDay(ms: number): number {
   return d.getTime();
 }
 
+export function greeting(hour: number): string {
+  if (hour >= 4 && hour < 11) return "Selamat pagi";
+  if (hour >= 11 && hour < 15) return "Selamat siang";
+  if (hour >= 15 && hour < 18) return "Selamat sore";
+  return "Selamat malam";
+}
+
+/** "Selasa, 29 September" */
+export function fullDate(ms: number): string {
+  return new Date(ms).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
+}
+
 /** "12 Sep" */
 export function shortDate(ms: number): string {
   return new Date(ms).toLocaleDateString("id-ID", { day: "numeric", month: "short" });

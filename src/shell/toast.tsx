@@ -22,8 +22,8 @@ export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`rounded-md px-4 py-2 text-sm shadow-lg ${
-              t.kind === "error" ? "bg-red-600 text-white" : "bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900"
+            className={`rounded-[10px] border px-4 py-2 text-sm ${
+              t.kind === "error" ? "border-danger bg-danger-row text-danger" : "border-line bg-surface-2 text-ink"
             }`}
           >
             {t.text}

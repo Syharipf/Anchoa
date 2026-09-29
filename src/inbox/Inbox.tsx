@@ -3,6 +3,7 @@ import { api, errorMessage, type ItemSummary } from "../api";
 import { relativeTime, shortDate } from "../format";
 import { ItemRow } from "../shell/ItemRow";
 import { useToast } from "../shell/toast";
+import { H1, PANEL } from "../shell/ui";
 
 export function Inbox({ onOpen }: Readonly<{ onOpen: (id: string) => void }>) {
   const toast = useToast();
@@ -19,10 +20,12 @@ export function Inbox({ onOpen }: Readonly<{ onOpen: (id: string) => void }>) {
       .join(" · ");
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="mb-4 text-xl font-bold">Inbox</h1>
-      {items?.length === 0 && <p className="text-sm text-neutral-500">Inbox kosong</p>}
-      {items?.map((i) => <ItemRow key={i.id} item={i} detail={detail(i)} onOpen={onOpen} />)}
+    <div className="flex max-w-3xl flex-col gap-[18px]">
+      <h1 className={H1}>Inbox</h1>
+      <section className={`${PANEL} flex flex-col gap-1`}>
+        {items?.length === 0 && <p className="m-0 text-sm text-muted">Inbox kosong</p>}
+        {items?.map((i) => <ItemRow key={i.id} item={i} detail={detail(i)} onOpen={onOpen} />)}
+      </section>
     </div>
   );
 }

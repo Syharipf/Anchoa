@@ -9,12 +9,12 @@ export function TodayWidget({ today, onOpen }: Readonly<{ today?: Dashboard["tod
 
   return (
     <Card title="Hari ini">
-      <p className="text-sm text-neutral-500">
+      <p className="font-mono text-xs text-muted">
         {fullDate(now.getTime())} · {greeting(now.getHours())}
       </p>
       {today && today.overdue.length > 0 && (
         <>
-          <h3 className="mt-3 text-xs font-semibold uppercase text-red-600">Terlambat</h3>
+          <h3 className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-danger">Terlambat</h3>
           {today.overdue.map((i) => (
             <ItemRow key={i.id} item={i} detail={shortDate(i.dueAt ?? 0)} onOpen={onOpen} />
           ))}
@@ -22,13 +22,13 @@ export function TodayWidget({ today, onOpen }: Readonly<{ today?: Dashboard["tod
       )}
       {today && today.dueToday.length > 0 && (
         <>
-          <h3 className="mt-3 text-xs font-semibold uppercase text-neutral-500">Jatuh tempo hari ini</h3>
+          <h3 className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted">Jatuh tempo hari ini</h3>
           {today.dueToday.map((i) => (
             <ItemRow key={i.id} item={i} detail="hari ini" onOpen={onOpen} />
           ))}
         </>
       )}
-      {empty && <p className="mt-3 text-sm text-neutral-500">Tidak ada jatuh tempo hari ini</p>}
+      {empty && <p className="mt-3 text-sm text-muted">Tidak ada jatuh tempo hari ini</p>}
     </Card>
   );
 }

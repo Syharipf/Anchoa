@@ -72,18 +72,18 @@ check_items() {
   sleep 1
   [[ "$(sql "SELECT title FROM items")" = "catatan dari e2e" ]] || fail "capture not saved"
 
-  click 43 118          # sidebar: Inbox
+  click 36 164          # nav: Inbox
   shot 4-inbox
-  click 300 70          # first inbox row
+  click 300 121         # first inbox row
   click 600 400         # body textarea
   xdotool type --delay 20 'isi dari e2e'
   sleep 1.5             # autosave fires after 500 ms
   shot 4-item
   [[ "$(sql "SELECT body FROM items")" = "isi dari e2e" ]] || fail "autosave did not store the body"
 
-  click 986 34          # Hapus
+  click 848 34          # Hapus
   shot 4-confirm
-  click 921 38          # Ya, hapus
+  click 781 38          # Ya, hapus
   [[ -n "$(sql "SELECT deleted_at FROM items")" ]] || fail "delete did not set deleted_at"
   stop_app
 }
@@ -100,8 +100,8 @@ check_dashboard() {
   sleep 1
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas hari ini'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
-  click 43 118          # Inbox, then back to Dashboard so it reloads
-  click 60 78
+  click 36 164          # Inbox, then back to Dashboard so it reloads
+  click 36 108          # nav: Dashboard
   shot 5-dashboard      # expect: Terlambat + Jatuh tempo hari ini + both in Item terbaru
   stop_app
 }
@@ -110,12 +110,18 @@ check_backup() {
   fresh
   start_app
   ls "$APPDATA"/backups/anchoa-*.db >/dev/null 2>&1 || fail "no daily backup at startup"
-  click 63 770          # sidebar: Pengaturan
-  click 310 158         # Backup sekarang
+  click 36 756          # nav: Pengaturan
+  click 186 187         # Backup sekarang
   shot 6-settings
   [[ "$(ls "$APPDATA"/backups/anchoa-*.db | wc -l)" -eq 2 ]] || fail "manual backup was not created"
   stop_app
 }
+
+if [[ -n "${E2E_ONLY:-}" ]]; then
+  "$E2E_ONLY"
+  echo "PASS ($E2E_ONLY). Screenshots in $WORK"
+  exit 0
+fi
 
 check_shell
 check_corrupt_db

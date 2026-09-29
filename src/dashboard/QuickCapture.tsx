@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage } from "../api";
 import { useToast } from "../shell/toast";
+import { FIELD } from "../shell/ui";
 
 export function QuickCapture({ onSaved, focusSignal }: Readonly<{ onSaved: () => void; focusSignal: number }>) {
   const toast = useToast();
@@ -38,7 +39,7 @@ export function QuickCapture({ onSaved, focusSignal }: Readonly<{ onSaved: () =>
       }}
       placeholder="Tulis ide cepat… (Enter = simpan ke Inbox, Ctrl+N dari mana saja)"
       aria-label="Quick capture"
-      className="w-full rounded-lg border border-dashed border-neutral-300 bg-transparent px-4 py-3 outline-none focus:border-violet-500 dark:border-neutral-700"
+      className={`${FIELD} w-full placeholder:text-muted`}
     />
   );
 }

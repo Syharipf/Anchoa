@@ -41,6 +41,7 @@ Kesimpulan: Tauri layak dipakai, dengan perbaikan GPU otomatis di Linux (lihat b
 - Backup otomatis dan manual, log ke file, single instance.
 - Perbaikan GPU Linux.
 - Installer RPM.
+- CI GitHub Actions di Linux untuk setiap PR.
 
 **Tidak masuk (ditunda):**
 - Modul keuangan, task, project, dan workspace (Fase 2 sampai 4).
@@ -279,7 +280,7 @@ Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat
   - `tsc --noEmit`;
   - Vitest untuk fungsi murni: sapaan per jam dan format waktu relatif.
 - **End-to-end:** app dijalankan di Xvfb dan dikendalikan dengan xdotool, hasilnya dicek lewat screenshot dan isi DB di disk. Pengembang hanya menguji manual hal yang tidak bisa diotomatisasi, misalnya rendering di GPU asli.
-- **CI:** ditunda sampai Fase 6.
+- **CI:** GitHub Actions di Linux, berjalan di setiap PR: `cargo test`, `cargo clippy -- -D warnings`, `tsc --noEmit`, dan Vitest. CI hijau adalah syarat merge. Build Windows dan Android menyusul di Fase 6.
 
 ## 12. Kriteria selesai Fase 1
 
@@ -289,7 +290,7 @@ Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat
 4. Widget "Hari ini" menampilkan item yang jatuh tempo hari ini dan yang terlambat dengan benar.
 5. Semua widget dan halaman punya keadaan kosong yang jelas.
 6. Data tetap ada setelah app ditutup dan dibuka lagi. Backup harian terbentuk.
-7. Semua test di bagian 11 lulus.
+7. Semua test di bagian 11 lulus, termasuk di CI.
 
 ## 13. Roadmap
 
@@ -301,7 +302,7 @@ Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat
 | 3 | Task & Project: status, jatuh tempo, list/kanban, tabel `links`, link transaksi ke project. |
 | 4 | Workspace/Catatan: pohon halaman, editor blok (BlockNote), `[[wikilink]]` + backlink, FTS5, command palette, export Markdown, UI restore. |
 | 5 | AI Assistant: avatar Live2D di kolom kanan, chat, LLM memanggil command. |
-| 6 | Multi-device: server sync, build Windows dan Android, CI. |
+| 6 | Multi-device: server sync, build Windows dan Android, CI multi-platform. |
 | Nanti | Database kustom, plugin, avatar 3D. |
 
 Fase 5 boleh dimajukan setelah Fase 3 kalau AI Assistant menjadi prioritas.

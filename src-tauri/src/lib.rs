@@ -1,4 +1,5 @@
 mod commands;
+mod dashboard;
 mod db;
 mod error;
 mod gpu;
@@ -42,6 +43,7 @@ pub fn run() {
             commands::update_item,
             commands::delete_item,
             commands::list_inbox,
+            commands::get_dashboard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

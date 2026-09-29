@@ -14,6 +14,8 @@ pub enum AppError {
     Db(#[from] rusqlite::Error),
     #[error("Kesalahan file: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Kesalahan waktu: {0}")]
+    Time(#[from] jiff::Error),
     #[error("Kesalahan aplikasi: {0}")]
     Tauri(#[from] tauri::Error),
     #[error("{0}")]
@@ -29,6 +31,7 @@ impl AppError {
             AppError::DbTooNew(_) => "db_too_new",
             AppError::Db(_) => "db",
             AppError::Io(_) => "io",
+            AppError::Time(_) => "time",
             AppError::Tauri(_) | AppError::Other(_) => "other",
         }
     }

@@ -49,7 +49,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 1 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 2 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {

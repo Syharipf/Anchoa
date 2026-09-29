@@ -102,7 +102,11 @@ check_dashboard() {
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
   click 36 164          # Inbox, then back to Dashboard so it reloads
   click 36 108          # nav: Dashboard
-  shot 5-dashboard      # expect: Terlambat + Jatuh tempo hari ini + both in Item terbaru
+  shot 5-dashboard      # expect: KPI "2 tersisa · 1 terlambat", late row first
+  click 137 374         # checkbox of the first task ("tugas terlambat")
+  sleep 1
+  [[ -n "$(sql "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
+  shot 5-dashboard-done # expect: row struck through, KPI "1 tersisa", 1 dari 2 selesai
   stop_app
 }
 

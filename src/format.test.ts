@@ -1,6 +1,6 @@
 // Run with TZ=Asia/Jakarta (see the "test" script in package.json).
 import { describe, expect, test } from "bun:test";
-import { dateInputToMs, fullDate, greeting, msToDateInput, relativeTime, shortDate } from "./format";
+import { clockLabel, dateInputToMs, fullDate, greeting, msToDateInput, relativeTime, shortDate } from "./format";
 
 const at = (iso: string) => new Date(iso).getTime();
 
@@ -46,5 +46,12 @@ describe("greeting", () => {
 describe("fullDate", () => {
   test("weekday, day and month in Indonesian", () => {
     expect(fullDate(at("2026-09-29T08:00:00+07:00"))).toBe("Selasa, 29 September");
+  });
+});
+
+describe("clockLabel", () => {
+  test("short weekday, date, month and 24-hour time", () => {
+    expect(clockLabel(at("2026-09-30T00:48:00+07:00"))).toBe("Rab 30 Sep · 00:48");
+    expect(clockLabel(at("2026-09-29T22:05:00+07:00"))).toBe("Sel 29 Sep · 22:05");
   });
 });

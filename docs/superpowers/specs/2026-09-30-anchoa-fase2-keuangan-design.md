@@ -3,6 +3,13 @@
 Tanggal: 2026-09-30
 Status: **DRAF**, disusun tanpa sesi tanya-jawab. Setiap keputusan yang belum kamu setujui ditandai **[ASUMSI Ax]**. Pertanyaan yang perlu dijawab sebelum implementasi ada di bagian 11.
 
+> **Perlu disusun ulang (2026-09-30).** Redesign D (`docs/superpowers/specs/2026-09-30-anchoa-ui-d-design.md`) mengubah dasar dokumen ini:
+> - migrasi `002` sekarang dipakai `002_item_completion.sql`, jadi migrasi keuangan menjadi `003_finance.sql` (beserta test upgrade dan `user_version` di E2E);
+> - struktur `Dashboard` di backend berubah (`today: DayTask[]`, `inboxCount`);
+> - widget, sidebar, dan gaya UI sekarang mengikuti desain D (nav rail, kartu KPI "Saldo total" dan "Pengeluaran" yang menunggu modul ini).
+>
+> Keputusan A1–A10 tetap berlaku sebagai draf. Blok kode UI di rencana perlu dibuat ulang sebelum Fase 2 diimplementasikan.
+
 ## 1. Ringkasan
 
 Fase 2 menambah modul keuangan pribadi di atas fondasi Fase 1:

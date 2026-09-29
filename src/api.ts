@@ -28,9 +28,19 @@ export interface ItemPatch {
   dueAt?: number | null;
 }
 
+/** A row of the dashboard "Hari ini" list. */
+export interface DayTask {
+  id: string;
+  title: string;
+  dueAt: number;
+  completedAt: number | null;
+  overdue: boolean;
+}
+
 export interface Dashboard {
-  today: { dueToday: ItemSummary[]; overdue: ItemSummary[] };
+  today: DayTask[];
   recent: ItemSummary[];
+  inboxCount: number;
 }
 
 export interface DbStatus {
@@ -53,6 +63,7 @@ export const api = {
   captureNote: (text: string) => invoke<Item>("capture_note", { text }),
   openItem: (id: string) => invoke<Item>("open_item", { id }),
   updateItem: (id: string, patch: ItemPatch) => invoke<Item>("update_item", { id, patch }),
+  completeItem: (id: string, done: boolean) => invoke<Item>("complete_item", { id, done }),
   deleteItem: (id: string) => invoke<void>("delete_item", { id }),
   listInbox: () => invoke<ItemSummary[]>("list_inbox"),
   getDashboard: () => invoke<Dashboard>("get_dashboard"),

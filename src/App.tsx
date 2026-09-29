@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, type DbStatus } from "./api";
 import { Dashboard } from "./dashboard/Dashboard";
 import { Inbox } from "./inbox/Inbox";
@@ -16,6 +16,8 @@ export function App() {
   const [status, setStatus] = useState<DbStatus | null>(null);
   const [stack, setStack] = useState<Page[]>([{ name: "dashboard" }]);
   const [focusCapture, setFocusCapture] = useState(0);
+  const [inboxCount, setInboxCount] = useState(0);
+  const onInboxCount = useCallback((count: number) => setInboxCount(count), []);
   const page = stack[stack.length - 1];
 
   useEffect(() => {
@@ -25,10 +27,11 @@ export function App() {
     });
   }, [toast]);
 
-  // Ctrl+N: jump to the dashboard and focus quick capture.
+  // Ctrl+K (Ctrl+N as an alias): jump to the dashboard and focus the command bar.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "n") {
+      const key = e.key.toLowerCase();
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && (key === "k" || key === "n")) {
         e.preventDefault();
         setStack([{ name: "dashboard" }]);
         setFocusCapture((n) => n + 1);
@@ -46,10 +49,12 @@ export function App() {
 
   return (
     <div className="flex h-full bg-canvas">
-      <Sidebar current={page.name} onSelect={(name) => setStack([{ name }])} />
+      <Sidebar current={page.name} onSelect={(name) => setStack([{ name }])} inboxDot={inboxCount > 0} />
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
-        {page.name === "dashboard" && <Dashboard onOpen={openItem} focusCapture={focusCapture} />}
-        {page.name === "inbox" && <Inbox onOpen={openItem} />}
+        {page.name === "dashboard" && (
+          <Dashboard onOpen={openItem} onInboxCount={onInboxCount} focusCapture={focusCapture} />
+        )}
+        {page.name === "inbox" && <Inbox onOpen={openItem} onCount={onInboxCount} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings />}
       </main>

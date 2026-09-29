@@ -5,7 +5,7 @@
 > **Status: DRAF.** Rencana ini mengikuti draf spec yang asumsinya (A1–A10) belum disetujui. Kalau jawaban untuk Q1–Q8 di spec mengubah asumsi, perbarui spec dan rencana ini dulu sebelum mulai.
 
 > **Perlu disusun ulang (2026-09-30).** Redesign D (`docs/superpowers/specs/2026-09-30-anchoa-ui-d-design.md`) mengubah dasar dokumen ini:
-> - migrasi `002` sekarang dipakai `002_item_completion.sql`, jadi migrasi keuangan menjadi `003_finance.sql` (beserta test upgrade dan `user_version` di E2E);
+> - migrasi `002` dan `003` sekarang dipakai `002_item_completion.sql` dan `003_contributions.sql`, jadi migrasi keuangan menjadi `004_finance.sql` (beserta test upgrade dan `user_version` di E2E);
 > - struktur `Dashboard` di backend berubah (`today: DayTask[]`, `inboxCount`);
 > - widget, sidebar, dan gaya UI sekarang mengikuti desain D (nav rail, kartu KPI "Saldo total" dan "Pengeluaran" yang menunggu modul ini).
 >

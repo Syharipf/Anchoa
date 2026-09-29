@@ -8,10 +8,12 @@ set -euo pipefail
 BIN=$(realpath "${1:?usage: e2e-smoke.sh <anchoa binary>}")
 WORK=${E2E_DIR:-$HOME/.cache/anchoa-e2e}
 APPDATA="$WORK/data/io.github.syharipf.anchoa"
+APPCONFIG="$WORK/config/io.github.syharipf.anchoa"
 DB="$APPDATA/anchoa.db"
-export DISPLAY=${E2E_DISPLAY:-:99} XDG_DATA_HOME="$WORK/data"
+# Private data AND config dirs: the real GitHub token lives in the config dir.
+export DISPLAY=${E2E_DISPLAY:-:99} XDG_DATA_HOME="$WORK/data" XDG_CONFIG_HOME="$WORK/config"
 
-rm -rf "$WORK" && mkdir -p "$WORK/data"
+rm -rf "$WORK" && mkdir -p "$WORK/data" "$WORK/config"
 Xvfb "$DISPLAY" -screen 0 1280x800x24 >/dev/null 2>&1 &
 XVFB=$!
 { read -r DBUS_SESSION_BUS_ADDRESS; read -r DBUS_PID; } < <(dbus-daemon --session --fork --print-address=1 --print-pid=1)
@@ -42,14 +44,14 @@ stop_app() { kill "$APP"; wait "$APP" 2>/dev/null || true; APP=; }
 
 # Every check starts from an empty data dir: WAL files left by a killed run
 # would otherwise leak into the next check.
-fresh() { rm -rf "$APPDATA"; }
+fresh() { rm -rf "$APPDATA" "$APPCONFIG"; }
 
 check_shell() {
   fresh
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 2 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 3 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -134,6 +136,28 @@ check_assistant() {
   stop_app
 }
 
+check_github() {
+  fresh
+  start_app
+  shot 9-github-disconnected   # expect: "Sambungkan GitHub di Pengaturan" in the side panel
+  stop_app
+  # Seed a connected account with today's cache so no request goes to GitHub.
+  mkdir -p "$APPCONFIG"
+  (umask 077 && printf 'ghp_e2e_placeholder' >"$APPCONFIG/github-token")
+  sql "INSERT INTO github_sync (id, login, fetched_on) VALUES (1, 'e2e-user', date('now', 'localtime'))"
+  for back in 0 1 2 4 9 30; do
+    sql "INSERT INTO contributions (date, count) VALUES (date('now', 'localtime', '-$back day'), $((back * 3 + 1)))"
+  done
+  start_app
+  shot 9-github-heatmap        # expect: heatmap, total, "streak 3 hari"
+  click 1154 34                # previous month
+  shot 9-github-previous
+  click 36 756                 # nav: Pengaturan
+  shot 9-github-settings       # expect: "Tersambung sebagai @e2e-user"
+  grep -q 'Gagal menghubungi GitHub' "$WORK/app.log" && fail "the test reached the network"
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -146,4 +170,5 @@ check_items
 check_dashboard
 check_backup
 check_assistant
+check_github
 echo "PASS. Screenshots in $WORK"

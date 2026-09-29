@@ -2,9 +2,10 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
 import { api, errorMessage, type DataPaths, type FolderKind } from "../api";
 import { useToast } from "../shell/toast";
+import { GithubSection } from "./GithubSection";
 import { H1, H2, LABEL, PANEL, SECONDARY } from "../shell/ui";
 
-export function Settings() {
+export function Settings({ onGithubChanged }: Readonly<{ onGithubChanged: () => void }>) {
   const toast = useToast();
   const [paths, setPaths] = useState<DataPaths | null>(null);
   const [version, setVersion] = useState("");
@@ -45,6 +46,7 @@ export function Settings() {
           Backup harian dibuat otomatis saat aplikasi dibuka; 7 backup terbaru disimpan.
         </p>
       </section>
+      <GithubSection onChanged={onGithubChanged} />
       <p className={LABEL}>Anchoa versi {version}</p>
     </div>
   );

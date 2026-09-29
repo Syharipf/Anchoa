@@ -55,6 +55,20 @@ export interface DataPaths {
   logDir: string;
 }
 
+export interface GithubStatus {
+  connected: boolean;
+  login: string | null;
+}
+
+export interface Contributions {
+  connected: boolean;
+  login: string | null;
+  fetchedOn: string | null;
+  days: { date: string; count: number }[];
+  /** Set when a refresh failed; `days` then holds the last cached data. */
+  error: string | null;
+}
+
 export type FolderKind = "data" | "backup" | "log";
 
 export const api = {
@@ -67,6 +81,10 @@ export const api = {
   deleteItem: (id: string) => invoke<void>("delete_item", { id }),
   listInbox: () => invoke<ItemSummary[]>("list_inbox"),
   getDashboard: () => invoke<Dashboard>("get_dashboard"),
+  githubStatus: () => invoke<GithubStatus>("github_status"),
+  connectGithub: (token: string) => invoke<GithubStatus>("connect_github", { token }),
+  disconnectGithub: () => invoke<void>("disconnect_github"),
+  getContributions: (force: boolean) => invoke<Contributions>("get_contributions", { force }),
   backupNow: () => invoke<string>("backup_now"),
   dataPaths: () => invoke<DataPaths>("data_paths"),
 };

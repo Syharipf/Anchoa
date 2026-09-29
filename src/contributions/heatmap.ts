@@ -9,6 +9,12 @@ export interface Cell {
   future: boolean;
 }
 
+/** One grid position: a day, or padding before/after the month. */
+export interface Slot {
+  key: string;
+  cell: Cell | null;
+}
+
 export interface MonthView {
   /** "2026-09" */
   key: string;
@@ -16,8 +22,8 @@ export interface MonthView {
   label: string;
   /** "September 2026" */
   fullLabel: string;
-  /** Column-major Mon–Sun weeks; null pads the first and last week. */
-  cells: (Cell | null)[];
+  /** Column-major Mon–Sun weeks, padded to whole weeks. */
+  slots: Slot[];
   total: number;
   /** Longest run of days with at least one contribution. */
   streak: number;
@@ -39,7 +45,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
 function monthView(year: number, month: number, counts: Map<string, number>, today: string): Omit<MonthView, "deltaPct"> {
   const first = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (Cell | null)[] = Array((first.getDay() + 6) % 7).fill(null);
+  const slots: Slot[] = [];
+  for (let i = 0; i < (first.getDay() + 6) % 7; i++) slots.push({ key: `before-${i}`, cell: null });
   let total = 0;
   let run = 0;
   let streak = 0;
@@ -47,18 +54,18 @@ function monthView(year: number, month: number, counts: Map<string, number>, tod
     const date = `${year}-${pad(month + 1)}-${pad(day)}`;
     const future = date > today;
     const count = future ? 0 : (counts.get(date) ?? 0);
-    cells.push({ date, day, count, level: level(count), today: date === today, future });
+    slots.push({ key: date, cell: { date, day, count, level: level(count), today: date === today, future } });
     if (future) continue;
     total += count;
     run = count > 0 ? run + 1 : 0;
     streak = Math.max(streak, run);
   }
-  while (cells.length % 7) cells.push(null);
+  for (let i = 0; slots.length % 7; i++) slots.push({ key: `after-${i}`, cell: null });
   return {
     key: `${year}-${pad(month + 1)}`,
     label: first.toLocaleDateString("id-ID", { month: "short", year: "numeric" }),
     fullLabel: first.toLocaleDateString("id-ID", { month: "long", year: "numeric" }),
-    cells,
+    slots,
     total,
     streak,
   };
@@ -72,7 +79,7 @@ export function buildMonths(days: { date: string; count: number }[], today: stri
   for (let back = count - 1; back >= 0; back--) {
     const start = new Date(year, month - 1 - back, 1);
     const view = monthView(start.getFullYear(), start.getMonth(), counts, today);
-    const previous = months[months.length - 1];
+    const previous = months.at(-1);
     const deltaPct = previous && previous.total > 0 ? Math.round(((view.total - previous.total) / previous.total) * 100) : null;
     months.push({ ...view, deltaPct });
   }

@@ -18,7 +18,7 @@ describe("buildMonths", () => {
     { date: "2026-09-30", count: 7 },
   ];
   const months = buildMonths(days, "2026-09-29");
-  const sep = months[months.length - 1];
+  const sep = months[5];
 
   test("six months ending with the current one", () => {
     expect(months.map((m) => m.key)).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
@@ -28,16 +28,17 @@ describe("buildMonths", () => {
 
   test("weeks start on Monday and fill whole columns", () => {
     // 1 Sep 2026 is a Tuesday: one blank before it.
-    expect(sep.cells[0]).toBeNull();
-    expect(sep.cells[1]?.date).toBe("2026-09-01");
-    expect(sep.cells.length % 7).toBe(0);
+    expect(sep.slots[0].cell).toBeNull();
+    expect(sep.slots[1].cell?.date).toBe("2026-09-01");
+    expect(sep.slots.length % 7).toBe(0);
+    expect(new Set(sep.slots.map((s) => s.key)).size).toBe(sep.slots.length);
   });
 
   test("today is marked and later days are future", () => {
-    const today = sep.cells.find((c) => c?.today);
-    expect(today?.date).toBe("2026-09-29");
-    const last = sep.cells.find((c) => c?.date === "2026-09-30");
-    expect(last?.future).toBe(true);
+    const today = sep.slots.find((s) => s.cell?.today);
+    expect(today?.key).toBe("2026-09-29");
+    const last = sep.slots.find((s) => s.key === "2026-09-30");
+    expect(last?.cell?.future).toBe(true);
   });
 
   test("totals, streak and change skip future days", () => {

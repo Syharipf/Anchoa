@@ -69,15 +69,15 @@ export function ContributionsPanel({ version, onOpenSettings }: Readonly<{ versi
     <section aria-labelledby="kontribusi-judul" className="flex items-center gap-4 border-b border-line px-5 py-4">
       <span className="sr-only">{`Kontribusi ${month.fullLabel}: ${month.total} kontribusi`}</span>
       <div aria-hidden="true" className="grid shrink-0 grid-flow-col grid-rows-[repeat(7,10px)] auto-cols-[10px] gap-[3px]">
-        {month.cells.map((cell, i) =>
+        {month.slots.map(({ key, cell }) =>
           cell ? (
             <span
-              key={cell.date}
+              key={key}
               title={cell.future ? `${cell.day} ${month.label.split(" ")[0]}: belum lewat` : `${cell.day} ${month.label.split(" ")[0]}: ${cell.count} kontribusi`}
               className={`box-border h-2.5 w-2.5 rounded-[2px] ${cellClass(cell)}`}
             />
           ) : (
-            <span key={`blank-${i}`} />
+            <span key={key} />
           ),
         )}
       </div>

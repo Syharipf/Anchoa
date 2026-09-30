@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type DbStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
+import { FinancePage } from "./finance/FinancePage";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
 import { NotifPanel } from "./notifications/NotifPanel";
@@ -17,7 +18,8 @@ import { Sidebar } from "./shell/Sidebar";
 import { TopBar } from "./shell/TopBar";
 import { useToast } from "./shell/toast";
 
-type Page = { name: PageId } | { name: "item"; id: string };
+/** A new `intent` number remounts Keuangan with the transaction form open (palette "Catat transaksi"). */
+type Page = { name: PageId; intent?: number } | { name: "item"; id: string };
 /** Only one overlay is open at a time. */
 type Overlay = "palette" | "notifications" | null;
 
@@ -28,6 +30,7 @@ export function App() {
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [captures, setCaptures] = useState(0);
   const [contributionsVersion, setContributionsVersion] = useState(0);
+  const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
@@ -65,6 +68,7 @@ export function App() {
   const go = (name: PageId) => setStack([{ name }]);
   const openItem = (id: string) => setStack((s) => [...s, { name: "item", id }]);
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+  const newTransaction = () => setStack([{ name: "keuangan", intent: ++intents.current }]);
   const info = page.name === "item" ? null : pageInfo(page.name);
   const data = dashboard.data;
 
@@ -85,6 +89,9 @@ export function App() {
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
         {page.name === "inbox" && <Inbox key={captures} onOpen={openItem} />}
+        {page.name === "keuangan" && (
+          <FinancePage key={page.intent ?? 0} newTransaction={page.intent !== undefined} onChanged={reload} />
+        )}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
         {info?.about && <ComingSoon page={info} onOpenSettings={() => go("settings")} />}
@@ -104,6 +111,7 @@ export function App() {
             setCaptures((n) => n + 1);
             reload();
           }}
+          onNewTransaction={newTransaction}
         />
       )}
       {overlay === "notifications" && (

@@ -43,11 +43,149 @@ export interface UpcomingDay {
   tasks: DayTask[];
 }
 
+export type AccountKind = "cash" | "bank" | "ewallet" | "credit";
+
+export interface AccountView {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  currency: string;
+  openingBalance: number;
+  /** Opening balance plus transactions dated up to today. */
+  balance: number;
+}
+
+/** No `id` creates an account. */
+export interface AccountInput {
+  id?: string;
+  name: string;
+  kind: AccountKind;
+  openingBalance: number;
+}
+
+export interface TransactionView {
+  id: string;
+  title: string;
+  body: string;
+  /** Rupiah; negative is money leaving the account. */
+  amount: number;
+  category: string | null;
+  accountId: string;
+  accountName: string;
+  occurredAt: number;
+  createdAt: number;
+  transferId: string | null;
+  counterAccountId: string | null;
+  counterAccountName: string | null;
+  billId: string | null;
+  /** Dated after today, so not in the balance yet. */
+  scheduled: boolean;
+}
+
+export type TransactionKind = "expense" | "income";
+
+/** `amount` is always positive; `kind` sets the sign. No `id` creates a transaction. */
+export interface TransactionInput {
+  id?: string;
+  kind: TransactionKind;
+  amount: number;
+  accountId: string;
+  occurredAt: number;
+  category?: string;
+  title: string;
+  body?: string;
+}
+
+/** No `transferId` creates a transfer. */
+export interface TransferInput {
+  transferId?: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  occurredAt: number;
+  title?: string;
+}
+
+export type Flow = "all" | "in" | "out";
+
+export interface TransactionPage {
+  items: TransactionView[];
+  more: boolean;
+}
+
+export interface Categories {
+  expense: string[];
+  income: string[];
+}
+
+export type BudgetLevel = "ok" | "warn" | "over";
+
+export interface BudgetView {
+  amount: number;
+  level: BudgetLevel;
+}
+
+export interface MonthFlow {
+  month: string;
+  income: number;
+  expense: number;
+}
+
+export interface FinanceOverview {
+  month: string;
+  currentMonth: string;
+  balance: number;
+  accountCount: number;
+  income: number;
+  expense: number;
+  net: number;
+  budget: BudgetView | null;
+  /** Six months, oldest first. */
+  chart: MonthFlow[];
+}
+
+export type Repeat = "once" | "monthly";
+export type BillStatus = "overdue" | "dueToday" | "upcoming" | "paidToday";
+
+export interface BillView {
+  id: string;
+  name: string;
+  amount: number;
+  accountId: string;
+  accountName: string;
+  repeat: Repeat;
+  dueAt: number;
+  status: BillStatus;
+  daysLate: number;
+}
+
+/** No `id` creates a bill. */
+export interface BillInput {
+  id?: string;
+  name: string;
+  amount: number;
+  accountId: string;
+  repeat: Repeat;
+  dueAt: number;
+}
+
+/** The dashboard's Keuangan card, the bell and the notification panel. */
+export interface FinanceSummary {
+  hasAccounts: boolean;
+  balance: number;
+  /** Spent this month. */
+  expense: number;
+  budget: BudgetView | null;
+  /** Overdue or due today. */
+  dueBills: BillView[];
+}
+
 export interface Dashboard {
   today: DayTask[];
   upcoming: UpcomingDay[];
   recent: ItemSummary[];
   inboxCount: number;
+  finance: FinanceSummary;
 }
 
 export interface DbStatus {
@@ -88,6 +226,24 @@ export const api = {
   deleteItem: (id: string) => invoke<void>("delete_item", { id }),
   listInbox: () => invoke<ItemSummary[]>("list_inbox"),
   getDashboard: () => invoke<Dashboard>("get_dashboard"),
+  listAccounts: () => invoke<AccountView[]>("list_accounts"),
+  saveAccount: (input: AccountInput) => invoke<AccountView>("save_account", { input }),
+  deleteAccount: (id: string) => invoke<void>("delete_account", { id }),
+  listTransactions: (until: string, flow: Flow, offset: number) =>
+    invoke<TransactionPage>("list_transactions", { query: { until, flow, offset } }),
+  saveTransaction: (input: TransactionInput) => invoke<TransactionView>("save_transaction", { input }),
+  saveTransfer: (input: TransferInput) => invoke<TransactionView>("save_transfer", { input }),
+  deleteTransaction: (id: string) => invoke<void>("delete_transaction", { id }),
+  financeCategories: () => invoke<Categories>("finance_categories"),
+  /** `null` is the current month. */
+  financeOverview: (month: string | null) => invoke<FinanceOverview>("finance_overview", { month }),
+  /** `null` removes the monthly limit. */
+  setBudget: (amount: number | null) => invoke<void>("set_budget", { amount }),
+  listBills: () => invoke<BillView[]>("list_bills"),
+  saveBill: (input: BillInput) => invoke<BillView>("save_bill", { input }),
+  /** Returns the recorded expense. */
+  payBill: (id: string) => invoke<TransactionView>("pay_bill", { id }),
+  deleteBill: (id: string) => invoke<void>("delete_bill", { id }),
   githubStatus: () => invoke<GithubStatus>("github_status"),
   connectGithub: (token: string) => invoke<GithubStatus>("connect_github", { token }),
   disconnectGithub: () => invoke<void>("disconnect_github"),

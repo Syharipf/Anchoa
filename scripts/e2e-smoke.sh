@@ -70,7 +70,7 @@ check_nav() {
   start_app
   for y in 202 256 310 364 418 472 706; do
     click 36 "$y"
-    shot "3-nav-$y"     # expect: placeholder page (Email … Unduhan, then Profil)
+    shot "3-nav-$y"     # expect: placeholder page (Email, Jadwal, Proyek … Profil); y=310 is the Keuangan page
   done
   click 36 148          # Inbox: the mini assistant replaces the side panel
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
@@ -118,7 +118,7 @@ check_palette() {
   xdotool type --delay 20 'keu'
   xdotool key Return
   sleep 0.7
-  shot 4-palette-keuangan   # expect: Keuangan placeholder page, "Hadir di Fase 2"
+  shot 4-palette-keuangan   # expect: Keuangan page with "Belum ada akun"
   xdotool key ctrl+k
   sleep 0.3
   xdotool key Escape
@@ -190,6 +190,62 @@ check_notifications() {
   stop_app
 }
 
+# Opens the palette action "Catat transaksi" (the first option for "catat").
+palette_new_transaction() {
+  xdotool key ctrl+k
+  sleep 0.3
+  xdotool type --delay 20 'catat'
+  xdotool key Return
+  sleep 1
+}
+
+# With no account yet, the palette action opens the account form ("Buat akun dulu").
+# Creates BCA (bank) with an opening balance of 1.000.000. Optional $1: screenshot of the form.
+add_account() {
+  palette_new_transaction
+  if [[ -n "${1:-}" ]]; then shot "$1"; fi
+  xdotool type --delay 20 'BCA'
+  xdotool key Tab Tab   # Nama -> Jenis -> Saldo awal
+  xdotool type --delay 20 '1000000'
+  xdotool key Return
+  sleep 1
+  [[ "$(sql "SELECT i.title || ':' || a.kind || ':' || a.opening_balance FROM accounts a JOIN items i ON i.id = a.item_id")" = "BCA:bank:1000000" ]] \
+    || fail "account not saved"
+}
+
+check_finance() {
+  fresh
+  start_app
+  click 36 310                 # nav: Keuangan
+  shot 10-finance-empty        # expect: four cards at Rp 0, six empty bars, "Belum ada akun"
+  add_account 10-account-form  # expect: "Akun baru" with "Buat akun dulu", focus in Nama
+
+  palette_new_transaction
+  shot 10-transaction-form     # expect: Pengeluaran pressed, account BCA, today's date
+  xdotool type --delay 20 '25.000'
+  xdotool key Tab Tab          # Jumlah -> Akun -> Kategori
+  xdotool type --delay 20 'Makan & minum'
+  xdotool key Tab              # Keterangan
+  xdotool type --delay 20 'Makan siang'
+  xdotool key Return
+  sleep 1
+  [[ "$(sql "SELECT t.amount || ':' || t.category || ':' || i.title FROM transactions t JOIN items i ON i.id = t.item_id")" = "-25000:Makan & minum:Makan siang" ]] \
+    || fail "expense not saved"
+
+  click 820 200                # the Pengeluaran card opens the limit form
+  xdotool type --delay 20 '200000'
+  xdotool key Return
+  sleep 1
+  [[ "$(sql "SELECT b.amount FROM budgets b JOIN items i ON i.id = b.item_id WHERE i.deleted_at IS NULL")" = 200000 ]] \
+    || fail "limit not saved"
+  shot 10-finance              # expect: saldo Rp 975.000, Pengeluaran Rp 25.000 dari Rp 200.000, one row, BCA 100% saldo
+  [[ "$(sql "SELECT COUNT(*) FROM items WHERE type = 'note'")" = 0 ]] || fail "finance forms must not create notes"
+
+  click 36 94                  # nav: Dashboard
+  shot 10-dashboard            # expect: Keuangan card Rp 975.000, "Keluar bulan ini Rp 25.000 dari Rp 200.000", "Tagihan aman"
+  stop_app
+}
+
 check_backup() {
   fresh
   start_app
@@ -249,6 +305,7 @@ check_items
 check_palette
 check_dashboard
 check_notifications
+check_finance
 check_backup
 check_assistant
 check_github

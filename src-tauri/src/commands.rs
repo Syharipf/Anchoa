@@ -18,6 +18,7 @@ use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
+use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
 use crate::{backup, time};
 
@@ -271,6 +272,11 @@ pub async fn get_contributions(app: AppHandle, force: bool) -> Result<Contributi
 pub fn backup_now(app: AppHandle, db: State<'_, Db>) -> Result<String, AppError> {
     let path = backup::manual(&*db.conn()?, &backup_dir(&app)?, &time::now_stamp())?;
     Ok(path.display().to_string())
+}
+
+#[tauri::command]
+pub fn schedule(db: State<'_, Db>, range: ScheduleRange) -> Result<Schedule, AppError> {
+    schedule::schedule(&*db.conn()?, &range, time::now_ms(), &TimeZone::system())
 }
 
 #[tauri::command]

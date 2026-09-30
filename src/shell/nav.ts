@@ -5,6 +5,7 @@ export type PageId =
   | "inbox"
   | "email"
   | "jadwal"
+  | "habit"
   | "keuangan"
   | "proyek"
   | "berkas"
@@ -36,6 +37,7 @@ export const PAGES: readonly NavPage[] = [
     id: "jadwal",
     label: "Jadwal",
   },
+  { id: "habit", label: "Habit" },
   { id: "keuangan", label: "Keuangan" },
   { id: "proyek", label: "Proyek" },
   {

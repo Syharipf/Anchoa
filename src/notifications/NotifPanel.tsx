@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { DayTask, FinanceSummary } from "../api";
+import type { DayTask, FinanceSummary, HabitReminder } from "../api";
 import { reminders, reminderText, type Reminder, type Tone } from "./reminders";
 
 const TONE: Record<Tone, string> = { danger: "text-danger", warn: "text-warn", muted: "text-muted" };
@@ -21,17 +21,21 @@ function ReminderCard({ reminder, onOpen }: Readonly<{ reminder: Reminder; onOpe
 export function NotifPanel({
   today,
   finance,
+  habitReminders = [],
   onClose,
   onOpenItem,
   onOpenFinance,
+  onOpenHabits,
 }: Readonly<{
   today: DayTask[];
   finance: FinanceSummary | null;
+  habitReminders?: HabitReminder[];
   onClose: () => void;
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
+  onOpenHabits: () => void;
 }>) {
-  const groups = reminders(today, finance);
+  const groups = reminders(today, finance, habitReminders);
   const count = groups.reduce((n, g) => n + g.items.length, 0);
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -44,8 +48,13 @@ export function NotifPanel({
   }, []);
 
   const open = (r: Reminder) => {
-    if (r.kind === "task") onOpenItem(r.task.id);
-    else onOpenFinance();
+    if (r.kind === "task") {
+      onOpenItem(r.task.id);
+    } else if (r.kind === "habit") {
+      onOpenHabits();
+    } else {
+      onOpenFinance();
+    }
     onClose();
   };
 

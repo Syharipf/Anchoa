@@ -81,5 +81,31 @@ describe("reminderText", () => {
       detail: "Pengeluaran 88% dari batas",
       tone: "warn",
     });
+    expect(
+      reminderText({
+        kind: "habit",
+        id: "h1",
+        habit: { id: "h1", name: "Olahraga pagi", remindAt: "06:30" },
+      }),
+    ).toEqual({
+      title: "Olahraga pagi",
+      detail: "Belum dicentang · pengingat 06.30",
+      tone: "muted",
+    });
+  });
+
+  test("habit reminders appear in Hari ini group", () => {
+    const habitReminders = [{ id: "h1", name: "Olahraga pagi", remindAt: "06:30" }];
+    const groups = reminders([], null, habitReminders);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].title).toBe("Hari ini");
+    expect(groups[0].items).toHaveLength(1);
+    expect(groups[0].items[0]).toEqual({
+      kind: "habit",
+      id: "h1",
+      habit: habitReminders[0],
+    });
+    expect(reminderCount([], null, habitReminders)).toBe(1);
   });
 });
+

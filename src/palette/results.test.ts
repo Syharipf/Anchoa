@@ -11,7 +11,7 @@ describe("paletteResults", () => {
     const groups = paletteResults("", recent);
     expect(groups.map((g) => g.title)).toEqual(["Aksi cepat", "Buka halaman", "Terbaru"]);
     expect(groups[1].options.map((o) => o.label)).toEqual([
-      "Dashboard", "Inbox", "Email", "Jadwal", "Keuangan", "Proyek", "Berkas", "Unduhan", "Profil", "Pengaturan",
+      "Dashboard", "Inbox", "Email", "Jadwal", "Habit", "Keuangan", "Proyek", "Berkas", "Unduhan", "Profil", "Pengaturan",
     ]);
     expect(groups[2].options).toHaveLength(5);
   });

@@ -4,6 +4,7 @@ import { pageInfo, type PageId } from "../shell/nav";
 import { H1, SECONDARY } from "../shell/ui";
 import { FinanceCard } from "./FinanceCard";
 import { ModuleCard } from "./ModuleCard";
+import { ProjectsCard } from "./ProjectsCard";
 import { RecentPanel } from "./RecentPanel";
 import { summaryLine } from "./summary";
 import { TodayPanel } from "./TodayPanel";
@@ -44,7 +45,7 @@ export function Dashboard({
         <FinanceCard finance={data?.finance} onSelect={onSelect} />
         <UpcomingCard days={data?.upcoming} onOpen={onOpen} />
         {moduleCard("email")}
-        {moduleCard("proyek")}
+        <ProjectsCard projects={data?.projects} onSelect={onSelect} />
         {moduleCard("unduhan")}
         <RecentPanel items={data?.recent} onOpen={onOpen} />
       </div>

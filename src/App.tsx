@@ -5,7 +5,7 @@ import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
 import { FinancePage } from "./finance/FinancePage";
 import { HabitsPage } from "./habits/HabitsPage";
-import { Inbox } from "./inbox/Inbox";
+import { JournalPage } from "./journal/JournalPage";
 import { ItemPage } from "./item/ItemPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
 import { SchedulePage } from "./schedule/SchedulePage";
@@ -83,7 +83,6 @@ export function App() {
           setOverlay(null);
           go(name);
         }}
-        inboxDot={(data?.inboxCount ?? 0) > 0}
         reminders={reminderCount(data?.today ?? [], data?.finance ?? null, data?.habitReminders ?? [])}
         notificationsOpen={overlay === "notifications"}
         onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
@@ -91,7 +90,7 @@ export function App() {
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
-        {page.name === "inbox" && <Inbox key={captures} onOpen={openItem} />}
+        {page.name === "jurnal" && <JournalPage key={captures} onOpenItem={openItem} onChanged={reload} />}
         {page.name === "habit" && <HabitsPage onChanged={reload} />}
         {page.name === "keuangan" && (
           <FinancePage key={page.intent ?? 0} newTransaction={page.intent !== undefined} onChanged={reload} />

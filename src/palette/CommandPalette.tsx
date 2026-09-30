@@ -83,7 +83,7 @@ export function CommandPalette({
       saving.current = true;
       try {
         await api.captureNote(option.text);
-        toast("Tersimpan ke Inbox");
+        toast("Tersimpan ke Jurnal");
         onCaptured();
         onClose();
       } catch (e) {

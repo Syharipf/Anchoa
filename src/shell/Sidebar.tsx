@@ -11,10 +11,11 @@ const ICON: Record<PageId, ReactNode> = {
       <rect x="3" y="16" width="7" height="5" rx="1.5" />
     </>
   ),
-  inbox: (
+  jurnal: (
     <>
-      <path d="M3 13h5l2 3h4l2-3h5" />
-      <path d="M5 5h14l2 8v6H3v-6z" />
+      <path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z" />
+      <path d="M6 17a2 2 0 0 1 2-2h11" />
+      <path d="M10 7h5M10 10h3" />
     </>
   ),
   email: (
@@ -81,14 +82,12 @@ function NavIcon({ children }: Readonly<{ children: ReactNode }>) {
 export function Sidebar({
   current,
   onSelect,
-  inboxDot = false,
   reminders,
   notificationsOpen,
   onToggleNotifications,
 }: Readonly<{
   current: string;
   onSelect: (page: PageId) => void;
-  inboxDot?: boolean;
   reminders: number;
   notificationsOpen: boolean;
   onToggleNotifications: () => void;
@@ -103,7 +102,6 @@ export function Sidebar({
       className={`${BUTTON} ${current === id ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2"}`}
     >
       <NavIcon>{ICON[id]}</NavIcon>
-      {id === "inbox" && inboxDot && <span className="absolute top-[9px] right-[9px] h-[7px] w-[7px] rounded-full bg-accent" />}
     </button>
   );
 

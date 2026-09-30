@@ -23,7 +23,7 @@ const ACTIONS: PaletteOption[] = [
 /**
  * Groups shown in the command palette (spec UI lanjutan U4). A non-empty query
  * filters by case-insensitive substring and always ends with the "Simpan" group
- * offering Inbox capture and task creation.
+ * offering Jurnal capture and task creation.
  */
 export function paletteResults(query: string, recent: ItemSummary[]): PaletteGroup[] {
   const text = query.trim();
@@ -54,7 +54,7 @@ export function paletteResults(query: string, recent: ItemSummary[]): PaletteGro
     groups.push({
       title: "Simpan",
       options: [
-        { kind: "capture", id: "capture", label: `Simpan ke Inbox: “${text}”`, sub: "Enter", text },
+        { kind: "capture", id: "capture", label: `Simpan ke Jurnal: “${text}”`, sub: "Enter", text },
         { kind: "task", id: "task", label: `Buat tugas: “${text}”`, sub: "", text },
       ],
     });

@@ -2,6 +2,20 @@ import type { ItemKind, ScheduleItem } from "../api";
 
 export { addMonths, monthLabel } from "../money";
 
+export const KIND_COLORS: Readonly<Record<ItemKind, string>> = {
+  project: "#3987e5",
+  bill: "#c98500",
+  personal: "#d55181",
+};
+
+export const KIND_LABELS: Readonly<Record<ItemKind, string>> = {
+  project: "Proyek",
+  bill: "Tagihan",
+  personal: "Pribadi",
+};
+
+export const ALL_KINDS: readonly ItemKind[] = ["project", "bill", "personal"];
+
 export interface MonthCell {
   date: string;
   inMonth: boolean;

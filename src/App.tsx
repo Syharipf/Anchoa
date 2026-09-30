@@ -24,6 +24,7 @@ export function App() {
   const [status, setStatus] = useState<DbStatus | null>(null);
   const [stack, setStack] = useState<Page[]>([{ name: "dashboard" }]);
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [captures, setCaptures] = useState(0);
   const [contributionsVersion, setContributionsVersion] = useState(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const dashboard = useDashboard();
@@ -79,7 +80,7 @@ export function App() {
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} />}
-        {page.name === "inbox" && <Inbox onOpen={openItem} />}
+        {page.name === "inbox" && <Inbox key={captures} onOpen={openItem} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
         {info?.about && <ComingSoon page={info} onOpenSettings={() => go("settings")} />}
@@ -95,7 +96,10 @@ export function App() {
           onClose={() => setOverlay(null)}
           onNavigate={go}
           onOpenItem={openItem}
-          onCaptured={reload}
+          onCaptured={() => {
+            setCaptures((n) => n + 1);
+            reload();
+          }}
         />
       )}
     </div>

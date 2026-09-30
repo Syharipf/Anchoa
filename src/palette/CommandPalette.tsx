@@ -29,7 +29,7 @@ export function CommandPalette({
   const toast = useToast();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [saving, setSaving] = useState(false);
+  const saving = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const groups = useMemo(() => paletteResults(query, recent), [query, recent]);
   const flat = groups.flatMap((g) => g.options);
@@ -42,6 +42,12 @@ export function CommandPalette({
     return () => previous?.focus();
   }, []);
 
+  // Keep the highlighted option inside the scrolling list.
+  useEffect(() => {
+    const id = flat[current]?.id;
+    if (id) document.getElementById(`palette-${id}`)?.scrollIntoView({ block: "nearest" });
+  }, [flat, current]);
+
   async function run(option: PaletteOption) {
     if (option.kind === "page") {
       onNavigate(option.page);
@@ -49,8 +55,8 @@ export function CommandPalette({
     } else if (option.kind === "item") {
       onOpenItem(option.itemId);
       onClose();
-    } else if (!saving) {
-      setSaving(true);
+    } else if (!saving.current) {
+      saving.current = true;
       try {
         await api.captureNote(option.text);
         toast("Tersimpan ke Inbox");
@@ -60,7 +66,7 @@ export function CommandPalette({
         // Stay open with the text in place so nothing typed is lost.
         toast(errorMessage(e), "error");
       } finally {
-        setSaving(false);
+        saving.current = false;
       }
     }
   }
@@ -76,6 +82,8 @@ export function CommandPalette({
       e.preventDefault();
       const option = flat[current];
       if (option) void run(option);
+    } else if (e.key === "Tab") {
+      e.preventDefault(); // the input is the only stop inside the modal dialog
     } else if (e.key === "Escape") {
       e.preventDefault();
       onClose();
@@ -103,6 +111,7 @@ export function CommandPalette({
             ref={input}
             role="combobox"
             aria-expanded="true"
+            aria-autocomplete="list"
             aria-controls="palette-list"
             aria-activedescendant={flat[current] ? `palette-${flat[current].id}` : undefined}
             aria-label="Cari perintah atau halaman"

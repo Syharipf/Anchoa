@@ -9,6 +9,7 @@ mod github;
 mod gpu;
 mod items;
 mod overview;
+mod projects;
 mod tasks;
 mod time;
 

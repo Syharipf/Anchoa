@@ -1,24 +1,46 @@
 import type { Dashboard as DashboardData, DayTask } from "../api";
 import { greeting } from "../format";
-import { H1 } from "../shell/ui";
-import { Kpis } from "./Kpis";
+import { pageInfo, type PageId } from "../shell/nav";
+import { H1, SECONDARY } from "../shell/ui";
+import { ModuleCard } from "./ModuleCard";
 import { RecentPanel } from "./RecentPanel";
+import { summaryLine } from "./summary";
 import { TodayPanel } from "./TodayPanel";
+import { UpcomingCard } from "./UpcomingCard";
 
+/** Bento recap from docs/design/artboards/Main.dc.html (spec UI lanjutan U9). */
 export function Dashboard({
   data,
   onToggle,
   onOpen,
-}: Readonly<{ data: DashboardData | null; onToggle: (task: DayTask) => void; onOpen: (id: string) => void }>) {
+  onSelect,
+}: Readonly<{
+  data: DashboardData | null;
+  onToggle: (task: DayTask) => void;
+  onOpen: (id: string) => void;
+  onSelect: (page: PageId) => void;
+}>) {
   const now = new Date();
-  const month = now.toLocaleDateString("id-ID", { month: "short" });
+  const moduleCard = (id: PageId) => <ModuleCard page={pageInfo(id)} onSelect={onSelect} />;
 
   return (
     <>
-      <h1 className={H1}>{greeting(now.getHours())}</h1>
-      <Kpis tasks={data?.today} inboxCount={data?.inboxCount ?? 0} month={month} />
-      <div className="grid flex-1 grid-cols-2 items-start gap-3.5">
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className={H1}>{greeting(now.getHours())}</h1>
+          <p className="m-0 truncate text-sm text-muted">{data ? summaryLine(data.today, data.inboxCount) : " "}</p>
+        </div>
+        <button disabled title="Hadir di Fase 5" className={`${SECONDARY} shrink-0 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-transparent`}>
+          Dengarkan rekap
+        </button>
+      </div>
+      <div className="grid grid-cols-3 items-start gap-3.5">
         <TodayPanel tasks={data?.today} onToggle={onToggle} onOpen={onOpen} />
+        {moduleCard("keuangan")}
+        <UpcomingCard days={data?.upcoming} onOpen={onOpen} />
+        {moduleCard("email")}
+        {moduleCard("proyek")}
+        {moduleCard("unduhan")}
         <RecentPanel items={data?.recent} onOpen={onOpen} />
       </div>
     </>

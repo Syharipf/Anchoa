@@ -84,7 +84,7 @@ export function App() {
       />
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
-        {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} />}
+        {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
         {page.name === "inbox" && <Inbox key={captures} onOpen={openItem} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}

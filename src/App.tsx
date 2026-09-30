@@ -4,10 +4,11 @@ import { Dashboard } from "./dashboard/Dashboard";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
 import { Settings } from "./settings/Settings";
+import { AssistantMini } from "./assistant/AssistantMini";
 import { Aside } from "./shell/Aside";
 import { ComingSoon } from "./shell/ComingSoon";
 import { ErrorScreen } from "./shell/ErrorScreen";
-import { pageInfo, type PageId } from "./shell/nav";
+import { assistantHint, pageInfo, type PageId } from "./shell/nav";
 import { Sidebar } from "./shell/Sidebar";
 import { useToast } from "./shell/toast";
 
@@ -65,7 +66,11 @@ export function App() {
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
         {info?.about && <ComingSoon page={info} onOpenSettings={openSettings} />}
       </main>
-      {page.name === "dashboard" && <Aside contributionsVersion={contributionsVersion} onOpenSettings={openSettings} />}
+      {page.name === "dashboard" ? (
+        <Aside contributionsVersion={contributionsVersion} onOpenSettings={openSettings} />
+      ) : (
+        <AssistantMini key={page.name} hint={assistantHint(info)} onOpenFull={() => setStack([{ name: "dashboard" }])} />
+      )}
     </div>
   );
 }

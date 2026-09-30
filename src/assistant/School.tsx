@@ -11,21 +11,28 @@ const FISH: [number, number, number, number][] = [
 const BODY = "M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z";
 
 /** Ring of anchovies around the avatar, rotated as one element. */
-export function School({ color, dimmed, running }: Readonly<{ color: string; dimmed: boolean; running: boolean }>) {
+export function School({
+  color,
+  dimmed,
+  running,
+  size = 300,
+  period = "48s",
+  className = "",
+}: Readonly<{ color: string; dimmed: boolean; running: boolean; size?: number; period?: string; className?: string }>) {
   return (
     <svg
       data-anim
-      width="300"
-      height="300"
+      width={size}
+      height={size}
       viewBox="0 0 300 300"
       aria-hidden="true"
-      className="absolute bottom-[123px] left-1/2 -ml-[150px]"
+      className={className}
       style={{
         color,
         fill: "currentColor",
         opacity: dimmed ? 0.45 : 1,
         transition: "color 0.4s, opacity 0.4s",
-        animation: "anchoa-school 48s linear infinite",
+        animation: `anchoa-school ${period} linear infinite`,
         animationPlayState: running ? "running" : "paused",
       }}
     >

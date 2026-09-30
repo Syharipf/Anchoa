@@ -65,6 +65,21 @@ check_corrupt_db() {
   [[ "$(sha256sum "$DB")" = "$before" ]] || fail "corrupt database was modified"
 }
 
+check_nav() {
+  fresh
+  start_app
+  for y in 202 256 310 364 418 472 706; do
+    click 36 "$y"
+    shot "3-nav-$y"     # expect: placeholder page (Email … Unduhan, then Profil)
+  done
+  click 36 148          # Inbox: the mini assistant replaces the side panel
+  shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
+  click 1226 746        # open the mini assistant
+  shot 3-mini-open      # expect: 304px popup, "Siap", keyboard and mic buttons
+  xdotool search --name '^Anchoa$' >/dev/null || fail "app window disappeared"
+  stop_app
+}
+
 check_items() {
   fresh
   start_app
@@ -166,6 +181,7 @@ fi
 
 check_shell
 check_corrupt_db
+check_nav
 check_items
 check_dashboard
 check_backup

@@ -7,6 +7,7 @@ mod finance;
 mod github;
 mod gpu;
 mod items;
+mod overview;
 mod time;
 
 use tauri::Manager;

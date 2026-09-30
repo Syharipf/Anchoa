@@ -29,7 +29,12 @@ export function AssistantStage() {
     <section aria-label="Asisten suara" className="flex min-h-0 flex-1 flex-col gap-3 px-5 pt-4 pb-[18px]">
       <div className="relative flex min-h-0 flex-1 items-end justify-center overflow-hidden rounded-[18px] border border-line bg-stage">
         <div className="absolute bottom-[143px] left-1/2 -ml-[130px] h-[260px] w-[260px] rounded-full bg-stage-disc" />
-        <School color={status.color} dimmed={mode === "idle"} running={running} />
+        <School
+          color={status.color}
+          dimmed={mode === "idle"}
+          running={running}
+          className="absolute bottom-[123px] left-1/2 -ml-[150px]"
+        />
         <svg width="250" height="384" viewBox="0 0 150 230" fill="none" stroke="var(--color-muted)" strokeWidth="1.6" className="relative -mb-2" aria-hidden="true">
           <path d="M40 230c0-58 16-110 35-110s35 52 35 110" fill="var(--color-surface-2)" />
           <circle cx="75" cy="62" r="34" fill="var(--color-surface-2)" />
@@ -75,7 +80,7 @@ export function AssistantStage() {
       </div>
 
       {typing && (
-        <label className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5`}>
+        <div className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5 focus-within:border-field-focus`}>
           <input
             aria-label="Ketik pesan ke asisten"
             placeholder="Ketik pesan…"
@@ -91,7 +96,7 @@ export function AssistantStage() {
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </button>
-        </label>
+        </div>
       )}
 
       <div className="flex items-center justify-center gap-6">

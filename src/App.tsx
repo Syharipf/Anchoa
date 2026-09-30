@@ -5,8 +5,9 @@ import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
 import { Settings } from "./settings/Settings";
 import { Aside } from "./shell/Aside";
+import { ComingSoon } from "./shell/ComingSoon";
 import { ErrorScreen } from "./shell/ErrorScreen";
-import { type PageId } from "./shell/nav";
+import { pageInfo, type PageId } from "./shell/nav";
 import { Sidebar } from "./shell/Sidebar";
 import { useToast } from "./shell/toast";
 
@@ -49,6 +50,8 @@ export function App() {
 
   const openItem = (id: string) => setStack((s) => [...s, { name: "item", id }]);
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+  const info = page.name === "item" ? null : pageInfo(page.name);
+  const openSettings = () => setStack([{ name: "settings" }]);
 
   return (
     <div className="flex h-full bg-canvas">
@@ -60,8 +63,9 @@ export function App() {
         {page.name === "inbox" && <Inbox onOpen={openItem} onCount={onInboxCount} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
+        {info?.about && <ComingSoon page={info} onOpenSettings={openSettings} />}
       </main>
-      <Aside contributionsVersion={contributionsVersion} onOpenSettings={() => setStack([{ name: "settings" }])} />
+      {page.name === "dashboard" && <Aside contributionsVersion={contributionsVersion} onOpenSettings={openSettings} />}
     </div>
   );
 }

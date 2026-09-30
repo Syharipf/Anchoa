@@ -337,6 +337,39 @@ check_github() {
   stop_app
 }
 
+check_projects() {
+  fresh
+  start_app
+  click 36 364                 # nav: Proyek
+  shot 12-projects-empty        # measure "+ Proyek" and other coordinates from here
+  click 1203 104                # + Proyek
+  sleep 0.5
+  xdotool type --delay 20 'Anchoa v1'
+  xdotool key Return
+  sleep 1
+  click 450 355                 # + Tugas in Rencana
+  sleep 0.5
+  xdotool type --delay 20 'Tugas A'
+  xdotool key Return
+  sleep 1
+  xdotool type --delay 20 'Tugas B'
+  xdotool key Return
+  sleep 1
+  click 646 445                 # arrow on first card (Tugas A)
+  sleep 1
+  shot 12-projects
+  proj_id=$(sql "SELECT item_id FROM projects")
+  [[ -n "$proj_id" ]] || fail "project not created"
+  [[ "$(sql "SELECT count(*) FROM projects")" = 1 ]] || fail "expected 1 project"
+  [[ "$(sql "SELECT count(*) FROM tasks WHERE project_id = '$proj_id'")" = 2 ]] || fail "expected 2 tasks in project"
+  [[ "$(sql "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas A')")" = "doing" ]] || fail "Tugas A should be doing"
+  [[ "$(sql "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas B')")" = "plan" ]] || fail "Tugas B should be plan"
+  click 36 94                   # nav: Dashboard
+  sleep 1
+  shot 12-dashboard
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -355,4 +388,5 @@ check_bills
 check_backup
 check_assistant
 check_github
+check_projects
 echo "PASS. Screenshots in $WORK"

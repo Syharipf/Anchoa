@@ -26,6 +26,11 @@ fail() { echo "FAIL: $*"; exit 1; }
 shot() { import -window root "$WORK/$1.png"; }
 sql() { sqlite3 "$DB" "$1"; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 0.7; }
+make_task() {
+  local title="$1"
+  sql "UPDATE items SET type = 'task' WHERE title = '$title'"
+  sql "INSERT INTO tasks (item_id, status) SELECT id, 'plan' FROM items WHERE title = '$title'"
+}
 
 start_app() {
   "$BIN" >>"$WORK/app.log" 2>&1 &
@@ -51,7 +56,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 4 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 5 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -154,6 +159,9 @@ check_dashboard() {
   xdotool type --delay 20 'tugas besok'
   xdotool key Return
   sleep 1
+  make_task 'tugas hari ini'
+  make_task 'tugas terlambat'
+  make_task 'tugas besok'
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas hari ini'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '+1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas besok'"
@@ -178,6 +186,7 @@ check_notifications() {
   xdotool type --delay 20 'tugas terlambat'
   xdotool key Return
   sleep 1
+  make_task 'tugas terlambat'
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-2 day', 'utc') AS INTEGER) * 1000"
   click 36 148          # Inbox reloads the dashboard data behind the bell
   shot 7-notif-dot      # expect: coral dot on the bell

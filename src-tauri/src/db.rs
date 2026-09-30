@@ -11,6 +11,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/002_item_completion.sql"),
     include_str!("../migrations/003_contributions.sql"),
     include_str!("../migrations/004_finance.sql"),
+    include_str!("../migrations/005_projects.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -140,7 +141,7 @@ mod tests {
 
         let conn = open(&path).unwrap();
 
-        assert_eq!(version(&conn), 4);
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
         let title: String = conn.query_row("SELECT title FROM items WHERE id = 'n1'", [], |r| r.get(0)).unwrap();
         assert_eq!(title, "lama");
         for sql in [
@@ -153,6 +154,56 @@ mod tests {
         }
         let backup = Connection::open(dir.path().join("anchoa.db.bak-v3")).unwrap();
         assert_eq!(version(&backup), 3);
+    }
+
+    #[test]
+    fn version_4_database_upgrades_to_projects_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..4], Some(&path)).unwrap();
+        conn.execute(
+            "INSERT INTO items (id, type, title, due_at, completed_at, created_at, updated_at) VALUES
+             ('n1', 'note', 'tanpa tenggat', NULL, NULL, 1, 1),
+             ('n2', 'note', 'bertenggat terbuka', 1000, NULL, 1, 1),
+             ('n3', 'note', 'bertenggat selesai', 1000, 1000, 1, 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+
+        assert_eq!(version(&conn), 5);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v4")).unwrap();
+        assert_eq!(version(&backup), 4);
+
+        let (t1, k1): (String, String) = conn
+            .query_row("SELECT title, type FROM items WHERE id = 'n1'", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!((t1.as_str(), k1.as_str()), ("tanpa tenggat", "note"));
+        let count_task_n1: i64 = conn.query_row("SELECT COUNT(*) FROM tasks WHERE item_id = 'n1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(count_task_n1, 0);
+
+        let (t2, k2, s2): (String, String, String) = conn
+            .query_row(
+                "SELECT i.title, i.type, t.status FROM items i JOIN tasks t ON t.item_id = i.id WHERE i.id = 'n2'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!((t2.as_str(), k2.as_str(), s2.as_str()), ("bertenggat terbuka", "task", "plan"));
+
+        let (t3, k3, s3): (String, String, String) = conn
+            .query_row(
+                "SELECT i.title, i.type, t.status FROM items i JOIN tasks t ON t.item_id = i.id WHERE i.id = 'n3'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!((t3.as_str(), k3.as_str(), s3.as_str()), ("bertenggat selesai", "task", "done"));
+
+        conn.prepare("SELECT item_id, kind, deadline_at, repo_url FROM projects").unwrap();
     }
 
     #[test]

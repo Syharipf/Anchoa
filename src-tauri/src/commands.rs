@@ -16,6 +16,7 @@ use crate::finance::{
 use crate::overview::{self, FinanceOverview};
 use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
+use crate::habits::{self, HabitInput, HabitRow, History as HabitHistory, Overview as HabitsOverview};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
@@ -303,3 +304,29 @@ pub fn open_folder(app: AppHandle, kind: String) -> Result<(), AppError> {
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
 }
+
+#[tauri::command]
+pub fn habits_overview(db: State<'_, Db>) -> Result<HabitsOverview, AppError> {
+    habits::habits_overview(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn habit_history(db: State<'_, Db>, id: String, month: String) -> Result<HabitHistory, AppError> {
+    habits::habit_history(&*db.conn()?, &id, &month, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn save_habit(db: State<'_, Db>, input: HabitInput) -> Result<HabitRow, AppError> {
+    habits::save_habit(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_habit(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    habits::delete_habit(&*db.conn()?, &id, time::now_ms())
+}
+
+#[tauri::command]
+pub fn check_habit(db: State<'_, Db>, id: String, done: bool) -> Result<HabitRow, AppError> {
+    habits::check_habit(&*db.conn()?, &id, done, time::now_ms(), &TimeZone::system())
+}
+

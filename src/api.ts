@@ -292,6 +292,69 @@ export interface Dashboard {
   inboxCount: number;
   finance: FinanceSummary;
   projects: ProjectSummary[];
+  habitReminders: HabitReminder[];
+}
+
+export type DayState = "blank" | "future" | "off" | "done" | "todo" | "miss";
+
+export interface HabitRow {
+  id: string;
+  name: string;
+  days: number;
+  remindAt: string | null;
+  remindOn: boolean;
+  scheduledToday: boolean;
+  doneToday: boolean;
+  streak: number;
+  best: number;
+  rate30: number;
+  week: DayState[];
+  createdAt: number;
+}
+
+export interface TopStreak {
+  name: string;
+  days: number;
+}
+
+export interface Consistency {
+  percent: number;
+  done: number;
+  scheduled: number;
+}
+
+export interface HabitsOverview {
+  today: string;
+  todayDone: number;
+  todayTotal: number;
+  topStreak: TopStreak | null;
+  consistency: Consistency;
+  habits: HabitRow[];
+}
+
+export interface HistoryCell {
+  date: string;
+  day: number;
+  state: DayState;
+}
+
+export interface HabitHistory {
+  month: string;
+  cells: HistoryCell[];
+}
+
+export interface HabitReminder {
+  id: string;
+  name: string;
+  remindAt: string;
+}
+
+export interface HabitInput {
+  id?: string;
+  name: string;
+  days: number;
+  remindAt?: string | null;
+  remindOn: boolean;
 }
 
 export interface DbStatus {
@@ -401,6 +464,13 @@ export const api = {
   backupNow: () => invoke<string>("backup_now"),
   schedule: (from: string, to: string) =>
     invoke<Schedule>("schedule", { range: { from, to } }),
+  habitsOverview: () => invoke<HabitsOverview>("habits_overview"),
+  habitHistory: (id: string, month: string) =>
+    invoke<HabitHistory>("habit_history", { id, month }),
+  saveHabit: (input: HabitInput) => invoke<HabitRow>("save_habit", { input }),
+  deleteHabit: (id: string) => invoke<void>("delete_habit", { id }),
+  checkHabit: (id: string, done: boolean) =>
+    invoke<HabitRow>("check_habit", { id, done }),
   dataPaths: () => invoke<DataPaths>("data_paths"),
 };
 

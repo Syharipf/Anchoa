@@ -6,7 +6,8 @@ Status: **DRAF**, disusun tanpa sesi tanya-jawab. Setiap keputusan yang belum ka
 > **Perlu disusun ulang (2026-09-30).** Redesign D (`docs/superpowers/specs/2026-09-30-anchoa-ui-d-design.md`) mengubah dasar dokumen ini:
 > - migrasi `002` dan `003` sekarang dipakai `002_item_completion.sql` dan `003_contributions.sql`, jadi migrasi keuangan menjadi `004_finance.sql` (beserta test upgrade dan `user_version` di E2E);
 > - struktur `Dashboard` di backend berubah (`today: DayTask[]`, `inboxCount`);
-> - widget, sidebar, dan gaya UI sekarang mengikuti desain D (nav rail, kartu KPI "Saldo total" dan "Pengeluaran" yang menunggu modul ini).
+> - widget, sidebar, dan gaya UI sekarang mengikuti desain D (nav rail, kartu KPI "Saldo total" dan "Pengeluaran" yang menunggu modul ini);
+> - artboard `docs/design/artboards/Keuangan.dc.html` memuat tagihan (tombol "Tandai lunas"), grafik arus kas 6 bulan, porsi saldo per akun, dan "Catat lewat suara". Ini bertentangan dengan A10, yang menunda tagihan berulang dan grafik. Perlu keputusan: masuk Fase 2 atau tetap ditunda.
 >
 > Keputusan A1–A10 tetap berlaku sebagai draf. Blok kode UI di rencana perlu dibuat ulang sebelum Fase 2 diimplementasikan.
 

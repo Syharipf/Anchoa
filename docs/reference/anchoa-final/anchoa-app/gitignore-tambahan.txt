@@ -1,0 +1,14 @@
+# Live2D: Cubism Core bersifat proprietary, model contoh punya syarat sendiri
+static/live2d/core/
+static/live2d/models/
+
+# Data lokal & rahasia saat pengembangan
+*.db
+*.db-journal
+*.sqlite
+.env
+.env.*
+!.env.example
+
+# Hasil build Android
+src-tauri/gen/android/app/build/

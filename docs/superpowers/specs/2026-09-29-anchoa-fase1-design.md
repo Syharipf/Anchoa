@@ -7,7 +7,7 @@ Status: draf, menunggu review
 
 Anchoa adalah aplikasi desktop untuk mengelola semua hal pribadi di satu tempat, seperti gabungan Notion dan Obsidian: keuangan, project, task, catatan, dan workspace yang saling terhubung. Aplikasi dibangun bertahap. Fase 1 membangun fondasi yang dipakai semua modul berikutnya, ditambah halaman Dashboard sebagai menu pertama.
 
-Target platform Fase 1: Fedora Linux (mesin pengembang). Windows dan Android menyusul di Fase 6.
+Target platform Fase 1: Fedora Linux (mesin pengembang). Windows dan Android menyusul di Fase 9.
 
 ## 2. Keputusan yang sudah diambil
 
@@ -48,7 +48,7 @@ Kesimpulan: Tauri layak dipakai, dengan perbaikan GPU otomatis di Linux (lihat b
 - Tabel `links` dan `transactions` (dibuat saat modulnya dibangun).
 - Editor blok, preview Markdown, `[[wikilink]]`, pencarian FTS5, command palette.
 - Database kustom buatan user.
-- AI Assistant (Fase 5) dan sync atau multi-device (Fase 6).
+- AI Assistant (Fase 5) dan sync atau multi-device (Fase 9).
 - UI restore backup, export Markdown, tampilan sampah (item terhapus).
 - Router, library state (TanStack Query dan sejenisnya), shortcut global di luar app.
 
@@ -116,7 +116,7 @@ CREATE INDEX items_parent ON items(parent_id) WHERE deleted_at IS NULL;
 
 ### Aturan
 
-- **ID** memakai UUIDv7, yang bisa diurutkan menurut waktu. Bersama `updated_at` dan soft delete, ini fondasi supaya sync di Fase 6 tidak butuh migrasi besar.
+- **ID** memakai UUIDv7, yang bisa diurutkan menurut waktu. Bersama `updated_at` dan soft delete, ini fondasi supaya sync di Fase 9 tidak butuh migrasi besar.
 - **Waktu** disimpan sebagai epoch ms UTC. Batas hari dihitung di Rust memakai zona waktu lokal sistem.
 - **Jatuh tempo** di Fase 1 hanya berupa tanggal, disimpan sebagai pukul 00:00 waktu lokal pada tanggal tersebut. Jam jatuh tempo menyusul bersama modul task.
 - **Semua query** mengabaikan baris yang `deleted_at IS NOT NULL`.
@@ -284,7 +284,7 @@ Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat
   - `tsc --noEmit`;
   - `bun test` (test runner bawaan bun, dijalankan dengan `TZ=Asia/Jakarta`) untuk fungsi murni: sapaan per jam, format tanggal, dan waktu relatif.
 - **End-to-end:** `scripts/e2e-smoke.sh` menjalankan app di Xvfb dengan folder data dan D-Bus sendiri, mengendalikannya dengan xdotool, lalu mengecek hasilnya lewat screenshot dan isi DB di disk. Pengembang hanya menguji manual hal yang tidak bisa diotomatisasi, misalnya rendering di GPU asli.
-- **CI:** GitHub Actions di Linux, berjalan di setiap PR: `cargo test`, `cargo clippy -- -D warnings`, `tsc --noEmit`, dan `bun test`. CI hijau adalah syarat merge. Build Windows dan Android menyusul di Fase 6.
+- **CI:** GitHub Actions di Linux, berjalan di setiap PR: `cargo test`, `cargo clippy -- -D warnings`, `tsc --noEmit`, dan `bun test`. CI hijau adalah syarat merge. Build Windows dan Android menyusul di Fase 9.
 
 ## 12. Kriteria selesai Fase 1
 
@@ -298,18 +298,26 @@ Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat
 
 ## 13. Roadmap
 
+Diperbarui 2026-09-30 dengan modul dari paket desain `anchoa-final` (`docs/design/`). Nama artboard ditulis tanpa folder `docs/design/artboards/`.
+
 | Fase | Isi |
 |---|---|
 | 0 ✓ | Uji Live2D di Tauri |
-| 1 | Fondasi + Dashboard (dokumen ini) |
-| 2 | Keuangan: akun, transaksi, kategori, ringkasan bulanan. Widget keuangan aktif. |
-| 3 | Task & Project: status, jatuh tempo, list/kanban, tabel `links`, link transaksi ke project. |
-| 4 | Workspace/Catatan: pohon halaman, editor blok (BlockNote), `[[wikilink]]` + backlink, FTS5, command palette, export Markdown, UI restore. |
-| 5 | AI Assistant: avatar Live2D di kolom kanan, chat, LLM memanggil command. |
-| 6 | Multi-device: server sync, build Windows dan Android, CI multi-platform. |
+| 1 ✓ | Fondasi + Dashboard (dokumen ini, rilis v0.1.0), lalu redesign D (UI-1 sampai UI-4). |
+| UI lanjutan | Kerangka global dari `DESIGN.md` §1–2: nav 8 modul + Notifikasi, Profil, Pengaturan; command palette (`CommandPalette.dc.html`); panel notifikasi (`NotifPanel.dc.html`); asisten mini di halaman selain Dashboard; layar loading (`Loading.dc.html`). Dashboard pindah ke bento rekap (`Main.dc.html`). Modul yang belum ada tampil sebagai kartu atau halaman "menyusul" dan aktif bersama fasenya. |
+| 2 | Keuangan (`Keuangan.dc.html`): akun, transaksi, kategori, ringkasan bulanan. Tagihan dan grafik arus kas 6 bulan masih keputusan terbuka (A10 di draf Fase 2). |
+| 3 | Task & Project + Jadwal (`Proyek.dc.html`, `Jadwal.dc.html`): status rencana/dikerjakan/selesai, kanban, kalender bulanan + timeline 8 minggu, acara non-tugas, tabel `links`, link transaksi ke project. |
+| 4 | Catatan (Inbox di desain): pohon halaman, editor blok (BlockNote), `[[wikilink]]` + backlink, FTS5, pencarian di command palette, export Markdown, UI restore. |
+| 5 | AI Assistant: STT/TTS, avatar Live2D di panel asisten, LLM memanggil command, "Dengarkan rekap". |
+| 6 | Berkas (`Berkas.dc.html`): file lokal, pratinjau satu item, multi-pilih dengan bar aksi. |
+| 7 | Unduhan (`Unduhan.dc.html`): file langsung, yt-dlp + ffmpeg, torrent mati secara default. |
+| 8 | Email (`Email.dc.html`): IMAP/SMTP di perangkat, kredensial di keyring OS, ringkasan dan aksi kontekstual. |
+| 9 | Multi-device: sync data ke cloud (acuan `docs/reference/anchoa-final/ARCHITECTURE.md`), lokasi "Laptop" di Berkas lewat Tailscale + SFTP, build Windows dan Android, CI multi-platform. |
 | Nanti | Database kustom, plugin, avatar 3D. |
 
-Fase 5 boleh dimajukan setelah Fase 3 kalau AI Assistant menjadi prioritas.
+Halaman Profil (`Profil.dc.html`) tumbuh bersama modulnya: bagian GitHub dan backup sudah ada, sedangkan akun email, suara, dan notifikasi menyusul di fase masing-masing.
+
+Fase 5 boleh dimajukan setelah Fase 3 kalau AI Assistant menjadi prioritas. Urutan Fase 6–8 boleh ditukar.
 
 Setiap fase punya spec, rencana implementasi, dan siklus implementasinya sendiri.
 

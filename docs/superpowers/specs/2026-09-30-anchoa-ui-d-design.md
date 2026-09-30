@@ -3,7 +3,7 @@
 Tanggal: 2026-09-30
 Status: disetujui user (2026-09-30).
 
-- **Acuan visual:** `docs/design/DESIGN.md` dan `docs/design/anchoa-dashboard-d.dc.html`.
+- **Acuan visual:** `docs/design/DESIGN.md` dan `docs/design/anchoa-dashboard-d.dc.html` versi commit `139f914`. Keduanya sudah diganti paket desain lengkap (`docs/design/artboards/Main.dc.html` untuk dashboard); ambil versi lama dengan `git show 139f914:docs/design/DESIGN.md`.
 - **Isi dokumen ini:** keputusan implementasi yang tidak tertulis di sana.
 
 ## Keputusan

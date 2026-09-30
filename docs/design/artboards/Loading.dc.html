@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Memuat</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: #0B0D10; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+  <div style="position: relative; width: 300px; height: 300px; display: flex; align-items: center; justify-content: center">
+    <div style="position: absolute; top: 40px; left: 40px; width: 220px; height: 220px; border-radius: 50%; background: #12151B"></div>
+    <svg data-anim width="300" height="300" viewBox="0 0 300 300" aria-hidden="true" style="position: absolute; top: 0; left: 0; color: #C6F36B; fill: currentColor; opacity: {{ringOpacity}}; transition: opacity 0.6s; animation: anchoa-school 7s linear infinite; animation-play-state: {{motion}}"><g transform="rotate(198 150 150) translate(150 24) scale(0.95)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.15"></path></g><g transform="rotate(215 150 150) translate(150 20) scale(0.77)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.21"></path></g><g transform="rotate(221 150 150) translate(150 19) scale(0.78)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.17"></path></g><g transform="rotate(237 150 150) translate(150 13) scale(0.82)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.2"></path></g><g transform="rotate(250 150 150) translate(150 11) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(264 150 150) translate(150 25) scale(1.12)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.23"></path></g><g transform="rotate(264 150 150) translate(150 24) scale(0.93)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.33"></path></g><g transform="rotate(274 150 150) translate(150 17) scale(1.07)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.27"></path></g><g transform="rotate(288 150 150) translate(150 25) scale(0.86)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.26"></path></g><g transform="rotate(299 150 150) translate(150 19) scale(0.98)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.34"></path></g><g transform="rotate(305 150 150) translate(150 21) scale(1.19)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.37"></path></g><g transform="rotate(311 150 150) translate(150 17) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.42"></path></g><g transform="rotate(326 150 150) translate(150 21) scale(1.30)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.29"></path></g><g transform="rotate(331 150 150) translate(150 14) scale(0.97)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.38"></path></g><g transform="rotate(335 150 150) translate(150 15) scale(1.25)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.41"></path></g><g transform="rotate(353 150 150) translate(150 21) scale(1.24)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.43"></path></g><g transform="rotate(358 150 150) translate(150 19) scale(1.32)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.52"></path></g><g transform="rotate(365 150 150) translate(150 15) scale(0.99)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.48"></path></g><g transform="rotate(376 150 150) translate(150 10) scale(1.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.4"></path></g><g transform="rotate(381 150 150) translate(150 15) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(386 150 150) translate(150 24) scale(1.03)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(394 150 150) translate(150 22) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g><g transform="rotate(401 150 150) translate(150 19) scale(1.30)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.61"></path></g><g transform="rotate(418 150 150) translate(150 12) scale(1.18)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.5"></path></g><g transform="rotate(420 150 150) translate(150 12) scale(1.53)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.43"></path></g><g transform="rotate(426 150 150) translate(150 22) scale(1.19)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g></svg>
+    <div data-anim role="img" aria-label="Logo Anchoa" style="position: relative; width: 96px; height: 96px; border-radius: 24px; border: 1.5px dashed #3A4150; box-sizing: border-box; background: #0F1115; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #9AA3B2; animation: anchoa-fade 0.6s ease-out">Logo</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 14px; width: 320px">
+    <span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; letter-spacing: -0.02em">Anchoa</span>
+    <div aria-hidden="true" style="width: 240px; height: 3px; border-radius: 2px; background: #1D2129; overflow: hidden">
+      <div style="width: 240px; height: 3px; border-radius: 2px; background: #C6F36B; transform-origin: left center; transform: scaleX({{prog}}); transition: transform 0.6s ease"></div>
+    </div>
+    <span role="status" aria-live="polite" style="min-height: 18px; font-size: 13px; color: {{stepColor}}">{{stepText}}</span>
+    <sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+      <div data-anim style="display: flex; gap: 10px; animation: anchoa-fade 0.4s ease-out">
+        <a href="Main.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 18px; border-radius: 10px; background: #C6F36B; color: #0F1115; font-size: 14px; font-weight: 600; text-decoration: none">Masuk ke Dashboard</a>
+        <button onClick="{{replay}}" style="min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Putar ulang</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="position: absolute; bottom: 32px; left: 0; right: 0; display: flex; justify-content: center">
+    <span style="font-size: 12px; color: #5B6475">Tips: klik kolom cari atau tekan <span style="font-family: 'JetBrains Mono', monospace; color: #9AA3B2">Ctrl K</span> untuk membuka command palette.</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  componentDidMount() { this.start(); }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  start() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = setInterval(() => {
+      const s = (this.state && this.state.step) || 0;
+      if (s >= 4) { clearInterval(this.timer); this.timer = null; return; }
+      this.setState({ step: s + 1 });
+    }, 850);
+  }
+  renderVals() {
+    const st = this.state || {};
+    const step = st.step || 0;
+    const STEPS = ['Menyiapkan data lokal terenkripsi…', 'Memuat model suara (STT & TTS)…', 'Membangunkan avatar Live2D…', 'Menyinkronkan jadwal & email…', 'Siap.'];
+    const done = step >= 4;
+    return {
+      stepText: STEPS[Math.min(step, 4)],
+      stepColor: done ? '#C6F36B' : '#9AA3B2',
+      prog: Math.min(step, 4) / 4 * 0.94 + 0.06,
+      done: done,
+      motion: done ? 'paused' : 'running',
+      ringOpacity: done ? '0.45' : '1',
+      replay: () => { this.setState({ step: 0 }); this.start(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

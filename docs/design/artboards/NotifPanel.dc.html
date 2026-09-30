@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Panel notifikasi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 1208px; height: 800px; background: {{rootBg}}; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #E7E9EE; overflow: hidden">
+  <button onClick="{{close}}" aria-label="Tutup panel notifikasi" tabindex="-1" style="position: absolute; top: 0; left: 0; width: 1208px; height: 800px; border: 0; padding: 0; background: {{dim}}; cursor: default"></button>
+
+  <aside data-anim role="dialog" aria-labelledby="np-title" style="position: absolute; top: 0; left: 0; width: 400px; height: 800px; display: flex; flex-direction: column; background: #12151B; border-right: 1px solid #2E3440; box-shadow: 16px 0 40px #00000066; animation: anchoa-slide 0.18s ease-out">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 20px 18px 12px; border-bottom: 1px solid #262B35">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <h2 id="np-title" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600">Notifikasi</h2>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #0F1115; background: {{countBg}}; border-radius: 999px; padding: 1px 8px">{{unreadN}}</span>
+        <button onClick="{{close}}" aria-label="Tutup" style="margin-left: auto; width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <button onClick="{{toggleSpeak}}" aria-pressed="{{speakPressed}}" style="min-height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 8px; border: 1px solid {{speakBorder}}; background: transparent; color: {{speakColor}}; font: inherit; font-size: 12px; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6"></path></svg>{{speakLabel}}</button>
+        <button onClick="{{readAll}}" style="min-height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 12px; cursor: pointer">Tandai semua dibaca</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 4px">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+          <button onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="min-height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: {{t.bg}}; color: {{t.color}}; font: inherit; font-size: 12px; cursor: pointer">{{t.label}}</button>
+        </sc-for>
+        <span id="np-dnd" style="margin-left: auto; font-size: 12px; color: #9AA3B2">Jangan ganggu</span>
+        <button role="switch" aria-checked="{{dndOn}}" aria-labelledby="np-dnd" onClick="{{toggleDnd}}" style="width: 36px; height: 20px; flex-shrink: 0; padding: 2px; border-radius: 999px; border: 0; background: {{dndTrack}}; cursor: pointer; display: flex; align-items: center"><span style="width: 16px; height: 16px; border-radius: 50%; background: {{dndKnob}}; transform: translateX({{dndShift}}px); transition: transform 0.2s"></span></button>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 4px 10px 12px">
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+        <div style="padding: 12px 8px 6px; font-size: 11px; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">{{g.label}}</div>
+        <sc-for list="{{g.items}}" as="n" hint-placeholder-count="3">
+          <div style="display: flex; gap: 12px; padding: 10px 8px; border-radius: 10px; background: {{n.bg}}">
+            <span style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: #1D2129; color: {{n.iconColor}}; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <button onClick="{{n.markRead}}" style="display: flex; align-items: flex-start; gap: 8px; padding: 0; border: 0; background: transparent; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer">
+                <span style="flex-grow: 1; font-size: 13px; font-weight: {{n.weight}}; line-height: 1.35">{{n.title}}</span>
+                <span style="flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">{{n.time}}</span>
+                <span aria-label="{{n.dotLabel}}" style="width: 8px; height: 8px; margin-top: 4px; flex-shrink: 0; border-radius: 50%; background: {{n.dot}}"></span>
+              </button>
+              <span style="font-size: 12px; line-height: 1.4; color: #9AA3B2">{{n.body}}</span>
+              <span style="display: flex; align-items: center; gap: 8px; margin-top: 2px">
+                <span style="font-size: 11px; color: #9AA3B2">{{n.source}}</span>
+                <a href="{{n.href}}" style="margin-left: auto; font-size: 12px; text-decoration: none">{{n.action}} ›</a>
+              </span>
+            </div>
+          </div>
+        </sc-for>
+      </sc-for>
+      <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 48px 16px; text-align: center; font-size: 13px; color: #9AA3B2">Semua notifikasi sudah dibaca.</div>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; padding: 12px 18px; border-top: 1px solid #262B35; font-size: 12px; color: #9AA3B2">
+      <span>{{dndNote}}</span>
+      <a href="Profil.dc.html" style="margin-left: auto; text-decoration: none">Atur notifikasi ›</a>
+    </div>
+  </aside>
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ true }}">
+    <span style="position: absolute; right: 32px; bottom: 28px; max-width: 420px; text-align: right; font-size: 13px; line-height: 1.5; color: #5B6475">Pratinjau terpisah. Di aplikasi, panel ini muncul dari ikon lonceng di menu kiri, di atas halaman yang sedang dibuka.</span>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"onClose":{"editor":null},"overlay":{"editor":null},"$preview":{"width":1208,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const close = () => { if (this.props.onClose) this.props.onClose(); };
+    const I = {
+      due: 'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4',
+      bill: 'M13 2L4 14h7l-1 8 9-12h-7z',
+      mail: 'M3 5h18v14H3zM3 7l9 6 9-6',
+      down: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+      voice: 'M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6',
+      upd: 'M4 4v6h6M20 12a8 8 0 0 0-14.9-4L4 10M4 12a8 8 0 0 0 14.9 4',
+      done: 'M4 12l5 5L20 6'
+    };
+    const N = [
+      { id: 'n1', g: 'Hari ini', icon: I.due, color: '#3987E5', title: 'Kirim laporan project jatuh tempo hari ini', body: 'Tinggal 1 tugas lagi di proyek Laporan project.', source: 'Jadwal', time: '18.00', href: 'Jadwal.dc.html', action: 'Buka Jadwal', unread: true },
+      { id: 'n2', g: 'Hari ini', icon: I.bill, color: '#FF8A7A', title: 'Tagihan listrik terlambat 1 hari', body: 'Jatuh tempo 28 Sep. Tandai lunas setelah dibayar.', source: 'Keuangan', time: '08.00', href: 'Keuangan.dc.html', action: 'Buka Keuangan', unread: true },
+      { id: 'n3', g: 'Hari ini', icon: I.mail, color: '#C6F36B', title: '3 email baru', body: 'Dimas Pratama: Review desain dashboard Anchoa, dan 2 lainnya.', source: 'Email', time: '10.24', href: 'Email.dc.html', action: 'Buka Email', unread: true },
+      { id: 'n4', g: 'Hari ini', icon: I.down, color: '#C6F36B', title: 'Unduhan selesai: proposal-anchoa.pdf', body: '2,3 MB · tersimpan di ~/Unduhan', source: 'Unduhan', time: '21.05', href: 'Berkas.dc.html', action: 'Buka di Berkas', unread: true },
+      { id: 'n5', g: 'Hari ini', icon: I.voice, color: '#9AA3B2', title: 'Rekap pagi sudah dibacakan', body: '3 tenggat, 1 tagihan terlambat, cuaca cerah.', source: 'Asisten', time: '07.00', href: 'Main.dc.html', action: 'Dengar lagi', unread: false },
+      { id: 'n6', g: 'Kemarin', icon: I.upd, color: '#9AA3B2', title: 'Pembaruan yt-dlp tersedia', body: 'Perbarui agar unduhan dari situs video tetap berjalan.', source: 'Unduhan', time: '19.30', href: 'Unduhan.dc.html', action: 'Perbarui', unread: false },
+      { id: 'n7', g: 'Kemarin', icon: I.done, color: '#9AA3B2', title: 'Tugas “Heatmap kontribusi” selesai', body: 'Progres Anchoa v1 naik ke 42%.', source: 'Proyek', time: '16.12', href: 'Proyek.dc.html', action: 'Lihat', unread: false }
+    ];
+    const read = st.read || {};
+    const isUnread = (n) => n.unread && !read[n.id];
+    const unreadN = N.filter(isUnread).length;
+    const tab = st.tab || 'all';
+    const shown = N.filter((n) => tab === 'all' || isUnread(n));
+    const groups = [];
+    shown.forEach((n) => {
+      let g = groups.find((x) => x.label === n.g);
+      if (!g) { g = { label: n.g, items: [] }; groups.push(g); }
+      const u = isUnread(n);
+      g.items.push({
+        title: n.title, body: n.body, source: n.source, time: n.time, href: n.href, action: n.action, icon: n.icon,
+        iconColor: n.color,
+        weight: u ? '600' : '400',
+        bg: u ? '#171A21' : 'transparent',
+        dot: u ? '#C6F36B' : 'transparent',
+        dotLabel: u ? 'Belum dibaca' : 'Sudah dibaca',
+        markRead: () => { const r = Object.assign({}, read); r[n.id] = true; this.setState({ read: r }); }
+      });
+    });
+    const dnd = !!st.dnd;
+    const speaking = !!st.speak;
+    return {
+      standalone: this.props.overlay !== true,
+      rootBg: this.props.overlay === true ? 'transparent' : '#0F1115',
+      dim: this.props.overlay === true ? '#05070A99' : '#0B0D10',
+      close: close,
+      unreadN: unreadN,
+      countBg: unreadN ? '#C6F36B' : '#3A4150',
+      tabs: [['all', 'Semua'], ['unread', 'Belum dibaca']].map((t) => ({ label: t[1], pressed: tab === t[0] ? 'true' : 'false', bg: tab === t[0] ? '#1D2129' : 'transparent', color: tab === t[0] ? '#E7E9EE' : '#9AA3B2', pick: () => this.setState({ tab: t[0] }) })),
+      groups: groups,
+      empty: groups.length === 0,
+      readAll: () => { const r = {}; N.forEach((n) => { r[n.id] = true; }); this.setState({ read: r }); },
+      toggleSpeak: () => this.setState({ speak: !speaking }),
+      speakPressed: speaking ? 'true' : 'false',
+      speakLabel: speaking ? 'Membacakan ' + unreadN + ' notifikasi…' : 'Bacakan',
+      speakBorder: speaking ? '#C6F36B' : '#3A4150',
+      speakColor: speaking ? '#C6F36B' : '#E7E9EE',
+      dndOn: dnd ? 'true' : 'false',
+      toggleDnd: () => this.setState({ dnd: !dnd }),
+      dndTrack: dnd ? '#C6F36B' : '#3A4150',
+      dndKnob: dnd ? '#0F1115' : '#9AA3B2',
+      dndShift: dnd ? 16 : 0,
+      dndNote: dnd ? 'Jangan ganggu aktif sampai 06.00' : 'Jam tenang 22.00–06.00'
+    };
+  }
+}
+</script>
+</body>
+</html>

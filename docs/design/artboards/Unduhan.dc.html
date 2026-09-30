@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Unduhan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; display: flex; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+
+  <nav aria-label="Menu utama" style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 0 16px; background: #0B0D10; border-right: 1px solid #262B35; box-sizing: border-box">
+    <div role="img" aria-label="Logo Anchoa" title="Tempat logo Anchoa" style="width: 40px; height: 40px; border-radius: 12px; border: 1px dashed #3A4150; color: #9AA3B2; display: flex; align-items: center; justify-content: center; font-size: 10px; box-sizing: border-box; margin-bottom: 12px">Logo</div>
+    <a href="Main.dc.html" data-hover aria-label="Dashboard" title="Dashboard" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></a>
+    <a href="#" data-hover aria-label="Inbox" title="Inbox" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l2 3h4l2-3h5"></path><path d="M5 5h14l2 8v6H3v-6z"></path></svg><span style="position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: #C6F36B"></span></a>
+    <a href="Email.dc.html" data-hover aria-label="Email, 3 belum dibaca" title="Email" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg><span aria-hidden="true" style="position: absolute; top: 5px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #C6F36B; color: #0F1115; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; line-height: 16px; text-align: center">3</span></a>
+    <a href="Jadwal.dc.html" data-hover aria-label="Jadwal" title="Jadwal" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+    <a href="Keuangan.dc.html" data-hover aria-label="Keuangan" title="Keuangan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M16 12.5h2"></path><path d="M3 10h18"></path></svg></a>
+    <a href="Proyek.dc.html" data-hover aria-label="Proyek" title="Proyek" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7M12 7v4M16 7v10"></path></svg></a>
+    <a href="Berkas.dc.html" data-hover aria-label="Berkas" title="Berkas" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a>
+    <a href="Unduhan.dc.html" aria-label="Unduhan" title="Unduhan" aria-current="page" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #1D2129; color: #C6F36B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></a>
+    <div style="margin-top: auto"></div>
+    <button data-hover onClick="{{toggleNotif}}" aria-label="Notifikasi, 4 belum dibaca" aria-expanded="{{notifExpanded}}" title="Notifikasi" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; background: {{notifBg}}; color: {{notifColor}}; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #FF8A7A; border: 2px solid #0B0D10"></span></button>
+    <a href="Profil.dc.html" data-hover aria-label="Profil" title="Profil" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; "><span style="width: 32px; height: 32px; border-radius: 50%; box-sizing: border-box; border: 2px solid #3A4150; background: #2A303B; color: #C6F36B; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">R</span></a>
+    <a href="#" data-hover aria-label="Pengaturan" title="Pengaturan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg></a>
+  </nav>
+
+  <main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; min-width: 0">
+    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 4px">
+      <button onClick="{{openPalette}}" aria-label="Buka command palette" style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 42px; background: #171A21; border: 1px solid #262B35; border-radius: 10px; color: #9AA3B2; font: inherit; font-size: 14px; text-align: left; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex-grow: 1">Cari di riwayat unduhan…</span><kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2; border: 1px solid #262B35; border-radius: 6px; padding: 2px 6px">Ctrl K</kbd></button>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #9AA3B2">Sel 29 Sep · 22:48</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 14px">
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: -0.01em">Unduhan</h1>
+      <div aria-live="polite" style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+        <span style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #171A21; border: 1px solid #262B35; color: #C6F36B"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"></path></svg>{{downText}}</span>
+        <span style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #171A21; border: 1px solid #262B35; color: #9AA3B2"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"></path></svg>{{upText}}</span>
+        <span style="color: #9AA3B2">{{activeText}}</span>
+      </div>
+      <button data-hover onClick="{{pauseAll}}" style="margin-left: auto; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 10px; border: 1px solid #262B35; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">
+        <sc-if value="{{anyRunning}}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></sc-if>
+        <sc-if value="{{noneRunning}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></sc-if>
+        {{pauseAllLabel}}
+      </button>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px">
+      <div style="min-height: 0; display: flex; flex-direction: column; gap: 14px">
+
+        <section aria-labelledby="tambah-judul" style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+          <h2 id="tambah-judul" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Tambah unduhan</h2>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <label data-field style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px; height: 44px; background: #0F1115; border: 1px solid #262B35; border-radius: 10px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>
+              <input aria-label="Tautan unduhan" value="{{url}}" onChange="{{onUrl}}" placeholder="Tempel tautan video, audio, file, atau magnet…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font-family: 'JetBrains Mono', monospace; font-size: 13px">
+              <span style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #1D2129; font-size: 12px; color: {{detColor}}; white-space: nowrap"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{detColor}}"></span>{{detLabel}}</span>
+            </label>
+            <button data-press onClick="{{add}}" disabled="{{addDisabled}}" style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 18px; border-radius: 10px; border: 0; background: {{addBg}}; color: {{addColor}}; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>{{addLabel}}</button>
+          </div>
+
+          <sc-if value="{{isMedia}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+              <div role="group" aria-label="Jenis unduhan" style="display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: #0F1115; border: 1px solid #262B35">
+                <button onClick="{{setVideo}}" aria-pressed="{{videoPressed}}" style="min-height: 28px; padding: 0 12px; border: 0; border-radius: 6px; font: inherit; font-size: 12px; background: {{videoBg}}; color: {{videoColor}}; cursor: pointer">Video</button>
+                <button onClick="{{setAudio}}" aria-pressed="{{audioPressed}}" style="min-height: 28px; padding: 0 12px; border: 0; border-radius: 6px; font: inherit; font-size: 12px; background: {{audioBg}}; color: {{audioColor}}; cursor: pointer">Audio saja</button>
+              </div>
+              <div role="group" aria-label="{{qualityGroup}}" style="display: flex; gap: 4px">
+                <sc-for list="{{qualities}}" as="q" hint-placeholder-count="4">
+                  <button onClick="{{q.pick}}" aria-pressed="{{q.pressed}}" style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid {{q.border}}; background: {{q.bg}}; color: {{q.color}}; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer">{{q.label}}</button>
+                </sc-for>
+              </div>
+              <span aria-hidden="true" style="width: 1px; height: 20px; background: #262B35"></span>
+              <div role="group" aria-label="Format" style="display: flex; gap: 4px">
+                <sc-for list="{{formats}}" as="q" hint-placeholder-count="2">
+                  <button onClick="{{q.pick}}" aria-pressed="{{q.pressed}}" style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid {{q.border}}; background: {{q.bg}}; color: {{q.color}}; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer">{{q.label}}</button>
+                </sc-for>
+              </div>
+              <sc-if value="{{isVideoKind}}" hint-placeholder-val="{{ true }}">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #C9CED8; cursor: pointer"><input type="checkbox" checked="{{subs}}" onChange="{{toggleSubs}}" style="width: 15px; height: 15px; margin: 0; accent-color: #C6F36B">Subtitle</label>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9AA3B2">
+            <span style="min-width: 0">{{hint}}</span>
+            <span style="margin-left: auto">Contoh:</span>
+            <sc-for list="{{examples}}" as="x" hint-placeholder-count="4">
+              <button data-hover onClick="{{x.pick}}" style="min-height: 26px; padding: 0 8px; border-radius: 6px; border: 1px dashed #3A4150; background: transparent; color: #C9CED8; font: inherit; font-size: 12px; cursor: pointer">{{x.label}}</button>
+            </sc-for>
+          </div>
+        </section>
+
+        <section aria-labelledby="antrean-judul" style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; background: #12151B; border: 1px solid #262B35; border-radius: 14px; overflow: hidden">
+          <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #262B35; background: #0B0D10">
+            <h2 id="antrean-judul" style="margin: 0 10px 0 6px; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Antrean</h2>
+            <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+              <button onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="min-height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 7px; background: {{t.bg}}; color: {{t.color}}; font: inherit; font-size: 12px; cursor: pointer">{{t.label}}<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">{{t.count}}</span></button>
+            </sc-for>
+          </div>
+          <div style="flex-grow: 1; min-height: 0; overflow-y: auto">
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+              <div data-row style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #1A1E26; background: {{r.rowBg}}">
+                <span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 9px; background: #1D2129; color: {{r.iconColor}}; display: flex; align-items: center; justify-content: center">
+                  <sc-if value="{{r.isVideo}}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4-2.5z"></path></svg></sc-if>
+                  <sc-if value="{{r.isAudio}}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V6l11-2v12"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg></sc-if>
+                  <sc-if value="{{r.isFile}}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path><path d="M12 10v6M9.5 13.5L12 16l2.5-2.5"></path></svg></sc-if>
+                  <sc-if value="{{r.isTorrent}}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v7a6 6 0 0 0 12 0V4"></path><path d="M6 4h4v7a2 2 0 0 0 4 0V4h4"></path><path d="M6 8h4M14 8h4"></path></svg></sc-if>
+                </span>
+                <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                  <span title="{{r.title}}" style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.title}}</span>
+                  <span style="font-size: 12px; color: #9AA3B2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.meta}}</span>
+                </div>
+                <div style="width: 230px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px">
+                  <span aria-hidden="true" style="height: 4px; border-radius: 2px; background: #262B35; overflow: hidden"><span data-bar style="display: block; height: 4px; width: {{r.pct}}%; border-radius: 2px; background: {{r.barColor}}"></span></span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{r.progColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.prog}}</span>
+                </div>
+                <span style="width: 96px; flex-shrink: 0; display: flex; align-items: center; gap: 5px; font-size: 12px; color: {{r.statusColor}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{r.statusColor}}"></span>{{r.status}}</span>
+                <div style="width: 72px; flex-shrink: 0; display: flex; justify-content: flex-end; gap: 4px">
+                  <sc-if value="{{r.canPause}}" hint-placeholder-val="{{ false }}"><button data-hover onClick="{{r.pause}}" aria-label="Jeda {{r.title}}" title="Jeda" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #E7E9EE; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></button></sc-if>
+                  <sc-if value="{{r.canResume}}" hint-placeholder-val="{{ false }}"><button data-hover onClick="{{r.resume}}" aria-label="Lanjutkan {{r.title}}" title="Lanjutkan" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></button></sc-if>
+                  <sc-if value="{{r.canRetry}}" hint-placeholder-val="{{ false }}"><button data-hover onClick="{{r.retry}}" aria-label="Coba lagi {{r.title}}" title="Coba lagi" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v6h6"></path><path d="M20 12a8 8 0 0 0-14.9-4L4 10"></path><path d="M4 12a8 8 0 0 0 14.9 4"></path></svg></button></sc-if>
+                  <sc-if value="{{r.canStopSeed}}" hint-placeholder-val="{{ false }}"><button data-hover onClick="{{r.stopSeed}}" aria-label="Berhenti membagikan {{r.title}}" title="Berhenti membagikan" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #E7E9EE; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg></button></sc-if>
+                  <sc-if value="{{r.canOpen}}" hint-placeholder-val="{{ false }}"><a href="Berkas.dc.html" data-hover aria-label="Buka folder {{r.title}}" title="Buka di Berkas" style="width: 32px; height: 32px; border-radius: 8px; color: #E7E9EE; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a></sc-if>
+                  <button data-hover onClick="{{r.remove}}" aria-label="{{r.removeLabel}}" title="{{r.removeTitle}}" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+              <div style="padding: 40px 16px; text-align: center; font-size: 13px; color: #9AA3B2">Tidak ada unduhan di tab ini.</div>
+            </sc-if>
+          </div>
+        </section>
+      </div>
+
+      <aside aria-label="Mesin dan pengaturan unduhan" style="min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow-y: auto">
+        <section aria-labelledby="mesin-judul" style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+          <h2 id="mesin-judul" style="margin: 0 0 6px; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Mesin unduhan</h2>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 6px 0">
+            <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #1D2129; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; color: #C6F36B">yt</span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">yt-dlp</span><span style="font-size: 11px; color: #9AA3B2">Video &amp; audio dari ribuan situs</span></span>
+            <sc-if value="{{ytOld}}" hint-placeholder-val="{{ true }}"><button data-hover onClick="{{updateYt}}" style="min-height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid #4E6A26; background: transparent; color: #C6F36B; font: inherit; font-size: 12px; cursor: pointer">Perbarui</button></sc-if>
+            <sc-if value="{{ytNew}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #9AA3B2">Terbaru</span></sc-if>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 6px 0">
+            <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #1D2129; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; color: #C9CED8">ff</span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">ffmpeg</span><span style="font-size: 11px; color: #9AA3B2">Gabung &amp; konversi format</span></span>
+            <span style="font-size: 12px; color: #9AA3B2">Terpasang</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 6px 0">
+            <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #1D2129; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; color: #C9CED8">a2</span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">aria2</span><span style="font-size: 11px; color: #9AA3B2">File langsung, multi-koneksi, bisa dilanjut</span></span>
+            <span style="font-size: 12px; color: #9AA3B2">Terpasang</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0 2px; border-top: 1px solid #262B35; margin-top: 4px">
+            <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #1D2129; color: {{torColor}}; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v7a6 6 0 0 0 12 0V4"></path><path d="M6 4h4v7a2 2 0 0 0 4 0V4h4"></path><path d="M6 8h4M14 8h4"></path></svg></span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span id="torrent-label" style="font-size: 13px">Torrent <span style="color: #9AA3B2">(opsional)</span></span><span style="font-size: 11px; color: #9AA3B2">Magnet &amp; berkas .torrent</span></span>
+            <button role="switch" aria-checked="{{torOn}}" aria-labelledby="torrent-label" onClick="{{toggleTorrent}}" style="width: 40px; height: 22px; flex-shrink: 0; padding: 2px; border-radius: 999px; border: 0; background: {{torTrack}}; cursor: pointer; display: flex; align-items: center"><span data-knob style="width: 18px; height: 18px; border-radius: 50%; background: {{torKnob}}; transform: translateX({{torShift}}px)"></span></button>
+          </div>
+        </section>
+
+        <section aria-labelledby="atur-judul" style="display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+          <h2 id="atur-judul" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Pengaturan</h2>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 13px">Simpan ke</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2">~/Unduhan</span></span>
+            <button data-hover style="min-height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid #262B35; background: transparent; color: #E7E9EE; font: inherit; font-size: 12px; cursor: pointer">Ubah</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span id="bersamaan-label" style="flex-grow: 1; font-size: 13px">Unduhan bersamaan</span>
+            <div role="group" aria-labelledby="bersamaan-label" style="display: flex; align-items: center; border: 1px solid #262B35; border-radius: 8px">
+              <button data-hover onClick="{{decPar}}" aria-label="Kurangi" style="width: 28px; height: 28px; border: 0; border-radius: 7px 0 0 7px; background: transparent; color: #E7E9EE; font: inherit; cursor: pointer">−</button>
+              <span aria-live="polite" style="min-width: 24px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 13px">{{par}}</span>
+              <button data-hover onClick="{{incPar}}" aria-label="Tambah" style="width: 28px; height: 28px; border: 0; border-radius: 0 7px 7px 0; background: transparent; color: #E7E9EE; font: inherit; cursor: pointer">+</button>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span id="batas-label" style="flex-grow: 1; font-size: 13px">Batas kecepatan</span>
+            <div role="group" aria-labelledby="batas-label" style="display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #0F1115; border: 1px solid #262B35">
+              <sc-for list="{{limits}}" as="l" hint-placeholder-count="3">
+                <button onClick="{{l.pick}}" aria-pressed="{{l.pressed}}" style="min-height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: {{l.bg}}; color: {{l.color}}; font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer">{{l.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span id="clip-label" style="font-size: 13px">Pantau clipboard</span><span style="font-size: 11px; color: #9AA3B2">Tawarkan unduh saat tautan disalin</span></span>
+            <button role="switch" aria-checked="{{clipOn}}" aria-labelledby="clip-label" onClick="{{toggleClip}}" style="width: 40px; height: 22px; flex-shrink: 0; padding: 2px; border-radius: 999px; border: 0; background: {{clipTrack}}; cursor: pointer; display: flex; align-items: center"><span data-knob style="width: 18px; height: 18px; border-radius: 50%; background: {{clipKnob}}; transform: translateX({{clipShift}}px)"></span></button>
+          </div>
+          <sc-if value="{{torrentOn}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px solid #262B35">
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 13px">Berhenti membagikan</span><span style="font-size: 11px; color: #9AA3B2">Setelah rasio unggah tercapai</span></span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #1D2129">1,0</span>
+            </div>
+          </sc-if>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+    <section data-anim aria-label="Asisten (mini)" style="position: absolute; right: 16px; bottom: 16px; width: 304px; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; box-sizing: border-box; background: #171A21; border: 1px solid #2E3440; border-radius: 18px; box-shadow: 0 16px 40px #00000073; animation: anchoa-pop 0.2s ease-out">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="position: relative; width: 44px; height: 44px; flex-shrink: 0">
+          <svg data-anim width="68" height="68" viewBox="0 0 68 68" aria-hidden="true" style="position: absolute; top: -12px; left: -12px; color: {{accent}}; fill: currentColor; opacity: {{ringOpacity}}; transition: color 0.4s, opacity 0.4s; animation: anchoa-school 12s linear infinite; animation-play-state: {{motion}}"><g transform="rotate(207 34 34) translate(34 5.4) scale(0.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(242 34 34) translate(34 6.8) scale(0.33)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(264 34 34) translate(34 6.3) scale(0.43)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(292 34 34) translate(34 5.6) scale(0.41)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.3"></path></g><g transform="rotate(312 34 34) translate(34 4.4) scale(0.42)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.44"></path></g><g transform="rotate(334 34 34) translate(34 6.8) scale(0.45)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.46"></path></g><g transform="rotate(351 34 34) translate(34 6.9) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.47"></path></g><g transform="rotate(375 34 34) translate(34 4.4) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.62"></path></g><g transform="rotate(391 34 34) translate(34 4.6) scale(0.46)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.68"></path></g><g transform="rotate(415 34 34) translate(34 6.7) scale(0.44)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.53"></path></g><g transform="rotate(435 34 34) translate(34 5.7) scale(0.51)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g></svg>
+          <div style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: #1D2129; border: 1px solid #262B35; box-sizing: border-box; display: flex; align-items: flex-end; justify-content: center; overflow: hidden">
+            <svg width="34" height="40" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg>
+          </div>
+        </div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">Asisten</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9AA3B2">
+            <span aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 10px">
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.1s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.4s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.65s infinite; animation-play-state: {{motion}}"></span>
+            </span>
+            <span aria-live="polite">{{statusText}}</span>
+          </span>
+        </div>
+        <a href="Main.dc.html" data-hover aria-label="Buka asisten penuh" title="Buka asisten penuh" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"></path><path d="M20 4l-7 7"></path><path d="M10 20H4v-6"></path><path d="M4 20l7-7"></path></svg></a>
+        <button data-hover onClick="{{minimize}}" aria-label="Kecilkan asisten" title="Kecilkan" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.45">{{aiMsg}}</p>
+
+      <sc-if value="{{typing}}" hint-placeholder-val="{{ false }}">
+        <label data-field style="display: flex; align-items: center; gap: 6px; background: #0F1115; border: 1px solid #262B35; border-radius: 10px; padding: 4px 4px 4px 12px">
+          <input aria-label="Ketik pesan ke asisten" placeholder="Ketik pesan…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px">
+          <button aria-label="Kirim" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: #1D2129; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+        </label>
+      </sc-if>
+
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px">
+        <button data-press onClick="{{toggleType}}" aria-label="Ketik pesan" aria-pressed="{{typePressed}}" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #262B35; background: {{typeBg}}; color: {{typeColor}}; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path></svg></button>
+        <div style="position: relative; width: 44px; height: 44px">
+          <sc-if value="{{isListening}}" hint-placeholder-val="{{ false }}">
+            <span data-anim aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 44px; height: 44px; border-radius: 50%; background: #FF8A7A; opacity: 0; animation: anchoa-pulse 1.6s ease-out infinite"></span>
+          </sc-if>
+          <button data-press onClick="{{toggleMic}}" aria-label="{{micLabel}}" aria-pressed="{{micPressed}}" style="position: relative; width: 44px; height: 44px; border-radius: 50%; border: 0; background: {{micBg}}; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{collapsed}}" hint-placeholder-val="{{ true }}">
+    <button data-press onClick="{{expand}}" aria-label="Buka asisten" title="Buka asisten" style="position: absolute; right: 20px; bottom: 20px; width: 60px; height: 60px; border-radius: 50%; border: 1px solid #2E3440; background: #171A21; box-shadow: 0 10px 28px #00000066; display: flex; align-items: flex-end; justify-content: center; padding: 0; cursor: pointer">
+      <span style="width: 58px; height: 58px; border-radius: 50%; overflow: hidden; display: flex; align-items: flex-end; justify-content: center"><svg width="42" height="50" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg></span>
+      <span style="position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%; background: #C6F36B; color: #0F1115; border: 2px solid #0F1115; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path></svg></span>
+    </button>
+  </sc-if>
+  <sc-if value="{{notifOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 72px; width: 1208px; height: 800px">
+      <dc-import name="NotifPanel" on-close="{{closeNotif}}" overlay="{{ true }}" hint-size="1208px,800px"></dc-import>
+    </div>
+  </sc-if>
+  <sc-if value="{{paletteOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 0; width: 1280px; height: 800px">
+      <dc-import name="CommandPalette" on-close="{{closePalette}}" overlay="{{ true }}" hint-size="1280px,800px"></dc-import>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const num = (n, d) => n.toLocaleString('id-ID', { maximumFractionDigits: d === undefined ? 1 : d });
+    const DEFAULT = [
+      { id: 'd1', type: 'video', title: 'Tutorial rigging Live2D Cubism — dasar', host: 'youtube.com', fmt: '1080p · MP4', size: '412 MB', pct: 63, speed: 8.2, eta: '19 dtk', status: 'run' },
+      { id: 'd2', type: 'torrent', title: 'Big Buck Bunny (1080p, open movie)', host: 'magnet', fmt: '2 berkas', size: '725 MB', pct: 41, speed: 3.1, eta: '2 mnt', status: 'run', seeds: 18, peers: 6, up: 420 },
+      { id: 'd3', type: 'audio', title: 'Ngobrol Teknologi — Ep. 42', host: 'soundcloud.com', fmt: 'MP3 192 kbps', size: '58 MB', pct: 100, status: 'proc', note: 'Mengonversi ke MP3 (ffmpeg)…' },
+      { id: 'd4', type: 'file', title: 'dataset-suara-id.zip', host: 'archive.org', fmt: '8 koneksi', size: '1,2 GB', pct: 22, speed: 0, eta: '', status: 'paused' },
+      { id: 'd5', type: 'video', title: 'Konser live — 4K', host: 'youtube.com', fmt: '2160p · MKV', size: '—', pct: 0, status: 'error', err: 'Gagal: video memerlukan login' },
+      { id: 'd6', type: 'torrent', title: 'debian-13-amd64-netinst.iso', host: 'berkas .torrent', fmt: '1 berkas', size: '754 MB', pct: 100, status: 'seed', seeds: 42, peers: 3, up: 380, ratio: 0.8 },
+      { id: 'd7', type: 'file', title: 'proposal-anchoa.pdf', host: 'drive pribadi', fmt: '1 koneksi', size: '2,3 MB', pct: 100, status: 'done' }
+    ];
+    const items = st.items || DEFAULT;
+    const torrentOn = st.torrent ?? true;
+    const setItems = (next) => this.setState({ items: next });
+    const patch = (id, p) => setItems(items.map((x) => (x.id === id ? Object.assign({}, x, p) : x)));
+    const drop = (id) => setItems(items.filter((x) => x.id !== id));
+
+    const visibleItems = items.filter((x) => torrentOn || x.type !== 'torrent');
+    const tabDefs = [
+      { k: 'all', l: 'Semua', f: () => true },
+      { k: 'active', l: 'Aktif', f: (x) => ['run', 'paused', 'queued', 'proc'].indexOf(x.status) !== -1 },
+      { k: 'done', l: 'Selesai', f: (x) => x.status === 'done' || x.status === 'seed' },
+      { k: 'torrent', l: 'Torrent', f: (x) => x.type === 'torrent', torrent: true },
+      { k: 'error', l: 'Gagal', f: (x) => x.status === 'error' }
+    ].filter((t) => torrentOn || !t.torrent);
+    let tab = st.tab || 'all';
+    if (!tabDefs.some((t) => t.k === tab)) tab = 'all';
+    const tabs = tabDefs.map((t) => ({
+      label: t.l,
+      count: visibleItems.filter(t.f).length,
+      pressed: tab === t.k ? 'true' : 'false',
+      bg: tab === t.k ? '#1D2129' : 'transparent',
+      color: tab === t.k ? '#E7E9EE' : '#9AA3B2',
+      pick: () => this.setState({ tab: t.k })
+    }));
+    const curTab = tabDefs.find((t) => t.k === tab);
+
+    const STATUS = {
+      run: { l: 'Mengunduh', c: '#C6F36B', bar: '#C6F36B' },
+      paused: { l: 'Dijeda', c: '#9AA3B2', bar: '#5B6475' },
+      queued: { l: 'Menunggu', c: '#9AA3B2', bar: '#5B6475' },
+      proc: { l: 'Memproses', c: '#C9CED8', bar: '#86B33A' },
+      seed: { l: 'Membagikan', c: '#C6F36B', bar: '#86B33A' },
+      done: { l: 'Selesai', c: '#C9CED8', bar: '#4E6A26' },
+      error: { l: 'Gagal', c: '#FF8A7A', bar: '#FF8A7A' }
+    };
+    const rows = visibleItems.filter(curTab.f).map((x) => {
+      const S = STATUS[x.status];
+      let prog = '';
+      if (x.status === 'run') prog = x.pct + '% · ' + num(x.speed) + ' MB/s · ' + x.eta + ' lagi';
+      if (x.status === 'paused') prog = x.pct + '% · dijeda';
+      if (x.status === 'queued') prog = 'Menunggu giliran antrean';
+      if (x.status === 'proc') prog = x.note;
+      if (x.status === 'seed') prog = 'Rasio ' + num(x.ratio) + ' · ↑ ' + x.up + ' KB/s';
+      if (x.status === 'done') prog = 'Tersimpan di ~/Unduhan';
+      if (x.status === 'error') prog = x.err;
+      let meta = x.host + ' · ' + x.fmt + ' · ' + x.size;
+      if (x.type === 'torrent' && (x.status === 'run' || x.status === 'seed')) meta += ' · ' + x.seeds + ' seed · ' + x.peers + ' peer';
+      const finished = x.status === 'done' || x.status === 'seed';
+      return {
+        title: x.title,
+        meta: meta,
+        pct: x.status === 'queued' || x.status === 'error' ? 0 : x.pct,
+        barColor: S.bar,
+        prog: prog,
+        progColor: x.status === 'error' ? '#FF8A7A' : '#9AA3B2',
+        status: S.l,
+        statusColor: S.c,
+        rowBg: 'transparent',
+        iconColor: x.status === 'error' ? '#FF8A7A' : x.status === 'run' ? '#C6F36B' : '#9AA3B2',
+        isVideo: x.type === 'video',
+        isAudio: x.type === 'audio',
+        isFile: x.type === 'file',
+        isTorrent: x.type === 'torrent',
+        canPause: x.status === 'run',
+        canResume: x.status === 'paused',
+        canRetry: x.status === 'error',
+        canStopSeed: x.status === 'seed',
+        canOpen: finished,
+        pause: () => patch(x.id, { status: 'paused' }),
+        resume: () => patch(x.id, { status: 'run', speed: x.speed || 4.6, eta: x.eta || '3 mnt' }),
+        retry: () => patch(x.id, { status: 'queued' }),
+        stopSeed: () => patch(x.id, { status: 'done' }),
+        remove: () => drop(x.id),
+        removeLabel: (finished ? 'Hapus dari daftar: ' : 'Batalkan: ') + x.title,
+        removeTitle: finished ? 'Hapus dari daftar' : 'Batalkan'
+      };
+    });
+
+    const running = visibleItems.filter((x) => x.status === 'run');
+    const down = running.reduce((a, x) => a + (x.speed || 0), 0);
+    const up = visibleItems.filter((x) => x.type === 'torrent' && (x.status === 'run' || x.status === 'seed')).reduce((a, x) => a + (x.up || 0), 0);
+    const pausedN = visibleItems.filter((x) => x.status === 'paused').length;
+
+    const EX = [
+      { l: 'Video', u: 'https://www.youtube.com/watch?v=contoh-live2d' },
+      { l: 'Audio', u: 'https://soundcloud.com/contoh/ngobrol-teknologi-42' },
+      { l: 'File', u: 'https://archive.org/download/contoh/dataset-suara-id.zip' },
+      { l: 'Magnet', u: 'magnet:?xt=urn:btih:contoh&dn=big-buck-bunny-1080p' }
+    ];
+    const url = st.url ?? EX[0].u;
+    const s = url.trim().toLowerCase();
+    let det = 'none';
+    if (s) {
+      if (s.indexOf('magnet:') === 0 || /\.torrent($|\?)/.test(s)) det = 'torrent';
+      else if (/(youtube\.com|youtu\.be|vimeo\.com|soundcloud\.com|twitch\.tv|bandcamp\.com|dailymotion\.com|bilibili\.com)/.test(s)) det = 'media';
+      else if (/^https?:\/\/\S+\.\S+/.test(s)) det = 'file';
+      else det = 'invalid';
+    }
+    let host = '';
+    try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { host = ''; }
+
+    const kind = st.kind || 'video';
+    const vq = st.vq || '1080p';
+    const aq = st.aq || '192 kbps';
+    const vf = st.vf || 'MP4';
+    const af = st.af || 'MP3';
+    const subs = !!st.subs;
+    const isVideoKind = kind === 'video';
+    const chip = (label, on, pick) => ({ label: label, pressed: on ? 'true' : 'false', bg: on ? '#1D2129' : 'transparent', border: on ? '#4E6A26' : '#262B35', color: on ? '#E7E9EE' : '#9AA3B2', pick: pick });
+    const qualities = isVideoKind
+      ? ['2160p', '1080p', '720p', '480p'].map((q) => chip(q, vq === q, () => this.setState({ vq: q })))
+      : ['320 kbps', '192 kbps', '128 kbps'].map((q) => chip(q, aq === q, () => this.setState({ aq: q })));
+    const formats = isVideoKind
+      ? ['MP4', 'MKV', 'WEBM'].map((f) => chip(f, vf === f, () => this.setState({ vf: f })))
+      : ['MP3', 'M4A', 'OPUS'].map((f) => chip(f, af === f, () => this.setState({ af: f })));
+
+    const DET = {
+      none: { l: 'Menunggu tautan', c: '#9AA3B2', h: 'Tempel tautan, atau salin tautan di aplikasi lain saat pantau clipboard aktif.' },
+      media: { l: 'Video/audio · yt-dlp', c: '#C6F36B', h: 'Terdeteksi ' + host + '. Judul & daftar format diambil otomatis sebelum mulai.' },
+      file: { l: 'File langsung · aria2', c: '#C6F36B', h: 'Diunduh dengan beberapa koneksi sekaligus, bisa dilanjut kalau terputus.' },
+      torrent: torrentOn
+        ? { l: 'Torrent · magnet', c: '#C6F36B', h: 'Daftar berkas bisa dipilih setelah metadata torrent dimuat.' }
+        : { l: 'Torrent nonaktif', c: '#FF8A7A', h: 'Aktifkan Torrent di panel kanan untuk memakai magnet & .torrent.' },
+      invalid: { l: 'Tautan tidak dikenali', c: '#FF8A7A', h: 'Pastikan tautan diawali https:// atau magnet:' }
+    };
+    const D = DET[det];
+    const canAdd = det === 'media' || det === 'file' || (det === 'torrent' && torrentOn);
+    let addLabel = 'Unduh';
+    if (det === 'media') addLabel = isVideoKind ? 'Unduh ' + vq + ' ' + vf : 'Unduh audio ' + af;
+    if (det === 'torrent') addLabel = 'Tambah torrent';
+    const seq = st.seq || 0;
+    const add = () => {
+      if (!canAdd) return;
+      const id = 'n' + (seq + 1);
+      let item;
+      if (det === 'media') item = { id: id, type: isVideoKind ? 'video' : 'audio', title: 'Mengambil judul dari ' + host + '…', host: host, fmt: isVideoKind ? vq + ' · ' + vf + (subs ? ' · subtitle' : '') : af + ' ' + aq, size: '—', pct: 0, status: 'queued' };
+      else if (det === 'file') item = { id: id, type: 'file', title: url.split('/').pop() || host, host: host, fmt: '8 koneksi', size: '—', pct: 0, status: 'queued' };
+      else item = { id: id, type: 'torrent', title: 'Memuat metadata torrent…', host: 'magnet', fmt: '—', size: '—', pct: 0, status: 'queued', seeds: 0, peers: 0, up: 0 };
+      this.setState({ items: [item].concat(items), seq: seq + 1, url: '', tab: 'all' });
+    };
+
+    const limit = st.limit || 'Tanpa batas';
+    const par = st.par || 3;
+    const clipOn = st.clip ?? true;
+    const ytNew = !!st.ytNew;
+
+    const open = !!st.open;
+    const mode = st.mode || 'idle';
+    const listening = mode === 'listening';
+    const typing = !!st.typing;
+
+    return {
+      paletteOpen: !!st.palette,
+      openPalette: () => this.setState({ palette: true, notif: false }),
+      closePalette: () => this.setState({ palette: false }),
+      notifOpen: !!st.notif,
+      notifExpanded: st.notif ? 'true' : 'false',
+      notifBg: st.notif ? '#1D2129' : 'transparent',
+      notifColor: st.notif ? '#C6F36B' : '#9AA3B2',
+      toggleNotif: () => this.setState({ notif: !st.notif, palette: false }),
+      closeNotif: () => this.setState({ notif: false }),
+      downText: num(down) + ' MB/s',
+      upText: up >= 1000 ? num(up / 1000) + ' MB/s' : up + ' KB/s',
+      activeText: running.length + ' berjalan · ' + pausedN + ' dijeda',
+      anyRunning: running.length > 0,
+      noneRunning: running.length === 0,
+      pauseAllLabel: running.length > 0 ? 'Jeda semua' : 'Lanjutkan semua',
+      pauseAll: () => {
+        if (running.length > 0) setItems(items.map((x) => (x.status === 'run' ? Object.assign({}, x, { status: 'paused' }) : x)));
+        else setItems(items.map((x) => (x.status === 'paused' ? Object.assign({}, x, { status: 'run', speed: x.speed || 4.6, eta: x.eta || '3 mnt' }) : x)));
+      },
+
+      url: url,
+      onUrl: (e) => this.setState({ url: e && e.target ? e.target.value : '' }),
+      detLabel: D.l,
+      detColor: D.c,
+      hint: D.h,
+      isMedia: det === 'media',
+      add: add,
+      addLabel: addLabel,
+      addDisabled: !canAdd,
+      addBg: canAdd ? '#C6F36B' : '#262B35',
+      addColor: canAdd ? '#0F1115' : '#5B6475',
+      examples: EX.map((x) => ({ label: x.l, pick: () => this.setState({ url: x.u }) })),
+      setVideo: () => this.setState({ kind: 'video' }),
+      setAudio: () => this.setState({ kind: 'audio' }),
+      videoPressed: isVideoKind ? 'true' : 'false',
+      audioPressed: isVideoKind ? 'false' : 'true',
+      videoBg: isVideoKind ? '#1D2129' : 'transparent',
+      audioBg: isVideoKind ? 'transparent' : '#1D2129',
+      videoColor: isVideoKind ? '#E7E9EE' : '#9AA3B2',
+      audioColor: isVideoKind ? '#9AA3B2' : '#E7E9EE',
+      isVideoKind: isVideoKind,
+      qualityGroup: isVideoKind ? 'Resolusi' : 'Bitrate',
+      qualities: qualities,
+      formats: formats,
+      subs: subs,
+      toggleSubs: () => this.setState({ subs: !subs }),
+
+      tabs: tabs,
+      rows: rows,
+      empty: rows.length === 0,
+
+      ytOld: !ytNew,
+      ytNew: ytNew,
+      updateYt: () => this.setState({ ytNew: true }),
+      torrentOn: torrentOn,
+      torOn: torrentOn ? 'true' : 'false',
+      toggleTorrent: () => this.setState({ torrent: !torrentOn }),
+      torTrack: torrentOn ? '#C6F36B' : '#3A4150',
+      torKnob: torrentOn ? '#0F1115' : '#9AA3B2',
+      torShift: torrentOn ? 18 : 0,
+      torColor: torrentOn ? '#C6F36B' : '#9AA3B2',
+      par: par,
+      decPar: () => { if (par > 1) this.setState({ par: par - 1 }); },
+      incPar: () => { if (par < 8) this.setState({ par: par + 1 }); },
+      limits: ['Tanpa batas', '5 MB/s', '1 MB/s'].map((l) => ({ label: l, pressed: limit === l ? 'true' : 'false', bg: limit === l ? '#1D2129' : 'transparent', color: limit === l ? '#E7E9EE' : '#9AA3B2', pick: () => this.setState({ limit: l }) })),
+      clipOn: clipOn ? 'true' : 'false',
+      toggleClip: () => this.setState({ clip: !clipOn }),
+      clipTrack: clipOn ? '#C6F36B' : '#3A4150',
+      clipKnob: clipOn ? '#0F1115' : '#9AA3B2',
+      clipShift: clipOn ? 18 : 0,
+
+      open: open,
+      collapsed: !open,
+      expand: () => this.setState({ open: true }),
+      minimize: () => this.setState({ open: false, mode: 'idle', typing: false }),
+      isListening: listening,
+      motion: listening ? 'running' : 'paused',
+      accent: listening ? '#FF8A7A' : '#C6F36B',
+      ringOpacity: listening ? '1' : '0.55',
+      statusText: listening ? 'Mendengarkan…' : 'Siap',
+      aiMsg: listening ? 'Silakan bicara, misalnya “unduh audionya saja dari tautan yang barusan kusalin”.' : 'Mau unduh sesuatu? Salin tautannya, lalu bilang “unduh ini” atau “ambil audionya saja”.',
+      toggleMic: () => this.setState({ mode: listening ? 'idle' : 'listening' }),
+      micPressed: listening ? 'true' : 'false',
+      micLabel: listening ? 'Berhenti mendengarkan' : 'Ketuk untuk bicara',
+      micBg: listening ? '#FF8A7A' : '#C6F36B',
+      typing: typing,
+      toggleType: () => this.setState({ typing: !typing }),
+      typePressed: typing ? 'true' : 'false',
+      typeBg: typing ? '#1D2129' : 'transparent',
+      typeColor: typing ? '#C6F36B' : '#9AA3B2'
+    };
+  }
+}
+</script>
+</body>
+</html>

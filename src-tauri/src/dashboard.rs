@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::bills::{self, BillStatus, BillView};
 use crate::error::AppError;
 use crate::finance;
+use crate::habits::{self, HabitReminder};
 use crate::items::{ItemSummary, summaries};
 use crate::overview::{self, BudgetView};
 use crate::projects::{self, ProjectSummary};
@@ -45,6 +46,7 @@ pub struct Dashboard {
     pub inbox_count: i64,
     pub finance: FinanceSummary,
     pub projects: Vec<ProjectSummary>,
+    pub habit_reminders: Vec<HabitReminder>,
 }
 
 /// The Keuangan card, the bell and the notification panel (spec Fase 2 §5).
@@ -132,6 +134,7 @@ pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppE
         )?,
         finance: finance_summary(conn, now, tz)?,
         projects: projects::active_projects(conn, now, tz, 2)?,
+        habit_reminders: habits::due_reminders(conn, now, tz)?,
     })
 }
 
@@ -331,5 +334,39 @@ mod tests {
         assert_eq!(d.projects.len(), 2);
         assert_eq!(d.projects[0].id, p1.summary.id);
         assert_eq!(d.projects[1].id, p2.summary.id);
+    }
+
+    #[test]
+    fn dashboard_includes_due_habit_reminders() {
+        use crate::finance::testing::now;
+        use crate::habits::{HabitInput, check_habit, save_habit};
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let current = now(); // Tuesday 29 Sep 2026 12:00 WIB
+
+        let h1 = save_habit(
+            &conn,
+            &HabitInput {
+                name: "Minum air".into(),
+                days: 127,
+                remind_at: Some("07:00".into()),
+                remind_on: true,
+                ..Default::default()
+            },
+            current,
+            &tz,
+        )
+        .unwrap();
+
+        let d = get(&conn, current, &tz).unwrap();
+        assert_eq!(d.habit_reminders.len(), 1);
+        assert_eq!(d.habit_reminders[0].id, h1.id);
+        assert_eq!(d.habit_reminders[0].name, "Minum air");
+        assert_eq!(d.habit_reminders[0].remind_at, "07:00");
+
+        // After checking the habit, it leaves the reminders
+        check_habit(&conn, &h1.id, true, current, &tz).unwrap();
+        let d = get(&conn, current, &tz).unwrap();
+        assert!(d.habit_reminders.is_empty());
     }
 }

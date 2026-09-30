@@ -93,6 +93,11 @@ pub fn run() {
             commands::get_contributions,
             commands::backup_now,
             commands::schedule,
+            commands::habits_overview,
+            commands::habit_history,
+            commands::save_habit,
+            commands::delete_habit,
+            commands::check_habit,
             commands::data_paths,
             commands::open_folder,
         ])

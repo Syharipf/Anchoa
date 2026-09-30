@@ -1,6 +1,4 @@
 //! Habits with day schedule, streaks, history, and reminders (spec Fase 3C §3-4).
-#![allow(dead_code)]
-
 use std::collections::HashSet;
 
 use jiff::civil::{Date, Weekday};

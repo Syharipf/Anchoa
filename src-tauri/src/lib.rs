@@ -9,6 +9,7 @@ mod github;
 mod gpu;
 mod items;
 mod overview;
+mod tasks;
 mod time;
 
 use tauri::Manager;

@@ -9,6 +9,8 @@ import {
   timelineLabel,
 } from "./layout";
 
+const STATUS_LABELS: Record<ScheduleItem["status"], string> = { plan: "Rencana", doing: "Dikerjakan", done: "Selesai" };
+
 export function TimelineView({
   window,
   today,
@@ -200,12 +202,7 @@ export function TimelineView({
                     {/* Group Items */}
                     {group.items.map((item) => {
                       const bar = barFor(item, window);
-                      const statusText =
-                        item.status === "doing"
-                          ? "Dikerjakan"
-                          : item.status === "done"
-                            ? "Selesai"
-                            : "Rencana";
+                      const statusText = STATUS_LABELS[item.status];
                       const dateText =
                         item.startDate && item.startDate !== item.dueDate
                           ? `${shortDateStr(item.startDate)} – ${shortDateStr(item.dueDate)}`

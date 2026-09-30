@@ -2,9 +2,12 @@ use jiff::{Timestamp, ToSpan, tz::TimeZone};
 use rusqlite::{Connection, params};
 use serde::Serialize;
 
+use crate::bills::{self, BillStatus, BillView};
 use crate::error::AppError;
+use crate::finance;
 use crate::items::{ItemSummary, summaries};
-use crate::time::day_bounds;
+use crate::overview::{self, BudgetView};
+use crate::time::{day_bounds, month_of};
 
 pub const RECENT_LIMIT: usize = 8;
 
@@ -31,7 +34,7 @@ pub struct UpcomingDay {
     pub tasks: Vec<DayTask>,
 }
 
-/// Fase 2 adds a `finance` field.
+/// Data for the dashboard, the palette and the notification bell.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Dashboard {
@@ -39,6 +42,34 @@ pub struct Dashboard {
     pub upcoming: Vec<UpcomingDay>,
     pub recent: Vec<ItemSummary>,
     pub inbox_count: i64,
+    pub finance: FinanceSummary,
+}
+
+/// The Keuangan card, the bell and the notification panel (spec Fase 2 §5).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinanceSummary {
+    pub has_accounts: bool,
+    pub balance: i64,
+    /// Spent this local month.
+    pub expense: i64,
+    pub budget: Option<BudgetView>,
+    /// Overdue or due today.
+    pub due_bills: Vec<BillView>,
+}
+
+fn finance_summary(conn: &Connection, now: i64, tz: &TimeZone) -> Result<FinanceSummary, AppError> {
+    let accounts = finance::list_accounts(conn, now, tz)?;
+    let expense = overview::month_flow(conn, &month_of(now, tz)?, tz)?.expense;
+    let due_bills =
+        bills::list_bills(conn, now, tz)?.into_iter().filter(|b| matches!(b.status, BillStatus::Overdue | BillStatus::DueToday)).collect();
+    Ok(FinanceSummary {
+        has_accounts: !accounts.is_empty(),
+        balance: accounts.iter().map(|a| a.balance).sum(),
+        expense,
+        budget: overview::budget_view(conn, expense)?,
+        due_bills,
+    })
 }
 
 /// Due today (done or not), overdue and still open, or finished today.
@@ -97,6 +128,7 @@ pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppE
             [],
             |r| r.get(0),
         )?,
+        finance: finance_summary(conn, now, tz)?,
     })
 }
 
@@ -233,5 +265,36 @@ mod tests {
         let titles: Vec<&str> = d.recent.iter().map(|s| s.title.as_str()).collect();
         assert_eq!(titles, ["catatan"]);
         assert_eq!(d.inbox_count, 1);
+    }
+
+    #[test]
+    fn finance_summary_covers_the_current_month() {
+        use crate::bills::{BillInput, BillStatus, save_bill};
+        use crate::finance::testing::{account, now, spend};
+        use crate::overview::{BudgetLevel, BudgetView, set_budget};
+
+        let conn = open_in_memory();
+        assert!(!get(&conn, now(), &jakarta()).unwrap().finance.has_accounts);
+        let bca = account(&conn, "BCA", 1_000_000);
+        spend(&conn, &bca, 25_000, "Makan & minum", "2026-09-29T00:00:00+07:00");
+        spend(&conn, &bca, 10_000, "Belanja", "2026-08-31T00:00:00+07:00");
+        set_budget(&conn, Some(30_000), now()).unwrap();
+        for (name, due) in [
+            ("Listrik", "2026-09-28T00:00:00+07:00"),
+            ("Air", "2026-09-29T00:00:00+07:00"),
+            ("Internet", "2026-10-05T00:00:00+07:00"),
+        ] {
+            let input = BillInput { name: name.into(), amount: 1_000, account_id: bca.clone(), due_at: ms(due), ..Default::default() };
+            save_bill(&conn, &input, now(), &jakarta()).unwrap();
+        }
+
+        let d = get(&conn, now(), &jakarta()).unwrap();
+
+        let f = d.finance;
+        assert_eq!((f.has_accounts, f.balance, f.expense), (true, 965_000, 25_000));
+        assert_eq!(f.budget, Some(BudgetView { amount: 30_000, level: BudgetLevel::Warn }));
+        let due: Vec<(&str, BillStatus)> = f.due_bills.iter().map(|b| (b.name.as_str(), b.status)).collect();
+        assert_eq!(due, [("Listrik", BillStatus::Overdue), ("Air", BillStatus::DueToday)]);
+        assert!(d.today.is_empty(), "bills never show up as tasks");
     }
 }

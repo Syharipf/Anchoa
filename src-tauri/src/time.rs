@@ -44,6 +44,19 @@ pub fn add_months(month: &str, n: i32) -> Result<String, AppError> {
     Ok(first_day(month)?.checked_add(n.months())?.strftime("%Y-%m").to_string())
 }
 
+/// Local calendar date of `ms`.
+pub fn local_date(ms: i64, tz: &TimeZone) -> Result<Date, jiff::Error> {
+    Ok(Timestamp::from_millisecond(ms)?.to_zoned(tz.clone()).date())
+}
+
+/// Next monthly due date after `due_at`: day `due_day` of the following month,
+/// capped at that month's last day (31 Jan, 28 Feb, 31 Mar).
+pub fn next_month_due(due_at: i64, due_day: i8, tz: &TimeZone) -> Result<i64, jiff::Error> {
+    let first = local_date(due_at, tz)?.first_of_month().checked_add(1.month())?;
+    let day = due_day.clamp(1, first.days_in_month());
+    Ok(Date::new(first.year(), first.month(), day)?.to_zoned(tz.clone())?.timestamp().as_millisecond())
+}
+
 /// Local date for daily backup names, e.g. `2026-09-29`.
 pub fn today_stamp() -> String {
     Zoned::now().strftime("%Y-%m-%d").to_string()
@@ -103,5 +116,15 @@ mod tests {
         assert_eq!(add_months("2026-09", -5).unwrap(), "2026-04");
         assert_eq!(add_months("2026-12", 1).unwrap(), "2027-01");
         assert!(matches!(add_months("x", 1), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
+    fn monthly_due_keeps_its_day() {
+        let tz = jakarta();
+        let feb = next_month_due(ms("2026-01-31T00:00:00+07:00"), 31, &tz).unwrap();
+        assert_eq!(feb, ms("2026-02-28T00:00:00+07:00"));
+        assert_eq!(next_month_due(feb, 31, &tz).unwrap(), ms("2026-03-31T00:00:00+07:00"));
+        assert_eq!(next_month_due(ms("2028-01-31T00:00:00+07:00"), 31, &tz).unwrap(), ms("2028-02-29T00:00:00+07:00"));
+        assert_eq!(next_month_due(ms("2026-12-15T00:00:00+07:00"), 15, &tz).unwrap(), ms("2027-01-15T00:00:00+07:00"));
     }
 }

@@ -57,6 +57,13 @@ const ICON: Record<PageId, ReactNode> = {
   ),
 };
 
+const BELL = (
+  <>
+    <path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z" />
+    <path d="M10 20a2 2 0 0 0 4 0" />
+  </>
+);
+
 const BUTTON = "relative flex h-12 w-12 items-center justify-center rounded-xl transition-colors";
 
 function NavIcon({ children }: Readonly<{ children: ReactNode }>) {
@@ -72,7 +79,17 @@ export function Sidebar({
   current,
   onSelect,
   inboxDot = false,
-}: Readonly<{ current: string; onSelect: (page: PageId) => void; inboxDot?: boolean }>) {
+  reminders,
+  notificationsOpen,
+  onToggleNotifications,
+}: Readonly<{
+  current: string;
+  onSelect: (page: PageId) => void;
+  inboxDot?: boolean;
+  reminders: number;
+  notificationsOpen: boolean;
+  onToggleNotifications: () => void;
+}>) {
   const link = (id: PageId, label: string) => (
     <button
       key={id}
@@ -97,7 +114,20 @@ export function Sidebar({
         </text>
       </svg>
       {PAGES.filter((p) => !p.bottom).map((p) => link(p.id, p.label))}
-      <div className="mt-auto flex flex-col gap-1.5">{PAGES.filter((p) => p.bottom).map((p) => link(p.id, p.label))}</div>
+      <div className="mt-auto flex flex-col gap-1.5">
+        <button
+          onClick={onToggleNotifications}
+          aria-label={reminders > 0 ? `Notifikasi, ${reminders} pengingat` : "Notifikasi"}
+          title="Notifikasi"
+          aria-haspopup="dialog"
+          aria-expanded={notificationsOpen}
+          className={`${BUTTON} ${notificationsOpen ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2"}`}
+        >
+          <NavIcon>{BELL}</NavIcon>
+          {reminders > 0 && <span className="absolute top-[9px] right-[9px] h-[7px] w-[7px] rounded-full bg-danger" />}
+        </button>
+        {PAGES.filter((p) => p.bottom).map((p) => link(p.id, p.label))}
+      </div>
     </nav>
   );
 }

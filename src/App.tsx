@@ -5,6 +5,8 @@ import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
+import { NotifPanel } from "./notifications/NotifPanel";
+import { reminderCount } from "./notifications/reminders";
 import { CommandPalette } from "./palette/CommandPalette";
 import { Settings } from "./settings/Settings";
 import { Aside } from "./shell/Aside";
@@ -17,7 +19,7 @@ import { useToast } from "./shell/toast";
 
 type Page = { name: PageId } | { name: "item"; id: string };
 /** Only one overlay is open at a time. */
-type Overlay = "palette" | null;
+type Overlay = "palette" | "notifications" | null;
 
 export function App() {
   const toast = useToast();
@@ -76,6 +78,9 @@ export function App() {
           go(name);
         }}
         inboxDot={(data?.inboxCount ?? 0) > 0}
+        reminders={reminderCount(data?.today ?? [])}
+        notificationsOpen={overlay === "notifications"}
+        onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
       />
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
@@ -101,6 +106,9 @@ export function App() {
             reload();
           }}
         />
+      )}
+      {overlay === "notifications" && (
+        <NotifPanel today={data?.today ?? []} onClose={() => setOverlay(null)} onOpenItem={openItem} />
       )}
     </div>
   );

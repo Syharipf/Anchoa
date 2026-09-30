@@ -271,6 +271,8 @@ check_bills() {
   [[ "$(sql "SELECT i.title || ':' || b.amount || ':' || b.repeat FROM bills b JOIN items i ON i.id = b.item_id")" = "Listrik:150000:monthly" ]] \
     || fail "bill not saved"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE type = 'bill'"
+  # Keep due_day in step with the moved date, as saving the bill would (it drives the next monthly due date).
+  sql "UPDATE bills SET due_day = CAST(strftime('%d', 'now', 'localtime', '-1 day') AS INTEGER)"
 
   click 36 94                  # nav: Dashboard reloads the data behind the bell
   shot 11-dashboard-late       # expect: "· 1 tagihan terlambat", chip "1 terlambat", coral dot on the bell
@@ -441,8 +443,8 @@ check_schedule() {
   sleep 1
   shot 13-calendar
 
-  # 4. klik sel hari ini, lalu screenshot 13-agenda
-  click 390 586
+  # 4. pilih hari ini lewat tombol "Hari ini" (posisi sel hari ini berubah tiap tanggal), lalu screenshot 13-agenda
+  click 695 105
   sleep 1
   shot 13-agenda
 

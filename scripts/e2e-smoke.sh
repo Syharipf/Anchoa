@@ -412,6 +412,53 @@ check_projects() {
   stop_app
 }
 
+check_schedule() {
+  fresh
+  start_app
+  # 1. buat tugas bertenggat hari ini lewat palette "Buat tugas", lalu set due_at hari ini lewat SQL
+  xdotool key ctrl+k
+  sleep 0.5
+  xdotool type --delay 20 'Tugas E2E'
+  sleep 0.5
+  xdotool key Down
+  sleep 0.2
+  xdotool key Return
+  sleep 1
+  sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'Tugas E2E'"
+
+  # 2. buat tagihan lewat SQL, dengan pola check_bills atau add_account dan formulir tagihan
+  local now_ms
+  now_ms=$(date +%s%3N)
+  local due_ms
+  due_ms=$(sql "SELECT CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000")
+  sql "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES ('acc-e2e', 'account', 'BCA', '', $now_ms, $now_ms)"
+  sql "INSERT INTO accounts (item_id, kind, currency, opening_balance) VALUES ('acc-e2e', 'bank', 'IDR', 1000000)"
+  sql "INSERT INTO items (id, type, title, body, due_at, created_at, updated_at) VALUES ('bill-e2e', 'bill', 'Tagihan Listrik', '', $due_ms, $now_ms, $now_ms)"
+  sql "INSERT INTO bills (item_id, account_id, amount, repeat, due_day) VALUES ('bill-e2e', 'acc-e2e', 150000, 'monthly', CAST(strftime('%d', 'now', 'localtime') AS INTEGER))"
+
+  # 3. nav Jadwal (y=256), lalu screenshot 13-calendar
+  click 36 256
+  sleep 1
+  shot 13-calendar
+
+  # 4. klik sel hari ini, lalu screenshot 13-agenda
+  click 390 586
+  sleep 1
+  shot 13-agenda
+
+  # 5. centang tugas di agenda, lalu cek DB status = 'done'
+  click 964 344
+  sleep 1
+  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Tugas E2E')")" = "done" ]] \
+    || fail "task not marked done in schedule"
+
+  # 6. matikan filter Tagihan, lalu screenshot 13-filter
+  click 324 155
+  sleep 1
+  shot 13-filter
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -431,4 +478,5 @@ check_backup
 check_assistant
 check_github
 check_projects
+check_schedule
 echo "PASS. Screenshots in $WORK"

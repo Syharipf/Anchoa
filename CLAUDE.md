@@ -45,11 +45,12 @@ Spec sections 4 to 6 have the details.
 
 ## SonarCloud conventions
 
-SonarCloud analyses every PR, and its quality gate fails on any new security finding. To keep it green:
+SonarCloud analyses every PR, and its quality gate fails on any new security finding or bug. To keep it green:
 
 - Wrap React component props in `Readonly<...>`.
 - Do not use `Math.random()`; use a counter for local IDs.
 - Use `[[ ... ]]` instead of `[ ... ]` in bash scripts.
+- An element with `onClick` that is not a native button or link also needs a keyboard handler (rule S1082). Sonar counts a missing one as a bug, and one bug fails the gate on reliability.
 
 ## Linux GPU quirk
 

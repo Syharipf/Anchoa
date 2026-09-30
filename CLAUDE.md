@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Fase 1, redesign D and UI lanjutan (UI-5 to UI-8) are merged. The v0.1.0 tag and Release (#6) wait for the RPM install check on the real screen. Fase 2 (Keuangan) has its spec and plan and is being implemented.
+Status: Fase 1 (v0.1.0) and Fase 2, Keuangan (v0.2.0 once F2-5 merges), are built. Next is Fase 3 (Task & Project + Jadwal): write its spec and plan first.
 
 ## Commands
 

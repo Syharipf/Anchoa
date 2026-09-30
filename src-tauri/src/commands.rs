@@ -14,6 +14,7 @@ use crate::finance::{
     TransferInput,
 };
 use crate::overview::{self, FinanceOverview};
+use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::{backup, time};
@@ -128,6 +129,27 @@ pub fn finance_overview(db: State<'_, Db>, month: Option<String>) -> Result<Fina
 #[tauri::command]
 pub fn set_budget(db: State<'_, Db>, amount: Option<i64>) -> Result<(), AppError> {
     overview::set_budget(&*db.conn()?, amount, time::now_ms())
+}
+
+#[tauri::command]
+pub fn list_bills(db: State<'_, Db>) -> Result<Vec<BillView>, AppError> {
+    bills::list_bills(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn save_bill(db: State<'_, Db>, input: BillInput) -> Result<BillView, AppError> {
+    bills::save_bill(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+/// Returns the recorded expense, so the toast can open it for editing.
+#[tauri::command]
+pub fn pay_bill(db: State<'_, Db>, id: String) -> Result<TransactionView, AppError> {
+    bills::pay_bill(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_bill(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    bills::delete_bill(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
 }
 
 #[derive(Serialize)]

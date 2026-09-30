@@ -15,7 +15,7 @@ const PATHS: Record<Glyph, ReactNode> = {
   cash: (
     <>
       <rect x="3" y="7" width="18" height="10" rx="2" />
-      <circle cx="12" cy="2" />
+      <circle cx="12" cy="12" r="2" />
     </>
   ),
   bank: <path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18M12 4l9 5H3z" />,

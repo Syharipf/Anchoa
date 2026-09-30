@@ -305,7 +305,7 @@ Diperbarui 2026-09-30 dengan modul dari paket desain `anchoa-final` (`docs/desig
 | 0 ✓ | Uji Live2D di Tauri |
 | 1 ✓ | Fondasi + Dashboard (dokumen ini, rilis v0.1.0), lalu redesign D (UI-1 sampai UI-4). |
 | UI lanjutan | Kerangka global dari `DESIGN.md` §1–2: nav 8 modul + Notifikasi, Profil, Pengaturan; command palette (`CommandPalette.dc.html`); panel notifikasi (`NotifPanel.dc.html`); asisten mini di halaman selain Dashboard; layar loading (`Loading.dc.html`). Dashboard pindah ke bento rekap (`Main.dc.html`). Modul yang belum ada tampil sebagai kartu atau halaman "menyusul" dan aktif bersama fasenya. |
-| 2 | Keuangan (`Keuangan.dc.html`): akun, transaksi, kategori, ringkasan bulanan. Tagihan dan grafik arus kas 6 bulan masih keputusan terbuka (A10 di draf Fase 2). |
+| 2 | Keuangan (`Keuangan.dc.html`): beberapa akun, transaksi dan transfer, kartu bulanan, grafik arus kas 6 bulan, tagihan sekali atau bulanan, satu batas pengeluaran bulanan. Spec: `2026-09-30-anchoa-fase2-keuangan-design.md`. |
 | 3 | Task & Project + Jadwal (`Proyek.dc.html`, `Jadwal.dc.html`): status rencana/dikerjakan/selesai, kanban, kalender bulanan + timeline 8 minggu, acara non-tugas, tabel `links`, link transaksi ke project. |
 | 4 | Catatan (Inbox di desain): pohon halaman, editor blok (BlockNote), `[[wikilink]]` + backlink, FTS5, pencarian di command palette, export Markdown, UI restore. |
 | 5 | AI Assistant: STT/TTS, avatar Live2D di panel asisten, LLM memanggil command, "Dengarkan rekap". |

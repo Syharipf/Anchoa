@@ -158,6 +158,29 @@ check_dashboard() {
   stop_app
 }
 
+check_notifications() {
+  fresh
+  start_app
+  click 36 652          # bell with no reminders
+  shot 7-notif-empty    # expect: "Tidak ada pengingat."
+  xdotool key Escape
+  xdotool key ctrl+n
+  sleep 0.3
+  xdotool type --delay 20 'tugas terlambat'
+  xdotool key Return
+  sleep 1
+  sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-2 day', 'utc') AS INTEGER) * 1000"
+  click 36 148          # Inbox reloads the dashboard data behind the bell
+  shot 7-notif-dot      # expect: coral dot on the bell
+  click 36 652
+  shot 7-notif-late     # expect: group "Terlambat" with "tugas terlambat"
+  xdotool key Escape
+  sleep 0.3
+  shot 7-notif-closed
+  xdotool search --name '^Anchoa$' >/dev/null || fail "app window disappeared"
+  stop_app
+}
+
 check_backup() {
   fresh
   start_app
@@ -216,6 +239,7 @@ check_nav
 check_items
 check_palette
 check_dashboard
+check_notifications
 check_backup
 check_assistant
 check_github

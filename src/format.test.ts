@@ -1,6 +1,15 @@
 // Run with TZ=Asia/Jakarta (see the "test" script in package.json).
 import { describe, expect, test } from "bun:test";
-import { clockLabel, dateInputToMs, fullDate, greeting, msToDateInput, relativeTime, shortDate } from "./format";
+import {
+  clockLabel,
+  dateInputToMs,
+  fullDate,
+  greeting,
+  msToDateInput,
+  relativeTime,
+  shortDate,
+  upcomingLabel,
+} from "./format";
 
 const at = (iso: string) => new Date(iso).getTime();
 
@@ -53,5 +62,12 @@ describe("clockLabel", () => {
   test("short weekday, date, month and 24-hour time", () => {
     expect(clockLabel(at("2026-09-30T00:48:00+07:00"))).toBe("Rab 30 Sep · 00:48");
     expect(clockLabel(at("2026-09-29T22:05:00+07:00"))).toBe("Sel 29 Sep · 22:05");
+  });
+});
+
+describe("upcomingLabel", () => {
+  test("reads the local date without shifting it", () => {
+    expect(upcomingLabel("2026-10-01")).toEqual({ weekday: "Kam", day: 1 });
+    expect(upcomingLabel("2026-10-04")).toEqual({ weekday: "Min", day: 4 });
   });
 });

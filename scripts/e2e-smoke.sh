@@ -458,6 +458,17 @@ check_schedule() {
   click 324 155
   sleep 1
   shot 13-filter
+
+  # 7. toggle Timeline, screenshot 13-timeline
+  sql "UPDATE tasks SET status = 'doing' WHERE item_id = (SELECT id FROM items WHERE title = 'Tugas E2E')"
+  click 330 105
+  sleep 1
+  shot 13-timeline
+
+  # 8. klik batang tugas dan pastikan halaman item terbuka
+  click 493 264
+  sleep 1
+  shot 13-item
   stop_app
 }
 

@@ -67,6 +67,66 @@ pub fn now_stamp() -> String {
     Zoned::now().strftime("%Y-%m-%d-%H%M%S").to_string()
 }
 
+pub fn indonesian_short_weekday(weekday: jiff::civil::Weekday) -> &'static str {
+    match weekday {
+        jiff::civil::Weekday::Monday => "Sen",
+        jiff::civil::Weekday::Tuesday => "Sel",
+        jiff::civil::Weekday::Wednesday => "Rab",
+        jiff::civil::Weekday::Thursday => "Kam",
+        jiff::civil::Weekday::Friday => "Jum",
+        jiff::civil::Weekday::Saturday => "Sab",
+        jiff::civil::Weekday::Sunday => "Min",
+    }
+}
+
+pub fn indonesian_long_weekday(weekday: jiff::civil::Weekday) -> &'static str {
+    match weekday {
+        jiff::civil::Weekday::Monday => "Senin",
+        jiff::civil::Weekday::Tuesday => "Selasa",
+        jiff::civil::Weekday::Wednesday => "Rabu",
+        jiff::civil::Weekday::Thursday => "Kamis",
+        jiff::civil::Weekday::Friday => "Jumat",
+        jiff::civil::Weekday::Saturday => "Sabtu",
+        jiff::civil::Weekday::Sunday => "Minggu",
+    }
+}
+
+pub fn indonesian_short_month(month: i8) -> &'static str {
+    match month {
+        1 => "Jan",
+        2 => "Feb",
+        3 => "Mar",
+        4 => "Apr",
+        5 => "Mei",
+        6 => "Jun",
+        7 => "Jul",
+        8 => "Agu",
+        9 => "Sep",
+        10 => "Okt",
+        11 => "Nov",
+        12 => "Des",
+        _ => "",
+    }
+}
+
+pub fn indonesian_long_month(month: i8) -> &'static str {
+    match month {
+        1 => "Januari",
+        2 => "Februari",
+        3 => "Maret",
+        4 => "April",
+        5 => "Mei",
+        6 => "Juni",
+        7 => "Juli",
+        8 => "Agustus",
+        9 => "September",
+        10 => "Oktober",
+        11 => "November",
+        12 => "Desember",
+        _ => "",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

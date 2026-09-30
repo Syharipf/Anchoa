@@ -9,6 +9,7 @@ mod github;
 mod gpu;
 mod habits;
 mod items;
+pub mod journal;
 mod overview;
 mod projects;
 mod schedule;

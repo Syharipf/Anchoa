@@ -5,11 +5,14 @@ import {
   DAY_NAMES,
   SHORT_DAY_NAMES,
   STATE_STYLE,
+  filterHabits,
+  isHabitOpen,
   longSchedule,
   metaLabel,
   resolveRemindOn,
   scheduleLabel,
   toggleDay,
+  type HabitFilter,
 } from "./view";
 
 describe("DAY constants", () => {
@@ -145,3 +148,47 @@ describe("resolveRemindOn", () => {
     expect(resolveRemindOn("08:00", { remindAt: "07:00", remindOn: true })).toBe(true);
   });
 });
+
+describe("isHabitOpen ('Belum' rule)", () => {
+  it("returns true only when habit is scheduled today and not yet done", () => {
+    expect(isHabitOpen({ scheduledToday: true, doneToday: false })).toBe(true);
+    expect(isHabitOpen({ scheduledToday: true, doneToday: true })).toBe(false);
+    expect(isHabitOpen({ scheduledToday: false, doneToday: false })).toBe(false);
+    expect(isHabitOpen({ scheduledToday: false, doneToday: true })).toBe(false);
+  });
+});
+
+describe("filterHabits", () => {
+  interface TestHabit {
+    id: string;
+    name: string;
+    scheduledToday: boolean;
+    doneToday: boolean;
+  }
+
+  const h1: TestHabit = { id: "1", name: "Scheduled & Done", scheduledToday: true, doneToday: true };
+  const h2: TestHabit = { id: "2", name: "Scheduled & Undone", scheduledToday: true, doneToday: false };
+  const h3: TestHabit = { id: "3", name: "Off & Undone", scheduledToday: false, doneToday: false };
+  const h4: TestHabit = { id: "4", name: "Off & Done", scheduledToday: false, doneToday: true };
+  const sampleHabits: readonly TestHabit[] = [h1, h2, h3, h4];
+
+  it("lists only habits that are scheduled today and not yet done when filter is 'open'", () => {
+    const filter: HabitFilter = "open";
+    const result = filterHabits(sampleHabits, filter);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("2");
+  });
+
+  it("returns all habits when filter is 'all'", () => {
+    const filter: HabitFilter = "all";
+    const result = filterHabits(sampleHabits, filter);
+    expect(result).toHaveLength(4);
+    expect(result.map((h) => h.id)).toEqual(["1", "2", "3", "4"]);
+  });
+
+  it("returns empty array for empty habit list", () => {
+    expect(filterHabits([], "open")).toEqual([]);
+    expect(filterHabits([], "all")).toEqual([]);
+  });
+});
+

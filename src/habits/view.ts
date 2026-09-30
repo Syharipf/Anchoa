@@ -139,3 +139,27 @@ export function resolveRemindOn(
   }
   return true;
 }
+
+export type HabitFilter = "all" | "open";
+
+/**
+ * Returns true if the habit is scheduled today and not yet done (the 'Belum' rule).
+ */
+export function isHabitOpen(habit: { scheduledToday: boolean; doneToday: boolean }): boolean {
+  return habit.scheduledToday && !habit.doneToday;
+}
+
+/**
+ * Filters habits according to the selected filter tab ('all' or 'open'/'Belum').
+ * The 'Belum' filter lists only habits that are scheduled today and not yet done.
+ */
+export function filterHabits<T extends { scheduledToday: boolean; doneToday: boolean }>(
+  habits: readonly T[],
+  filter: HabitFilter,
+): T[] {
+  if (filter === "open") {
+    return habits.filter(isHabitOpen);
+  }
+  return [...habits];
+}
+

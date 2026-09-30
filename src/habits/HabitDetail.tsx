@@ -72,7 +72,7 @@ export function HabitDetail({
     return () => {
       cancelled = true;
     };
-  }, [habit?.id, month]);
+  }, [habit, month]);
 
   if (!habit) {
     return (

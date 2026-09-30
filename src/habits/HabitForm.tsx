@@ -57,7 +57,6 @@ export function HabitForm({
             onChange={(e) => setName(e.target.value)}
             placeholder="Nama habit…"
             className={FIELD}
-            autoFocus
           />
         </Field>
 

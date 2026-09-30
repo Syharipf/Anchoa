@@ -85,8 +85,13 @@ export function ProjectsPage({
     }
   }
 
-  function handleSaved() {
+  function handleSaved(id?: string) {
     setFormOpen(null);
+    if (id) {
+      setSelectedId(id);
+    } else {
+      setSelectedId(undefined);
+    }
     setVersion((v) => v + 1);
     onChanged();
   }

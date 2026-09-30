@@ -18,14 +18,14 @@ export function ProjectForm({
 }: Readonly<{
   edit?: ProjectDetail | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (id?: string) => void;
 }>) {
   const [name, setName] = useState(edit?.name ?? "");
   const [kind, setKind] = useState<ProjectKind>(edit?.kind ?? "app");
   const [deadline, setDeadline] = useState(msToDateInput(edit?.deadlineAt ?? null));
   const [repoUrl, setRepoUrl] = useState(edit?.repoUrl ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
-  const { busy, run, toast } = useSave(onSaved);
+  const { busy, run, toast } = useSave(() => {});
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -36,19 +36,26 @@ export function ProjectForm({
     }
     const deadlineAt = dateInputToMs(deadline);
     const repo = repoUrl.trim() === "" ? null : repoUrl.trim();
-    void run(() =>
-      api.saveProject({
+    void run(async () => {
+      const saved = await api.saveProject({
         id: edit?.id,
         name: trimmedName,
         kind,
         deadlineAt,
         repoUrl: repo,
         description: description.trim(),
-      }),
-    );
+      });
+      onSaved(saved.id);
+    });
   }
 
-  const remove = edit ? () => void run(() => api.deleteProject(edit.id)) : undefined;
+  const remove = edit
+    ? () =>
+        void run(async () => {
+          await api.deleteProject(edit.id);
+          onSaved();
+        })
+    : undefined;
 
   return (
     <Dialog title={edit ? "Ubah proyek" : "Proyek baru"} onClose={onClose}>

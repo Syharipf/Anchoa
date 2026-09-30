@@ -5,6 +5,7 @@ import { useToast } from "../shell/toast";
 import { paletteResults, type PaletteOption } from "./results";
 
 const OPTION_ICON: Record<PaletteOption["kind"], ReactNode> = {
+  action: <path d="M4 7h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4zM4 7l10-3v3M16 13h1" />,
   page: <path d="M5 12h14M13 6l6 6-6 6" />,
   item: <path d="M6 3h9l3 3v15H6zM9 11h6M9 15h6" />,
   capture: <path d="M12 5v14M5 12h14" />,
@@ -19,12 +20,14 @@ export function CommandPalette({
   onNavigate,
   onOpenItem,
   onCaptured,
+  onNewTransaction,
 }: Readonly<{
   recent: ItemSummary[];
   onClose: () => void;
   onNavigate: (page: PageId) => void;
   onOpenItem: (id: string) => void;
   onCaptured: () => void;
+  onNewTransaction: () => void;
 }>) {
   const toast = useToast();
   const [query, setQuery] = useState("");
@@ -49,7 +52,10 @@ export function CommandPalette({
   }, [flat, current]);
 
   async function run(option: PaletteOption) {
-    if (option.kind === "page") {
+    if (option.kind === "action") {
+      onNewTransaction();
+      onClose();
+    } else if (option.kind === "page") {
       onNavigate(option.page);
       onClose();
     } else if (option.kind === "item") {

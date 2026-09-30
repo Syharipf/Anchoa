@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type DbStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import { Dashboard } from "./dashboard/Dashboard";
@@ -30,6 +30,7 @@ export function App() {
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [captures, setCaptures] = useState(0);
   const [contributionsVersion, setContributionsVersion] = useState(0);
+  const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
@@ -67,6 +68,7 @@ export function App() {
   const go = (name: PageId) => setStack([{ name }]);
   const openItem = (id: string) => setStack((s) => [...s, { name: "item", id }]);
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+  const newTransaction = () => setStack([{ name: "keuangan", intent: ++intents.current }]);
   const info = page.name === "item" ? null : pageInfo(page.name);
   const data = dashboard.data;
 
@@ -109,6 +111,7 @@ export function App() {
             setCaptures((n) => n + 1);
             reload();
           }}
+          onNewTransaction={newTransaction}
         />
       )}
       {overlay === "notifications" && (

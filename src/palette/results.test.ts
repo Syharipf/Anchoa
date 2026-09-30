@@ -9,15 +9,15 @@ const titles = (q: string, r: ItemSummary[] = recent) => paletteResults(q, r).ma
 describe("paletteResults", () => {
   test("an empty query lists every page and the five most recent items", () => {
     const groups = paletteResults("", recent);
-    expect(groups.map((g) => g.title)).toEqual(["Buka halaman", "Terbaru"]);
-    expect(groups[0].options.map((o) => o.label)).toEqual([
+    expect(groups.map((g) => g.title)).toEqual(["Aksi cepat", "Buka halaman", "Terbaru"]);
+    expect(groups[1].options.map((o) => o.label)).toEqual([
       "Dashboard", "Inbox", "Email", "Jadwal", "Keuangan", "Proyek", "Berkas", "Unduhan", "Profil", "Pengaturan",
     ]);
-    expect(groups[1].options).toHaveLength(5);
+    expect(groups[2].options).toHaveLength(5);
   });
 
   test("whitespace alone does not offer to save a note", () => {
-    expect(titles("   ")).toEqual(["Buka halaman", "Terbaru"]);
+    expect(titles("   ")).toEqual(["Aksi cepat", "Buka halaman", "Terbaru"]);
   });
 
   test("filtering ignores case and ends with the save option", () => {
@@ -40,7 +40,15 @@ describe("paletteResults", () => {
     expect(groups[0]).toMatchObject({ title: "Terbaru", options: [{ kind: "item", itemId: "b" }] });
   });
 
+  test("the quick action matches its label", () => {
+    const groups = paletteResults("catat", recent);
+    expect(groups[0]).toEqual({
+      title: "Aksi cepat",
+      options: [{ kind: "action", id: "action-new-transaction", label: "Catat transaksi", sub: "", action: "new-transaction" }],
+    });
+  });
+
   test("no recent items means no Terbaru group", () => {
-    expect(titles("", [])).toEqual(["Buka halaman"]);
+    expect(titles("", [])).toEqual(["Aksi cepat", "Buka halaman"]);
   });
 });

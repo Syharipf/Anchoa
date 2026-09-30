@@ -146,19 +146,6 @@ pub fn update(conn: &Connection, id: &str, patch: &ItemPatch, now: i64) -> Resul
     get(conn, id)
 }
 
-/// Marks an item done (`completed_at = now`) or not done again.
-pub fn complete(conn: &Connection, id: &str, done: bool, now: i64) -> Result<Item, AppError> {
-    let changed = conn.execute(
-        "UPDATE items SET completed_at = CASE WHEN ?2 THEN ?3 END, updated_at = ?3
-         WHERE id = ?1 AND deleted_at IS NULL",
-        params![id, done, now],
-    )?;
-    if changed == 0 {
-        return Err(AppError::NotFound);
-    }
-    get(conn, id)
-}
-
 pub fn delete(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
     if !soft_delete(conn, id, now)? {
         return Err(AppError::NotFound);
@@ -274,17 +261,6 @@ mod tests {
             .unwrap();
         let titles: Vec<String> = list_inbox(&conn).unwrap().into_iter().map(|s| s.title).collect();
         assert_eq!(titles, ["catatan"]);
-    }
-
-    #[test]
-    fn complete_sets_and_clears_completed_at() {
-        let conn = open_in_memory();
-        let item = capture_note(&conn, "a", 1000).unwrap();
-        let done = complete(&conn, &item.id, true, 2000).unwrap();
-        assert_eq!((done.completed_at, done.updated_at), (Some(2000), 2000));
-        let undone = complete(&conn, &item.id, false, 3000).unwrap();
-        assert_eq!(undone.completed_at, None);
-        assert!(matches!(complete(&conn, "nope", true, 4000), Err(AppError::NotFound)));
     }
 
     #[test]

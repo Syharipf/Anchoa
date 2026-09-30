@@ -18,7 +18,7 @@ export function useDashboard() {
       setData(
         (d) => d && { ...d, today: d.today.map((t) => (t.id === task.id ? { ...t, completedAt: done ? Date.now() : null } : t)) },
       );
-      api.completeItem(task.id, done).then(reload, (e) => {
+      api.updateTask(task.id, { status: done ? "done" : "plan" }).then(reload, (e) => {
         toast(errorMessage(e), "error");
         reload();
       });

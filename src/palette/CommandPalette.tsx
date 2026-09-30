@@ -9,6 +9,7 @@ const OPTION_ICON: Record<PaletteOption["kind"], ReactNode> = {
   page: <path d="M5 12h14M13 6l6 6-6 6" />,
   item: <path d="M6 3h9l3 3v15H6zM9 11h6M9 15h6" />,
   capture: <path d="M12 5v14M5 12h14" />,
+  task: <path d="M4 12l5 5L20 6" />,
 };
 
 const KBD = "rounded border border-disabled px-[5px] font-mono";
@@ -61,6 +62,23 @@ export function CommandPalette({
     } else if (option.kind === "item") {
       onOpenItem(option.itemId);
       onClose();
+    } else if (option.kind === "task") {
+      if (!saving.current) {
+        saving.current = true;
+        try {
+          const task = await api.createTask({ title: option.text, status: "plan" });
+          toast("Tugas dibuat", "info", {
+            label: "Buka",
+            run: () => onOpenItem(task.id),
+          });
+          onCaptured();
+          onClose();
+        } catch (e) {
+          toast(errorMessage(e), "error");
+        } finally {
+          saving.current = false;
+        }
+      }
     } else if (!saving.current) {
       saving.current = true;
       try {

@@ -6,6 +6,7 @@ import { useDashboard } from "./dashboard/useDashboard";
 import { FinancePage } from "./finance/FinancePage";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
+import { ProjectsPage } from "./projects/ProjectsPage";
 import { NotifPanel } from "./notifications/NotifPanel";
 import { reminderCount } from "./notifications/reminders";
 import { CommandPalette } from "./palette/CommandPalette";
@@ -91,6 +92,9 @@ export function App() {
         {page.name === "inbox" && <Inbox key={captures} onOpen={openItem} />}
         {page.name === "keuangan" && (
           <FinancePage key={page.intent ?? 0} newTransaction={page.intent !== undefined} onChanged={reload} />
+        )}
+        {page.name === "proyek" && (
+          <ProjectsPage onOpenItem={openItem} onChanged={reload} />
         )}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}

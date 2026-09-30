@@ -39,12 +39,7 @@ export const PAGES: readonly NavPage[] = [
     about: "Kalender bulanan dan timeline 8 minggu untuk proyek, tagihan, dan urusan pribadi.",
   },
   { id: "keuangan", label: "Keuangan" },
-  {
-    id: "proyek",
-    label: "Proyek",
-    fase: 3,
-    about: "Daftar proyek dengan progres, tenggat terdekat, dan kanban Rencana, Dikerjakan, Selesai.",
-  },
+  { id: "proyek", label: "Proyek" },
   {
     id: "berkas",
     label: "Berkas",

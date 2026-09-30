@@ -22,17 +22,33 @@ describe("paletteResults", () => {
 
   test("filtering ignores case and ends with the save option", () => {
     const groups = paletteResults("KEU", recent);
-    expect(groups.map((g) => g.title)).toEqual(["Buka halaman", "Inbox"]);
+    expect(groups.map((g) => g.title)).toEqual(["Buka halaman", "Simpan"]);
     expect(groups[0].options.map((o) => o.label)).toEqual(["Keuangan"]);
     expect(groups[1].options[0]).toMatchObject({ kind: "capture", text: "KEU", label: "Simpan ke Inbox: “KEU”" });
+    expect(groups[1].options[1]).toMatchObject({ kind: "task", text: "KEU", label: "Buat tugas: “KEU”" });
   });
 
   test("text that matches nothing leaves only the save option", () => {
     const groups = paletteResults("  beli susu  ", recent);
     expect(groups).toHaveLength(1);
+    expect(groups[0].title).toBe("Simpan");
     expect(groups[0].options).toEqual([
       { kind: "capture", id: "capture", label: "Simpan ke Inbox: “beli susu”", sub: "Enter", text: "beli susu" },
+      { kind: "task", id: "task", label: "Buat tugas: “beli susu”", sub: "", text: "beli susu" },
     ]);
+  });
+
+  test("create task option carries trimmed text", () => {
+    const groups = paletteResults("  tugas baru  ", []);
+    const simpanGroup = groups.find((g) => g.title === "Simpan");
+    expect(simpanGroup).toBeDefined();
+    expect(simpanGroup?.options[1]).toEqual({
+      kind: "task",
+      id: "task",
+      label: "Buat tugas: “tugas baru”",
+      sub: "",
+      text: "tugas baru",
+    });
   });
 
   test("recent items match on their title", () => {

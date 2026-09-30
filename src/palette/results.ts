@@ -5,7 +5,8 @@ export type PaletteOption =
   | { kind: "action"; id: string; label: string; sub: string; action: "new-transaction" }
   | { kind: "page"; id: string; label: string; sub: string; page: PageId }
   | { kind: "item"; id: string; label: string; sub: string; itemId: string }
-  | { kind: "capture"; id: string; label: string; sub: string; text: string };
+  | { kind: "capture"; id: string; label: string; sub: string; text: string }
+  | { kind: "task"; id: string; label: string; sub: string; text: string };
 
 export interface PaletteGroup {
   title: string;
@@ -21,8 +22,8 @@ const ACTIONS: PaletteOption[] = [
 
 /**
  * Groups shown in the command palette (spec UI lanjutan U4). A non-empty query
- * filters by case-insensitive substring and always ends with "Simpan ke Inbox",
- * so text that matches nothing is saved by Enter, as quick capture always was.
+ * filters by case-insensitive substring and always ends with the "Simpan" group
+ * offering Inbox capture and task creation.
  */
 export function paletteResults(query: string, recent: ItemSummary[]): PaletteGroup[] {
   const text = query.trim();
@@ -51,8 +52,11 @@ export function paletteResults(query: string, recent: ItemSummary[]): PaletteGro
   ];
   if (text) {
     groups.push({
-      title: "Inbox",
-      options: [{ kind: "capture", id: "capture", label: `Simpan ke Inbox: “${text}”`, sub: "Enter", text }],
+      title: "Simpan",
+      options: [
+        { kind: "capture", id: "capture", label: `Simpan ke Inbox: “${text}”`, sub: "Enter", text },
+        { kind: "task", id: "task", label: `Buat tugas: “${text}”`, sub: "", text },
+      ],
     });
   }
   return groups.filter((g) => g.options.length > 0);

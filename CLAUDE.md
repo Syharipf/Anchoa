@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Fase 1 and redesign D (UI-1 to UI-4) are merged; the v0.1.0 tag and Release are still open (#6). Next is the "UI lanjutan" shell work, then Fase 2 (its draft spec needs rework).
+Status: Fase 1, redesign D and UI lanjutan (UI-5 to UI-8) are merged. The v0.1.0 tag and Release (#6) wait for the RPM install check on the real screen. Fase 2 (Keuangan) has its spec and plan and is being implemented.
 
 ## Commands
 
@@ -74,7 +74,7 @@ Do not start implementing a phase until the user approves moving from planning t
 ### Model per step
 
 - Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session, with the `superpowers:brainstorming` and `superpowers:writing-plans` skills. Execute plans with `superpowers:subagent-driven-development`, and close each PR with `superpowers:verification-before-completion` and `superpowers:finishing-a-development-branch`. Use any other listed skill that fits the task.
-- Implementation: Sonnet at high effort, through the `implementer` agent (`.claude/agents/implementer.md`), one plan task per run. The Opus session checks each result.
+- Implementation: Gemini 3.8 Flash High through `agy` with `--dangerously-skip-permissions`, one plan task per run, to save Claude tokens. The prompt keeps it inside this repository and forbids push, merge and PRs; the Opus session does those and checks each result (the task's tests and the commit diff). Each plan has the command under "Menjalankan task dengan agy".
 - Review: Gemini 3.8 Flash High through the Antigravity CLI (`agy`), read-only:
 
   ```bash
@@ -83,7 +83,7 @@ Do not start implementing a phase until the user approves moving from planning t
   ```
 
   Put `--model` before `-p`, because `-p` takes the next argument as the prompt. Headless `agy` ignores stdin, so give it the diff as a file inside the repo. It denies any tool call that needs a permission prompt (shell commands outside its allow-list, URLs, files outside the repo), and one denial ends the run with `jetski: no output produced`. The rules at the start of the prompt prevent that; if it still happens, run it once more. Check every finding before fixing it: Gemini also reports false positives.
-- Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when `agy` fails (not installed, auth, quota, timeout, or no output after a retry). Use Opus instead of `implementer` only when a task fails twice with Sonnet.
+- Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when `agy` fails (not installed, auth, quota, timeout, or no output after a retry). Use the `implementer` agent (Sonnet, `.claude/agents/implementer.md`) when a task fails twice with Gemini, and Opus only when it also fails twice with Sonnet.
 
 ## GUI testing
 

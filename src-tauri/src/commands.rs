@@ -18,6 +18,7 @@ use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
 use crate::habits::{self, HabitInput, HabitRow, History as HabitHistory, Overview as HabitsOverview};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
+use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery, Side};
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
@@ -60,7 +61,13 @@ pub fn open_item(db: State<'_, Db>, id: String) -> Result<Item, AppError> {
 
 #[tauri::command]
 pub fn update_item(db: State<'_, Db>, id: String, patch: ItemPatch) -> Result<Item, AppError> {
-    items::update(&*db.conn()?, &id, &patch, time::now_ms())
+    let now = time::now_ms();
+    let conn = db.conn()?;
+    let item = items::update(&conn, &id, &patch, now)?;
+    if item.kind == "note" {
+        journal::after_note_saved(&conn, &item.id, now, &TimeZone::system())?;
+    }
+    Ok(item)
 }
 
 #[tauri::command]
@@ -328,5 +335,49 @@ pub fn delete_habit(db: State<'_, Db>, id: String) -> Result<(), AppError> {
 #[tauri::command]
 pub fn check_habit(db: State<'_, Db>, id: String, done: bool) -> Result<HabitRow, AppError> {
     habits::check_habit(&*db.conn()?, &id, done, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn journal_list(
+    db: State<'_, Db>,
+    query: Option<String>,
+    kind: Option<EntryKind>,
+) -> Result<JournalList, AppError> {
+    let q = ListQuery { query, kind };
+    let groups = journal::journal_list(&*db.conn()?, &q, time::now_ms(), &TimeZone::system())?;
+    Ok(JournalList { groups })
+}
+
+#[tauri::command]
+pub fn journal_entry(db: State<'_, Db>, id: String) -> Result<Entry, AppError> {
+    journal::journal_entry(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn create_entry(
+    db: State<'_, Db>,
+    kind: EntryKind,
+    title: Option<String>,
+) -> Result<Entry, AppError> {
+    journal::create_entry(&*db.conn()?, kind, title.as_deref(), time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn update_entry(
+    db: State<'_, Db>,
+    id: String,
+    patch: EntryPatch,
+) -> Result<Entry, AppError> {
+    journal::update_entry(&*db.conn()?, &id, &patch, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn entry_to_task(db: State<'_, Db>, id: String) -> Result<Entry, AppError> {
+    journal::entry_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn journal_side(db: State<'_, Db>) -> Result<Side, AppError> {
+    journal::journal_side(&*db.conn()?, time::now_ms(), &TimeZone::system())
 }
 

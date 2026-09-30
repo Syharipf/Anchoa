@@ -81,6 +81,12 @@ pub struct Group {
     pub entries: Vec<EntrySummary>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JournalList {
+    pub groups: Vec<Group>,
+}
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListQuery {

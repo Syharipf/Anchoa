@@ -13,6 +13,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/004_finance.sql"),
     include_str!("../migrations/005_projects.sql"),
     include_str!("../migrations/006_habits.sql"),
+    include_str!("../migrations/007_journal.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -219,13 +220,55 @@ mod tests {
 
         let conn = open(&path).unwrap();
 
-        assert_eq!(version(&conn), 6);
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
         let backup = Connection::open(dir.path().join("anchoa.db.bak-v5")).unwrap();
         assert_eq!(version(&backup), 5);
 
         for sql in [
             "SELECT item_id, days, remind_at, remind_on FROM habits",
             "SELECT habit_id, date, created_at, deleted_at FROM habit_checks",
+        ] {
+            conn.prepare(sql).unwrap();
+        }
+    }
+
+    #[test]
+    fn version_6_database_upgrades_to_journal_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..6], Some(&path)).unwrap();
+        conn.execute(
+            "INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('n1', 'note', 'lama', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('h1', 'habit', 'Baca', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO habits (item_id, days, remind_at, remind_on) VALUES ('h1', 127, NULL, 0)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v6")).unwrap();
+        assert_eq!(version(&backup), 6);
+
+        let auto_journal: i64 = conn
+            .query_row("SELECT auto_journal FROM habits WHERE item_id = 'h1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(auto_journal, 0);
+
+        for sql in [
+            "SELECT item_id, kind, mood, tags, task_id FROM journal_entries",
+            "SELECT auto_journal FROM habits",
         ] {
             conn.prepare(sql).unwrap();
         }

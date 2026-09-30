@@ -31,6 +31,7 @@ pub struct HabitRow {
     pub remind_on: bool,
     pub scheduled_today: bool,
     pub done_today: bool,
+    pub auto_journal: bool,
     pub streak: i64,
     pub best: i64,
     pub rate30: i64,
@@ -97,6 +98,8 @@ pub struct HabitInput {
     #[serde(default)]
     pub remind_at: Option<String>,
     pub remind_on: bool,
+    #[serde(default)]
+    pub auto_journal: bool,
 }
 
 /// Bit 0 = Monday ... bit 6 = Sunday.
@@ -252,17 +255,17 @@ fn week_strip(today: Date, created: Date, days: u8, checked: &HashSet<Date>) -> 
 }
 
 fn get_habit_row(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result<HabitRow, AppError> {
-    let row: Option<(String, u8, Option<String>, i64, i64)> = conn
+    let row: Option<(String, u8, Option<String>, i64, i64, i64)> = conn
         .query_row(
-            "SELECT i.title, h.days, h.remind_at, h.remind_on, i.created_at
+            "SELECT i.title, h.days, h.remind_at, h.remind_on, h.auto_journal, i.created_at
              FROM habits h JOIN items i ON i.id = h.item_id
              WHERE i.id = ?1 AND i.type = 'habit' AND i.deleted_at IS NULL",
             [id],
-            |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as u8, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as u8, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
         .optional()?;
 
-    let Some((name, days, remind_at, remind_on, created_at)) = row else {
+    let Some((name, days, remind_at, remind_on, auto_journal, created_at)) = row else {
         return Err(AppError::NotFound);
     };
 
@@ -298,6 +301,7 @@ fn get_habit_row(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result
         remind_on: remind_on != 0,
         scheduled_today,
         done_today,
+        auto_journal: auto_journal != 0,
         streak,
         best,
         rate30: rate30_pct,
@@ -311,7 +315,7 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
     let today_str = today.to_string();
 
     let mut stmt = conn.prepare(
-        "SELECT i.id, i.title, h.days, h.remind_at, h.remind_on, i.created_at
+        "SELECT i.id, i.title, h.days, h.remind_at, h.remind_on, h.auto_journal, i.created_at
          FROM habits h
          JOIN items i ON i.id = h.item_id
          WHERE i.deleted_at IS NULL AND i.type = 'habit'
@@ -328,7 +332,8 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
             r.get::<_, i64>(2)? as u8,
             r.get::<_, Option<String>>(3)?,
             r.get::<_, i64>(4)? != 0,
-            r.get::<_, i64>(5)?,
+            r.get::<_, i64>(5)? != 0,
+            r.get::<_, i64>(6)?,
         ))
     })?;
 
@@ -347,7 +352,7 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
     let mut total_sched = 0;
 
     for h in habit_rows {
-        let (id, name, days, remind_at, remind_on, created_at) = h?;
+        let (id, name, days, remind_at, remind_on, auto_journal, created_at) = h?;
         let created = local_date(created_at, tz)?;
         let checked = checks_map.remove(&id).unwrap_or_default();
 
@@ -374,6 +379,7 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
             remind_on,
             scheduled_today,
             done_today,
+            auto_journal,
             streak,
             best,
             rate30: rate30_pct,
@@ -517,8 +523,8 @@ pub fn save_habit(conn: &Connection, input: &HabitInput, now: i64, tz: &TimeZone
                 params![name, now, id],
             )?;
             conn.execute(
-                "UPDATE habits SET days = ?1, remind_at = ?2, remind_on = ?3 WHERE item_id = ?4",
-                params![input.days, remind_at, remind_on as i64, id],
+                "UPDATE habits SET days = ?1, remind_at = ?2, remind_on = ?3, auto_journal = ?4 WHERE item_id = ?5",
+                params![input.days, remind_at, remind_on as i64, input.auto_journal as i64, id],
             )?;
             id.clone()
         }
@@ -529,8 +535,8 @@ pub fn save_habit(conn: &Connection, input: &HabitInput, now: i64, tz: &TimeZone
                 params![id, name, now],
             )?;
             conn.execute(
-                "INSERT INTO habits (item_id, days, remind_at, remind_on) VALUES (?1, ?2, ?3, ?4)",
-                params![id, input.days, remind_at, remind_on as i64],
+                "INSERT INTO habits (item_id, days, remind_at, remind_on, auto_journal) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![id, input.days, remind_at, remind_on as i64, input.auto_journal as i64],
             )?;
             id
         }
@@ -646,6 +652,23 @@ pub fn due_reminders(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Vec<H
     }
 
     Ok(reminders)
+}
+
+pub fn auto_check_journal(conn: &Connection, now: i64, tz: &TimeZone) -> Result<(), AppError> {
+    let today = local_date(now, tz)?;
+    let mut stmt = conn.prepare(
+        "SELECT i.id, h.days FROM habits h
+         JOIN items i ON i.id = h.item_id
+         WHERE i.deleted_at IS NULL AND i.type = 'habit' AND h.auto_journal = 1",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u8)))?;
+    for row in rows {
+        let (id, days) = row?;
+        if scheduled(days, today) {
+            check_habit(conn, &id, true, now, tz)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1152,6 +1175,7 @@ mod tests {
                 days: 127,
                 remind_at: None,
                 remind_on: true,
+                ..Default::default()
             },
             current,
             &tz,

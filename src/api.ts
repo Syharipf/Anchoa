@@ -303,6 +303,7 @@ export interface HabitRow {
   days: number;
   remindAt: string | null;
   remindOn: boolean;
+  autoJournal: boolean;
   scheduledToday: boolean;
   doneToday: boolean;
   streak: number;
@@ -355,7 +356,69 @@ export interface HabitInput {
   days: number;
   remindAt?: string | null;
   remindOn: boolean;
+  autoJournal?: boolean;
 }
+
+export type EntryKind = "idea" | "vent" | "note";
+
+export interface EntrySummary {
+  id: string;
+  kind: EntryKind;
+  title: string;
+  preview: string;
+  mood: number | null;
+  createdAt: number;
+  time: string;
+}
+
+export interface Entry {
+  id: string;
+  kind: EntryKind;
+  title: string;
+  body: string;
+  mood: number | null;
+  tags: string[];
+  createdAt: number;
+  when: string;
+  taskId: string | null;
+}
+
+export interface Group {
+  key: string;
+  label: string;
+  entries: EntrySummary[];
+}
+
+export type JournalGroup = Group;
+
+export interface JournalList {
+  groups: Group[];
+}
+
+export interface ListQuery {
+  query?: string;
+  kind?: EntryKind;
+}
+
+export interface EntryPatch {
+  kind?: EntryKind;
+  mood?: number | null;
+  tags?: string;
+}
+
+export interface TrendDay {
+  date: string;
+  mood: number | null;
+  wrote: boolean;
+}
+
+export interface Side {
+  trend: TrendDay[];
+  writeDays: number;
+  ideas: EntrySummary[];
+}
+
+export type JournalSide = Side;
 
 export interface DbStatus {
   path: string;
@@ -471,6 +534,15 @@ export const api = {
   deleteHabit: (id: string) => invoke<void>("delete_habit", { id }),
   checkHabit: (id: string, done: boolean) =>
     invoke<HabitRow>("check_habit", { id, done }),
+  journalList: (query?: string, kind?: EntryKind) =>
+    invoke<JournalList>("journal_list", { query, kind }),
+  journalEntry: (id: string) => invoke<Entry>("journal_entry", { id }),
+  createEntry: (kind: EntryKind, title?: string) =>
+    invoke<Entry>("create_entry", { kind, title }),
+  updateEntry: (id: string, patch: EntryPatch) =>
+    invoke<Entry>("update_entry", { id, patch }),
+  entryToTask: (id: string) => invoke<Entry>("entry_to_task", { id }),
+  journalSide: () => invoke<Side>("journal_side"),
   dataPaths: () => invoke<DataPaths>("data_paths"),
 };
 

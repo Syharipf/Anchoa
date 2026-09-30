@@ -127,6 +127,10 @@ pub fn open(conn: &Connection, id: &str, now: i64) -> Result<Item, AppError> {
     get(conn, id)
 }
 
+/// Note on journal habit auto-check:
+/// `journal::after_note_saved` is called in `commands::update_item` rather than
+/// here so that `items.rs` remains time-zone agnostic (taking only UTC epoch ms)
+/// and free of higher-level module dependencies.
 pub fn update(conn: &Connection, id: &str, patch: &ItemPatch, now: i64) -> Result<Item, AppError> {
     if patch.title.is_none() && patch.body.is_none() && patch.due_at.is_none() {
         return get(conn, id);

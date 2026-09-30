@@ -9,6 +9,7 @@ mod github;
 mod gpu;
 mod habits;
 mod items;
+pub mod journal;
 mod overview;
 mod projects;
 mod schedule;
@@ -98,6 +99,12 @@ pub fn run() {
             commands::save_habit,
             commands::delete_habit,
             commands::check_habit,
+            commands::journal_list,
+            commands::journal_entry,
+            commands::create_entry,
+            commands::update_entry,
+            commands::entry_to_task,
+            commands::journal_side,
             commands::data_paths,
             commands::open_folder,
         ])

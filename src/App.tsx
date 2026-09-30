@@ -81,7 +81,7 @@ export function App() {
           go(name);
         }}
         inboxDot={(data?.inboxCount ?? 0) > 0}
-        reminders={reminderCount(data?.today ?? [])}
+        reminders={reminderCount(data?.today ?? [], data?.finance ?? null)}
         notificationsOpen={overlay === "notifications"}
         onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
       />
@@ -115,7 +115,13 @@ export function App() {
         />
       )}
       {overlay === "notifications" && (
-        <NotifPanel today={data?.today ?? []} onClose={() => setOverlay(null)} onOpenItem={openItem} />
+        <NotifPanel
+          today={data?.today ?? []}
+          finance={data?.finance ?? null}
+          onClose={() => setOverlay(null)}
+          onOpenItem={openItem}
+          onOpenFinance={() => go("keuangan")}
+        />
       )}
     </div>
   );

@@ -1,16 +1,38 @@
 import { useEffect, useRef } from "react";
-import type { DayTask } from "../api";
-import { shortDate } from "../format";
-import { reminders } from "./reminders";
+import type { DayTask, FinanceSummary } from "../api";
+import { reminders, reminderText, type Reminder, type Tone } from "./reminders";
 
-/** Panel beside the nav rail (docs/design/artboards/NotifPanel.dc.html, spec UI lanjutan U6). */
+const TONE: Record<Tone, string> = { danger: "text-danger", warn: "text-warn", muted: "text-muted" };
+
+function ReminderCard({ reminder, onOpen }: Readonly<{ reminder: Reminder; onOpen: () => void }>) {
+  const text = reminderText(reminder);
+  return (
+    <div className="flex flex-col gap-1 rounded-[10px] bg-surface px-2.5 py-2.5">
+      <span className="text-[13px] font-semibold">{text.title}</span>
+      <span className={`text-xs ${TONE[text.tone]}`}>{text.detail}</span>
+      <button onClick={onOpen} aria-label={`Buka ${text.title}`} className="self-end text-xs text-accent hover:text-accent-hover">
+        Buka ›
+      </button>
+    </div>
+  );
+}
+
+/** Panel beside the nav rail (docs/design/artboards/NotifPanel.dc.html, spec UI lanjutan U6, Fase 2 §5). */
 export function NotifPanel({
   today,
+  finance,
   onClose,
   onOpenItem,
-}: Readonly<{ today: DayTask[]; onClose: () => void; onOpenItem: (id: string) => void }>) {
-  const groups = reminders(today);
-  const count = groups.reduce((n, g) => n + g.tasks.length, 0);
+  onOpenFinance,
+}: Readonly<{
+  today: DayTask[];
+  finance: FinanceSummary | null;
+  onClose: () => void;
+  onOpenItem: (id: string) => void;
+  onOpenFinance: () => void;
+}>) {
+  const groups = reminders(today, finance);
+  const count = groups.reduce((n, g) => n + g.items.length, 0);
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
 
@@ -20,6 +42,12 @@ export function NotifPanel({
     closeButton.current?.focus();
     return () => previous?.focus();
   }, []);
+
+  const open = (r: Reminder) => {
+    if (r.kind === "task") onOpenItem(r.task.id);
+    else onOpenFinance();
+    onClose();
+  };
 
   return (
     <div
@@ -76,23 +104,8 @@ export function NotifPanel({
           {groups.map((g) => (
             <section key={g.title} aria-label={g.title} className="flex flex-col gap-1">
               <h3 className="m-0 px-2 pt-3 pb-0.5 text-[11px] font-normal tracking-[0.08em] text-muted uppercase">{g.title}</h3>
-              {g.tasks.map((t) => (
-                <div key={t.id} className="flex flex-col gap-1 rounded-[10px] bg-surface px-2.5 py-2.5">
-                  <span className="text-[13px] font-semibold">{t.title || "Tanpa judul"}</span>
-                  <span className={`text-xs ${t.overdue ? "text-danger" : "text-muted"}`}>
-                    {t.overdue ? `Terlambat · jatuh tempo ${shortDate(t.dueAt)}` : "Jatuh tempo hari ini"}
-                  </span>
-                  <button
-                    onClick={() => {
-                      onOpenItem(t.id);
-                      onClose();
-                    }}
-                    aria-label={`Buka ${t.title || "Tanpa judul"}`}
-                    className="self-end text-xs text-accent hover:text-accent-hover"
-                  >
-                    Buka ›
-                  </button>
-                </div>
+              {g.items.map((r) => (
+                <ReminderCard key={`${r.kind}-${r.id}`} reminder={r} onOpen={() => open(r)} />
               ))}
             </section>
           ))}
@@ -100,7 +113,7 @@ export function NotifPanel({
         </div>
 
         <p className="m-0 border-t border-line px-[18px] py-3 text-xs text-muted">
-          Pengingat dari tugas berjatuh tempo. Notifikasi lain menyusul bersama modulnya.
+          Pengingat dari tugas, tagihan, dan batas pengeluaran. Notifikasi lain menyusul bersama modulnya.
         </p>
       </aside>
     </div>

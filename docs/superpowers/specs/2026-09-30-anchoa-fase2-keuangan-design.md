@@ -252,7 +252,7 @@ Satu komponen dialog dipakai oleh formulir transaksi, akun, tagihan, dan batas.
 
 ### Format uang
 
-`Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })`, contohnya `Rp 25.000`. Tanda "+" dan "−" (U+2212) ditambahkan di depan untuk jumlah bertanda.
+Awalan "Rp " ditambah angka dari `Intl.NumberFormat("id-ID")`, contohnya `Rp 25.000`. Tanda "+" dan "−" (U+2212) ditambahkan di depan untuk jumlah bertanda. Saldo negatif (utang) tampil sebagai `−Rp 50.000`.
 
 ### Di luar halaman Keuangan
 
@@ -317,12 +317,12 @@ Satu komponen dialog dipakai oleh formulir transaksi, akun, tagihan, dan batas.
 
 ## 9. Rencana PR
 
-Rinciannya akan ditulis ulang di `docs/superpowers/plans/2026-09-30-anchoa-fase2-keuangan.md`.
+Rinciannya ada di `docs/superpowers/plans/2026-09-30-anchoa-fase2-keuangan.md`.
 
 | PR | Isi |
 |---|---|
 | F2-1 | Migrasi 004, varian `AppError`, filter `type = 'note'` di query lama, backend akun (daftar, simpan, hapus, saldo). |
 | F2-2 | Backend transaksi, transfer, kategori, `finance_overview`, dan `set_budget`. |
 | F2-3 | Backend tagihan (daftar, simpan, lunas, hapus, status) dan `finance` di `get_dashboard`. |
-| F2-4 | Halaman Keuangan: header, kartu, grafik, daftar transaksi, bagian Akun, dialog formulir (transaksi, akun, batas), format uang, dan E2E. |
-| F2-5 | Bagian Tagihan dan formulirnya, kartu dashboard, ringkasan satu baris, panel notifikasi, aksi palette, dan E2E tagihan. |
+| F2-4 | Format uang, dialog formulir, halaman Keuangan (header, kartu, grafik, daftar transaksi, Akun, batas), kartu dashboard, aksi palette, dan E2E keuangan. |
+| F2-5 | Bagian Tagihan dan formulirnya, toast "Ubah", ringkasan satu baris, panel notifikasi, E2E tagihan, dan versi 0.2.0. |

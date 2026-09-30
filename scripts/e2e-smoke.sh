@@ -76,6 +76,9 @@ check_nav() {
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
   click 1226 746        # open the mini assistant
   shot 3-mini-open      # expect: 304px popup, "Siap", keyboard and mic buttons
+  xdotool key Escape
+  sleep 0.3
+  shot 3-mini-collapsed # expect: round button again
   xdotool search --name '^Anchoa$' >/dev/null || fail "app window disappeared"
   stop_app
 }

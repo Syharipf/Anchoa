@@ -98,6 +98,10 @@ export function CommandPalette({
         aria-modal="true"
         aria-label="Command palette"
         onKeyDown={onKeyDown}
+        onMouseDown={(e) => {
+          // Keep focus in the combobox when clicking non-focusable spots, so the keys keep working.
+          if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+        }}
         data-anim
         style={{ animation: "anchoa-pop 0.16s ease-out" }}
         className="absolute top-[110px] left-1/2 -ml-[320px] flex w-[640px] flex-col overflow-hidden rounded-2xl border border-[#2e3440] bg-surface shadow-[0_24px_60px_rgb(0_0_0/0.65)]"

@@ -74,6 +74,9 @@ export function AssistantMini({ hint, onOpenFull }: Readonly<{ hint: string; onO
   return (
     <section
       aria-label="Asisten"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") collapse();
+      }}
       data-anim
       style={{ animation: "anchoa-pop 0.2s ease-out" }}
       className="fixed right-6 bottom-6 z-30 flex w-[304px] flex-col gap-3 rounded-[18px] border border-[#2e3440] bg-surface p-4 shadow-[0_16px_40px_rgb(0_0_0/0.45)]"

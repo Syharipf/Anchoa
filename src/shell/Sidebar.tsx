@@ -29,6 +29,9 @@ const ICON: Record<PageId, ReactNode> = {
       <path d="M3 10h18M8 3v4M16 3v4" />
     </>
   ),
+  habit: (
+    <path d="M12 2.5c.8 3.2 5 5.3 5 10a5 5 0 0 1-10 0c0-2.3 1.1-3.9 2.4-5 .1 1.7.9 2.8 2.1 3.2-.6-3 .1-5.9.5-8.2z" />
+  ),
   keuangan: (
     <>
       <rect x="3" y="6" width="18" height="13" rx="2" />
@@ -74,7 +77,7 @@ function NavIcon({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-/** Icon-only navigation rail (72px). Sized to fit the 680px minimum window height. */
+/** Icon-only navigation rail (72px). Sized to fit the 720px minimum window height. */
 export function Sidebar({
   current,
   onSelect,

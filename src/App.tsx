@@ -4,6 +4,7 @@ import { AssistantMini } from "./assistant/AssistantMini";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
 import { FinancePage } from "./finance/FinancePage";
+import { HabitsPage } from "./habits/HabitsPage";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
@@ -83,7 +84,7 @@ export function App() {
           go(name);
         }}
         inboxDot={(data?.inboxCount ?? 0) > 0}
-        reminders={reminderCount(data?.today ?? [], data?.finance ?? null)}
+        reminders={reminderCount(data?.today ?? [], data?.finance ?? null, data?.habitReminders ?? [])}
         notificationsOpen={overlay === "notifications"}
         onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
       />
@@ -91,6 +92,7 @@ export function App() {
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
         {page.name === "inbox" && <Inbox key={captures} onOpen={openItem} />}
+        {page.name === "habit" && <HabitsPage onChanged={reload} />}
         {page.name === "keuangan" && (
           <FinancePage key={page.intent ?? 0} newTransaction={page.intent !== undefined} onChanged={reload} />
         )}
@@ -130,9 +132,11 @@ export function App() {
         <NotifPanel
           today={data?.today ?? []}
           finance={data?.finance ?? null}
+          habitReminders={data?.habitReminders ?? []}
           onClose={() => setOverlay(null)}
           onOpenItem={openItem}
           onOpenFinance={() => go("keuangan")}
+          onOpenHabits={() => go("habit")}
         />
       )}
     </div>

@@ -1,0 +1,5 @@
+Taruh hasil ekspor gambar tiap artboard dari canvas di folder ini,
+dengan nama yang sama seperti artboard-nya, misalnya:
+  Main.png, Email.png, Jadwal.png, Keuangan.png, Proyek.png,
+  Berkas.png, Unduhan.png, Profil.png, Loading.png,
+  CommandPalette.png, NotifPanel.png, Palet.png

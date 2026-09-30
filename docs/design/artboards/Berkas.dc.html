@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Berkas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(12px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; display: flex; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+
+  <nav aria-label="Menu utama" style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 0 16px; background: #0B0D10; border-right: 1px solid #262B35; box-sizing: border-box">
+    <div role="img" aria-label="Logo Anchoa" title="Tempat logo Anchoa" style="width: 40px; height: 40px; border-radius: 12px; border: 1px dashed #3A4150; color: #9AA3B2; display: flex; align-items: center; justify-content: center; font-size: 10px; box-sizing: border-box; margin-bottom: 12px">Logo</div>
+    <a href="Main.dc.html" data-hover aria-label="Dashboard" title="Dashboard" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></a>
+    <a href="#" data-hover aria-label="Inbox" title="Inbox" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l2 3h4l2-3h5"></path><path d="M5 5h14l2 8v6H3v-6z"></path></svg><span style="position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: #C6F36B"></span></a>
+    <a href="Email.dc.html" data-hover aria-label="Email, 3 belum dibaca" title="Email" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg><span aria-hidden="true" style="position: absolute; top: 5px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #C6F36B; color: #0F1115; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; line-height: 16px; text-align: center">3</span></a>
+    <a href="Jadwal.dc.html" data-hover aria-label="Jadwal" title="Jadwal" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+    <a href="Keuangan.dc.html" data-hover aria-label="Keuangan" title="Keuangan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M16 12.5h2"></path><path d="M3 10h18"></path></svg></a>
+    <a href="Proyek.dc.html" data-hover aria-label="Proyek" title="Proyek" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7M12 7v4M16 7v10"></path></svg></a>
+    <a href="Berkas.dc.html" aria-label="Berkas" title="Berkas" aria-current="page" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #1D2129; color: #C6F36B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a>
+    <a href="Unduhan.dc.html" data-hover aria-label="Unduhan" title="Unduhan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></a>
+    <div style="margin-top: auto"></div>
+    <button data-hover onClick="{{toggleNotif}}" aria-label="Notifikasi, 4 belum dibaca" aria-expanded="{{notifExpanded}}" title="Notifikasi" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; background: {{notifBg}}; color: {{notifColor}}; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #FF8A7A; border: 2px solid #0B0D10"></span></button>
+    <a href="Profil.dc.html" data-hover aria-label="Profil" title="Profil" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; "><span style="width: 32px; height: 32px; border-radius: 50%; box-sizing: border-box; border: 2px solid #3A4150; background: #2A303B; color: #C6F36B; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">R</span></a>
+    <a href="#" data-hover aria-label="Pengaturan" title="Pengaturan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg></a>
+  </nav>
+
+  <main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; min-width: 0">
+    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 4px">
+      <button onClick="{{openPalette}}" aria-label="Buka command palette" style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 42px; background: #171A21; border: 1px solid #262B35; border-radius: 10px; color: #9AA3B2; font: inherit; font-size: 14px; text-align: left; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex-grow: 1">Cari berkas di Anchoa…</span><kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2; border: 1px solid #262B35; border-radius: 6px; padding: 2px 6px">Ctrl K</kbd></button>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #9AA3B2">Sel 29 Sep · 22:48</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px">
+      <h1 style="margin: 0 6px 0 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: -0.01em">Berkas</h1>
+      <div style="display: flex; gap: 2px">
+        <button data-hover aria-label="Kembali" style="width: 34px; height: 34px; border-radius: 8px; border: 0; background: transparent; color: #E7E9EE; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg></button>
+        <button aria-label="Maju" disabled style="width: 34px; height: 34px; border-radius: 8px; border: 0; background: transparent; color: #3A4150; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+        <button data-hover aria-label="Folder induk" style="width: 34px; height: 34px; border-radius: 8px; border: 0; background: transparent; color: #E7E9EE; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"></path></svg></button>
+      </div>
+      <nav aria-label="Lokasi" style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 2px; padding: 3px 6px; border: 1px solid #262B35; border-radius: 10px; background: #171A21; font-size: 13px">
+        <a href="#" data-hover style="padding: 5px 8px; border-radius: 6px; color: #9AA3B2; text-decoration: none">Beranda</a>
+        <span aria-hidden="true" style="color: #3A4150">/</span>
+        <a href="#" data-hover style="padding: 5px 8px; border-radius: 6px; color: #9AA3B2; text-decoration: none">Dokumen</a>
+        <span aria-hidden="true" style="color: #3A4150">/</span>
+        <span aria-current="page" style="padding: 5px 8px; color: #E7E9EE; font-weight: 600">Anchoa</span>
+      </nav>
+      <div role="group" aria-label="Tampilan" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #171A21; border: 1px solid #262B35">
+        <button onClick="{{gridView}}" aria-label="Tampilan ikon" aria-pressed="{{gridPressed}}" style="width: 32px; height: 30px; border: 0; border-radius: 7px; background: {{gridBg}}; color: {{gridColor}}; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></button>
+        <button onClick="{{listView}}" aria-label="Tampilan daftar" aria-pressed="{{listPressed}}" style="width: 32px; height: 30px; border: 0; border-radius: 7px; background: {{listBg}}; color: {{listColor}}; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path></svg></button>
+      </div>
+      <button data-press style="min-height: 38px; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; font-weight: 600; padding: 0 14px; border-radius: 10px; border: 0; background: #C6F36B; color: #0F1115; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Folder baru</button>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; display: flex; gap: 14px">
+
+      <aside aria-label="Tempat" style="width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; overflow-y: auto">
+        <span style="padding: 4px 10px 6px; font-size: 11px; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">Tempat</span>
+        <a href="#" data-hover style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path></svg>Beranda</a>
+        <a href="#" data-hover style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Terbaru</a>
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: #1D2129; color: #E7E9EE; text-decoration: none; font-size: 13px; font-weight: 600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path><path d="M9 11h6M9 15h6"></path></svg>Dokumen</a>
+        <a href="#" data-hover style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>Unduhan</a>
+        <a href="#" data-hover style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 17l-5-5-9 8"></path></svg>Gambar</a>
+        <a href="#" data-hover style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4-2.5z"></path></svg>Video</a>
+        <a href="#" data-hover style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Sampah</a>
+
+        <span style="padding: 16px 10px 6px; font-size: 11px; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">Perangkat</span>
+        <a href="#" data-hover style="display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px">
+          <span style="display: flex; align-items: center; gap: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 14h.01M11 14h6"></path></svg>Disk sistem</span>
+          <span aria-hidden="true" style="height: 4px; border-radius: 2px; background: #262B35; overflow: hidden"><span style="display: block; width: 62%; height: 4px; border-radius: 2px; background: #9AA3B2"></span></span>
+          <span style="font-size: 11px; color: #9AA3B2">98 GB bebas dari 256 GB</span>
+        </a>
+        <div style="display: flex; align-items: center; gap: 4px; padding-right: 4px">
+          <a href="#" data-hover style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #C9CED8; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="9" width="10" height="12" rx="2"></rect><path d="M9 9V3h6v6"></path></svg>Flashdisk</a>
+          <button data-hover aria-label="Keluarkan flashdisk" style="width: 28px; height: 28px; border-radius: 6px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 14l7-8 7 8z"></path><path d="M5 19h14"></path></svg></button>
+        </div>
+      </aside>
+
+      <section aria-label="Isi folder Anchoa" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #12151B; border: 1px solid #262B35; border-radius: 14px; overflow: hidden">
+        <sc-if value="{{multi}}" hint-placeholder-val="{{ false }}">
+          <div data-anim style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #1D2129; border-bottom: 1px solid #262B35; animation: anchoa-pop 0.15s ease-out">
+            <span style="font-size: 13px; font-weight: 600">{{selCount}} dipilih</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2">{{selSize}}</span>
+            <div style="margin-left: auto; display: flex; gap: 6px">
+              <button data-hover style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 12px; cursor: pointer">Salin</button>
+              <button data-hover style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 12px; cursor: pointer">Pindahkan</button>
+              <button data-hover style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #FF8A7A; background: transparent; color: #FF8A7A; font: inherit; font-size: 12px; cursor: pointer">Hapus</button>
+              <button data-hover onClick="{{clearSel}}" style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; font: inherit; font-size: 12px; cursor: pointer">Batal</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isGrid}}" hint-placeholder-val="{{ true }}">
+          <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); grid-auto-rows: max-content; gap: 10px; align-content: start">
+            <sc-for list="{{files}}" as="f" hint-placeholder-count="10">
+              <button data-tile onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" aria-label="{{f.aria}}" title="{{f.name}}" style="min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 6px; border-radius: 12px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: #E7E9EE; font: inherit; cursor: pointer">
+                <span style="width: 100%; height: 68px; display: flex; align-items: center; justify-content: center">
+                  <sc-if value="{{f.isFolder}}" hint-placeholder-val="{{ false }}">
+                    <svg width="64" height="52" viewBox="0 0 64 52" aria-hidden="true"><path d="M4 8a4 4 0 0 1 4-4h14l6 6h28a4 4 0 0 1 4 4v4H4z" fill="#3A4150"></path><rect x="4" y="14" width="56" height="34" rx="4" fill="#2A303B" stroke="#4A5263"></rect></svg>
+                  </sc-if>
+                  <sc-if value="{{f.isFish}}" hint-placeholder-val="{{ false }}">
+                    <svg width="96" height="64" viewBox="0 0 96 64" aria-hidden="true" style="border-radius: 6px"><rect width="96" height="64" fill="#15263A"></rect><g fill="#8FB6DA"><path transform="translate(30 20)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.9"></path><path transform="translate(52 15) scale(0.8)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.7"></path><path transform="translate(45 30) scale(1.1)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z"></path><path transform="translate(67 27) scale(0.9)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.8"></path><path transform="translate(36 42) scale(0.8)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.6"></path><path transform="translate(58 43)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.85"></path><path transform="translate(78 41) scale(0.7)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.5"></path></g></svg>
+                  </sc-if>
+                  <sc-if value="{{f.isLayout}}" hint-placeholder-val="{{ false }}">
+                    <svg width="96" height="60" viewBox="0 0 96 60" aria-hidden="true"><rect width="96" height="60" rx="4" fill="#0F1115" stroke="#3A4150"></rect><rect x="1" y="1" width="7" height="58" fill="#0B0D10"></rect><rect x="3" y="4" width="3" height="3" rx="1" fill="#C6F36B"></rect><rect x="12" y="6" width="50" height="4" rx="1" fill="#1D2129"></rect><rect x="12" y="14" width="15" height="10" rx="1.5" fill="#171A21" stroke="#262B35"></rect><rect x="30" y="14" width="15" height="10" rx="1.5" fill="#171A21" stroke="#262B35"></rect><rect x="48" y="14" width="15" height="10" rx="1.5" fill="#171A21" stroke="#262B35"></rect><rect x="12" y="28" width="24" height="26" rx="1.5" fill="#171A21" stroke="#262B35"></rect><rect x="39" y="28" width="24" height="26" rx="1.5" fill="#171A21" stroke="#262B35"></rect><rect x="68" y="1" width="27" height="58" fill="#0B0D10"></rect><circle cx="81.5" cy="27" r="9" fill="#171B22"></circle><circle cx="81.5" cy="52" r="3.5" fill="#C6F36B"></circle></svg>
+                  </sc-if>
+                  <sc-if value="{{f.isVideo}}" hint-placeholder-val="{{ false }}">
+                    <span style="position: relative; width: 96px; height: 60px; border-radius: 6px; background: #05070A; border: 1px solid #262B35; box-sizing: border-box; display: flex; align-items: center; justify-content: center">
+                      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#E7E9EE" fill-opacity="0.9"></circle><path d="M10 8v8l6-4z" fill="#0F1115"></path></svg>
+                      <span style="position: absolute; right: 4px; bottom: 3px; padding: 0 4px; border-radius: 3px; background: #000000B3; font-family: 'JetBrains Mono', monospace; font-size: 9px; line-height: 13px; color: #E7E9EE">2:14</span>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{f.isPdf}}" hint-placeholder-val="{{ false }}">
+                    <svg width="48" height="62" viewBox="0 0 48 62" aria-hidden="true"><path d="M2 4a3 3 0 0 1 3-3h28l13 13v44a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z" fill="#E7E9EE"></path><path d="M33 1v10a3 3 0 0 0 3 3h10" fill="#B9BFCB"></path><rect x="8" y="20" width="26" height="3" rx="1" fill="#9AA3B2"></rect><rect x="8" y="27" width="32" height="2" rx="1" fill="#C3C8D2"></rect><rect x="8" y="32" width="30" height="2" rx="1" fill="#C3C8D2"></rect><rect x="8" y="37" width="32" height="2" rx="1" fill="#C3C8D2"></rect><rect x="8" y="42" width="22" height="2" rx="1" fill="#C3C8D2"></rect><rect x="8" y="50" width="16" height="6" rx="1.5" fill="#0F1115"></rect></svg>
+                  </sc-if>
+                  <sc-if value="{{f.isText}}" hint-placeholder-val="{{ false }}">
+                    <span style="position: relative; display: flex">
+                      <svg width="48" height="62" viewBox="0 0 48 62" aria-hidden="true"><path d="M2 4a3 3 0 0 1 3-3h28l13 13v44a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z" fill="#1D2129" stroke="#3A4150"></path><path d="M33 1v10a3 3 0 0 0 3 3h10" fill="#2A303B"></path><rect x="8" y="20" width="18" height="2" rx="1" fill="#C6F36B" fill-opacity="0.7"></rect><rect x="8" y="26" width="30" height="2" rx="1" fill="#5B6475"></rect><rect x="12" y="31" width="24" height="2" rx="1" fill="#5B6475"></rect><rect x="12" y="36" width="20" height="2" rx="1" fill="#5B6475"></rect><rect x="8" y="41" width="28" height="2" rx="1" fill="#5B6475"></rect></svg>
+                      <span style="position: absolute; left: 4px; bottom: 5px; padding: 0 4px; border-radius: 3px; background: #0F1115; font-family: 'JetBrains Mono', monospace; font-size: 9px; line-height: 13px; color: #C9CED8">{{f.ext}}</span>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{f.isOther}}" hint-placeholder-val="{{ false }}">
+                    <span style="position: relative; display: flex">
+                      <svg width="48" height="62" viewBox="0 0 48 62" aria-hidden="true"><path d="M2 4a3 3 0 0 1 3-3h28l13 13v44a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z" fill="#1D2129" stroke="#3A4150"></path><path d="M33 1v10a3 3 0 0 0 3 3h10" fill="#2A303B"></path><path d="M9 21h30v24H9zM9 29h30M9 37h30M19 21v24M29 21v24" fill="none" stroke="#5B6475" stroke-width="1.5"></path></svg>
+                      <span style="position: absolute; left: 4px; bottom: 5px; padding: 0 4px; border-radius: 3px; background: #0F1115; font-family: 'JetBrains Mono', monospace; font-size: 9px; line-height: 13px; color: #C9CED8">{{f.ext}}</span>
+                    </span>
+                  </sc-if>
+                </span>
+                <span style="max-width: 100%; font-size: 12px; line-height: 1.3; text-align: center; overflow: hidden; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">{{f.name}}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">{{f.sub}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isList}}" hint-placeholder-val="{{ false }}">
+          <div style="flex-grow: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column">
+            <div aria-hidden="true" style="position: sticky; top: 0; display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px 150px; gap: 12px; padding: 8px 14px; background: #0B0D10; border-bottom: 1px solid #262B35; font-size: 11px; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">
+              <span>Nama</span><span style="text-align: right">Ukuran</span><span>Jenis</span><span>Diubah</span>
+            </div>
+            <sc-for list="{{files}}" as="f" hint-placeholder-count="10">
+              <button data-tile onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" aria-label="{{f.aria}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px 150px; gap: 12px; align-items: center; padding: 7px 14px; border: 0; border-bottom: 1px solid #1A1E26; background: {{f.bg}}; box-shadow: inset 2px 0 0 {{f.bar}}; color: #E7E9EE; font: inherit; font-size: 13px; text-align: left; cursor: pointer">
+                <span style="min-width: 0; display: flex; align-items: center; gap: 10px">
+                  <span style="width: 18px; flex-shrink: 0; display: flex; color: {{f.iconColor}}">
+                    <sc-if value="{{f.isFolder}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></sc-if>
+                    <sc-if value="{{f.isImage}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 17l-5-5-9 8"></path></svg></sc-if>
+                    <sc-if value="{{f.isVideo}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4-2.5z"></path></svg></sc-if>
+                    <sc-if value="{{f.isDoc}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path><path d="M9 11h6M9 15h6"></path></svg></sc-if>
+                  </span>
+                  <span style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{f.name}}</span>
+                </span>
+                <span style="text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2">{{f.sub}}</span>
+                <span style="font-size: 12px; color: #9AA3B2">{{f.kindLabel}}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2">{{f.modShort}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-top: 1px solid #262B35; background: #0B0D10; font-size: 12px; color: #9AA3B2">
+          <span>{{countText}}</span>
+          <span aria-live="polite" style="color: #C9CED8">{{statusSel}}</span>
+          <span style="margin-left: auto"><kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; border: 1px solid #262B35; border-radius: 4px; padding: 0 5px">Ctrl</kbd> + klik untuk memilih banyak</span>
+        </div>
+      </section>
+
+      <sc-if value="{{single}}" hint-placeholder-val="{{ true }}">
+        <aside data-anim aria-label="Pratinjau {{p.name}}" style="width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px; box-sizing: border-box; background: #171A21; border: 1px solid #262B35; border-radius: 14px; overflow-y: auto; animation: anchoa-slide 0.18s ease-out">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <h2 title="{{p.name}}" style="flex-grow: 1; min-width: 0; margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.name}}</h2>
+            <button data-hover onClick="{{clearSel}}" aria-label="Tutup pratinjau" style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+          </div>
+
+          <div style="position: relative; height: 212px; flex-shrink: 0; border-radius: 10px; background: #0B0D10; border: 1px solid #262B35; overflow: hidden; display: flex; align-items: center; justify-content: center">
+            <sc-if value="{{p.isFish}}" hint-placeholder-val="{{ true }}">
+              <svg width="290" height="212" viewBox="0 0 96 70" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Pratinjau foto moodboard kawanan teri"><rect width="96" height="70" fill="#15263A"></rect><g fill="#8FB6DA"><path transform="translate(30 22)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.9"></path><path transform="translate(52 17) scale(0.8)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.7"></path><path transform="translate(45 33) scale(1.1)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z"></path><path transform="translate(67 30) scale(0.9)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.8"></path><path transform="translate(36 46) scale(0.8)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.6"></path><path transform="translate(58 47)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.85"></path><path transform="translate(78 45) scale(0.7)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.5"></path><path transform="translate(20 38) scale(0.6)" d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.4"></path></g></svg>
+              <span style="position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; border-radius: 4px; background: #000000A6; font-size: 10px; color: #C9CED8">Pratinjau foto</span>
+            </sc-if>
+            <sc-if value="{{p.isLayout}}" hint-placeholder-val="{{ false }}">
+              <svg width="288" height="180" viewBox="0 0 96 60" role="img" aria-label="Pratinjau gambar layout dashboard"><rect width="96" height="60" rx="2" fill="#0F1115" stroke="#3A4150" stroke-width="0.5"></rect><rect x="0.5" y="0.5" width="7" height="59" fill="#0B0D10"></rect><rect x="2.5" y="4" width="3" height="3" rx="1" fill="#C6F36B"></rect><rect x="12" y="6" width="50" height="4" rx="1" fill="#1D2129"></rect><rect x="12" y="14" width="15" height="10" rx="1.5" fill="#171A21" stroke="#262B35" stroke-width="0.5"></rect><rect x="30" y="14" width="15" height="10" rx="1.5" fill="#171A21" stroke="#262B35" stroke-width="0.5"></rect><rect x="48" y="14" width="15" height="10" rx="1.5" fill="#171A21" stroke="#262B35" stroke-width="0.5"></rect><rect x="12" y="28" width="24" height="26" rx="1.5" fill="#171A21" stroke="#262B35" stroke-width="0.5"></rect><rect x="39" y="28" width="24" height="26" rx="1.5" fill="#171A21" stroke="#262B35" stroke-width="0.5"></rect><rect x="68" y="0.5" width="27.5" height="59" fill="#0B0D10"></rect><circle cx="81.5" cy="27" r="9" fill="#171B22"></circle><circle cx="81.5" cy="52" r="3.5" fill="#C6F36B"></circle></svg>
+            </sc-if>
+            <sc-if value="{{p.isVideo}}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #05070A; display: flex; flex-direction: column">
+                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center">
+                  <button data-press onClick="{{togglePlay}}" aria-label="{{playLabel}}" style="width: 52px; height: 52px; border-radius: 50%; border: 0; background: #E7E9EEE6; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer">
+                    <sc-if value="{{notPlaying}}" hint-placeholder-val="{{ true }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></sc-if>
+                    <sc-if value="{{playing}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></sc-if>
+                  </button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #0B0D10E6">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #C9CED8">{{vidTime}}</span>
+                  <span aria-hidden="true" style="flex-grow: 1; height: 4px; border-radius: 2px; background: #3A4150; overflow: hidden"><span style="display: block; width: {{vidPct}}%; height: 4px; background: #C6F36B"></span></span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">2:14</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6"></path></svg>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{p.isPdf}}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: #0B0D10">
+                <div aria-label="Halaman {{page}}" role="img" style="width: 128px; height: 164px; box-sizing: border-box; padding: 14px 12px; border-radius: 2px; background: #E7E9EE; display: flex; flex-direction: column; gap: 5px">
+                  <span style="height: 7px; width: 70%; border-radius: 1px; background: #5B6475"></span>
+                  <span style="height: 3px; width: 40%; border-radius: 1px; background: #9AA3B2; margin-bottom: 4px"></span>
+                  <span style="height: 3px; width: 100%; border-radius: 1px; background: #B9BFCB"></span>
+                  <span style="height: 3px; width: 94%; border-radius: 1px; background: #B9BFCB"></span>
+                  <span style="height: 3px; width: 100%; border-radius: 1px; background: #B9BFCB"></span>
+                  <span style="height: 3px; width: 72%; border-radius: 1px; background: #B9BFCB; margin-bottom: 4px"></span>
+                  <span style="height: 36px; width: 100%; border-radius: 2px; background: #C9CED8"></span>
+                  <span style="height: 3px; width: 100%; border-radius: 1px; background: #B9BFCB"></span>
+                  <span style="height: 3px; width: 86%; border-radius: 1px; background: #B9BFCB"></span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <button data-hover onClick="{{prevPage}}" aria-label="Halaman sebelumnya" style="width: 26px; height: 26px; border-radius: 6px; border: 0; background: transparent; color: #E7E9EE; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+                  <span aria-live="polite" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #C9CED8">{{page}} / 12</span>
+                  <button data-hover onClick="{{nextPage}}" aria-label="Halaman berikutnya" style="width: 26px; height: 26px; border-radius: 6px; border: 0; background: transparent; color: #E7E9EE; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{p.isText}}" hint-placeholder-val="{{ false }}">
+              <pre style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; margin: 0; padding: 12px; overflow: hidden; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.55; color: #C9CED8; white-space: pre-wrap; word-break: break-word">{{p.text}}</pre>
+            </sc-if>
+            <sc-if value="{{p.isFolder}}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+                <span style="font-size: 11px; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">Isi folder</span>
+                <sc-for list="{{p.contents}}" as="c" hint-placeholder-count="4">
+                  <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #C9CED8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path></svg>{{c}}</span>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{p.isOther}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; text-align: center">
+                <svg width="40" height="52" viewBox="0 0 48 62" aria-hidden="true"><path d="M2 4a3 3 0 0 1 3-3h28l13 13v44a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z" fill="#1D2129" stroke="#3A4150"></path><path d="M9 21h30v24H9zM9 29h30M9 37h30M19 21v24M29 21v24" fill="none" stroke="#5B6475" stroke-width="1.5"></path></svg>
+                <span style="font-size: 13px; color: #9AA3B2">Pratinjau belum tersedia untuk {{p.ext}}</span>
+              </div>
+            </sc-if>
+          </div>
+
+          <dl style="margin: 0; display: grid; grid-template-columns: 88px minmax(0, 1fr); row-gap: 7px; column-gap: 10px; font-size: 12px">
+            <sc-for list="{{p.meta}}" as="m" hint-placeholder-count="5">
+              <dt style="color: #9AA3B2">{{m.k}}</dt>
+              <dd style="margin: 0; color: #E7E9EE; font-family: {{m.font}}; word-break: break-word">{{m.v}}</dd>
+            </sc-for>
+          </dl>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; gap: 8px">
+              <button data-press style="flex-grow: 1; min-height: 38px; border-radius: 10px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{p.openLabel}}</button>
+              <button data-hover aria-label="Ganti nama" title="Ganti nama" style="width: 38px; height: 38px; border-radius: 10px; border: 1px solid #262B35; background: transparent; color: #C9CED8; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+              <button data-hover aria-label="Hapus" title="Hapus" style="width: 38px; height: 38px; border-radius: 10px; border: 1px solid #262B35; background: transparent; color: #FF8A7A; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg></button>
+            </div>
+            <button data-hover onClick="{{askAi}}" style="min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; border: 1px solid #262B35; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>{{p.aiLabel}}</button>
+          </div>
+        </aside>
+      </sc-if>
+    </div>
+  </main>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+    <section data-anim aria-label="Asisten (mini)" style="position: absolute; right: 16px; bottom: 16px; width: 304px; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; box-sizing: border-box; background: #171A21; border: 1px solid #2E3440; border-radius: 18px; box-shadow: 0 16px 40px #00000073; animation: anchoa-pop 0.2s ease-out">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="position: relative; width: 44px; height: 44px; flex-shrink: 0">
+          <svg data-anim width="68" height="68" viewBox="0 0 68 68" aria-hidden="true" style="position: absolute; top: -12px; left: -12px; color: {{accent}}; fill: currentColor; opacity: {{ringOpacity}}; transition: color 0.4s, opacity 0.4s; animation: anchoa-school 12s linear infinite; animation-play-state: {{motion}}"><g transform="rotate(207 34 34) translate(34 5.4) scale(0.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(242 34 34) translate(34 6.8) scale(0.33)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(264 34 34) translate(34 6.3) scale(0.43)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(292 34 34) translate(34 5.6) scale(0.41)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.3"></path></g><g transform="rotate(312 34 34) translate(34 4.4) scale(0.42)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.44"></path></g><g transform="rotate(334 34 34) translate(34 6.8) scale(0.45)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.46"></path></g><g transform="rotate(351 34 34) translate(34 6.9) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.47"></path></g><g transform="rotate(375 34 34) translate(34 4.4) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.62"></path></g><g transform="rotate(391 34 34) translate(34 4.6) scale(0.46)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.68"></path></g><g transform="rotate(415 34 34) translate(34 6.7) scale(0.44)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.53"></path></g><g transform="rotate(435 34 34) translate(34 5.7) scale(0.51)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g></svg>
+          <div style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: #1D2129; border: 1px solid #262B35; box-sizing: border-box; display: flex; align-items: flex-end; justify-content: center; overflow: hidden">
+            <svg width="34" height="40" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg>
+          </div>
+        </div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">Asisten</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9AA3B2">
+            <span aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 10px">
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.1s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.4s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.65s infinite; animation-play-state: {{motion}}"></span>
+            </span>
+            <span aria-live="polite">{{statusText}}</span>
+          </span>
+        </div>
+        <a href="Main.dc.html" data-hover aria-label="Buka asisten penuh" title="Buka asisten penuh" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"></path><path d="M20 4l-7 7"></path><path d="M10 20H4v-6"></path><path d="M4 20l7-7"></path></svg></a>
+        <button data-hover onClick="{{minimize}}" aria-label="Kecilkan asisten" title="Kecilkan" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.45">{{aiMsg}}</p>
+
+      <sc-if value="{{typing}}" hint-placeholder-val="{{ false }}">
+        <label data-field style="display: flex; align-items: center; gap: 6px; background: #0F1115; border: 1px solid #262B35; border-radius: 10px; padding: 4px 4px 4px 12px">
+          <input aria-label="Ketik pesan ke asisten" placeholder="Ketik pesan…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px">
+          <button aria-label="Kirim" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: #1D2129; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+        </label>
+      </sc-if>
+
+      <div style="display: flex; align-items: center; gap: 8px">
+        <sc-if value="{{showChips}}" hint-placeholder-val="{{ true }}">
+          <button data-press onClick="{{accept}}" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Ya</button>
+          <button data-press onClick="{{minimize}}" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #262B35; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Nanti</button>
+        </sc-if>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px">
+          <button data-press onClick="{{toggleType}}" aria-label="Ketik pesan" aria-pressed="{{typePressed}}" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #262B35; background: {{typeBg}}; color: {{typeColor}}; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path></svg></button>
+          <div style="position: relative; width: 44px; height: 44px">
+            <sc-if value="{{isListening}}" hint-placeholder-val="{{ false }}">
+              <span data-anim aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 44px; height: 44px; border-radius: 50%; background: #FF8A7A; opacity: 0; animation: anchoa-pulse 1.6s ease-out infinite"></span>
+            </sc-if>
+            <button data-press onClick="{{toggleMic}}" aria-label="{{micLabel}}" aria-pressed="{{micPressed}}" style="position: relative; width: 44px; height: 44px; border-radius: 50%; border: 0; background: {{micBg}}; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{collapsed}}" hint-placeholder-val="{{ true }}">
+    <button data-press onClick="{{expand}}" aria-label="Buka asisten" title="Buka asisten" style="position: absolute; right: 20px; bottom: 20px; width: 60px; height: 60px; border-radius: 50%; border: 1px solid #2E3440; background: #171A21; box-shadow: 0 10px 28px #00000066; display: flex; align-items: flex-end; justify-content: center; padding: 0; cursor: pointer">
+      <span style="width: 58px; height: 58px; border-radius: 50%; overflow: hidden; display: flex; align-items: flex-end; justify-content: center"><svg width="42" height="50" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg></span>
+      <span style="position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%; background: #C6F36B; color: #0F1115; border: 2px solid #0F1115; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path></svg></span>
+    </button>
+  </sc-if>
+  <sc-if value="{{notifOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 72px; width: 1208px; height: 800px">
+      <dc-import name="NotifPanel" on-close="{{closeNotif}}" overlay="{{ true }}" hint-size="1208px,800px"></dc-import>
+    </div>
+  </sc-if>
+  <sc-if value="{{paletteOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 0; width: 1280px; height: 800px">
+      <dc-import name="CommandPalette" on-close="{{closePalette}}" overlay="{{ true }}" hint-size="1280px,800px"></dc-import>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const LOC = '~/Dokumen/Anchoa';
+    const FILES = [
+      { id: 'f1', name: 'desain', kind: 'folder', items: 14, mod: '28 Sep 2026, 20.05', modShort: '28 Sep 20.05', contents: ['logo-anchoa.svg', 'palet-warna.png', 'tipografi.pdf', '+11 lainnya'] },
+      { id: 'f2', name: 'aset-live2d', kind: 'folder', items: 32, mod: '25 Sep 2026, 16.40', modShort: '25 Sep 16.40', contents: ['avatar.moc3', 'texture_00.png', 'motions', '+29 lainnya'] },
+      { id: 'f3', name: 'rekaman-suara', kind: 'folder', items: 8, mod: '29 Sep 2026, 21.02', modShort: '29 Sep 21.02', contents: ['uji-stt-01.wav', 'uji-stt-02.wav', 'tts-sampel.ogg', '+5 lainnya'] },
+      { id: 'f4', name: 'moodboard-teri.jpg', kind: 'image', thumb: 'fish', bytes: 4404019, mod: '27 Sep 2026, 19.12', modShort: '27 Sep 19.12', label: 'Gambar JPEG', extra: [['Dimensi', '4032 × 3024']], ai: 'Deskripsikan foto ini', aiMsg: 'Mau kudeskripsikan isi moodboard-teri.jpg dan kucarikan foto yang mirip?' },
+      { id: 'f5', name: 'layout-dashboard.png', kind: 'image', thumb: 'layout', bytes: 1153434, mod: '29 Sep 2026, 21.40', modShort: '29 Sep 21.40', label: 'Gambar PNG', extra: [['Dimensi', '1280 × 800']], ai: 'Jelaskan layout ini', aiMsg: 'Mau kujelaskan susunan layout-dashboard.png per bagian?' },
+      { id: 'f6', name: 'demo-asisten.mp4', kind: 'video', bytes: 40475033, mod: '28 Sep 2026, 22.18', modShort: '28 Sep 22.18', label: 'Video MP4', extra: [['Durasi', '2:14'], ['Resolusi', '1920 × 1080']], ai: 'Buat transkrip', aiMsg: 'Mau kubuatkan transkrip dan ringkasan dari demo-asisten.mp4?' },
+      { id: 'f7', name: 'proposal-anchoa.pdf', kind: 'pdf', bytes: 2411725, mod: '26 Sep 2026, 10.03', modShort: '26 Sep 10.03', label: 'Dokumen PDF', extra: [['Halaman', '12']], ai: 'Ringkas PDF ini', aiMsg: 'Mau kuringkas proposal-anchoa.pdf jadi 5 poin utama?' },
+      { id: 'f8', name: 'DESIGN.md', kind: 'text', ext: 'MD', bytes: 7901, mod: '29 Sep 2026, 17.27', modShort: '29 Sep 17.27', label: 'Markdown', extra: [['Baris', '150']], ai: 'Ringkas dokumen ini', aiMsg: 'Mau kuringkas DESIGN.md atau kucek bagian yang belum lengkap?',
+        text: '# Anchoa — Referensi Desain\n\n## 1. Layout\n- Nav 72px, ikon saja\n- Aside 380px: kontribusi + avatar\n\n## 2. Design tokens\n| bg      | #0F1115 |\n| surface | #171A21 |\n| accent  | #C6F36B |\n| danger  | #FF8A7A |' },
+      { id: 'f9', name: 'avatar.model3.json', kind: 'text', ext: 'JSON', bytes: 2867, mod: '25 Sep 2026, 16.38', modShort: '25 Sep 16.38', label: 'JSON', extra: [['Baris', '24']], ai: 'Jelaskan isi berkas', aiMsg: 'Mau kujelaskan struktur avatar.model3.json ini?',
+        text: '{\n  "Version": 3,\n  "FileReferences": {\n    "Moc": "avatar.moc3",\n    "Textures": [\n      "texture_00.png"\n    ],\n    "Physics": "avatar.physics3.json",\n    "Motions": {\n      "Idle": [ { "File": "motions/idle.motion3.json" } ]\n    }\n  }\n}' },
+      { id: 'f10', name: 'anggaran-anchoa.xlsx', kind: 'other', ext: 'XLSX', bytes: 47104, mod: '24 Sep 2026, 08.55', modShort: '24 Sep 08.55', label: 'Spreadsheet', extra: [], ai: 'Baca isi spreadsheet', aiMsg: 'Mau kubaca anggaran-anchoa.xlsx dan kucocokkan dengan halaman Keuangan?' }
+    ];
+    const fmtSize = (b) => {
+      if (b < 1024 * 1024) return Math.max(1, Math.round(b / 1024)) + ' KB';
+      return (b / 1048576).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' MB';
+    };
+
+    const sel = st.sel ?? ['f4'];
+    const view = st.view || 'grid';
+    const setSel = (next) => this.setState({ sel: next, playing: false, page: 1, aiFor: null, accepted: false });
+
+    const files = FILES.map((f) => {
+      const on = sel.indexOf(f.id) !== -1;
+      const isFolder = f.kind === 'folder';
+      return {
+        name: f.name,
+        sub: isFolder ? f.items + ' item' : fmtSize(f.bytes),
+        kindLabel: isFolder ? 'Folder' : f.label,
+        modShort: f.modShort,
+        ext: f.ext || '',
+        aria: f.name + (isFolder ? ', folder, ' + f.items + ' item' : ', ' + f.label + ', ' + fmtSize(f.bytes)),
+        pressed: on ? 'true' : 'false',
+        bg: on ? '#1D2129' : 'transparent',
+        border: on ? '#4E6A26' : 'transparent',
+        bar: on ? '#C6F36B' : 'transparent',
+        iconColor: isFolder ? '#9AA3B2' : on ? '#C6F36B' : '#9AA3B2',
+        isFolder: isFolder,
+        isFish: f.thumb === 'fish',
+        isLayout: f.thumb === 'layout',
+        isImage: f.kind === 'image',
+        isVideo: f.kind === 'video',
+        isPdf: f.kind === 'pdf',
+        isText: f.kind === 'text',
+        isOther: f.kind === 'other',
+        isDoc: f.kind === 'pdf' || f.kind === 'text' || f.kind === 'other',
+        pick: (ev) => {
+          const multi = ev && (ev.ctrlKey || ev.metaKey || ev.shiftKey);
+          if (multi) {
+            setSel(on ? sel.filter((x) => x !== f.id) : sel.concat([f.id]));
+          } else {
+            setSel(on && sel.length === 1 ? [] : [f.id]);
+          }
+        }
+      };
+    });
+
+    const chosen = FILES.filter((f) => sel.indexOf(f.id) !== -1);
+    const single = chosen.length === 1;
+    const F = single ? chosen[0] : FILES[3];
+    const isFolder = F.kind === 'folder';
+    const meta = [['Jenis', isFolder ? 'Folder' : F.label], [isFolder ? 'Isi' : 'Ukuran', isFolder ? F.items + ' item' : fmtSize(F.bytes)]]
+      .concat(F.extra || [])
+      .concat([['Diubah', F.mod], ['Lokasi', LOC + '/' + (isFolder ? F.name : '')]])
+      .map((r) => ({ k: r[0], v: r[1], font: r[0] === 'Lokasi' ? "'JetBrains Mono', monospace" : 'inherit' }));
+    const p = {
+      name: F.name,
+      ext: F.ext || '',
+      text: F.text || '',
+      contents: F.contents || [],
+      meta: meta,
+      isFish: F.thumb === 'fish',
+      isLayout: F.thumb === 'layout',
+      isVideo: F.kind === 'video',
+      isPdf: F.kind === 'pdf',
+      isText: F.kind === 'text',
+      isFolder: isFolder,
+      isOther: F.kind === 'other',
+      openLabel: isFolder ? 'Buka folder' : F.kind === 'other' ? 'Buka dengan aplikasi lain' : 'Buka',
+      aiLabel: isFolder ? 'Rapikan folder ini' : F.ai
+    };
+
+    const fileBytes = chosen.filter((f) => f.kind !== 'folder').reduce((a, f) => a + f.bytes, 0);
+    const folderCount = chosen.filter((f) => f.kind === 'folder').length;
+    const selSize = (fileBytes ? fmtSize(fileBytes) : '') + (folderCount ? (fileBytes ? ' + ' : '') + folderCount + ' folder' : '');
+
+    const playing = !!st.playing;
+    const page = st.page || 1;
+
+    const open = !!st.open;
+    const mode = st.mode || 'idle';
+    const listening = mode === 'listening';
+    const typing = !!st.typing;
+    const aiFor = st.aiFor;
+    const aiFile = FILES.find((f) => f.id === aiFor);
+    let aiMsg = 'Ada yang perlu kucari? Sebut saja nama atau isi berkasnya.';
+    if (aiFile) aiMsg = aiFile.kind === 'folder' ? 'Mau kukelompokkan isi folder ' + aiFile.name + ' berdasarkan jenis berkas?' : aiFile.aiMsg;
+    if (aiFile && st.accepted) aiMsg = 'Oke, sedang kukerjakan. Hasilnya muncul di sini begitu selesai.';
+    if (listening) aiMsg = 'Silakan bicara, misalnya “cari video demo minggu lalu”.';
+
+    return {
+      paletteOpen: !!st.palette,
+      openPalette: () => this.setState({ palette: true, notif: false }),
+      closePalette: () => this.setState({ palette: false }),
+      notifOpen: !!st.notif,
+      notifExpanded: st.notif ? 'true' : 'false',
+      notifBg: st.notif ? '#1D2129' : 'transparent',
+      notifColor: st.notif ? '#C6F36B' : '#9AA3B2',
+      toggleNotif: () => this.setState({ notif: !st.notif, palette: false }),
+      closeNotif: () => this.setState({ notif: false }),
+      isGrid: view === 'grid',
+      isList: view === 'list',
+      gridView: () => this.setState({ view: 'grid' }),
+      listView: () => this.setState({ view: 'list' }),
+      gridPressed: view === 'grid' ? 'true' : 'false',
+      listPressed: view === 'list' ? 'true' : 'false',
+      gridBg: view === 'grid' ? '#1D2129' : 'transparent',
+      listBg: view === 'list' ? '#1D2129' : 'transparent',
+      gridColor: view === 'grid' ? '#E7E9EE' : '#9AA3B2',
+      listColor: view === 'list' ? '#E7E9EE' : '#9AA3B2',
+
+      files: files,
+      single: single,
+      multi: chosen.length > 1,
+      selCount: chosen.length,
+      selSize: selSize,
+      clearSel: () => setSel([]),
+      countText: FILES.length + ' item',
+      statusSel: chosen.length ? '· ' + chosen.length + ' dipilih' + (selSize ? ' (' + selSize + ')' : '') : '',
+      p: p,
+
+      playing: playing,
+      notPlaying: !playing,
+      togglePlay: () => this.setState({ playing: !playing }),
+      playLabel: playing ? 'Jeda video' : 'Putar video',
+      vidTime: playing ? '0:47' : '0:00',
+      vidPct: playing ? 35 : 0,
+      page: page,
+      prevPage: () => { if (page > 1) this.setState({ page: page - 1 }); },
+      nextPage: () => { if (page < 12) this.setState({ page: page + 1 }); },
+
+      askAi: () => this.setState({ open: true, aiFor: F.id, accepted: false, mode: 'idle' }),
+      open: open,
+      collapsed: !open,
+      expand: () => this.setState({ open: true }),
+      minimize: () => this.setState({ open: false, mode: 'idle', typing: false }),
+      isListening: listening,
+      motion: listening ? 'running' : 'paused',
+      accent: listening ? '#FF8A7A' : '#C6F36B',
+      ringOpacity: listening ? '1' : '0.55',
+      statusText: listening ? 'Mendengarkan…' : 'Siap',
+      aiMsg: aiMsg,
+      showChips: !!aiFile && !st.accepted && !listening,
+      accept: () => this.setState({ accepted: true }),
+      toggleMic: () => this.setState({ mode: listening ? 'idle' : 'listening' }),
+      micPressed: listening ? 'true' : 'false',
+      micLabel: listening ? 'Berhenti mendengarkan' : 'Ketuk untuk bicara',
+      micBg: listening ? '#FF8A7A' : '#C6F36B',
+      typing: typing,
+      toggleType: () => this.setState({ typing: !typing }),
+      typePressed: typing ? 'true' : 'false',
+      typeBg: typing ? '#1D2129' : 'transparent',
+      typeColor: typing ? '#C6F36B' : '#9AA3B2'
+    };
+  }
+}
+</script>
+</body>
+</html>

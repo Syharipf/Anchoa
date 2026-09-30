@@ -1,0 +1,14 @@
+# Rahasia lokal
+.env
+.env.*
+!.env.example
+supabase/functions/.env
+
+# File sementara Supabase CLI
+supabase/.temp/
+supabase/.branches/
+
+# Backup database tidak boleh masuk repo
+*.dump
+*.sql.gz
+*.age

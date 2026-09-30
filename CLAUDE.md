@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Anchoa is an all-in-one personal management desktop app in the style of Notion and Obsidian: finance, projects, tasks and notes, all linked together. It is built in phases, and each phase has its own spec and plan (written in Indonesian):
+Anchoa is an all-in-one personal management desktop app in the style of Notion and Obsidian: finance, projects, tasks, schedule, notes, files, downloads and email, all linked together. It is built in phases, and each phase has its own spec and plan (written in Indonesian):
 
 - Specs: `docs/superpowers/specs/`. The current one is `2026-09-29-anchoa-fase1-design.md` (Fase 1: foundation + dashboard). The roadmap is in its section 13.
 - Plans: `docs/superpowers/plans/`
+- Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
+- `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Fase 1 is being implemented PR by PR; see the plan in `docs/superpowers/plans/`.
+Status: Fase 1 and redesign D (UI-1 to UI-4) are merged; the v0.1.0 tag and Release are still open (#6). Next is the "UI lanjutan" shell work, then Fase 2 (its draft spec needs rework).
 
 ## Commands
 
@@ -28,7 +30,7 @@ Status: Fase 1 is being implemented PR by PR; see the plan in `docs/superpowers/
 - Frontend: React + TypeScript + Vite + Tailwind, under `src/`.
 - Database: SQLite via `rusqlite`.
 - JS tooling: bun. On the dev machine `node` is a shim for bun.
-- Targets: Fedora Linux now; Windows and Android in Fase 6.
+- Targets: Fedora Linux now; Windows and Android in Fase 9.
 
 ## Architecture rules
 
@@ -62,11 +64,25 @@ On the dev laptop, NVIDIA is the X `PrimaryGPU`, and Intel is also present.
 2. Create a branch `feat/<issue>-<slug>` from `main`. Never push to `main` directly: it is protected and requires a PR plus green CI.
 3. Use TDD. Make small commits in Conventional Commits format.
 4. Before opening a PR, run the full check suite and the Xvfb UI check. Put the evidence (test output, screenshots) in the PR body, together with `Closes #N`.
-5. Review the diff yourself and fix what you find. Then hand the PR to the user.
+5. Run the review (see below), verify each finding, and fix the real ones. Then hand the PR to the user.
 6. Merge only when the user says so, with `gh pr merge --squash --delete-branch`.
 7. At the end of a phase, tag the release (`v0.1.0` for Fase 1) and attach the RPM to a GitHub Release.
 
 Do not start implementing a phase until the user approves moving from planning to code.
+
+### Model per step
+
+- Planning (brainstorm, spec, plan): Opus, in the main session.
+- Implementation: Sonnet. The Opus session gives each plan task to a subagent with `model: "sonnet"` and checks the result.
+- Review: Gemini 3.8 Flash High through the Antigravity CLI (`agy`), read-only:
+
+  ```bash
+  git diff main...HEAD > .git/review.diff
+  agy --model gemini-3.8-flash-high --mode plan --print-timeout 600s -p "Do not run shell commands; read files only with your built-in file viewing tool. Review the diff in .git/review.diff against CLAUDE.md and the spec for this PR. Open changed files for context. Report bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
+  ```
+
+  Put `--model` before `-p`, because `-p` takes the next argument as the prompt. Headless `agy` denies shell commands that are not in its allow-list, and it ignores stdin, so give it the diff as a file inside the repo.
+- If `agy` fails (not installed, auth, quota, timeout, or no output), review with an Opus subagent instead. Use this only as the last resort.
 
 ## GUI testing
 

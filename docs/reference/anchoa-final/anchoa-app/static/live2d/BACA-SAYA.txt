@@ -1,0 +1,9 @@
+Isi folder ini secara manual (lihat README-MULAI.md, Langkah 5):
+
+static/live2d/
+├─ core/
+│  └─ live2dcubismcore.min.js        ← dari paket Cubism SDK for Web
+└─ models/
+   └─ <nama-model>/                   ← satu model contoh (.model3.json, .moc3, tekstur, motion)
+
+Kedua folder ini sengaja tidak di-commit (lihat gitignore-tambahan.txt).

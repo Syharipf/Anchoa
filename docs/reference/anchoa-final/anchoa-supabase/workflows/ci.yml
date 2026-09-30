@@ -1,0 +1,32 @@
+# Contoh CI: test skema & RLS di setiap push/PR.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase db start
+      - run: supabase db lint
+      - run: supabase test db
+
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      # Edge Functions baru ada mulai Fase C; lewati jika foldernya belum ada
+      - run: |
+          if [ -d supabase/functions ]; then
+            deno lint supabase/functions
+            deno test --permit-no-files --allow-env --allow-net supabase/functions
+          fi

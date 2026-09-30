@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Proyek</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; display: flex; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+
+  <nav aria-label="Menu utama" style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 0 16px; background: #0B0D10; border-right: 1px solid #262B35; box-sizing: border-box">
+    <div role="img" aria-label="Logo Anchoa" title="Tempat logo Anchoa" style="width: 40px; height: 40px; border-radius: 12px; border: 1px dashed #3A4150; color: #9AA3B2; display: flex; align-items: center; justify-content: center; font-size: 10px; box-sizing: border-box; margin-bottom: 12px">Logo</div>
+    <a href="Main.dc.html" data-hover aria-label="Dashboard" title="Dashboard" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></a>
+    <a href="#" data-hover aria-label="Inbox" title="Inbox" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l2 3h4l2-3h5"></path><path d="M5 5h14l2 8v6H3v-6z"></path></svg><span style="position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: #C6F36B"></span></a>
+    <a href="Email.dc.html" data-hover aria-label="Email, 3 belum dibaca" title="Email" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg><span aria-hidden="true" style="position: absolute; top: 5px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #C6F36B; color: #0F1115; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; line-height: 16px; text-align: center">3</span></a>
+    <a href="Jadwal.dc.html" data-hover aria-label="Jadwal" title="Jadwal" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+    <a href="Keuangan.dc.html" data-hover aria-label="Keuangan" title="Keuangan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M16 12.5h2"></path><path d="M3 10h18"></path></svg></a>
+    <a href="Proyek.dc.html" aria-label="Proyek" title="Proyek" aria-current="page" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #1D2129; color: #C6F36B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7M12 7v4M16 7v10"></path></svg></a>
+    <a href="Berkas.dc.html" data-hover aria-label="Berkas" title="Berkas" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a>
+    <a href="Unduhan.dc.html" data-hover aria-label="Unduhan" title="Unduhan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></a>
+    <div style="margin-top: auto"></div>
+    <button data-hover onClick="{{toggleNotif}}" aria-label="Notifikasi, 4 belum dibaca" aria-expanded="{{notifExpanded}}" title="Notifikasi" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; background: {{notifBg}}; color: {{notifColor}}; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #FF8A7A; border: 2px solid #0B0D10"></span></button>
+    <a href="Profil.dc.html" data-hover aria-label="Profil" title="Profil" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; "><span style="width: 32px; height: 32px; border-radius: 50%; box-sizing: border-box; border: 2px solid #3A4150; background: #2A303B; color: #C6F36B; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">R</span></a>
+    <a href="#" data-hover aria-label="Pengaturan" title="Pengaturan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg></a>
+  </nav>
+
+  <main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box; min-width: 0">
+    <div style="display: flex; align-items: center; gap: 16px">
+      <button onClick="{{openPalette}}" aria-label="Buka command palette" style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 42px; background: #171A21; border: 1px solid #262B35; border-radius: 10px; color: #9AA3B2; font: inherit; font-size: 14px; text-align: left; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex-grow: 1">Cari proyek, tugas, atau jalankan perintah…</span><kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2; border: 1px solid #262B35; border-radius: 6px; padding: 2px 6px">Ctrl K</kbd></button>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #9AA3B2">Sel 29 Sep · 22:48</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 14px">
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: -0.01em">Proyek</h1>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2; border: 1px solid #262B35; border-radius: 999px; padding: 3px 10px">{{activeCount}} aktif</span>
+      <div style="margin-left: auto; display: flex; gap: 10px">
+        <button data-press onClick="{{voiceAdd}}" style="min-height: 40px; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; padding: 0 16px; border-radius: 10px; border: 1px solid #262B35; background: #171A21; color: #E7E9EE; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>Tambah lewat suara</button>
+        <button data-press style="min-height: 40px; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; font-weight: 600; padding: 0 16px; border-radius: 10px; border: 0; background: #C6F36B; color: #0F1115; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Proyek</button>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px">
+
+      <div style="min-height: 0; display: flex; flex-direction: column; gap: 14px">
+        <section aria-labelledby="daftar-judul" style="display: flex; flex-direction: column; gap: 8px">
+          <h2 id="daftar-judul" style="margin: 0 0 2px; font-size: 11px; font-weight: 500; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">Daftar proyek</h2>
+          <sc-for list="{{projects}}" as="p" hint-placeholder-count="4">
+            <button onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px 14px; box-sizing: border-box; text-align: left; font: inherit; color: #E7E9EE; background: {{p.bg}}; border: 1px solid {{p.border}}; border-radius: 12px; cursor: pointer; transition: background-color 0.15s, border-color 0.15s">
+              <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+                <span style="flex-grow: 1; font-size: 14px; font-weight: 600; color: {{p.nameColor}}">{{p.name}}</span>
+                <span style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: {{p.statusColor}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{p.statusColor}}"></span>{{p.status}}</span>
+              </span>
+              <span style="font-size: 12px; color: #9AA3B2">{{p.meta}}</span>
+              <span style="display: flex; align-items: center; gap: 10px; width: 100%">
+                <span style="flex-grow: 1; height: 4px; border-radius: 2px; background: #262B35; overflow: hidden"><span data-bar style="display: block; height: 4px; width: {{p.pct}}%; border-radius: 2px; background: {{p.barBg}}"></span></span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2; min-width: 34px; text-align: right">{{p.pct}}%</span>
+              </span>
+            </button>
+          </sc-for>
+        </section>
+
+        <section aria-labelledby="tenggat-judul" style="background: #171A21; border: 1px solid #262B35; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+          <h2 id="tenggat-judul" style="margin: 0 0 6px; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Tenggat terdekat</h2>
+          <sc-for list="{{upcoming}}" as="u" hint-placeholder-count="3">
+            <button data-hover onClick="{{u.pick}}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; margin: 0 -8px; box-sizing: content-box; border: 0; border-radius: 8px; background: transparent; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer">
+              <span style="width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: {{u.dueColor}}"></span>
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+                <span style="font-size: 13px">{{u.title}}</span>
+                <span style="font-size: 11px; color: #9AA3B2">{{u.proj}}</span>
+              </span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{u.dueColor}}">{{u.due}}</span>
+            </button>
+          </sc-for>
+        </section>
+      </div>
+
+      <div style="min-height: 0; display: flex; flex-direction: column; gap: 14px">
+        <section aria-labelledby="proyek-judul" style="flex-shrink: 0; background: #171A21; border: 1px solid #262B35; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; align-items: flex-start; gap: 16px">
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <h2 id="proyek-judul" aria-live="polite" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.01em">{{sel.name}}</h2>
+              <p style="margin: 0; font-size: 13px; color: #9AA3B2">{{sel.desc}}</p>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 500">{{sel.pct}}%</span>
+              <span style="font-size: 12px; color: #9AA3B2">{{sel.done}} dari {{sel.total}} tugas</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{sel.deadlineColor}}; background: #1D2129; border-radius: 999px; padding: 4px 10px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>{{sel.deadline}}</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9AA3B2; background: #1D2129; border-radius: 999px; padding: 4px 10px">{{sel.kind}}</span>
+            <sc-if value="{{sel.repo}}" hint-placeholder-val="{{ true }}">
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #C6F36B; background: #1D2129; border-radius: 999px; padding: 4px 10px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"></circle><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="8" r="2.5"></circle><path d="M6 8.5v7M18 10.5c0 4-6 3-10.5 6"></path></svg>Repo terhubung · commit terakhir 2 jam lalu</span>
+            </sc-if>
+          </div>
+          <div aria-hidden="true" style="height: 6px; border-radius: 3px; background: #262B35; overflow: hidden"><div data-bar style="height: 6px; width: {{sel.pct}}%; border-radius: 3px; background: {{sel.barBg}}"></div></div>
+        </section>
+
+        <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+          <sc-for list="{{columns}}" as="col" hint-placeholder-count="3">
+            <section aria-label="{{col.title}}" style="min-height: 0; background: #12151B; border: 1px solid #262B35; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 2px 4px 4px">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: {{col.dot}}"></span>
+                <h3 style="margin: 0; font-size: 13px; font-weight: 600">{{col.title}}</h3>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2">{{col.count}}</span>
+              </div>
+              <sc-for list="{{col.cards}}" as="c" hint-placeholder-count="3">
+                <sc-if value="{{c.notDone}}" hint-placeholder-val="{{ true }}">
+                  <article style="background: #171A21; border: 1px solid #262B35; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+                    <span style="font-size: 14px; line-height: 1.4">{{c.title}}</span>
+                    <div style="display: flex; align-items: center; gap: 8px">
+                      <span style="font-size: 11px; color: #9AA3B2; background: #1D2129; border-radius: 999px; padding: 2px 8px">{{c.tag}}</span>
+                      <sc-if value="{{c.hasSub}}" hint-placeholder-val="{{ false }}">
+                        <span style="display: flex; align-items: center; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l2 2 4-4M4 17l2 2 4-4M13 7h7M13 17h7"></path></svg>{{c.sub}}</span>
+                      </sc-if>
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{c.dueColor}}">{{c.due}}</span>
+                      <button data-press onClick="{{c.move}}" aria-label="{{c.moveLabel}}" title="{{c.moveLabel}}" style="margin-left: auto; width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; border: 1px solid #262B35; background: #1D2129; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+                    </div>
+                  </article>
+                </sc-if>
+                <sc-if value="{{c.isDone}}" hint-placeholder-val="{{ false }}">
+                  <article style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #151920; border: 1px solid #1F242D">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+                    <span style="flex-grow: 1; min-width: 0; font-size: 13px; color: #8A93A3">{{c.title}}</span>
+                    <button data-hover onClick="{{c.reopen}}" aria-label="{{c.reopenLabel}}" title="Buka lagi" style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 6px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg></button>
+                  </article>
+                </sc-if>
+              </sc-for>
+              <sc-if value="{{col.empty}}" hint-placeholder-val="{{ false }}">
+                <span style="padding: 16px 4px; text-align: center; font-size: 12px; color: #9AA3B2; border: 1px dashed #262B35; border-radius: 10px">Kosong</span>
+              </sc-if>
+            </section>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+    <section data-anim aria-label="Asisten (mini)" style="position: absolute; right: 16px; bottom: 16px; width: 304px; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; box-sizing: border-box; background: #171A21; border: 1px solid #2E3440; border-radius: 18px; box-shadow: 0 16px 40px #00000073; animation: anchoa-pop 0.2s ease-out">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="position: relative; width: 44px; height: 44px; flex-shrink: 0">
+          <svg data-anim width="68" height="68" viewBox="0 0 68 68" aria-hidden="true" style="position: absolute; top: -12px; left: -12px; color: {{accent}}; fill: currentColor; opacity: {{ringOpacity}}; transition: color 0.4s, opacity 0.4s; animation: anchoa-school 12s linear infinite; animation-play-state: {{motion}}"><g transform="rotate(207 34 34) translate(34 5.4) scale(0.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(242 34 34) translate(34 6.8) scale(0.33)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(264 34 34) translate(34 6.3) scale(0.43)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(292 34 34) translate(34 5.6) scale(0.41)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.3"></path></g><g transform="rotate(312 34 34) translate(34 4.4) scale(0.42)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.44"></path></g><g transform="rotate(334 34 34) translate(34 6.8) scale(0.45)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.46"></path></g><g transform="rotate(351 34 34) translate(34 6.9) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.47"></path></g><g transform="rotate(375 34 34) translate(34 4.4) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.62"></path></g><g transform="rotate(391 34 34) translate(34 4.6) scale(0.46)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.68"></path></g><g transform="rotate(415 34 34) translate(34 6.7) scale(0.44)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.53"></path></g><g transform="rotate(435 34 34) translate(34 5.7) scale(0.51)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g></svg>
+          <div style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: #1D2129; border: 1px solid #262B35; box-sizing: border-box; display: flex; align-items: flex-end; justify-content: center; overflow: hidden">
+            <svg width="34" height="40" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg>
+          </div>
+        </div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">Asisten</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9AA3B2">
+            <span aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 10px">
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.1s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.4s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.65s infinite; animation-play-state: {{motion}}"></span>
+            </span>
+            <span aria-live="polite">{{statusText}}</span>
+          </span>
+        </div>
+        <a href="Main.dc.html" data-hover aria-label="Buka asisten penuh" title="Buka asisten penuh" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"></path><path d="M20 4l-7 7"></path><path d="M10 20H4v-6"></path><path d="M4 20l7-7"></path></svg></a>
+        <button data-hover onClick="{{minimize}}" aria-label="Kecilkan asisten" title="Kecilkan" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.45">{{aiMsg}}</p>
+
+      <sc-if value="{{typing}}" hint-placeholder-val="{{ false }}">
+        <label data-field style="display: flex; align-items: center; gap: 6px; background: #0F1115; border: 1px solid #262B35; border-radius: 10px; padding: 4px 4px 4px 12px">
+          <input aria-label="Ketik pesan ke asisten" placeholder="Ketik pesan…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px">
+          <button aria-label="Kirim" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: #1D2129; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+        </label>
+      </sc-if>
+
+      <div style="display: flex; align-items: center; gap: 8px">
+        <sc-if value="{{showChips}}" hint-placeholder-val="{{ true }}">
+          <button data-press onClick="{{remind}}" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Ingatkan</button>
+          <button data-press onClick="{{minimize}}" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #262B35; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Nanti</button>
+        </sc-if>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px">
+          <button data-press onClick="{{toggleType}}" aria-label="Ketik pesan" aria-pressed="{{typePressed}}" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #262B35; background: {{typeBg}}; color: {{typeColor}}; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path></svg></button>
+          <div style="position: relative; width: 44px; height: 44px">
+            <sc-if value="{{isListening}}" hint-placeholder-val="{{ false }}">
+              <span data-anim aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 44px; height: 44px; border-radius: 50%; background: #FF8A7A; opacity: 0; animation: anchoa-pulse 1.6s ease-out infinite"></span>
+            </sc-if>
+            <button data-press onClick="{{toggleMic}}" aria-label="{{micLabel}}" aria-pressed="{{micPressed}}" style="position: relative; width: 44px; height: 44px; border-radius: 50%; border: 0; background: {{micBg}}; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{collapsed}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; right: 20px; bottom: 20px; display: flex; align-items: center; gap: 10px">
+      <sc-if value="{{nudge}}" hint-placeholder-val="{{ true }}">
+        <div data-anim style="display: flex; align-items: center; gap: 2px; padding: 4px 4px 4px 14px; background: #171A21; border: 1px solid #2E3440; border-radius: 999px; box-shadow: 0 10px 28px #00000066; animation: anchoa-pop 0.2s ease-out">
+          <button onClick="{{expand}}" style="border: 0; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; padding: 6px 4px; cursor: pointer">Laporan project jatuh tempo hari ini</button>
+          <button data-hover onClick="{{dismissNudge}}" aria-label="Tutup saran" style="width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+      </sc-if>
+      <button data-press onClick="{{expand}}" aria-label="Buka asisten" title="Buka asisten" style="position: relative; width: 60px; height: 60px; flex-shrink: 0; border-radius: 50%; border: 1px solid #2E3440; background: #171A21; box-shadow: 0 10px 28px #00000066; display: flex; align-items: flex-end; justify-content: center; padding: 0; cursor: pointer">
+        <span style="width: 58px; height: 58px; border-radius: 50%; overflow: hidden; display: flex; align-items: flex-end; justify-content: center"><svg width="42" height="50" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg></span>
+        <span style="position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%; background: #C6F36B; color: #0F1115; border: 2px solid #0F1115; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path></svg></span>
+        <sc-if value="{{nudge}}" hint-placeholder-val="{{ true }}">
+          <span style="position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; border-radius: 50%; background: #FF8A7A; border: 2px solid #0F1115"></span>
+        </sc-if>
+      </button>
+    </div>
+  </sc-if>
+  <sc-if value="{{notifOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 72px; width: 1208px; height: 800px">
+      <dc-import name="NotifPanel" on-close="{{closeNotif}}" overlay="{{ true }}" hint-size="1208px,800px"></dc-import>
+    </div>
+  </sc-if>
+  <sc-if value="{{paletteOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 0; width: 1280px; height: 800px">
+      <dc-import name="CommandPalette" on-close="{{closePalette}}" overlay="{{ true }}" hint-size="1280px,800px"></dc-import>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const moves = st.moves || {};
+    const PROJECTS = [
+      {
+        id: 'anchoa', name: 'Anchoa v1', kind: 'Aplikasi', repo: true, dl: '31 Okt', dlN: 32,
+        desc: 'Dashboard pribadi dengan asisten suara (STT/TTS) dan avatar Live2D.',
+        tasks: [
+          { id: 'a1', t: 'Integrasi GitHub API untuk heatmap', tag: 'Backend', due: '10 Okt', n: 11, col: 0 },
+          { id: 'a2', t: 'Mode popup asisten di semua halaman', tag: 'UI', due: '12 Okt', n: 13, col: 0 },
+          { id: 'a3', t: 'Ekspor laporan keuangan', tag: 'Fitur', due: '20 Okt', n: 21, col: 0 },
+          { id: 'a4', t: 'Uji akurasi STT bahasa Indonesia', tag: 'QA', due: '24 Okt', n: 25, col: 0 },
+          { id: 'a5', t: 'Halaman Keuangan', tag: 'UI', due: '3 Okt', n: 4, col: 1, sub: '3/5' },
+          { id: 'a6', t: 'Pipeline TTS', tag: 'Backend', due: '6 Okt', n: 7, col: 1, sub: '1/4' },
+          { id: 'a7', t: 'Pause render Live2D saat idle', tag: 'Performa', due: '8 Okt', n: 9, col: 1 },
+          { id: 'a8', t: 'Design tokens', tag: 'UI', due: '', n: 99, col: 2 },
+          { id: 'a9', t: 'Layout dashboard', tag: 'UI', due: '', n: 99, col: 2 },
+          { id: 'a10', t: 'Heatmap kontribusi', tag: 'UI', due: '', n: 99, col: 2 },
+          { id: 'a11', t: 'Motif kawanan teri', tag: 'UI', due: '', n: 99, col: 2 },
+          { id: 'a12', t: 'Navigasi utama', tag: 'UI', due: '', n: 99, col: 2 }
+        ]
+      },
+      {
+        id: 'laporan', name: 'Laporan project', kind: 'Dokumen', repo: false, dl: 'hari ini', dlN: 0,
+        desc: 'Laporan akhir project, siap dikirim.',
+        tasks: [
+          { id: 'l1', t: 'Kirim laporan project', tag: 'Dokumen', due: 'hari ini', n: 0, col: 1 },
+          { id: 'l2', t: 'Kumpulkan data', tag: 'Riset', due: '', n: 99, col: 2 },
+          { id: 'l3', t: 'Tulis bab hasil', tag: 'Dokumen', due: '', n: 99, col: 2 },
+          { id: 'l4', t: 'Buat grafik', tag: 'Dokumen', due: '', n: 99, col: 2 },
+          { id: 'l5', t: 'Revisi format', tag: 'Dokumen', due: '', n: 99, col: 2 }
+        ]
+      },
+      {
+        id: 'riset', name: 'Riset topik baru', kind: 'Riset', repo: false, dl: '15 Nov', dlN: 47,
+        desc: 'Eksplorasi topik berikutnya sebelum mulai menulis.',
+        tasks: [
+          { id: 'r1', t: 'Baca 5 paper utama', tag: 'Riset', due: '12 Okt', n: 13, col: 0 },
+          { id: 'r2', t: 'Susun pertanyaan riset', tag: 'Riset', due: '19 Okt', n: 20, col: 0 },
+          { id: 'r3', t: 'Tentukan metode', tag: 'Riset', due: '26 Okt', n: 27, col: 0 },
+          { id: 'r4', t: 'Buat kerangka tulisan', tag: 'Dokumen', due: '9 Nov', n: 41, col: 0 },
+          { id: 'r5', t: 'Kumpulkan referensi', tag: 'Riset', due: '5 Okt', n: 6, col: 1, sub: '7/15' },
+          { id: 'r6', t: 'Tentukan topik', tag: 'Riset', due: '', n: 99, col: 2 }
+        ]
+      },
+      {
+        id: 'cv', name: 'Desain ulang CV', kind: 'Pribadi', repo: false, dl: '20 Sep', dlN: -9,
+        desc: 'CV dengan format dan isi yang diperbarui.',
+        tasks: [
+          { id: 'c1', t: 'Pilih template', tag: 'Desain', due: '', n: 99, col: 2 },
+          { id: 'c2', t: 'Tulis ringkasan diri', tag: 'Dokumen', due: '', n: 99, col: 2 },
+          { id: 'c3', t: 'Perbarui pengalaman', tag: 'Dokumen', due: '', n: 99, col: 2 },
+          { id: 'c4', t: 'Ekspor PDF', tag: 'Dokumen', due: '', n: 99, col: 2 }
+        ]
+      }
+    ];
+
+    const colOf = (t) => (moves[t.id] ?? t.col);
+    const setCol = (id, c) => {
+      const next = Object.assign({}, moves);
+      next[id] = c;
+      this.setState({ moves: next });
+    };
+    const dueColor = (n) => (n < 0 ? '#FF8A7A' : n === 0 ? '#E7E9EE' : '#9AA3B2');
+    const stats = PROJECTS.map((p) => {
+      const total = p.tasks.length;
+      const done = p.tasks.filter((t) => colOf(t) === 2).length;
+      return { total: total, done: done, pct: Math.round((done / total) * 100), finished: done === total };
+    });
+
+    const si = st.p ?? 0;
+    const projects = PROJECTS.map((p, i) => {
+      const s = stats[i];
+      const sel = i === si;
+      return {
+        name: p.name,
+        meta: p.kind + ' · ' + (s.finished ? 'selesai' : 'deadline ' + p.dl),
+        pct: s.pct,
+        barBg: s.finished ? '#4E6A26' : '#C6F36B',
+        status: s.finished ? 'Selesai' : 'Aktif',
+        statusColor: s.finished ? '#9AA3B2' : '#C6F36B',
+        nameColor: s.finished ? '#9AA3B2' : '#E7E9EE',
+        bg: sel ? '#1D2129' : '#171A21',
+        border: sel ? '#4E6A26' : '#262B35',
+        pressed: sel ? 'true' : 'false',
+        pick: () => this.setState({ p: i })
+      };
+    });
+
+    const P = PROJECTS[si];
+    const S = stats[si];
+    const sel = {
+      name: P.name,
+      desc: P.desc,
+      kind: P.kind,
+      repo: P.repo,
+      pct: S.pct,
+      done: S.done,
+      total: S.total,
+      barBg: S.finished ? '#4E6A26' : '#C6F36B',
+      deadline: S.finished ? 'Selesai' : P.dlN === 0 ? 'Deadline hari ini' : 'Deadline ' + P.dl + ' · ' + P.dlN + ' hari lagi',
+      deadlineColor: S.finished ? '#9AA3B2' : P.dlN <= 3 ? '#FF8A7A' : '#E7E9EE'
+    };
+
+    const COLS = [
+      { title: 'Rencana', dot: '#9AA3B2' },
+      { title: 'Dikerjakan', dot: '#C6F36B' },
+      { title: 'Selesai', dot: '#4E6A26' }
+    ];
+    const NEXT_LABEL = ['Mulai kerjakan', 'Tandai selesai'];
+    const columns = COLS.map((c, ci) => {
+      const cards = P.tasks.filter((t) => colOf(t) === ci).sort((a, b) => a.n - b.n).map((t) => ({
+        title: t.t,
+        tag: t.tag,
+        due: t.n === 0 ? 'Hari ini' : t.due,
+        dueColor: dueColor(t.n),
+        sub: t.sub || '',
+        hasSub: !!t.sub,
+        isDone: ci === 2,
+        notDone: ci !== 2,
+        moveLabel: (NEXT_LABEL[ci] || '') + ': ' + t.t,
+        move: () => setCol(t.id, ci + 1),
+        reopenLabel: 'Buka lagi: ' + t.t,
+        reopen: () => setCol(t.id, 1)
+      }));
+      return { title: c.title, dot: c.dot, count: cards.length, cards: cards, empty: cards.length === 0 };
+    });
+
+    const upcoming = [];
+    PROJECTS.forEach((p, i) => {
+      p.tasks.forEach((t) => {
+        if (colOf(t) !== 2 && t.n < 99) upcoming.push({ t: t, p: p, i: i });
+      });
+    });
+    upcoming.sort((a, b) => a.t.n - b.t.n);
+
+    const open = !!st.open;
+    const nudge = st.nudge ?? true;
+    const mode = st.mode || 'idle';
+    const listening = mode === 'listening';
+    const reminded = !!st.reminded;
+    const typing = !!st.typing;
+
+    return {
+      paletteOpen: !!st.palette,
+      openPalette: () => this.setState({ palette: true, notif: false }),
+      closePalette: () => this.setState({ palette: false }),
+      notifOpen: !!st.notif,
+      notifExpanded: st.notif ? 'true' : 'false',
+      notifBg: st.notif ? '#1D2129' : 'transparent',
+      notifColor: st.notif ? '#C6F36B' : '#9AA3B2',
+      toggleNotif: () => this.setState({ notif: !st.notif, palette: false }),
+      closeNotif: () => this.setState({ notif: false }),
+      activeCount: stats.filter((s) => !s.finished).length,
+      projects: projects,
+      sel: sel,
+      columns: columns,
+      upcoming: upcoming.slice(0, 3).map((u) => ({
+        title: u.t.t,
+        proj: u.p.name,
+        due: u.t.n === 0 ? 'Hari ini' : u.t.due,
+        dueColor: u.t.n <= 0 ? '#FF8A7A' : '#9AA3B2',
+        pick: () => this.setState({ p: u.i })
+      })),
+
+      open: open,
+      collapsed: !open,
+      nudge: nudge && !reminded,
+      expand: () => this.setState({ open: true, nudge: false }),
+      dismissNudge: () => this.setState({ nudge: false }),
+      minimize: () => this.setState({ open: false, mode: 'idle', typing: false }),
+      voiceAdd: () => this.setState({ open: true, nudge: false, mode: 'listening' }),
+      isListening: listening,
+      motion: listening ? 'running' : 'paused',
+      accent: listening ? '#FF8A7A' : '#C6F36B',
+      ringOpacity: listening ? '1' : '0.55',
+      statusText: listening ? 'Mendengarkan…' : 'Siap',
+      aiMsg: listening ? 'Silakan bicara, misalnya “tambah tugas uji TTS ke Anchoa, deadline Jumat”.' : reminded ? 'Oke, kuingatkan jam 20.00 untuk kirim laporan.' : 'Laporan project jatuh tempo hari ini, tinggal 1 tugas lagi. Mau kuingatkan jam 20.00?',
+      showChips: !reminded && !listening,
+      remind: () => this.setState({ reminded: true }),
+      toggleMic: () => this.setState({ mode: listening ? 'idle' : 'listening' }),
+      micPressed: listening ? 'true' : 'false',
+      micLabel: listening ? 'Berhenti mendengarkan' : 'Ketuk untuk bicara',
+      micBg: listening ? '#FF8A7A' : '#C6F36B',
+      typing: typing,
+      toggleType: () => this.setState({ typing: !typing }),
+      typePressed: typing ? 'true' : 'false',
+      typeBg: typing ? '#1D2129' : 'transparent',
+      typeColor: typing ? '#C6F36B' : '#9AA3B2'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 mod backup;
+mod bills;
 mod commands;
 mod dashboard;
 mod db;

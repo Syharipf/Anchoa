@@ -2,6 +2,7 @@ import type { Dashboard as DashboardData, DayTask } from "../api";
 import { greeting } from "../format";
 import { pageInfo, type PageId } from "../shell/nav";
 import { H1, SECONDARY } from "../shell/ui";
+import { FinanceCard } from "./FinanceCard";
 import { ModuleCard } from "./ModuleCard";
 import { RecentPanel } from "./RecentPanel";
 import { summaryLine } from "./summary";
@@ -36,7 +37,7 @@ export function Dashboard({
       </div>
       <div className="grid grid-cols-3 items-start gap-3.5">
         <TodayPanel tasks={data?.today} onToggle={onToggle} onOpen={onOpen} />
-        {moduleCard("keuangan")}
+        <FinanceCard finance={data?.finance} onSelect={onSelect} />
         <UpcomingCard days={data?.upcoming} onOpen={onOpen} />
         {moduleCard("email")}
         {moduleCard("proyek")}

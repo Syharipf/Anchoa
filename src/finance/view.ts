@@ -1,5 +1,5 @@
 // Pure display rules for the Keuangan page (spec Fase 2 §5).
-import type { AccountKind, AccountView, TransactionView } from "../api";
+import type { AccountKind, AccountView, BillView, TransactionView } from "../api";
 import { monthOf } from "../money";
 
 export const KIND_LABELS: Record<AccountKind, string> = {
@@ -56,4 +56,14 @@ export function groupByMonth(items: TransactionView[]): MonthGroup[] {
 export function accountShares(accounts: AccountView[]): Map<string, number> {
   const total = accounts.reduce((sum, a) => sum + Math.max(a.balance, 0), 0);
   return new Map(accounts.filter((a) => a.balance > 0).map((a) => [a.id, Math.round((a.balance * 100) / total)]));
+}
+
+/** Chip on the dashboard Keuangan card (spec Fase 2 §5). `dueBills` is overdue or due today. */
+export function billChip(dueBills: BillView[]): { text: string; tone: "danger" | "ink" | "accent" } {
+  const late = dueBills.filter((b) => b.status === "overdue").length;
+  if (late > 0) return { text: `${late} terlambat`, tone: "danger" };
+  const today = dueBills.filter((b) => b.status === "dueToday");
+  if (today.length === 1) return { text: `${today[0].name} hari ini`, tone: "ink" };
+  if (today.length > 1) return { text: `${today.length} tagihan hari ini`, tone: "ink" };
+  return { text: "Tagihan aman", tone: "accent" };
 }

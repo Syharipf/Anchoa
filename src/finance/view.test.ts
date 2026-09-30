@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AccountView, TransactionView } from "../api";
-import { accountShares, groupByMonth, iconFor, isIncome, transactionMeta } from "./view";
+import type { AccountView, BillView, TransactionView } from "../api";
+import { accountShares, billChip, groupByMonth, iconFor, isIncome, transactionMeta } from "./view";
 
 const tx = (over: Partial<TransactionView> = {}): TransactionView => ({
   id: "t",
@@ -69,5 +69,26 @@ describe("accountShares", () => {
       ["bank", 87],
       ["tunai", 13],
     ]);
+  });
+});
+
+const bill = (name: string, status: BillView["status"]): BillView => ({
+  id: name,
+  name,
+  amount: 1000,
+  accountId: "a",
+  accountName: "BCA",
+  repeat: "monthly",
+  dueAt: 0,
+  status,
+  daysLate: status === "overdue" ? 1 : 0,
+});
+
+describe("billChip", () => {
+  test("late bills first, then today's, else all clear", () => {
+    expect(billChip([bill("Listrik", "overdue"), bill("Air", "dueToday")])).toEqual({ text: "1 terlambat", tone: "danger" });
+    expect(billChip([bill("Air", "dueToday")])).toEqual({ text: "Air hari ini", tone: "ink" });
+    expect(billChip([bill("Air", "dueToday"), bill("Gas", "dueToday")])).toEqual({ text: "2 tagihan hari ini", tone: "ink" });
+    expect(billChip([])).toEqual({ text: "Tagihan aman", tone: "accent" });
   });
 });

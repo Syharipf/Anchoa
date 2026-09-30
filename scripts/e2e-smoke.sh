@@ -122,6 +122,14 @@ check_palette() {
   sleep 0.3
   shot 4-palette-closed     # expect: palette gone, Keuangan still open
   [[ "$(sql "SELECT COUNT(*) FROM items")" = 0 ]] || fail "opening a page must not save a note"
+  click 36 148          # Inbox
+  xdotool key ctrl+n
+  sleep 0.3
+  xdotool type --delay 20 'catatan dari palette'
+  xdotool key Return
+  sleep 1
+  shot 4-palette-inbox  # expect: the new note listed in the Inbox
+  [[ "$(sql "SELECT COUNT(*) FROM items")" = 1 ]] || fail "palette capture must save exactly one note"
   stop_app
 }
 
@@ -129,6 +137,7 @@ check_dashboard() {
   fresh
   start_app
   xdotool key ctrl+n
+  sleep 0.3
   xdotool type --delay 20 'tugas hari ini'
   xdotool key Return
   sleep 1

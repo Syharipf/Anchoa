@@ -29,7 +29,11 @@ export function Dashboard({
       <div className="flex items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className={H1}>{greeting(now.getHours())}</h1>
-          <p className="m-0 truncate text-sm text-muted">{data ? summaryLine(data.today, data.inboxCount) : " "}</p>
+          <p className="m-0 truncate text-sm text-muted">
+            {data
+              ? summaryLine(data.today, data.inboxCount, data.finance.dueBills.filter((b) => b.status === "overdue").length)
+              : " "}
+          </p>
         </div>
         <button disabled title="Hadir di Fase 5" className={`${SECONDARY} shrink-0 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-transparent`}>
           Dengarkan rekap

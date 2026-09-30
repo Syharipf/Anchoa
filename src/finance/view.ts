@@ -1,6 +1,7 @@
 // Pure display rules for the Keuangan page (spec Fase 2 §5).
 import type { AccountKind, AccountView, BillView, TransactionView } from "../api";
 import { monthOf } from "../money";
+import { shortDate } from "../format";
 
 export const KIND_LABELS: Record<AccountKind, string> = {
   cash: "Tunai",
@@ -66,4 +67,12 @@ export function billChip(dueBills: BillView[]): { text: string; tone: "danger" |
   if (today.length === 1) return { text: `${today[0].name} hari ini`, tone: "ink" };
   if (today.length > 1) return { text: `${today.length} tagihan hari ini`, tone: "ink" };
   return { text: "Tagihan aman", tone: "accent" };
+}
+
+/** Second line of a bill row, e.g. "Terlambat 1 hari · sejak 28 Sep". */
+export function billStatusText(b: BillView): string {
+  if (b.status === "overdue") return `Terlambat ${b.daysLate} hari · sejak ${shortDate(b.dueAt)}`;
+  if (b.status === "dueToday") return "Jatuh tempo hari ini";
+  if (b.status === "paidToday") return "Lunas hari ini";
+  return `Jatuh tempo ${shortDate(b.dueAt)}`;
 }

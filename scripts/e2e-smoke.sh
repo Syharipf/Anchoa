@@ -246,6 +246,42 @@ check_finance() {
   stop_app
 }
 
+check_bills() {
+  fresh
+  start_app
+  click 36 310                 # nav: Keuangan
+  add_account
+  shot 11-finance-account      # measure "+ Tambah" of Tagihan and the first bill row from here
+  click 1207 461               # Tagihan: + Tambah (no limit set, so the cards are 12px shorter than in check_finance)
+  shot 11-bill-form            # expect: "Tagihan baru", Bulanan pressed, due today
+  xdotool type --delay 20 'Listrik'
+  xdotool key Tab              # Nama -> Jumlah
+  xdotool type --delay 20 '150000'
+  xdotool key Return
+  sleep 1
+  [[ "$(sql "SELECT i.title || ':' || b.amount || ':' || b.repeat FROM bills b JOIN items i ON i.id = b.item_id")" = "Listrik:150000:monthly" ]] \
+    || fail "bill not saved"
+  sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE type = 'bill'"
+
+  click 36 94                  # nav: Dashboard reloads the data behind the bell
+  shot 11-dashboard-late       # expect: "· 1 tagihan terlambat", chip "1 terlambat", coral dot on the bell
+  click 36 652                 # bell
+  shot 11-notif-bill           # expect: "Listrik" under Terlambat, "Terlambat 1 hari · Rp 150.000"
+  xdotool key Escape
+  sleep 0.3
+  click 36 310                 # nav: Keuangan
+  shot 11-bill-late            # expect: Listrik row on coral, "Terlambat 1 hari · sejak <yesterday>", "Tandai lunas"
+  before=$(sql "SELECT due_at FROM items WHERE type = 'bill'")
+  click 1177 508               # Tandai lunas on the first bill row
+  sleep 1
+  shot 11-bill-paid            # expect: "Lunas hari ini", toast "Tercatat Rp 150.000" with "Ubah"
+  [[ "$(sql "SELECT amount || ':' || category FROM transactions WHERE bill_id IS NOT NULL")" = "-150000:Tagihan" ]] \
+    || fail "payment not recorded"
+  after=$(sql "SELECT due_at FROM items WHERE type = 'bill'")
+  (( after - before >= 28 * 86400000 )) || fail "due date did not move a month ahead"
+  stop_app
+}
+
 check_backup() {
   fresh
   start_app
@@ -306,6 +342,7 @@ check_palette
 check_dashboard
 check_notifications
 check_finance
+check_bills
 check_backup
 check_assistant
 check_github

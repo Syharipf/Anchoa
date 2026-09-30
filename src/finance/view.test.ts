@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AccountView, BillView, TransactionView } from "../api";
-import { accountShares, billChip, groupByMonth, iconFor, isIncome, transactionMeta } from "./view";
+import { accountShares, billChip, billStatusText, groupByMonth, iconFor, isIncome, transactionMeta } from "./view";
 
 const tx = (over: Partial<TransactionView> = {}): TransactionView => ({
   id: "t",
@@ -90,5 +90,16 @@ describe("billChip", () => {
     expect(billChip([bill("Air", "dueToday")])).toEqual({ text: "Air hari ini", tone: "ink" });
     expect(billChip([bill("Air", "dueToday"), bill("Gas", "dueToday")])).toEqual({ text: "2 tagihan hari ini", tone: "ink" });
     expect(billChip([])).toEqual({ text: "Tagihan aman", tone: "accent" });
+  });
+});
+
+describe("billStatusText", () => {
+  test("describes each status", () => {
+    const sep28 = new Date(2026, 8, 28).getTime();
+    const oct5 = new Date(2026, 9, 5).getTime();
+    expect(billStatusText({ ...bill("Listrik", "overdue"), dueAt: sep28 })).toBe("Terlambat 1 hari · sejak 28 Sep");
+    expect(billStatusText(bill("Air", "dueToday"))).toBe("Jatuh tempo hari ini");
+    expect(billStatusText({ ...bill("Internet", "upcoming"), dueAt: oct5 })).toBe("Jatuh tempo 5 Okt");
+    expect(billStatusText(bill("Gas", "paidToday"))).toBe("Lunas hari ini");
   });
 });

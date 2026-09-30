@@ -1,4 +1,5 @@
 mod backup;
+mod bills;
 mod commands;
 mod dashboard;
 mod db;
@@ -7,6 +8,7 @@ mod finance;
 mod github;
 mod gpu;
 mod items;
+mod overview;
 mod time;
 
 use tauri::Manager;
@@ -61,6 +63,17 @@ pub fn run() {
             commands::list_accounts,
             commands::save_account,
             commands::delete_account,
+            commands::list_transactions,
+            commands::save_transaction,
+            commands::save_transfer,
+            commands::delete_transaction,
+            commands::finance_categories,
+            commands::finance_overview,
+            commands::set_budget,
+            commands::list_bills,
+            commands::save_bill,
+            commands::pay_bill,
+            commands::delete_bill,
             commands::github_status,
             commands::connect_github,
             commands::disconnect_github,

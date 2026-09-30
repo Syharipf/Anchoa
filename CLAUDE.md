@@ -78,10 +78,10 @@ Do not start implementing a phase until the user approves moving from planning t
 
   ```bash
   git diff main...HEAD > .git/review.diff
-  agy --model gemini-3.8-flash-high --mode plan --print-timeout 600s -p "Do not run shell commands; read files only with your built-in file viewing tool. Review the diff in .git/review.diff against CLAUDE.md and the spec for this PR. Open changed files for context. Report bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
+  agy --model gemini-3.8-flash-high --mode plan --print-timeout 600s -p "Rules: do not run shell commands, do not open URLs, and read only files inside this repository with your built-in file viewing tool. Task: review the diff in .git/review.diff against CLAUDE.md and the spec for this PR. Open changed files for context. Report bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
   ```
 
-  Put `--model` before `-p`, because `-p` takes the next argument as the prompt. Headless `agy` denies shell commands that are not in its allow-list, and it ignores stdin, so give it the diff as a file inside the repo.
+  Put `--model` before `-p`, because `-p` takes the next argument as the prompt. Headless `agy` ignores stdin, so give it the diff as a file inside the repo. It denies any tool call that needs a permission prompt (shell commands outside its allow-list, URLs, files outside the repo), and one denial ends the run with `jetski: no output produced`. The rules at the start of the prompt prevent that; if it still happens, run it once more. Check every finding before fixing it: Gemini also reports false positives.
 - If `agy` fails (not installed, auth, quota, timeout, or no output), review with an Opus subagent instead. Use this only as the last resort.
 
 ## GUI testing

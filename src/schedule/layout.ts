@@ -81,7 +81,7 @@ export function chipsFor(
  * today if targetMonth contains today, else the 1st of that month.
  */
 export function navSelectedDate(targetMonth: string, today: string): string {
-  if (today && today.startsWith(targetMonth)) {
+  if (today?.startsWith(targetMonth)) {
     return today;
   }
   return `${targetMonth}-01`;

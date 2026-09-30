@@ -11,11 +11,11 @@ function ItemCheckbox({
   item,
   onToggleTask,
   onPayBill,
-}: {
+}: Readonly<{
   item: ScheduleItem;
   onToggleTask: (item: ScheduleItem) => void;
   onPayBill: (item: ScheduleItem) => void;
-}) {
+}>) {
   if (!item.checkable) {
     return <div className="h-4 w-4 shrink-0" />;
   }
@@ -35,6 +35,97 @@ function ItemCheckbox({
       aria-label={`Tandai selesai: ${item.title}`}
       className="h-4 w-4 shrink-0 cursor-pointer accent-accent disabled:cursor-not-allowed"
     />
+  );
+}
+
+function formatLateDate(dueDate: string): string {
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return `${d} ${dt.toLocaleDateString("id-ID", { month: "short" })}`;
+}
+
+function rowContainerClass(variant: "late" | "due" | "next"): string {
+  if (variant === "late") {
+    return "flex items-center gap-2.5 rounded-lg bg-danger-row p-2 text-ink";
+  }
+  if (variant === "next") {
+    return "flex items-center gap-2.5 rounded px-1 py-1 transition-colors hover:bg-surface-2";
+  }
+  return "flex items-center gap-2.5 rounded-lg p-2 transition-colors hover:bg-surface-2";
+}
+
+export function AgendaRow({
+  item,
+  onToggleTask,
+  onPayBill,
+  onOpenItem,
+  onOpenFinance,
+  variant = "due",
+}: Readonly<{
+  item: ScheduleItem;
+  onToggleTask: (item: ScheduleItem) => void;
+  onPayBill: (item: ScheduleItem) => void;
+  onOpenItem: (id: string) => void;
+  onOpenFinance: () => void;
+  variant?: "late" | "due" | "next";
+}>) {
+  const handleClick = () => {
+    if (item.source === "task") {
+      onOpenItem(item.id);
+    } else {
+      onOpenFinance();
+    }
+  };
+
+  const isNext = variant === "next";
+  const titleClass = `truncate text-[13px] ${
+    item.status === "done" ? "text-done line-through" : "text-ink"
+  }`;
+
+  return (
+    <div className={rowContainerClass(variant)}>
+      <ItemCheckbox
+        item={item}
+        onToggleTask={onToggleTask}
+        onPayBill={onPayBill}
+      />
+      <span
+        className={`${isNext ? "h-4" : "h-7"} w-[3px] shrink-0 rounded-[1px]`}
+        style={{ backgroundColor: KIND_COLORS[item.kind] }}
+      />
+      {isNext ? (
+        <>
+          <button
+            type="button"
+            onClick={handleClick}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+          >
+            <span className={titleClass}>{item.title}</span>
+          </button>
+          <span className="shrink-0 text-[11px] text-muted">
+            {item.groupName}
+          </span>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={handleClick}
+            className="flex min-w-0 flex-1 flex-col text-left cursor-pointer"
+          >
+            <span className={titleClass}>{item.title}</span>
+            <span className="truncate text-[11px] text-muted">
+              {item.groupName}
+            </span>
+          </button>
+          {variant === "late" && (
+            <span className="shrink-0 font-mono text-[11px] text-danger">
+              {formatLateDate(item.dueDate)}
+            </span>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -112,53 +203,17 @@ export function AgendaPanel({
             </svg>
             Terlambat
           </div>
-          {late.map((item) => {
-            const [y, m, d] = item.dueDate.split("-").map(Number);
-            const dt = new Date(y, m - 1, d);
-            const when = `${d} ${dt.toLocaleDateString("id-ID", { month: "short" })}`;
-
-            return (
-              <div
-                key={item.key}
-                className="flex items-center gap-2.5 rounded-lg bg-danger-row p-2 text-ink"
-              >
-                <ItemCheckbox
-                  item={item}
-                  onToggleTask={onToggleTask}
-                  onPayBill={onPayBill}
-                />
-                <span
-                  className="h-7 w-[3px] shrink-0 rounded-[1px]"
-                  style={{ backgroundColor: KIND_COLORS[item.kind] }}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    item.source === "task"
-                      ? onOpenItem(item.id)
-                      : onOpenFinance()
-                  }
-                  className="flex min-w-0 flex-1 flex-col text-left cursor-pointer"
-                >
-                  <span
-                    className={`truncate text-[13px] ${
-                      item.status === "done"
-                        ? "text-done line-through"
-                        : "text-ink"
-                    }`}
-                  >
-                    {item.title}
-                  </span>
-                  <span className="truncate text-[11px] text-muted">
-                    {item.groupName}
-                  </span>
-                </button>
-                <span className="shrink-0 font-mono text-[11px] text-danger">
-                  {when}
-                </span>
-              </div>
-            );
-          })}
+          {late.map((item) => (
+            <AgendaRow
+              key={item.key}
+              item={item}
+              variant="late"
+              onToggleTask={onToggleTask}
+              onPayBill={onPayBill}
+              onOpenItem={onOpenItem}
+              onOpenFinance={onOpenFinance}
+            />
+          ))}
         </div>
       )}
 
@@ -172,42 +227,15 @@ export function AgendaPanel({
           </span>
         ) : (
           due.map((item) => (
-            <div
+            <AgendaRow
               key={item.key}
-              className="flex items-center gap-2.5 rounded-lg p-2 transition-colors hover:bg-surface-2"
-            >
-              <ItemCheckbox
-                item={item}
-                onToggleTask={onToggleTask}
-                onPayBill={onPayBill}
-              />
-              <span
-                className="h-7 w-[3px] shrink-0 rounded-[1px]"
-                style={{ backgroundColor: KIND_COLORS[item.kind] }}
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  item.source === "task"
-                    ? onOpenItem(item.id)
-                    : onOpenFinance()
-                }
-                className="flex min-w-0 flex-1 flex-col text-left cursor-pointer"
-              >
-                <span
-                  className={`truncate text-[13px] ${
-                    item.status === "done"
-                      ? "text-done line-through"
-                      : "text-ink"
-                  }`}
-                >
-                  {item.title}
-                </span>
-                <span className="truncate text-[11px] text-muted">
-                  {item.groupName}
-                </span>
-              </button>
-            </div>
+              item={item}
+              variant="due"
+              onToggleTask={onToggleTask}
+              onPayBill={onPayBill}
+              onOpenItem={onOpenItem}
+              onOpenFinance={onOpenFinance}
+            />
           ))
         )}
       </div>
@@ -227,42 +255,15 @@ export function AgendaPanel({
                 {g.label}
               </span>
               {g.items.map((item) => (
-                <div
+                <AgendaRow
                   key={item.key}
-                  className="flex items-center gap-2.5 rounded px-1 py-1 transition-colors hover:bg-surface-2"
-                >
-                  <ItemCheckbox
-                    item={item}
-                    onToggleTask={onToggleTask}
-                    onPayBill={onPayBill}
-                  />
-                  <span
-                    className="h-4 w-[3px] shrink-0 rounded-[1px]"
-                    style={{ backgroundColor: KIND_COLORS[item.kind] }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      item.source === "task"
-                        ? onOpenItem(item.id)
-                        : onOpenFinance()
-                    }
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
-                  >
-                    <span
-                      className={`truncate text-[13px] ${
-                        item.status === "done"
-                          ? "text-done line-through"
-                          : "text-ink"
-                      }`}
-                    >
-                      {item.title}
-                    </span>
-                  </button>
-                  <span className="shrink-0 text-[11px] text-muted">
-                    {item.groupName}
-                  </span>
-                </div>
+                  item={item}
+                  variant="next"
+                  onToggleTask={onToggleTask}
+                  onPayBill={onPayBill}
+                  onOpenItem={onOpenItem}
+                  onOpenFinance={onOpenFinance}
+                />
               ))}
             </div>
           ))

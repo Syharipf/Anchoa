@@ -27,11 +27,8 @@ export function ScheduleHeader({
     <div className="flex flex-col gap-3.5">
       <div className="flex items-center gap-3.5">
         <h1 className={H1}>Jadwal</h1>
-        <div
-          role="group"
-          aria-label="Tampilan"
-          className="flex gap-0.5 rounded-[10px] border border-line bg-surface p-[3px]"
-        >
+        <fieldset className="m-0 flex gap-0.5 rounded-[10px] border border-line bg-surface p-[3px]">
+          <legend className="sr-only">Tampilan</legend>
           <button
             type="button"
             onClick={() => onViewChange("calendar")}
@@ -83,7 +80,7 @@ export function ScheduleHeader({
             </svg>
             Timeline
           </button>
-        </div>
+        </fieldset>
 
         <div className="flex items-center gap-0.5 rounded-[10px] border border-line bg-surface p-0.5">
           <button
@@ -203,7 +200,7 @@ export function ScheduleHeader({
         >
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-[2px] border-[1.5px] border-danger" />
-            Terlambat
+            {' '}Terlambat
           </span>
         </div>
       </div>

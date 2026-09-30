@@ -28,10 +28,10 @@ function makeItem(partial: Partial<ScheduleItem> & { id: string; dueDate: string
 describe("schedule layout", () => {
   it("September 2026 dimulai Senin 31 Agustus dan punya 5 baris", () => {
     const grid = monthGrid("2026-09");
-    expect(grid.length).toBe(5);
+    expect(grid).toHaveLength(5);
     // Each row has 7 days (Monday to Sunday)
     for (const row of grid) {
-      expect(row.length).toBe(7);
+      expect(row).toHaveLength(7);
     }
     // First cell is Monday 31 August (outside month)
     expect(grid[0][0]).toEqual({ date: "2026-08-31", inMonth: false });
@@ -43,7 +43,7 @@ describe("schedule layout", () => {
 
   it("November 2026 punya 6 baris", () => {
     const grid = monthGrid("2026-11");
-    expect(grid.length).toBe(6);
+    expect(grid).toHaveLength(6);
     // 2026-11-01 is a Sunday, so the first week starts on Monday 2026-10-26
     expect(grid[0][0]).toEqual({ date: "2026-10-26", inMonth: false });
     expect(grid[0][6]).toEqual({ date: "2026-11-01", inMonth: true });
@@ -54,9 +54,9 @@ describe("schedule layout", () => {
 
   it("Februari 2027 dimulai Senin dan punya 4 baris", () => {
     const grid = monthGrid("2027-02");
-    expect(grid.length).toBe(4);
+    expect(grid).toHaveLength(4);
     for (const row of grid) {
-      expect(row.length).toBe(7);
+      expect(row).toHaveLength(7);
     }
     // All 28 days are in Feb 2027, starting Monday 2027-02-01 and ending Sunday 2027-02-28
     expect(grid[0][0]).toEqual({ date: "2027-02-01", inMonth: true });
@@ -74,26 +74,26 @@ describe("schedule layout", () => {
 
     // When rows <= 5 (e.g. 4 or 5), max chips is 3
     const res4 = chipsFor(items, "2026-09-30", 4);
-    expect(res4.shown.length).toBe(3);
+    expect(res4.shown).toHaveLength(3);
     expect(res4.more).toBe(1);
 
     const res5 = chipsFor(items, "2026-09-30", 5);
-    expect(res5.shown.length).toBe(3);
+    expect(res5.shown).toHaveLength(3);
     expect(res5.more).toBe(1);
 
     // When rows === 6, max chips is 2
     const res6 = chipsFor(items, "2026-09-30", 6);
-    expect(res6.shown.length).toBe(2);
+    expect(res6.shown).toHaveLength(2);
     expect(res6.more).toBe(2);
 
     // Date with fewer items
     const resFew = chipsFor(items, "2026-10-01", 5);
-    expect(resFew.shown.length).toBe(1);
+    expect(resFew.shown).toHaveLength(1);
     expect(resFew.more).toBe(0);
 
     // Date with 0 items
     const resZero = chipsFor(items, "2026-10-02", 5);
-    expect(resZero.shown.length).toBe(0);
+    expect(resZero.shown).toHaveLength(0);
     expect(resZero.more).toBe(0);
   });
 
@@ -144,7 +144,7 @@ describe("schedule layout", () => {
     expect(visible(items, offAll)).toEqual([]);
 
     const offNone = new Set<ItemKind>();
-    expect(visible(items, offNone).length).toBe(3);
+    expect(visible(items, offNone)).toHaveLength(3);
   });
 
   it("agendaTitle formats correctly", () => {

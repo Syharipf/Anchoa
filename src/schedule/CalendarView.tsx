@@ -3,6 +3,26 @@ import { agendaTitle, chipsFor, KIND_COLORS, monthGrid } from "./layout";
 
 const DAYS_OF_WEEK = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
 
+function cellBackgroundClass(isSelected: boolean, inMonth: boolean): string {
+  if (isSelected) {
+    return "bg-surface-2";
+  }
+  if (inMonth) {
+    return "bg-stage hover:bg-surface-2/60";
+  }
+  return "bg-[#0e1014] hover:bg-surface-2/40";
+}
+
+function dayNumberClass(isToday: boolean, inMonth: boolean): string {
+  if (isToday) {
+    return "bg-accent font-bold text-canvas";
+  }
+  if (inMonth) {
+    return "font-medium text-ink";
+  }
+  return "font-normal text-muted/40";
+}
+
 export function CalendarView({
   month,
   today,
@@ -45,6 +65,9 @@ export function CalendarView({
             const isSelected = cell.date === selectedDate;
             const isToday = cell.date === today;
             const dayNum = Number(cell.date.split("-")[2]);
+            const bgClass = cellBackgroundClass(isSelected, cell.inMonth);
+            const numClass = dayNumberClass(isToday, cell.inMonth);
+            const todayRing = isToday ? "ring-1 ring-inset ring-accent" : "";
 
             return (
               <button
@@ -53,22 +76,10 @@ export function CalendarView({
                 onClick={() => onSelectDate(cell.date)}
                 aria-pressed={isSelected}
                 aria-label={agendaTitle(cell.date)}
-                className={`flex min-h-0 min-w-0 flex-col items-stretch gap-1 p-1.5 text-left transition-colors ${
-                  isSelected
-                    ? "bg-surface-2"
-                    : cell.inMonth
-                      ? "bg-stage hover:bg-surface-2/60"
-                      : "bg-[#0e1014] hover:bg-surface-2/40"
-                } ${isToday ? "ring-1 ring-inset ring-accent" : ""}`}
+                className={`flex min-h-0 min-w-0 flex-col items-stretch gap-1 p-1.5 text-left transition-colors ${bgClass} ${todayRing}`}
               >
                 <span
-                  className={`flex h-[22px] min-w-[22px] self-start items-center justify-center rounded-full px-1 font-mono text-xs ${
-                    isToday
-                      ? "bg-accent font-bold text-canvas"
-                      : cell.inMonth
-                        ? "font-medium text-ink"
-                        : "font-normal text-muted/40"
-                  }`}
+                  className={`flex h-[22px] min-w-[22px] self-start items-center justify-center rounded-full px-1 font-mono text-xs ${numClass}`}
                 >
                   {dayNum}
                 </span>

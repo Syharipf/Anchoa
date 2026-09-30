@@ -154,8 +154,9 @@ pub fn delete(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Unfiled notes. Accounts, transactions and bills have their own pages (spec Fase 2 K9).
 pub fn list_inbox(conn: &Connection) -> Result<Vec<ItemSummary>, AppError> {
-    summaries(conn, "parent_id IS NULL ORDER BY created_at DESC, id DESC", [])
+    summaries(conn, "type = 'note' AND parent_id IS NULL ORDER BY created_at DESC, id DESC", [])
 }
 
 #[cfg(test)]
@@ -251,6 +252,16 @@ mod tests {
         capture_note(&conn, "baru", 2000).unwrap();
         let titles: Vec<String> = list_inbox(&conn).unwrap().into_iter().map(|s| s.title).collect();
         assert_eq!(titles, ["baru", "lama"]);
+    }
+
+    #[test]
+    fn inbox_lists_notes_only() {
+        let conn = open_in_memory();
+        capture_note(&conn, "catatan", 1000).unwrap();
+        conn.execute("INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('a1', 'account', 'BCA', 2000, 2000)", [])
+            .unwrap();
+        let titles: Vec<String> = list_inbox(&conn).unwrap().into_iter().map(|s| s.title).collect();
+        assert_eq!(titles, ["catatan"]);
     }
 
     #[test]

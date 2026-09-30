@@ -46,7 +46,7 @@ pub struct Dashboard {
 fn today_tasks(conn: &Connection, start: i64, end: i64) -> Result<Vec<DayTask>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, title, due_at, completed_at FROM items
-         WHERE deleted_at IS NULL AND due_at IS NOT NULL AND (
+         WHERE deleted_at IS NULL AND type = 'note' AND due_at IS NOT NULL AND (
                (due_at >= ?1 AND due_at < ?2)
             OR (due_at < ?1 AND completed_at IS NULL)
             OR (completed_at >= ?1 AND completed_at < ?2))
@@ -64,7 +64,7 @@ fn upcoming(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Vec<UpcomingDa
     let today = Timestamp::from_millisecond(now)?.to_zoned(tz.clone()).date();
     let mut stmt = conn.prepare(
         "SELECT id, title, due_at FROM items
-         WHERE deleted_at IS NULL AND completed_at IS NULL AND due_at >= ?1 AND due_at < ?2
+         WHERE deleted_at IS NULL AND type = 'note' AND completed_at IS NULL AND due_at >= ?1 AND due_at < ?2
          ORDER BY due_at, title, id",
     )?;
     let mut days = Vec::new();
@@ -89,11 +89,11 @@ pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppE
         upcoming: upcoming(conn, now, tz)?,
         recent: summaries(
             conn,
-            "1 ORDER BY last_activity_at DESC, id DESC LIMIT ?1",
+            "type = 'note' ORDER BY last_activity_at DESC, id DESC LIMIT ?1",
             params![RECENT_LIMIT as i64],
         )?,
         inbox_count: conn.query_row(
-            "SELECT COUNT(*) FROM items WHERE deleted_at IS NULL AND parent_id IS NULL",
+            "SELECT COUNT(*) FROM items WHERE deleted_at IS NULL AND type = 'note' AND parent_id IS NULL",
             [],
             |r| r.get(0),
         )?,
@@ -210,5 +210,28 @@ mod tests {
         assert_eq!(d.recent.len(), RECENT_LIMIT);
         assert_eq!(titles[..3], ["n0", "n9", "n8"]);
         assert_eq!(d.recent[0].last_activity_at, 5000);
+    }
+
+    #[test]
+    fn finance_items_stay_out_of_note_lists() {
+        let conn = open_in_memory();
+        capture_note(&conn, "catatan", 1).unwrap();
+        let today = ms("2026-09-29T00:00:00+07:00");
+        let tomorrow = ms("2026-09-30T00:00:00+07:00");
+        for (id, kind, due) in [("a1", "account", None), ("b1", "bill", Some(today)), ("b2", "bill", Some(tomorrow))] {
+            conn.execute(
+                "INSERT INTO items (id, type, title, due_at, created_at, updated_at) VALUES (?1, ?2, ?1, ?3, 5, 5)",
+                params![id, kind, due],
+            )
+            .unwrap();
+        }
+
+        let d = get(&conn, ms("2026-09-29T12:00:00+07:00"), &jakarta()).unwrap();
+
+        assert!(d.today.is_empty());
+        assert!(d.upcoming.iter().all(|day| day.tasks.is_empty()));
+        let titles: Vec<&str> = d.recent.iter().map(|s| s.title.as_str()).collect();
+        assert_eq!(titles, ["catatan"]);
+        assert_eq!(d.inbox_count, 1);
     }
 }

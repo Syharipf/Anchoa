@@ -72,7 +72,7 @@ Do not start implementing a phase until the user approves moving from planning t
 
 ### Model per step
 
-- Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session.
+- Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session, with the `superpowers:brainstorming` and `superpowers:writing-plans` skills. Execute plans with `superpowers:subagent-driven-development`, and close each PR with `superpowers:verification-before-completion` and `superpowers:finishing-a-development-branch`. Use any other listed skill that fits the task.
 - Implementation: Sonnet at high effort, through the `implementer` agent (`.claude/agents/implementer.md`), one plan task per run. The Opus session checks each result.
 - Review: Gemini 3.8 Flash High through the Antigravity CLI (`agy`), read-only:
 

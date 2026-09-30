@@ -80,7 +80,7 @@ export function AssistantStage() {
       </div>
 
       {typing && (
-        <label className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5`}>
+        <div className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5 focus-within:border-field-focus`}>
           <input
             aria-label="Ketik pesan ke asisten"
             placeholder="Ketik pesan…"
@@ -96,7 +96,7 @@ export function AssistantStage() {
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </button>
-        </label>
+        </div>
       )}
 
       <div className="flex items-center justify-center gap-6">

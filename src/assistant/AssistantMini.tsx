@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FIELD } from "../shell/ui";
 import { School } from "./School";
 import { usePageVisible } from "./usePageVisible";
@@ -37,10 +37,21 @@ export function AssistantMini({ hint, onOpenFull }: Readonly<{ hint: string; onO
   const [listening, setListening] = useState(false);
   const [typing, setTyping] = useState(false);
   const visible = usePageVisible();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const mic = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  // Opening unmounts the trigger and collapsing unmounts the popup, so move focus
+  // ourselves, but only on a change: the assistant starts closed on every page (and StrictMode re-runs effects).
+  useEffect(() => {
+    if (open !== wasOpen.current) (open ? mic : trigger).current?.focus();
+    wasOpen.current = open;
+  }, [open]);
 
   if (!open) {
     return (
       <button
+        ref={trigger}
         onClick={() => setOpen(true)}
         aria-label="Buka asisten"
         title="Asisten"
@@ -104,7 +115,7 @@ export function AssistantMini({ hint, onOpenFull }: Readonly<{ hint: string; onO
       </p>
 
       {typing && (
-        <label className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5`}>
+        <div className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5 focus-within:border-field-focus`}>
           <input
             aria-label="Ketik pesan ke asisten"
             placeholder="Ketik pesan…"
@@ -115,7 +126,7 @@ export function AssistantMini({ hint, onOpenFull }: Readonly<{ hint: string; onO
               <path d="M5 12h14M13 6l6 6-6 6" />
             </Icon>
           </button>
-        </label>
+        </div>
       )}
 
       <div className="flex items-center justify-center gap-4">
@@ -131,6 +142,7 @@ export function AssistantMini({ hint, onOpenFull }: Readonly<{ hint: string; onO
           </Icon>
         </button>
         <button
+          ref={mic}
           onClick={() => setListening((l) => !l)}
           aria-label={listening ? "Berhenti mendengarkan" : "Ketuk untuk bicara"}
           aria-pressed={listening}

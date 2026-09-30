@@ -465,10 +465,13 @@ check_schedule() {
   sleep 1
   shot 13-timeline
 
-  # 8. klik batang tugas dan pastikan halaman item terbuka
-  click 493 264
+  # 8. klik batang tugas dan pastikan halaman item terbuka. The window starts on
+  # Monday of last week at x=342, 16px per day, so today's bar moves with the weekday.
+  weekday=$(( $(date +%u) - 1 ))
+  click $(( 342 + (7 + weekday) * 16 + 8 )) 264
   sleep 1
   shot 13-item
+  [[ -n "$(sql "SELECT opened_at FROM items WHERE title = 'Tugas E2E'")" ]] || fail "timeline bar did not open the task"
   stop_app
 }
 

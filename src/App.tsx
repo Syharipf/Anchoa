@@ -7,6 +7,7 @@ import { FinancePage } from "./finance/FinancePage";
 import { Inbox } from "./inbox/Inbox";
 import { ItemPage } from "./item/ItemPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
+import { SchedulePage } from "./schedule/SchedulePage";
 import { NotifPanel } from "./notifications/NotifPanel";
 import { reminderCount } from "./notifications/reminders";
 import { CommandPalette } from "./palette/CommandPalette";
@@ -95,6 +96,13 @@ export function App() {
         )}
         {page.name === "proyek" && (
           <ProjectsPage onOpenItem={openItem} onChanged={reload} />
+        )}
+        {page.name === "jadwal" && (
+          <SchedulePage
+            onOpenItem={openItem}
+            onOpenFinance={() => go("keuangan")}
+            onChanged={reload}
+          />
         )}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}

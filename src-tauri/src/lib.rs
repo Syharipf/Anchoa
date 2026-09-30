@@ -7,6 +7,7 @@ mod error;
 mod finance;
 mod github;
 mod gpu;
+mod habits;
 mod items;
 mod overview;
 mod projects;

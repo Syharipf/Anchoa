@@ -12,6 +12,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/003_contributions.sql"),
     include_str!("../migrations/004_finance.sql"),
     include_str!("../migrations/005_projects.sql"),
+    include_str!("../migrations/006_habits.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -174,7 +175,7 @@ mod tests {
 
         let conn = open(&path).unwrap();
 
-        assert_eq!(version(&conn), 5);
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
         let backup = Connection::open(dir.path().join("anchoa.db.bak-v4")).unwrap();
         assert_eq!(version(&backup), 4);
 
@@ -204,6 +205,30 @@ mod tests {
         assert_eq!((t3.as_str(), k3.as_str(), s3.as_str()), ("bertenggat selesai", "task", "done"));
 
         conn.prepare("SELECT item_id, kind, deadline_at, repo_url FROM projects").unwrap();
+    }
+
+    #[test]
+    fn version_5_database_upgrades_to_habits_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..5], Some(&path)).unwrap();
+        conn.execute("INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('n1', 'note', 'lama', 1, 1)", [])
+            .unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+
+        assert_eq!(version(&conn), 6);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v5")).unwrap();
+        assert_eq!(version(&backup), 5);
+
+        for sql in [
+            "SELECT item_id, days, remind_at, remind_on FROM habits",
+            "SELECT habit_id, date, created_at, deleted_at FROM habit_checks",
+        ] {
+            conn.prepare(sql).unwrap();
+        }
     }
 
     #[test]

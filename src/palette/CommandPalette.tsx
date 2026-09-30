@@ -144,6 +144,12 @@ export function CommandPalette({
                     tabIndex={-1}
                     onMouseEnter={() => setActive(index)}
                     onClick={() => void run(o)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        void run(o);
+                      }
+                    }}
                     className={`flex min-h-10 cursor-pointer items-center gap-3 rounded-[9px] px-2.5 text-sm ${on ? "bg-[#232833]" : ""}`}
                   >
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${on ? "bg-[#2e3440] text-accent" : "bg-surface-2 text-muted"}`}>

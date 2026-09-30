@@ -17,6 +17,7 @@ export function HabitForm({
   const [name, setName] = useState(edit?.name ?? "");
   const [remindAt, setRemindAt] = useState(edit?.remindAt ?? "");
   const [days, setDays] = useState(edit?.days ?? 127);
+  const [autoJournal, setAutoJournal] = useState(edit?.autoJournal ?? false);
   const { busy, run, toast } = useSave(() => {});
 
   function submit(e: FormEvent) {
@@ -35,6 +36,7 @@ export function HabitForm({
         days,
         remindAt: validRemindAt,
         remindOn: resolveRemindOn(validRemindAt, edit),
+        autoJournal,
       });
       onSaved(saved.id);
     });
@@ -93,6 +95,16 @@ export function HabitForm({
             })}
           </div>
         </fieldset>
+
+        <label className="flex cursor-pointer items-center gap-2.5 text-xs text-ink">
+          <input
+            type="checkbox"
+            checked={autoJournal}
+            onChange={(e) => setAutoJournal(e.target.checked)}
+            className="h-4 w-4 rounded border-line bg-canvas text-accent accent-accent focus:ring-0"
+          />
+          Centang otomatis saat menulis jurnal
+        </label>
 
         <DialogActions busy={busy} onCancel={onClose} onDelete={remove} />
       </form>

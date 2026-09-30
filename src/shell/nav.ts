@@ -2,7 +2,7 @@
 
 export type PageId =
   | "dashboard"
-  | "inbox"
+  | "jurnal"
   | "email"
   | "jadwal"
   | "habit"
@@ -26,7 +26,7 @@ export interface NavPage {
 
 export const PAGES: readonly NavPage[] = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "inbox", label: "Inbox" },
+  { id: "jurnal", label: "Jurnal" },
   {
     id: "email",
     label: "Email",

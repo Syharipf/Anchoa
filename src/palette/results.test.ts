@@ -11,7 +11,7 @@ describe("paletteResults", () => {
     const groups = paletteResults("", recent);
     expect(groups.map((g) => g.title)).toEqual(["Aksi cepat", "Buka halaman", "Terbaru"]);
     expect(groups[1].options.map((o) => o.label)).toEqual([
-      "Dashboard", "Inbox", "Email", "Jadwal", "Habit", "Keuangan", "Proyek", "Berkas", "Unduhan", "Profil", "Pengaturan",
+      "Dashboard", "Jurnal", "Email", "Jadwal", "Habit", "Keuangan", "Proyek", "Berkas", "Unduhan", "Profil", "Pengaturan",
     ]);
     expect(groups[2].options).toHaveLength(5);
   });
@@ -24,7 +24,7 @@ describe("paletteResults", () => {
     const groups = paletteResults("KEU", recent);
     expect(groups.map((g) => g.title)).toEqual(["Buka halaman", "Simpan"]);
     expect(groups[0].options.map((o) => o.label)).toEqual(["Keuangan"]);
-    expect(groups[1].options[0]).toMatchObject({ kind: "capture", text: "KEU", label: "Simpan ke Inbox: “KEU”" });
+    expect(groups[1].options[0]).toMatchObject({ kind: "capture", text: "KEU", label: "Simpan ke Jurnal: “KEU”" });
     expect(groups[1].options[1]).toMatchObject({ kind: "task", text: "KEU", label: "Buat tugas: “KEU”" });
   });
 
@@ -33,7 +33,7 @@ describe("paletteResults", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].title).toBe("Simpan");
     expect(groups[0].options).toEqual([
-      { kind: "capture", id: "capture", label: "Simpan ke Inbox: “beli susu”", sub: "Enter", text: "beli susu" },
+      { kind: "capture", id: "capture", label: "Simpan ke Jurnal: “beli susu”", sub: "Enter", text: "beli susu" },
       { kind: "task", id: "task", label: "Buat tugas: “beli susu”", sub: "", text: "beli susu" },
     ]);
   });

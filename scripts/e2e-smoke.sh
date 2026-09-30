@@ -98,19 +98,13 @@ check_items() {
   sleep 1
   [[ "$(sql "SELECT title FROM items")" = "catatan dari e2e" ]] || fail "capture not saved"
 
-  click 36 148          # nav: Inbox
+  click 36 148          # nav: Jurnal
   shot 4-inbox
-  click 300 181         # first inbox row
-  click 600 460         # body textarea
+  click 600 460         # body textarea di editor tengah
   xdotool type --delay 20 'isi dari e2e'
   sleep 1.5             # autosave fires after 500 ms
   shot 4-item
   [[ "$(sql "SELECT body FROM items")" = "isi dari e2e" ]] || fail "autosave did not store the body"
-
-  click 848 94          # Hapus
-  shot 4-confirm
-  click 781 98          # Ya, hapus
-  [[ -n "$(sql "SELECT deleted_at FROM items")" ]] || fail "delete did not set deleted_at"
   stop_app
 }
 
@@ -399,15 +393,15 @@ check_projects() {
   sleep 0.5
   xdotool key Return
   sleep 1
-  click 36 148                  # nav: Inbox
+  click 36 148                  # nav: Jurnal
   sleep 1
-  click 300 181                 # open first inbox note ("catatan jadi tugas")
-  sleep 1
+  click 470 180                 # jenis: Ide
+  sleep 0.7
   shot 12-note-item
-  click 219 95                  # Jadikan tugas
+  click 655 735                 # Jadikan tugas
   sleep 1
-  [[ "$(sql "SELECT type FROM items WHERE title = 'catatan jadi tugas'")" = "task" ]] || fail "note was not converted to task"
-  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'catatan jadi tugas')")" = "plan" ]] || fail "converted task status not plan"
+  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'catatan jadi tugas' AND type = 'task'")" = "1" ]] || fail "task was not created from note"
+  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'catatan jadi tugas' AND type = 'task')")" = "plan" ]] || fail "converted task status not plan"
   click 36 94                   # nav: Dashboard
   sleep 1
   shot 12-dashboard
@@ -501,6 +495,67 @@ check_habits() {
   stop_app
 }
 
+check_journal() {
+  fresh
+  start_app
+
+  local now_ms
+  now_ms=$(date +%s%3N)
+  sql "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES ('habit-journal', 'habit', 'Tulis jurnal', '', $now_ms, $now_ms)"
+  sql "INSERT INTO habits (item_id, days, remind_on, auto_journal) VALUES ('habit-journal', 127, 0, 1)"
+
+  xdotool key ctrl+n
+  sleep 0.5
+  xdotool type --delay 20 'catatan cepat jurnal'
+  sleep 0.5
+  xdotool key Return
+  sleep 1
+  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'catatan cepat jurnal' AND type = 'note'")" = "1" ]] \
+    || fail "quick capture note missing"
+
+  click 36 148                  # nav: Jurnal
+  sleep 1
+  shot 15-journal-initial
+
+  click 1215 104                # tombol Tulis
+  sleep 1
+  shot 15-journal-new
+
+  click 480 235                 # judul
+  xdotool type --delay 20 'Ide Bisnis Baru'
+  sleep 0.5
+  click 600 350                 # body
+  xdotool type --delay 20 'Membangun aplikasi open-source untuk produktivitas.'
+  sleep 1.5
+
+  click 675 680                 # suasana hati 4 (Baik)
+  sleep 1
+  shot 15-journal-written
+
+  click 470 180                 # ubah jenis ke Ide
+  sleep 1
+  shot 15-journal-idea
+
+  click 655 735                 # Jadikan tugas
+  sleep 1
+  shot 15-journal
+
+  [[ "$(sql "SELECT body FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note'")" = "Membangun aplikasi open-source untuk produktivitas." ]] \
+    || fail "journal body not saved"
+  [[ "$(sql "SELECT mood FROM journal_entries WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note')")" = "4" ]] \
+    || fail "journal mood not saved"
+  [[ "$(sql "SELECT count(*) FROM habit_checks WHERE habit_id = 'habit-journal' AND deleted_at IS NULL")" = "1" ]] \
+    || fail "habit was not auto-checked upon writing journal"
+  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'task'")" = "1" ]] \
+    || fail "task not created from idea"
+  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'task')")" = "plan" ]] \
+    || fail "created task status not plan"
+  [[ -n "$(sql "SELECT task_id FROM journal_entries WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note')")" ]] \
+    || fail "task_id not linked in journal_entries"
+
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -522,5 +577,7 @@ check_github
 check_projects
 check_schedule
 check_habits
+check_journal
 echo "PASS. Screenshots in $WORK"
+
 

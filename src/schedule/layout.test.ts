@@ -1,12 +1,16 @@
 import { describe, expect, it } from "bun:test";
-import type { ItemKind, ScheduleItem } from "../api";
+import type { ItemKind, ProjectDeadline, ScheduleItem } from "../api";
 import {
   agendaGroups,
   agendaTitle,
+  barFor,
   chipsFor,
   isBillDone,
   monthGrid,
   navSelectedDate,
+  timelineGroups,
+  timelineLabel,
+  timelineWindow,
   visible,
 } from "./layout";
 
@@ -173,5 +177,99 @@ describe("schedule layout", () => {
     expect(isBillDone(billDone)).toBe(true);
     expect(isBillDone(billPlan)).toBe(false);
     expect(isBillDone(taskDone)).toBe(false);
+  });
+
+  it("awal jendela untuk hari Selasa 29 Sep 2026 = Senin 21 Sep", () => {
+    const win = timelineWindow("2026-09-29", 0);
+    expect(win.from).toBe("2026-09-21");
+    expect(win.to).toBe("2026-11-15");
+    expect(win.days.length).toBe(56);
+    expect(win.days[0]).toBe("2026-09-21");
+    expect(win.days[55]).toBe("2026-11-15");
+
+    // Navigasi 4 minggu ke depan
+    const nextWin = timelineWindow("2026-09-29", 4);
+    expect(nextWin.from).toBe("2026-10-19");
+    expect(nextWin.to).toBe("2026-12-13");
+    expect(nextWin.days.length).toBe(56);
+
+    // Navigasi 4 minggu ke belakang
+    const prevWin = timelineWindow("2026-09-29", -4);
+    expect(prevWin.from).toBe("2026-08-24");
+    expect(prevWin.to).toBe("2026-10-18");
+    expect(prevWin.days.length).toBe(56);
+  });
+
+  it("lebar dan posisi batang, termasuk yang terpotong di tepi", () => {
+    const win = { from: "2026-09-21", to: "2026-11-15" };
+
+    // Item 3 hari di dalam jendela (23-25 Sep): left = 2 hari * 16 = 32, width = 3 hari * 16 = 48
+    const item1 = { startDate: "2026-09-23", dueDate: "2026-09-25" };
+    expect(barFor(item1, win)).toEqual({ left: 32, width: 48 });
+
+    // Item satu hari (21 Sep): left = 0, width = 16
+    const itemSingle = { dueDate: "2026-09-21" };
+    expect(barFor(itemSingle, win)).toEqual({ left: 0, width: 16 });
+
+    // Item terpotong di kiri (mulai sebelum jendela: 18 Sep sampai 24 Sep)
+    // Hari di dalam: 21, 22, 23, 24 Sep (4 hari) -> left = 0, width = 4 * 16 = 64
+    const itemLeftClip = { startDate: "2026-09-18", dueDate: "2026-09-24" };
+    expect(barFor(itemLeftClip, win)).toEqual({ left: 0, width: 64 });
+
+    // Item terpotong di kanan (mulai 14 Nov sampai 20 Nov, jendela berakhir 15 Nov)
+    // 14 Nov adalah hari ke-54 (54 * 16 = 864), hari di dalam: 14, 15 Nov (2 hari) -> width = 32
+    const itemRightClip = { startDate: "2026-11-14", dueDate: "2026-11-20" };
+    expect(barFor(itemRightClip, win)).toEqual({ left: 864, width: 32 });
+
+    // Item mencakup seluruh jendela
+    const itemFull = { startDate: "2026-09-01", dueDate: "2026-12-01" };
+    expect(barFor(itemFull, win)).toEqual({ left: 0, width: 56 * 16 });
+
+    // Item di luar jendela (sebelum jendela)
+    const itemBefore = { startDate: "2026-09-10", dueDate: "2026-09-20" };
+    expect(barFor(itemBefore, win)).toBeNull();
+
+    // Item di luar jendela (setelah jendela)
+    const itemAfter = { startDate: "2026-11-16", dueDate: "2026-11-25" };
+    expect(barFor(itemAfter, win)).toBeNull();
+  });
+
+  it("urutan grup sesuai spec §4: proyek bertenggat, proyek lain, Pribadi, Tagihan", () => {
+    const items: ScheduleItem[] = [
+      makeItem({ id: "t-gamma", kind: "project", groupId: "p-gamma", groupName: "Project Gamma", dueDate: "2026-10-10", status: "plan" }),
+      makeItem({ id: "t-beta", kind: "project", groupId: "p-beta", groupName: "Project Beta", dueDate: "2026-10-08", status: "doing" }),
+      makeItem({ id: "t-alpha", kind: "project", groupId: "p-alpha", groupName: "Project Alpha", dueDate: "2026-09-29", status: "plan" }),
+      makeItem({ id: "t-personal", kind: "personal", groupId: "personal", groupName: "Pribadi", dueDate: "2026-10-02", status: "plan" }),
+      makeItem({ id: "b-bill", source: "bill", kind: "bill", groupId: "bills", groupName: "Tagihan", dueDate: "2026-10-05", status: "plan" }),
+      // Item done tidak ikut ke dalam timeline
+      makeItem({ id: "t-done", kind: "personal", groupId: "personal", groupName: "Pribadi", dueDate: "2026-10-01", status: "done" }),
+    ];
+
+    const deadlines: ProjectDeadline[] = [
+      { projectId: "p-beta", name: "Project Beta", date: "2026-10-20" },
+      { projectId: "p-alpha", name: "Project Alpha", date: "2026-10-01" },
+    ];
+
+    const groups = timelineGroups(items, deadlines);
+    expect(groups.map((g) => g.id)).toEqual([
+      "p-alpha",   // Project dengan deadline lebih awal (2026-10-01)
+      "p-beta",    // Project dengan deadline berikutnya (2026-10-20)
+      "p-gamma",   // Project tanpa deadline
+      "personal",  // Pribadi
+      "bills",     // Tagihan
+    ]);
+
+    // Pastikan item done tidak ada di items grup
+    const personalGroup = groups.find((g) => g.id === "personal");
+    expect(personalGroup?.items.map((i) => i.id)).toEqual(["t-personal"]);
+
+    // Pastikan deadline tersimpan di group
+    const alphaGroup = groups.find((g) => g.id === "p-alpha");
+    expect(alphaGroup?.deadline).toBe("2026-10-01");
+  });
+
+  it("timelineLabel memformat rentang dengan benar", () => {
+    expect(timelineLabel("2026-09-28", "2026-11-22")).toBe("28 Sep – 22 Nov");
+    expect(timelineLabel("2026-09-21", "2026-11-15")).toBe("21 Sep – 15 Nov");
   });
 });

@@ -1,4 +1,4 @@
-import type { ItemKind, ScheduleItem } from "../api";
+import type { ItemKind, ProjectDeadline, ScheduleItem } from "../api";
 
 export { addMonths, monthLabel } from "../money";
 
@@ -133,4 +133,189 @@ export function agendaTitle(date: string): string {
     day: "numeric",
     month: "long",
   });
+}
+
+function parseDateUtc(date: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+const MS_PER_DAY = 86_400_000;
+
+export function diffDays(start: string, end: string): number {
+  return Math.round((parseDateUtc(end) - parseDateUtc(start)) / MS_PER_DAY);
+}
+
+/** "2026-09-30" -> "30 Sep". */
+export function shortDateStr(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** 8-week timeline window starting on Monday of previous week from today + shiftWeeks * 7 days. */
+export function timelineWindow(
+  today: string,
+  shiftWeeks = 0,
+): { from: string; to: string; days: string[] } {
+  const [y, m, d] = today.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dayOfWeek = (dt.getDay() + 6) % 7; // Monday = 0, ..., Sunday = 6
+  const startOffset = -dayOfWeek - 7 + shiftWeeks * 7;
+  const from = addDays(today, startOffset);
+  const days: string[] = [];
+  for (let i = 0; i < 56; i++) {
+    days.push(addDays(from, i));
+  }
+  const to = days[55];
+  return { from, to, days };
+}
+
+/** "2026-09-28" and "2026-11-22" -> "28 Sep – 22 Nov". */
+export function timelineLabel(from: string, to: string): string {
+  return `${shortDateStr(from)} – ${shortDateStr(to)}`;
+}
+
+/**
+ * Calculates bar position and width in pixels (16px per day) clipped to window.
+ * Returns null if the item is entirely outside the window.
+ */
+export function barFor(
+  item: { startDate?: string; dueDate: string },
+  window: { from: string; to: string },
+): { left: number; width: number } | null {
+  const rawStart = item.startDate ?? item.dueDate;
+  const rawEnd = item.dueDate;
+  const itemStart = rawStart <= rawEnd ? rawStart : rawEnd;
+  const itemEnd = rawEnd >= rawStart ? rawEnd : rawStart;
+
+  if (itemEnd < window.from || itemStart > window.to) {
+    return null;
+  }
+
+  const clippedStart = itemStart < window.from ? window.from : itemStart;
+  const clippedEnd = itemEnd > window.to ? window.to : itemEnd;
+
+  const startIdx = diffDays(window.from, clippedStart);
+  const endIdx = diffDays(window.from, clippedEnd);
+  const dayCount = endIdx - startIdx + 1;
+
+  return {
+    left: startIdx * 16,
+    width: dayCount * 16,
+  };
+}
+
+export interface TimelineGroup {
+  id: string;
+  name: string;
+  kind: ItemKind;
+  items: ScheduleItem[];
+  deadline?: string;
+}
+
+/**
+ * Groups items for timeline view according to spec §4:
+ * 1. Projects with deadline in range (sorted by deadline date)
+ * 2. Projects without deadline (sorted by name)
+ * 3. Personal group ("Pribadi")
+ * 4. Bill group ("Tagihan")
+ * Completed items are excluded (spec J7).
+ */
+export function timelineGroups(
+  items: readonly ScheduleItem[],
+  deadlines: readonly ProjectDeadline[] = [],
+): TimelineGroup[] {
+  const openItems = items.filter((it) => it.status !== "done");
+
+  const deadlineMap = new Map<string, ProjectDeadline>();
+  for (const dl of deadlines) {
+    deadlineMap.set(dl.projectId, dl);
+  }
+
+  const projectMap = new Map<string, { name: string; items: ScheduleItem[] }>();
+  for (const dl of deadlines) {
+    projectMap.set(dl.projectId, { name: dl.name, items: [] });
+  }
+  for (const it of openItems) {
+    if (it.kind === "project") {
+      const entry = projectMap.get(it.groupId);
+      if (entry) {
+        entry.items.push(it);
+      } else {
+        projectMap.set(it.groupId, { name: it.groupName, items: [it] });
+      }
+    }
+  }
+
+  const projectGroups: TimelineGroup[] = [];
+  for (const [id, data] of projectMap.entries()) {
+    data.items.sort((a, b) => {
+      const startA = a.startDate ?? a.dueDate;
+      const startB = b.startDate ?? b.dueDate;
+      return (
+        startA.localeCompare(startB) ||
+        a.dueDate.localeCompare(b.dueDate) ||
+        a.title.localeCompare(b.title)
+      );
+    });
+
+    const dl = deadlineMap.get(id);
+    if (dl !== undefined || data.items.length > 0) {
+      projectGroups.push({
+        id,
+        name: data.name,
+        kind: "project",
+        items: data.items,
+        deadline: dl?.date,
+      });
+    }
+  }
+
+  projectGroups.sort((a, b) => {
+    if (a.deadline && b.deadline) {
+      return a.deadline.localeCompare(b.deadline) || a.name.localeCompare(b.name);
+    }
+    if (a.deadline) return -1;
+    if (b.deadline) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const personalItems = openItems
+    .filter((it) => it.kind === "personal")
+    .sort((a, b) => {
+      const startA = a.startDate ?? a.dueDate;
+      const startB = b.startDate ?? b.dueDate;
+      return (
+        startA.localeCompare(startB) ||
+        a.dueDate.localeCompare(b.dueDate) ||
+        a.title.localeCompare(b.title)
+      );
+    });
+
+  const billItems = openItems
+    .filter((it) => it.kind === "bill")
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.title.localeCompare(b.title));
+
+  const result: TimelineGroup[] = [...projectGroups];
+  if (personalItems.length > 0) {
+    result.push({
+      id: "personal",
+      name: "Pribadi",
+      kind: "personal",
+      items: personalItems,
+    });
+  }
+  if (billItems.length > 0) {
+    result.push({
+      id: "bills",
+      name: "Tagihan",
+      kind: "bill",
+      items: billItems,
+    });
+  }
+
+  return result;
 }

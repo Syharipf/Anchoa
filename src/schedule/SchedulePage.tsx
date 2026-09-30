@@ -16,9 +16,12 @@ import {
   monthGrid,
   monthLabel,
   navSelectedDate,
+  timelineLabel,
+  timelineWindow,
   visible,
 } from "./layout";
 import { ScheduleHeader } from "./ScheduleHeader";
+import { TimelineView } from "./TimelineView";
 
 function loadOff(): Set<ItemKind> {
   try {
@@ -63,13 +66,20 @@ export function SchedulePage({
   const [selectedDate, setSelectedDate] = useState<string>(() =>
     msToDateInput(Date.now()),
   );
+  const [timelineShift, setTimelineShift] = useState(0);
   const [off, setOff] = useState<Set<ItemKind>>(() => loadOff());
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [version, setVersion] = useState(0);
 
+  const today = schedule?.today ?? msToDateInput(Date.now());
   const grid = useMemo(() => monthGrid(month), [month]);
-  const from = grid[0][0].date;
-  const to = grid[grid.length - 1][6].date;
+  const window = useMemo(
+    () => timelineWindow(today, timelineShift),
+    [today, timelineShift],
+  );
+
+  const from = view === "calendar" ? grid[0][0].date : window.from;
+  const to = view === "calendar" ? grid[grid.length - 1][6].date : window.to;
 
   useEffect(() => {
     let active = true;
@@ -87,8 +97,6 @@ export function SchedulePage({
       active = false;
     };
   }, [from, to, version, toast]);
-
-  const today = schedule?.today ?? msToDateInput(Date.now());
 
   function handleToggleKind(kind: ItemKind) {
     setOff((prev) => {
@@ -126,22 +134,39 @@ export function SchedulePage({
   }
 
   function handlePrev() {
-    const nextMonth = addMonths(month, -1);
-    setMonth(nextMonth);
-    setSelectedDate(navSelectedDate(nextMonth, today));
+    if (view === "calendar") {
+      const nextMonth = addMonths(month, -1);
+      setMonth(nextMonth);
+      setSelectedDate(navSelectedDate(nextMonth, today));
+    } else {
+      setTimelineShift((s) => s - 4);
+    }
   }
 
   function handleNext() {
-    const nextMonth = addMonths(month, 1);
-    setMonth(nextMonth);
-    setSelectedDate(navSelectedDate(nextMonth, today));
+    if (view === "calendar") {
+      const nextMonth = addMonths(month, 1);
+      setMonth(nextMonth);
+      setSelectedDate(navSelectedDate(nextMonth, today));
+    } else {
+      setTimelineShift((s) => s + 4);
+    }
   }
 
   function handleToday() {
-    const curMonth = today.slice(0, 7);
-    setMonth(curMonth);
-    setSelectedDate(navSelectedDate(curMonth, today));
+    if (view === "calendar") {
+      const curMonth = today.slice(0, 7);
+      setMonth(curMonth);
+      setSelectedDate(navSelectedDate(curMonth, today));
+    } else {
+      setTimelineShift(0);
+    }
   }
+
+  const periodLabel =
+    view === "calendar"
+      ? monthLabel(month)
+      : timelineLabel(window.from, window.to);
 
   const counts: Record<ItemKind, number> = {
     project: 0,
@@ -161,7 +186,7 @@ export function SchedulePage({
       <ScheduleHeader
         view={view}
         onViewChange={setView}
-        periodLabel={monthLabel(month)}
+        periodLabel={periodLabel}
         onPrev={handlePrev}
         onNext={handleNext}
         onToday={handleToday}
@@ -192,9 +217,14 @@ export function SchedulePage({
       )}
 
       {view === "timeline" && (
-        <div className="flex min-h-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-stage p-6 text-muted">
-          Timeline
-        </div>
+        <TimelineView
+          window={window}
+          today={today}
+          items={visibleItems}
+          deadlines={schedule?.deadlines ?? []}
+          onOpenItem={onOpenItem}
+          onOpenFinance={onOpenFinance}
+        />
       )}
     </>
   );

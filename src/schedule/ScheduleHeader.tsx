@@ -198,6 +198,22 @@ export function ScheduleHeader({
           aria-hidden="true"
           className="ml-auto flex items-center gap-3.5 text-xs text-muted"
         >
+          {view === "timeline" && (
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-4 rounded-[3px] bg-muted" />
+                Dikerjakan
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-4 rounded-[3px] border border-muted" />
+                Rencana
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rotate-45 bg-muted" />
+                Tenggat
+              </span>
+            </>
+          )}
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-[2px] border-[1.5px] border-danger" />
             {' '}Terlambat

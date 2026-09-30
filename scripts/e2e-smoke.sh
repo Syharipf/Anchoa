@@ -76,6 +76,9 @@ check_nav() {
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
   click 1226 746        # open the mini assistant
   shot 3-mini-open      # expect: 304px popup, "Siap", keyboard and mic buttons
+  xdotool key Escape
+  sleep 0.3
+  shot 3-mini-collapsed # expect: round button again
   xdotool search --name '^Anchoa$' >/dev/null || fail "app window disappeared"
   stop_app
 }
@@ -146,15 +149,21 @@ check_dashboard() {
   xdotool type --delay 20 'tugas terlambat'
   xdotool key Return
   sleep 1
+  xdotool key ctrl+n
+  sleep 0.3
+  xdotool type --delay 20 'tugas besok'
+  xdotool key Return
+  sleep 1
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas hari ini'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
+  sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '+1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas besok'"
   click 36 148          # Inbox, then back to Dashboard so it reloads
   click 36 94           # nav: Dashboard
-  shot 5-dashboard      # expect: KPI "2 tersisa · 1 terlambat", late row first
-  click 137 374         # checkbox of the first task ("tugas terlambat")
+  shot 5-dashboard      # expect: bento, "2 tugas hari ini · 1 terlambat", "tugas besok" in the first upcoming column
+  click 137 257         # checkbox of the first task ("tugas terlambat")
   sleep 1
   [[ -n "$(sql "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
-  shot 5-dashboard-done # expect: row struck through, KPI "1 tersisa", 1 dari 2 selesai
+  shot 5-dashboard-done # expect: row struck through, "1/2 selesai"
   stop_app
 }
 

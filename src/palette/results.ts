@@ -11,7 +11,7 @@ export interface PaletteGroup {
   options: PaletteOption[];
 }
 
-export const RECENT_IN_PALETTE = 5;
+const RECENT_IN_PALETTE = 5;
 
 /**
  * Groups shown in the command palette (spec UI lanjutan U4). A non-empty query

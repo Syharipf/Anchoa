@@ -47,12 +47,13 @@ export function NotifPanel({
       <button aria-label="Tutup panel notifikasi" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#05070a]/60" />
       <aside
         ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="notif-title"
         data-anim
         style={{ animation: "anchoa-slide 0.18s ease-out" }}
-        className="absolute inset-y-0 left-0 flex w-[400px] flex-col border-r border-[#2e3440] bg-stage shadow-[16px_0_40px_rgb(0_0_0/0.4)]"
+        className="absolute inset-y-0 left-0 flex w-[400px] outline-none flex-col border-r border-[#2e3440] bg-stage shadow-[16px_0_40px_rgb(0_0_0/0.4)]"
       >
         <div className="flex items-center gap-2.5 border-b border-line px-[18px] pt-5 pb-3">
           <h2 id="notif-title" className="m-0 font-display text-xl font-semibold">

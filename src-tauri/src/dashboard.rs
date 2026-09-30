@@ -1,4 +1,4 @@
-use jiff::tz::TimeZone;
+use jiff::{Timestamp, ToSpan, tz::TimeZone};
 use rusqlite::{Connection, params};
 use serde::Serialize;
 
@@ -20,11 +20,23 @@ pub struct DayTask {
     pub overdue: bool,
 }
 
+pub const UPCOMING_DAYS: i64 = 7;
+
+/// One column of the "7 hari ke depan" card.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpcomingDay {
+    /// Local date, e.g. `2026-10-01`.
+    pub date: String,
+    pub tasks: Vec<DayTask>,
+}
+
 /// Fase 2 adds a `finance` field.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Dashboard {
     pub today: Vec<DayTask>,
+    pub upcoming: Vec<UpcomingDay>,
     pub recent: Vec<ItemSummary>,
     pub inbox_count: i64,
 }
@@ -47,10 +59,34 @@ fn today_tasks(conn: &Connection, start: i64, end: i64) -> Result<Vec<DayTask>, 
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
+/// Open tasks due on each of the next seven local days, starting tomorrow.
+fn upcoming(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Vec<UpcomingDay>, AppError> {
+    let today = Timestamp::from_millisecond(now)?.to_zoned(tz.clone()).date();
+    let mut stmt = conn.prepare(
+        "SELECT id, title, due_at FROM items
+         WHERE deleted_at IS NULL AND completed_at IS NULL AND due_at >= ?1 AND due_at < ?2
+         ORDER BY due_at, title, id",
+    )?;
+    let mut days = Vec::new();
+    for offset in 1..=UPCOMING_DAYS {
+        let date = today.checked_add(offset.days())?;
+        let start = date.to_zoned(tz.clone())?.timestamp().as_millisecond();
+        let end = date.tomorrow()?.to_zoned(tz.clone())?.timestamp().as_millisecond();
+        let tasks = stmt
+            .query_map(params![start, end], |r| {
+                Ok(DayTask { id: r.get(0)?, title: r.get(1)?, due_at: r.get(2)?, completed_at: None, overdue: false })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        days.push(UpcomingDay { date: date.to_string(), tasks });
+    }
+    Ok(days)
+}
+
 pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppError> {
     let (start, end) = day_bounds(now, tz)?;
     Ok(Dashboard {
         today: today_tasks(conn, start, end)?,
+        upcoming: upcoming(conn, now, tz)?,
         recent: summaries(
             conn,
             "1 ORDER BY last_activity_at DESC, id DESC LIMIT ?1",
@@ -69,7 +105,6 @@ mod tests {
     use super::*;
     use crate::db::open_in_memory;
     use crate::items::{ItemPatch, capture_note, complete, delete, open, update};
-    use jiff::Timestamp;
 
     fn ms(rfc3339: &str) -> i64 {
         rfc3339.parse::<Timestamp>().unwrap().as_millisecond()
@@ -113,6 +148,42 @@ mod tests {
                 ("b hari ini", false, false),
             ]
         );
+    }
+
+    #[test]
+    fn upcoming_covers_the_next_seven_local_days() {
+        let conn = open_in_memory();
+        note_due(&conn, "hari ini", "2026-10-01T00:00:00+07:00");
+        note_due(&conn, "besok", "2026-10-02T00:00:00+07:00");
+        note_due(&conn, "besok juga", "2026-10-02T00:00:00+07:00");
+        note_due(&conn, "hari ketujuh", "2026-10-08T00:00:00+07:00");
+        note_due(&conn, "hari kedelapan", "2026-10-09T00:00:00+07:00");
+        let done = note_due(&conn, "selesai", "2026-10-03T00:00:00+07:00");
+        complete(&conn, &done, true, 2).unwrap();
+        let gone = note_due(&conn, "dihapus", "2026-10-04T00:00:00+07:00");
+        delete(&conn, &gone, 2).unwrap();
+
+        // 01:30 on 1 Oct in Jakarta is still 30 Sep in UTC: tomorrow must be 2 Oct.
+        let d = get(&conn, ms("2026-10-01T01:30:00+07:00"), &jakarta()).unwrap();
+
+        let days: Vec<(&str, Vec<&str>)> = d
+            .upcoming
+            .iter()
+            .map(|day| (day.date.as_str(), day.tasks.iter().map(|t| t.title.as_str()).collect()))
+            .collect();
+        assert_eq!(
+            days,
+            [
+                ("2026-10-02", vec!["besok", "besok juga"]),
+                ("2026-10-03", vec![]),
+                ("2026-10-04", vec![]),
+                ("2026-10-05", vec![]),
+                ("2026-10-06", vec![]),
+                ("2026-10-07", vec![]),
+                ("2026-10-08", vec!["hari ketujuh"]),
+            ]
+        );
+        assert!(d.upcoming.iter().flat_map(|day| &day.tasks).all(|t| !t.overdue && t.completed_at.is_none()));
     }
 
     #[test]

@@ -41,10 +41,9 @@ export function App() {
     });
   }, [toast]);
 
-  // The dashboard and the Inbox dot show counts that other pages change: refresh on every visit.
+  // The bell, the panel, the palette and the dashboard show data that other pages change: refresh on every page change.
   useEffect(() => {
-    const top = stack[stack.length - 1];
-    if (ready && (top.name === "dashboard" || top.name === "inbox")) reload();
+    if (ready) reload();
   }, [ready, stack, reload]);
 
   // Ctrl+K (Ctrl+N as an alias) opens the command palette over the current page.
@@ -84,7 +83,7 @@ export function App() {
       />
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
-        {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} />}
+        {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
         {page.name === "inbox" && <Inbox key={captures} onOpen={openItem} />}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
@@ -93,7 +92,7 @@ export function App() {
       {page.name === "dashboard" ? (
         <Aside contributionsVersion={contributionsVersion} onOpenSettings={() => go("settings")} />
       ) : (
-        <AssistantMini key={page.name} hint={assistantHint(info)} onOpenFull={() => go("dashboard")} />
+        <AssistantMini key={page.name === "item" ? page.id : page.name} hint={assistantHint(info)} onOpenFull={() => go("dashboard")} />
       )}
       {overlay === "palette" && (
         <CommandPalette

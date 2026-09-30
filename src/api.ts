@@ -37,8 +37,15 @@ export interface DayTask {
   overdue: boolean;
 }
 
+/** One day of the "7 hari ke depan" card; `date` is the local date, e.g. "2026-10-01". */
+export interface UpcomingDay {
+  date: string;
+  tasks: DayTask[];
+}
+
 export interface Dashboard {
   today: DayTask[];
+  upcoming: UpcomingDay[];
   recent: ItemSummary[];
   inboxCount: number;
 }

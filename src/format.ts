@@ -58,3 +58,10 @@ export function msToDateInput(ms: number | null): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+/** "2026-10-01" (a local date from the backend) to { weekday: "Kam", day: 1 }. */
+export function upcomingLabel(date: string): { weekday: string; day: number } {
+  const [year, month, day] = date.split("-").map(Number);
+  const weekday = new Date(year, month - 1, day).toLocaleDateString("id-ID", { weekday: "short" });
+  return { weekday, day };
+}

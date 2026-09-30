@@ -12,13 +12,14 @@ function NoteIcon() {
   );
 }
 
+/** Fills the "Berkas terbaru" slot of the bento until Berkas lands in Fase 6 (spec U9). */
 export function RecentPanel({ items, onOpen }: Readonly<{ items?: ItemSummary[]; onOpen: (id: string) => void }>) {
   const now = Date.now();
   return (
     <section className={`${PANEL} flex flex-col gap-1`}>
-      <h2 className={`${H2} mb-2`}>Item terbaru</h2>
+      <h2 className={`${H2} mb-2`}>Catatan terbaru</h2>
       {items?.length === 0 && <p className="m-0 text-sm text-muted">Belum ada item</p>}
-      {items?.map((i) => (
+      {items?.slice(0, 3).map((i) => (
         <button key={i.id} onClick={() => onOpen(i.id)} className={`${ROW} flex items-center gap-3 px-2.5 py-2 text-left text-sm`}>
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted">
             <NoteIcon />

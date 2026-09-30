@@ -7,6 +7,11 @@ function dueLabel(t: DayTask, late: boolean): string {
   return late ? `${shortDate(t.dueAt)} · terlambat` : shortDate(t.dueAt);
 }
 
+function segmentColor(t: DayTask): string {
+  if (t.completedAt !== null) return "bg-accent";
+  return t.overdue ? "bg-danger" : "bg-line";
+}
+
 export function TodayPanel({
   tasks,
   onToggle,
@@ -16,12 +21,17 @@ export function TodayPanel({
   const done = list.filter((t) => t.completedAt !== null).length;
 
   return (
-    <section className={`${PANEL} flex flex-col gap-1`}>
-      <div className="mb-2 flex items-baseline justify-between">
+    <section className={`${PANEL} col-span-2 flex flex-col gap-1`}>
+      <div className="flex items-baseline justify-between">
         <h2 className={H2}>Hari ini</h2>
         <span className="font-mono text-xs text-muted">
-          {done}/{list.length}
+          {done}/{list.length} selesai
         </span>
+      </div>
+      <div aria-hidden="true" className="mb-2 flex gap-1 py-1">
+        {list.map((t) => (
+          <span key={t.id} className={`h-1 flex-1 rounded-sm transition-colors ${segmentColor(t)}`} />
+        ))}
       </div>
       {tasks?.length === 0 && <p className="m-0 text-sm text-muted">Tidak ada tugas hari ini</p>}
       {list.map((t) => {

@@ -72,8 +72,8 @@ Do not start implementing a phase until the user approves moving from planning t
 
 ### Model per step
 
-- Planning (brainstorm, spec, plan): Opus, in the main session.
-- Implementation: Sonnet. The Opus session gives each plan task to a subagent with `model: "sonnet"` and checks the result.
+- Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session.
+- Implementation: Sonnet at high effort, through the `implementer` agent (`.claude/agents/implementer.md`), one plan task per run. The Opus session checks each result.
 - Review: Gemini 3.8 Flash High through the Antigravity CLI (`agy`), read-only:
 
   ```bash
@@ -82,7 +82,7 @@ Do not start implementing a phase until the user approves moving from planning t
   ```
 
   Put `--model` before `-p`, because `-p` takes the next argument as the prompt. Headless `agy` ignores stdin, so give it the diff as a file inside the repo. It denies any tool call that needs a permission prompt (shell commands outside its allow-list, URLs, files outside the repo), and one denial ends the run with `jetski: no output produced`. The rules at the start of the prompt prevent that; if it still happens, run it once more. Check every finding before fixing it: Gemini also reports false positives.
-- If `agy` fails (not installed, auth, quota, timeout, or no output), review with an Opus subagent instead. Use this only as the last resort.
+- Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when `agy` fails (not installed, auth, quota, timeout, or no output after a retry). Use Opus instead of `implementer` only when a task fails twice with Sonnet.
 
 ## GUI testing
 

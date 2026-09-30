@@ -73,9 +73,9 @@ check_corrupt_db() {
 check_nav() {
   fresh
   start_app
-  for y in 202 256 310 364 418 472 706; do
+  for y in 202 256 310 364 418 472 526 706; do
     click 36 "$y"
-    shot "3-nav-$y"     # expect: placeholder page (Email, Jadwal, Proyek … Profil); y=310 is the Keuangan page
+    shot "3-nav-$y"     # expect: placeholder page (Email, Jadwal, Berkas … Profil); y=310 is Habit; y=364 is Keuangan; y=418 is Proyek
   done
   click 36 148          # Inbox: the mini assistant replaces the side panel
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
@@ -225,7 +225,7 @@ add_account() {
 check_finance() {
   fresh
   start_app
-  click 36 310                 # nav: Keuangan
+  click 36 364                 # nav: Keuangan
   shot 10-finance-empty        # expect: four cards at Rp 0, six empty bars, "Belum ada akun"
   add_account 10-account-form  # expect: "Akun baru" with "Buat akun dulu", focus in Nama
 
@@ -258,7 +258,7 @@ check_finance() {
 check_bills() {
   fresh
   start_app
-  click 36 310                 # nav: Keuangan
+  click 36 364                 # nav: Keuangan
   add_account
   shot 11-finance-account      # measure "+ Tambah" of Tagihan and the first bill row from here
   click 1207 461               # Tagihan: + Tambah (no limit set, so the cards are 12px shorter than in check_finance)
@@ -280,7 +280,7 @@ check_bills() {
   shot 11-notif-bill           # expect: "Listrik" under Terlambat, "Terlambat 1 hari · Rp 150.000"
   xdotool key Escape
   sleep 0.3
-  click 36 310                 # nav: Keuangan
+  click 36 364                 # nav: Keuangan
   shot 11-bill-late            # expect: Listrik row on coral, "Terlambat 1 hari · sejak <yesterday>", "Tandai lunas"
   before=$(sql "SELECT due_at FROM items WHERE type = 'bill'")
   click 1177 508               # Tandai lunas on the first bill row
@@ -342,7 +342,7 @@ check_github() {
 check_projects() {
   fresh
   start_app
-  click 36 364                 # nav: Proyek
+  click 36 418                 # nav: Proyek
   shot 12-projects-empty        # measure "+ Proyek" and other coordinates from here
   click 1203 104                # + Proyek
   sleep 0.5
@@ -475,6 +475,32 @@ check_schedule() {
   stop_app
 }
 
+check_habits() {
+  fresh
+  start_app
+  click 36 310                 # nav: Habit
+  shot 14-habits-empty         # measure "+ Habit" from here
+  click 1215 104               # + Habit
+  sleep 0.5
+  xdotool type --delay 20 'Olahraga pagi'
+  xdotool key Return
+  sleep 1
+  [[ "$(sql "SELECT i.title FROM habits h JOIN items i ON i.id = h.item_id WHERE i.deleted_at IS NULL")" = "Olahraga pagi" ]] \
+    || fail "habit not saved"
+  shot 14-habits-created       # measure checkbox from here
+  click 140 351                # checkbox on the first habit row
+  sleep 1
+  [[ -n "$(sql "SELECT date FROM habit_checks WHERE deleted_at IS NULL")" ]] \
+    || fail "habit not checked"
+  shot 14-habits-checked
+  click 140 351                # click again to uncheck
+  sleep 1
+  [[ -n "$(sql "SELECT deleted_at FROM habit_checks")" ]] \
+    || fail "unchecking habit did not set deleted_at"
+  shot 14-habits
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -495,4 +521,6 @@ check_assistant
 check_github
 check_projects
 check_schedule
+check_habits
 echo "PASS. Screenshots in $WORK"
+

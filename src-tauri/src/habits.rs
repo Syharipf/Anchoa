@@ -497,6 +497,7 @@ pub fn save_habit(conn: &Connection, input: &HabitInput, now: i64, tz: &TimeZone
         Some(s) if !s.trim().is_empty() => Some(validate_time(s)?),
         _ => None,
     };
+    let remind_on = input.remind_on && remind_at.is_some();
 
     let id = match &input.id {
         Some(id) => {
@@ -517,7 +518,7 @@ pub fn save_habit(conn: &Connection, input: &HabitInput, now: i64, tz: &TimeZone
             )?;
             conn.execute(
                 "UPDATE habits SET days = ?1, remind_at = ?2, remind_on = ?3 WHERE item_id = ?4",
-                params![input.days, remind_at, input.remind_on as i64, id],
+                params![input.days, remind_at, remind_on as i64, id],
             )?;
             id.clone()
         }
@@ -529,7 +530,7 @@ pub fn save_habit(conn: &Connection, input: &HabitInput, now: i64, tz: &TimeZone
             )?;
             conn.execute(
                 "INSERT INTO habits (item_id, days, remind_at, remind_on) VALUES (?1, ?2, ?3, ?4)",
-                params![id, input.days, remind_at, input.remind_on as i64],
+                params![id, input.days, remind_at, remind_on as i64],
             )?;
             id
         }
@@ -1105,5 +1106,57 @@ mod tests {
         assert!(matches!(habit_history(&conn, &h.id, "2026-09", current, &tz), Err(AppError::NotFound)));
         assert!(matches!(check_habit(&conn, &h.id, true, current, &tz), Err(AppError::NotFound)));
         assert!(due_reminders(&conn, current, &tz).unwrap().is_empty());
+    }
+
+    #[test]
+    fn habit_without_reminder_time_forces_remind_on_false() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let current = now();
+
+        let h1 = save_habit(
+            &conn,
+            &HabitInput {
+                name: "Tanpa jam".into(),
+                days: 127,
+                remind_at: None,
+                remind_on: true,
+                ..Default::default()
+            },
+            current,
+            &tz,
+        )
+        .unwrap();
+        assert!(!h1.remind_on);
+
+        let h2 = save_habit(
+            &conn,
+            &HabitInput {
+                name: "Dengan jam".into(),
+                days: 127,
+                remind_at: Some("07:00".into()),
+                remind_on: true,
+                ..Default::default()
+            },
+            current,
+            &tz,
+        )
+        .unwrap();
+        assert!(h2.remind_on);
+
+        let h2_updated = save_habit(
+            &conn,
+            &HabitInput {
+                id: Some(h2.id.clone()),
+                name: "Dengan jam".into(),
+                days: 127,
+                remind_at: None,
+                remind_on: true,
+            },
+            current,
+            &tz,
+        )
+        .unwrap();
+        assert!(!h2_updated.remind_on);
     }
 }

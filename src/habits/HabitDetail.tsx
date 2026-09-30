@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type HabitHistory, type HabitInput, type HabitRow } from "../api";
 import { msToDateInput } from "../format";
-import { SECONDARY } from "../shell/ui";
 import {
   DAY_INITIALS,
   DAY_NAMES,
@@ -107,6 +106,7 @@ export function HabitDetail({
   const monthName = formatMonthLabel(month);
   const heatLabel = `${habit.name}, ${monthName}: ${mDone} dari ${mSched} hari terjadwal selesai`;
 
+  const hasTime = Boolean(habit.remindAt && habit.remindAt.trim());
   const timeDisplay = habit.remindAt ? habit.remindAt.replace(":", ".") : "–";
   const remNote = habit.remindOn
     ? "Masuk ke panel notifikasi"
@@ -118,9 +118,31 @@ export function HabitDetail({
       className="flex w-[340px] shrink-0 flex-col gap-3.5 overflow-y-auto rounded-[14px] border border-line bg-surface p-4"
     >
       <div className="flex flex-col gap-1">
-        <h2 id="h-detail" className="m-0 font-display text-lg font-semibold text-ink">
-          {habit.name}
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2
+            id="h-detail"
+            title={habit.name}
+            className="m-0 min-w-0 flex-1 truncate font-display text-lg font-semibold text-ink"
+          >
+            {habit.name}
+          </h2>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onEdit(habit)}
+              className="rounded-full border border-line px-3 py-1 text-xs text-ink transition-colors hover:bg-surface-2"
+            >
+              Ubah
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(habit.id)}
+              className="rounded-full border border-danger/40 px-3 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger-row"
+            >
+              Hapus
+            </button>
+          </div>
+        </div>
         <span className="text-xs text-muted">{longSchedule(habit)}</span>
       </div>
 
@@ -226,16 +248,19 @@ export function HabitDetail({
             role="switch"
             aria-checked={habit.remindOn}
             aria-labelledby="h-rem"
-            onClick={() =>
+            disabled={!hasTime}
+            title={hasTime ? undefined : "Isi jam pengingat dulu"}
+            onClick={() => {
+              if (!hasTime) return;
               onUpdate({
                 id: habit.id,
                 name: habit.name,
                 days: habit.days,
                 remindAt: habit.remindAt,
                 remindOn: !habit.remindOn,
-              })
-            }
-            className={`relative flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors ${
+              });
+            }}
+            className={`relative flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               habit.remindOn ? "bg-accent" : "bg-disabled"
             }`}
           >
@@ -281,23 +306,6 @@ export function HabitDetail({
             );
           })}
         </fieldset>
-      </div>
-
-      <div className="mt-auto flex items-center gap-2 pt-3">
-        <button
-          type="button"
-          onClick={() => onEdit(habit)}
-          className={`${SECONDARY} flex-1`}
-        >
-          Ubah
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(habit.id)}
-          className="rounded-full border border-danger/40 px-3.5 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger-row"
-        >
-          Hapus
-        </button>
       </div>
     </aside>
   );

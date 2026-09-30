@@ -3,7 +3,7 @@ import { api, type HabitRow } from "../api";
 import { useSave } from "../finance/useSave";
 import { Dialog, DialogActions, Field } from "../shell/Dialog";
 import { FIELD } from "../shell/ui";
-import { DAY_INITIALS, DAY_NAMES, toggleDay } from "./view";
+import { DAY_INITIALS, DAY_NAMES, resolveRemindOn, toggleDay } from "./view";
 
 export function HabitForm({
   edit,
@@ -34,7 +34,7 @@ export function HabitForm({
         name: trimmed,
         days,
         remindAt: validRemindAt,
-        remindOn: edit?.remindOn ?? true,
+        remindOn: resolveRemindOn(validRemindAt, edit),
       });
       onSaved(saved.id);
     });

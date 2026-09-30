@@ -7,6 +7,7 @@ import {
   STATE_STYLE,
   longSchedule,
   metaLabel,
+  resolveRemindOn,
   scheduleLabel,
   toggleDay,
 } from "./view";
@@ -114,5 +115,33 @@ describe("STATE_STYLE", () => {
     expect(STATE_STYLE.miss).toContain("bg-line");
     expect(STATE_STYLE.off).toContain("border-dashed");
     expect(STATE_STYLE.todo).toContain("border-accent");
+  });
+});
+
+describe("resolveRemindOn", () => {
+  it("turns reminder off when there is no reminder time", () => {
+    expect(resolveRemindOn(null)).toBe(false);
+    expect(resolveRemindOn("")).toBe(false);
+    expect(resolveRemindOn("   ")).toBe(false);
+    expect(resolveRemindOn(undefined)).toBe(false);
+
+    // Even if edit had remindOn: true
+    expect(resolveRemindOn(null, { remindAt: "07:00", remindOn: true })).toBe(false);
+    expect(resolveRemindOn("", { remindAt: "07:00", remindOn: true })).toBe(false);
+  });
+
+  it("turns reminder on by default when a time is entered for a new habit", () => {
+    expect(resolveRemindOn("07:00")).toBe(true);
+    expect(resolveRemindOn("20:30", null)).toBe(true);
+  });
+
+  it("turns reminder on by default when a time is added to a habit that previously had no time", () => {
+    expect(resolveRemindOn("08:00", { remindAt: null, remindOn: false })).toBe(true);
+    expect(resolveRemindOn("08:00", { remindAt: "", remindOn: false })).toBe(true);
+  });
+
+  it("preserves reminder switch state when editing a habit that already had a reminder time", () => {
+    expect(resolveRemindOn("08:00", { remindAt: "07:00", remindOn: false })).toBe(false);
+    expect(resolveRemindOn("08:00", { remindAt: "07:00", remindOn: true })).toBe(true);
   });
 });

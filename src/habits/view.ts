@@ -119,3 +119,23 @@ export const STATE_STYLE: Record<DayState, string> = {
   future: "bg-transparent border-transparent text-disabled border-solid",
   blank: "bg-transparent border-transparent text-transparent border-solid",
 };
+
+/**
+ * Determines whether the reminder should be turned on:
+ * - A habit without a reminder time must not have its reminder switched on (returns false).
+ * - When a reminder time is entered, defaults to true unless an existing habit already had a reminder time configured.
+ */
+export function resolveRemindOn(
+  remindAt: string | null | undefined,
+  edit?: { remindAt?: string | null; remindOn?: boolean } | null,
+): boolean {
+  const hasTime = Boolean(remindAt && remindAt.trim());
+  if (!hasTime) {
+    return false;
+  }
+  const editHadTime = Boolean(edit?.remindAt && edit.remindAt.trim());
+  if (editHadTime) {
+    return edit?.remindOn ?? true;
+  }
+  return true;
+}

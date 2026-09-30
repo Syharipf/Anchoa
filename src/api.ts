@@ -322,6 +322,41 @@ export interface Contributions {
 
 export type FolderKind = "data" | "backup" | "log";
 
+export type ItemSource = "task" | "bill";
+export type ItemKind = "project" | "bill" | "personal";
+
+export interface ScheduleItem {
+  key: string;
+  source: ItemSource;
+  id: string;
+  kind: ItemKind;
+  title: string;
+  groupId: string;
+  groupName: string;
+  startDate?: string;
+  dueDate: string;
+  status: TaskStatus;
+  overdue: boolean;
+  checkable: boolean;
+}
+
+export interface ProjectDeadline {
+  projectId: string;
+  name: string;
+  date: string;
+}
+
+export interface Schedule {
+  today: string;
+  items: ScheduleItem[];
+  deadlines: ProjectDeadline[];
+}
+
+export interface ScheduleRange {
+  from: string;
+  to: string;
+}
+
 export const api = {
   dbStatus: () => invoke<DbStatus>("db_status"),
   openFolder: (kind: FolderKind) => invoke<void>("open_folder", { kind }),
@@ -364,6 +399,8 @@ export const api = {
   disconnectGithub: () => invoke<void>("disconnect_github"),
   getContributions: (force: boolean) => invoke<Contributions>("get_contributions", { force }),
   backupNow: () => invoke<string>("backup_now"),
+  schedule: (from: string, to: string) =>
+    invoke<Schedule>("schedule", { range: { from, to } }),
   dataPaths: () => invoke<DataPaths>("data_paths"),
 };
 

@@ -10,6 +10,7 @@ mod gpu;
 mod items;
 mod overview;
 mod projects;
+mod schedule;
 mod tasks;
 mod time;
 
@@ -90,6 +91,7 @@ pub fn run() {
             commands::disconnect_github,
             commands::get_contributions,
             commands::backup_now,
+            commands::schedule,
             commands::data_paths,
             commands::open_folder,
         ])

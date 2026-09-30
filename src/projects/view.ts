@@ -39,3 +39,12 @@ export function subLabel(card: Pick<TaskCard, "subDone" | "subTotal">): string |
   if (card.subTotal <= 0) return null;
   return `${card.subDone}/${card.subTotal}`;
 }
+
+export function toggleTaskStatus(status: TaskStatus): TaskStatus {
+  return status === "done" ? "plan" : "done";
+}
+
+export function parentLabel(parentTitle: string | null | undefined): string {
+  return parentTitle ? `↑ ${parentTitle}` : "↑ Induk";
+}
+

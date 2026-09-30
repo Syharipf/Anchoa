@@ -5,7 +5,9 @@ import {
   deadlineLabel,
   moveLabel,
   nextStatus,
+  parentLabel,
   subLabel,
+  toggleTaskStatus,
 } from "./view";
 
 describe("project view helpers", () => {
@@ -51,5 +53,17 @@ describe("project view helpers", () => {
     expect(subLabel({ subTotal: 0, subDone: 0 })).toBeNull();
     expect(subLabel({ subTotal: 5, subDone: 3 })).toBe("3/5");
     expect(subLabel({ subTotal: 1, subDone: 0 })).toBe("0/1");
+  });
+
+  test("toggleTaskStatus toggles done to plan and plan/doing to done", () => {
+    expect(toggleTaskStatus("done")).toBe("plan");
+    expect(toggleTaskStatus("plan")).toBe("done");
+    expect(toggleTaskStatus("doing")).toBe("done");
+  });
+
+  test("parentLabel formats parent title with arrow", () => {
+    expect(parentLabel("Tugas Induk")).toBe("↑ Tugas Induk");
+    expect(parentLabel(null)).toBe("↑ Induk");
+    expect(parentLabel(undefined)).toBe("↑ Induk");
   });
 });

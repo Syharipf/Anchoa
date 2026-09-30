@@ -74,7 +74,7 @@ check_items() {
   sleep 1
   [[ "$(sql "SELECT title FROM items")" = "catatan dari e2e" ]] || fail "capture not saved"
 
-  click 36 164          # nav: Inbox
+  click 36 148          # nav: Inbox
   shot 4-inbox
   click 300 121         # first inbox row
   click 600 400         # body textarea
@@ -102,8 +102,8 @@ check_dashboard() {
   sleep 1
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas hari ini'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
-  click 36 164          # Inbox, then back to Dashboard so it reloads
-  click 36 108          # nav: Dashboard
+  click 36 148          # Inbox, then back to Dashboard so it reloads
+  click 36 94           # nav: Dashboard
   shot 5-dashboard      # expect: KPI "2 tersisa · 1 terlambat", late row first
   click 137 374         # checkbox of the first task ("tugas terlambat")
   sleep 1
@@ -116,7 +116,7 @@ check_backup() {
   fresh
   start_app
   ls "$APPDATA"/backups/anchoa-*.db >/dev/null 2>&1 || fail "no daily backup at startup"
-  click 36 756          # nav: Pengaturan
+  click 36 760          # nav: Pengaturan
   click 186 187         # Backup sekarang
   shot 6-settings
   [[ "$(ls "$APPDATA"/backups/anchoa-*.db | wc -l)" -eq 2 ]] || fail "manual backup was not created"
@@ -152,7 +152,7 @@ check_github() {
   shot 9-github-heatmap        # expect: heatmap, total, "streak 3 hari"
   click 1154 34                # previous month
   shot 9-github-previous
-  click 36 756                 # nav: Pengaturan
+  click 36 760                 # nav: Pengaturan
   shot 9-github-settings       # expect: "Tersambung sebagai @e2e-user"
   grep -q 'Gagal menghubungi GitHub' "$WORK/app.log" && fail "the test reached the network"
   stop_app

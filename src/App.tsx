@@ -6,10 +6,11 @@ import { ItemPage } from "./item/ItemPage";
 import { Settings } from "./settings/Settings";
 import { Aside } from "./shell/Aside";
 import { ErrorScreen } from "./shell/ErrorScreen";
-import { Sidebar, type TopPage } from "./shell/Sidebar";
+import { type PageId } from "./shell/nav";
+import { Sidebar } from "./shell/Sidebar";
 import { useToast } from "./shell/toast";
 
-type Page = { name: TopPage } | { name: "item"; id: string };
+type Page = { name: PageId } | { name: "item"; id: string };
 
 export function App() {
   const toast = useToast();

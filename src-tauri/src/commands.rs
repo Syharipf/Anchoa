@@ -1,6 +1,7 @@
 //! Thin Tauri glue: every function here only resolves state and delegates.
 use std::path::PathBuf;
 
+use jiff::tz::TimeZone;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -8,6 +9,7 @@ use tauri_plugin_opener::OpenerExt;
 use crate::dashboard::{self, Dashboard};
 use crate::db::Db;
 use crate::error::AppError;
+use crate::finance::{self, AccountInput, AccountView};
 use crate::github::{self, Contributions};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::{backup, time};
@@ -69,7 +71,22 @@ pub fn list_inbox(db: State<'_, Db>) -> Result<Vec<ItemSummary>, AppError> {
 
 #[tauri::command]
 pub fn get_dashboard(db: State<'_, Db>) -> Result<Dashboard, AppError> {
-    dashboard::get(&*db.conn()?, time::now_ms(), &jiff::tz::TimeZone::system())
+    dashboard::get(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn list_accounts(db: State<'_, Db>) -> Result<Vec<AccountView>, AppError> {
+    finance::list_accounts(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn save_account(db: State<'_, Db>, input: AccountInput) -> Result<AccountView, AppError> {
+    finance::save_account(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_account(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    finance::delete_account(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
 }
 
 #[derive(Serialize)]

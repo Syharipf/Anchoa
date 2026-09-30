@@ -6,6 +6,10 @@ pub enum AppError {
     Empty,
     #[error("Item tidak ditemukan")]
     NotFound,
+    #[error("{0}")]
+    Invalid(String),
+    #[error("Akun masih punya transaksi atau tagihan")]
+    AccountInUse,
     #[error("Database tidak tersedia")]
     DbUnavailable,
     #[error("Database versi {0} dibuat oleh aplikasi yang lebih baru")]
@@ -27,6 +31,8 @@ impl AppError {
         match self {
             AppError::Empty => "empty",
             AppError::NotFound => "not_found",
+            AppError::Invalid(_) => "invalid",
+            AppError::AccountInUse => "account_in_use",
             AppError::DbUnavailable => "db_unavailable",
             AppError::DbTooNew(_) => "db_too_new",
             AppError::Db(_) => "db",

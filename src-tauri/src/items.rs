@@ -86,16 +86,32 @@ pub fn get(conn: &Connection, id: &str) -> Result<Item, AppError> {
     .ok_or(AppError::NotFound)
 }
 
+/// Inserts a bare `items` row and returns its new UUIDv7 id. Modules add
+/// their extension row with the same id.
+pub fn insert(conn: &Connection, kind: &str, title: &str, body: &str, now: i64) -> Result<String, AppError> {
+    let id = uuid::Uuid::now_v7().to_string();
+    conn.execute(
+        "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        params![id, kind, title, body, now],
+    )?;
+    Ok(id)
+}
+
+/// Soft-deletes a live item. Returns false when it was missing or already deleted.
+pub fn soft_delete(conn: &Connection, id: &str, now: i64) -> Result<bool, AppError> {
+    let changed = conn.execute(
+        "UPDATE items SET deleted_at = ?2 WHERE id = ?1 AND deleted_at IS NULL",
+        params![id, now],
+    )?;
+    Ok(changed > 0)
+}
+
 pub fn capture_note(conn: &Connection, text: &str, now: i64) -> Result<Item, AppError> {
     let title = text.trim();
     if title.is_empty() {
         return Err(AppError::Empty);
     }
-    let id = uuid::Uuid::now_v7().to_string();
-    conn.execute(
-        "INSERT INTO items (id, type, title, created_at, updated_at) VALUES (?1, 'note', ?2, ?3, ?3)",
-        params![id, title, now],
-    )?;
+    let id = insert(conn, "note", title, "", now)?;
     get(conn, &id)
 }
 
@@ -144,18 +160,15 @@ pub fn complete(conn: &Connection, id: &str, done: bool, now: i64) -> Result<Ite
 }
 
 pub fn delete(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
-    let changed = conn.execute(
-        "UPDATE items SET deleted_at = ?2 WHERE id = ?1 AND deleted_at IS NULL",
-        params![id, now],
-    )?;
-    if changed == 0 {
+    if !soft_delete(conn, id, now)? {
         return Err(AppError::NotFound);
     }
     Ok(())
 }
 
+/// Unfiled notes. Accounts, transactions and bills have their own pages (spec Fase 2 K9).
 pub fn list_inbox(conn: &Connection) -> Result<Vec<ItemSummary>, AppError> {
-    summaries(conn, "parent_id IS NULL ORDER BY created_at DESC, id DESC", [])
+    summaries(conn, "type = 'note' AND parent_id IS NULL ORDER BY created_at DESC, id DESC", [])
 }
 
 #[cfg(test)]
@@ -251,6 +264,16 @@ mod tests {
         capture_note(&conn, "baru", 2000).unwrap();
         let titles: Vec<String> = list_inbox(&conn).unwrap().into_iter().map(|s| s.title).collect();
         assert_eq!(titles, ["baru", "lama"]);
+    }
+
+    #[test]
+    fn inbox_lists_notes_only() {
+        let conn = open_in_memory();
+        capture_note(&conn, "catatan", 1000).unwrap();
+        conn.execute("INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('a1', 'account', 'BCA', 2000, 2000)", [])
+            .unwrap();
+        let titles: Vec<String> = list_inbox(&conn).unwrap().into_iter().map(|s| s.title).collect();
+        assert_eq!(titles, ["catatan"]);
     }
 
     #[test]

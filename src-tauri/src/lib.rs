@@ -3,6 +3,7 @@ mod commands;
 mod dashboard;
 mod db;
 mod error;
+mod finance;
 mod github;
 mod gpu;
 mod items;

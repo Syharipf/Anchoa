@@ -86,16 +86,32 @@ pub fn get(conn: &Connection, id: &str) -> Result<Item, AppError> {
     .ok_or(AppError::NotFound)
 }
 
+/// Inserts a bare `items` row and returns its new UUIDv7 id. Modules add
+/// their extension row with the same id.
+pub fn insert(conn: &Connection, kind: &str, title: &str, body: &str, now: i64) -> Result<String, AppError> {
+    let id = uuid::Uuid::now_v7().to_string();
+    conn.execute(
+        "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        params![id, kind, title, body, now],
+    )?;
+    Ok(id)
+}
+
+/// Soft-deletes a live item. Returns false when it was missing or already deleted.
+pub fn soft_delete(conn: &Connection, id: &str, now: i64) -> Result<bool, AppError> {
+    let changed = conn.execute(
+        "UPDATE items SET deleted_at = ?2 WHERE id = ?1 AND deleted_at IS NULL",
+        params![id, now],
+    )?;
+    Ok(changed > 0)
+}
+
 pub fn capture_note(conn: &Connection, text: &str, now: i64) -> Result<Item, AppError> {
     let title = text.trim();
     if title.is_empty() {
         return Err(AppError::Empty);
     }
-    let id = uuid::Uuid::now_v7().to_string();
-    conn.execute(
-        "INSERT INTO items (id, type, title, created_at, updated_at) VALUES (?1, 'note', ?2, ?3, ?3)",
-        params![id, title, now],
-    )?;
+    let id = insert(conn, "note", title, "", now)?;
     get(conn, &id)
 }
 
@@ -144,11 +160,7 @@ pub fn complete(conn: &Connection, id: &str, done: bool, now: i64) -> Result<Ite
 }
 
 pub fn delete(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
-    let changed = conn.execute(
-        "UPDATE items SET deleted_at = ?2 WHERE id = ?1 AND deleted_at IS NULL",
-        params![id, now],
-    )?;
-    if changed == 0 {
+    if !soft_delete(conn, id, now)? {
         return Err(AppError::NotFound);
     }
     Ok(())

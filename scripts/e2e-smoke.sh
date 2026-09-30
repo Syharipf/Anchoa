@@ -84,6 +84,7 @@ check_items() {
   fresh
   start_app
   xdotool key ctrl+n
+  sleep 0.3
   xdotool type --delay 20 'catatan dari e2e'
   xdotool key Return
   sleep 1
@@ -91,17 +92,36 @@ check_items() {
 
   click 36 148          # nav: Inbox
   shot 4-inbox
-  click 300 121         # first inbox row
-  click 600 400         # body textarea
+  click 300 181         # first inbox row
+  click 600 460         # body textarea
   xdotool type --delay 20 'isi dari e2e'
   sleep 1.5             # autosave fires after 500 ms
   shot 4-item
   [[ "$(sql "SELECT body FROM items")" = "isi dari e2e" ]] || fail "autosave did not store the body"
 
-  click 848 34          # Hapus
+  click 848 94          # Hapus
   shot 4-confirm
-  click 781 38          # Ya, hapus
+  click 781 98          # Ya, hapus
   [[ -n "$(sql "SELECT deleted_at FROM items")" ]] || fail "delete did not set deleted_at"
+  stop_app
+}
+
+check_palette() {
+  fresh
+  start_app
+  xdotool key ctrl+k
+  sleep 0.3
+  shot 4-palette        # expect: Buka halaman (10 pages), no Terbaru yet
+  xdotool type --delay 20 'keu'
+  xdotool key Return
+  sleep 0.7
+  shot 4-palette-keuangan   # expect: Keuangan placeholder page, "Hadir di Fase 2"
+  xdotool key ctrl+k
+  sleep 0.3
+  xdotool key Escape
+  sleep 0.3
+  shot 4-palette-closed     # expect: palette gone, Keuangan still open
+  [[ "$(sql "SELECT COUNT(*) FROM items")" = 0 ]] || fail "opening a page must not save a note"
   stop_app
 }
 
@@ -112,6 +132,8 @@ check_dashboard() {
   xdotool type --delay 20 'tugas hari ini'
   xdotool key Return
   sleep 1
+  xdotool key ctrl+n
+  sleep 0.3
   xdotool type --delay 20 'tugas terlambat'
   xdotool key Return
   sleep 1
@@ -132,7 +154,7 @@ check_backup() {
   start_app
   ls "$APPDATA"/backups/anchoa-*.db >/dev/null 2>&1 || fail "no daily backup at startup"
   click 36 760          # nav: Pengaturan
-  click 186 187         # Backup sekarang
+  click 186 247         # Backup sekarang
   shot 6-settings
   [[ "$(ls "$APPDATA"/backups/anchoa-*.db | wc -l)" -eq 2 ]] || fail "manual backup was not created"
   stop_app
@@ -183,6 +205,7 @@ check_shell
 check_corrupt_db
 check_nav
 check_items
+check_palette
 check_dashboard
 check_backup
 check_assistant

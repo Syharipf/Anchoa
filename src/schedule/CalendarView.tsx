@@ -17,7 +17,7 @@ export function CalendarView({
   onSelectDate: (date: string) => void;
 }>) {
   const grid = monthGrid(month);
-  const rows = (grid.length === 6 ? 6 : 5) as 5 | 6;
+  const rows = grid.length;
 
   return (
     <section
@@ -73,7 +73,7 @@ export function CalendarView({
                   {dayNum}
                 </span>
 
-                <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+                <span className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
                   {shown.map((item) => (
                     <span
                       key={item.key}
@@ -100,7 +100,7 @@ export function CalendarView({
                   {more > 0 && (
                     <span className="pl-1 text-[11px] text-muted">+{more} lagi</span>
                   )}
-                </div>
+                </span>
               </button>
             );
           }),

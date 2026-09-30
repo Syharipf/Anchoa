@@ -15,6 +15,7 @@ import {
   addMonths,
   monthGrid,
   monthLabel,
+  navSelectedDate,
   visible,
 } from "./layout";
 import { ScheduleHeader } from "./ScheduleHeader";
@@ -125,17 +126,21 @@ export function SchedulePage({
   }
 
   function handlePrev() {
-    setMonth((m) => addMonths(m, -1));
+    const nextMonth = addMonths(month, -1);
+    setMonth(nextMonth);
+    setSelectedDate(navSelectedDate(nextMonth, today));
   }
 
   function handleNext() {
-    setMonth((m) => addMonths(m, 1));
+    const nextMonth = addMonths(month, 1);
+    setMonth(nextMonth);
+    setSelectedDate(navSelectedDate(nextMonth, today));
   }
 
   function handleToday() {
     const curMonth = today.slice(0, 7);
     setMonth(curMonth);
-    setSelectedDate(today);
+    setSelectedDate(navSelectedDate(curMonth, today));
   }
 
   const counts: Record<ItemKind, number> = {

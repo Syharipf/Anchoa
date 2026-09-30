@@ -31,7 +31,7 @@ export function addDays(date: string, days: number): string {
 }
 
 /**
- * Monday-first month grid with 5 or 6 rows of 7 cells each.
+ * Monday-first month grid with 4, 5, or 6 rows of 7 cells each.
  * Leading and trailing days complete each week.
  */
 export function monthGrid(month: string): MonthCell[][] {
@@ -63,10 +63,10 @@ export function monthGrid(month: string): MonthCell[][] {
 export function chipsFor(
   items: readonly ScheduleItem[],
   date: string,
-  rows: 5 | 6,
+  rows: number,
 ): { shown: ScheduleItem[]; more: number } {
   const matching = items.filter((it) => it.dueDate === date);
-  const max = rows === 6 ? 2 : 3;
+  const max = rows <= 5 ? 3 : 2;
   if (matching.length <= max) {
     return { shown: matching, more: 0 };
   }
@@ -74,6 +74,22 @@ export function chipsFor(
     shown: matching.slice(0, max),
     more: matching.length - max,
   };
+}
+
+/**
+ * Resolves the selected date when navigating to targetMonth:
+ * today if targetMonth contains today, else the 1st of that month.
+ */
+export function navSelectedDate(targetMonth: string, today: string): string {
+  if (today && today.startsWith(targetMonth)) {
+    return today;
+  }
+  return `${targetMonth}-01`;
+}
+
+/** Whether a schedule item is a bill that has been paid. */
+export function isBillDone(item: ScheduleItem): boolean {
+  return item.source === "bill" && item.status === "done";
 }
 
 /**

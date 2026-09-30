@@ -1,5 +1,42 @@
 import type { ScheduleItem } from "../api";
-import { addDays, agendaGroups, agendaTitle, KIND_COLORS } from "./layout";
+import {
+  addDays,
+  agendaGroups,
+  agendaTitle,
+  isBillDone,
+  KIND_COLORS,
+} from "./layout";
+
+function ItemCheckbox({
+  item,
+  onToggleTask,
+  onPayBill,
+}: {
+  item: ScheduleItem;
+  onToggleTask: (item: ScheduleItem) => void;
+  onPayBill: (item: ScheduleItem) => void;
+}) {
+  if (!item.checkable) {
+    return <div className="h-4 w-4 shrink-0" />;
+  }
+  const disabled = isBillDone(item);
+  return (
+    <input
+      type="checkbox"
+      checked={item.status === "done"}
+      disabled={disabled}
+      onChange={() => {
+        if (item.source === "task") {
+          onToggleTask(item);
+        } else if (!disabled) {
+          onPayBill(item);
+        }
+      }}
+      aria-label={`Tandai selesai: ${item.title}`}
+      className="h-4 w-4 shrink-0 cursor-pointer accent-accent disabled:cursor-not-allowed"
+    />
+  );
+}
 
 export function AgendaPanel({
   selectedDate,
@@ -85,21 +122,11 @@ export function AgendaPanel({
                 key={item.key}
                 className="flex items-center gap-2.5 rounded-lg bg-danger-row p-2 text-ink"
               >
-                {item.checkable ? (
-                  <input
-                    type="checkbox"
-                    checked={item.status === "done"}
-                    onChange={() =>
-                      item.source === "task"
-                        ? onToggleTask(item)
-                        : onPayBill(item)
-                    }
-                    aria-label={`Tandai selesai: ${item.title}`}
-                    className="h-4 w-4 shrink-0 cursor-pointer accent-accent"
-                  />
-                ) : (
-                  <div className="h-4 w-4 shrink-0" />
-                )}
+                <ItemCheckbox
+                  item={item}
+                  onToggleTask={onToggleTask}
+                  onPayBill={onPayBill}
+                />
                 <span
                   className="h-7 w-[3px] shrink-0 rounded-[1px]"
                   style={{ backgroundColor: KIND_COLORS[item.kind] }}
@@ -149,21 +176,11 @@ export function AgendaPanel({
               key={item.key}
               className="flex items-center gap-2.5 rounded-lg p-2 transition-colors hover:bg-surface-2"
             >
-              {item.checkable ? (
-                <input
-                  type="checkbox"
-                  checked={item.status === "done"}
-                  onChange={() =>
-                    item.source === "task"
-                      ? onToggleTask(item)
-                      : onPayBill(item)
-                  }
-                  aria-label={`Tandai selesai: ${item.title}`}
-                  className="h-4 w-4 shrink-0 cursor-pointer accent-accent"
-                />
-              ) : (
-                <div className="h-4 w-4 shrink-0" />
-              )}
+              <ItemCheckbox
+                item={item}
+                onToggleTask={onToggleTask}
+                onPayBill={onPayBill}
+              />
               <span
                 className="h-7 w-[3px] shrink-0 rounded-[1px]"
                 style={{ backgroundColor: KIND_COLORS[item.kind] }}
@@ -214,6 +231,11 @@ export function AgendaPanel({
                   key={item.key}
                   className="flex items-center gap-2.5 rounded px-1 py-1 transition-colors hover:bg-surface-2"
                 >
+                  <ItemCheckbox
+                    item={item}
+                    onToggleTask={onToggleTask}
+                    onPayBill={onPayBill}
+                  />
                   <span
                     className="h-4 w-[3px] shrink-0 rounded-[1px]"
                     style={{ backgroundColor: KIND_COLORS[item.kind] }}

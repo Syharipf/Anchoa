@@ -4,7 +4,9 @@ import {
   agendaGroups,
   agendaTitle,
   chipsFor,
+  isBillDone,
   monthGrid,
+  navSelectedDate,
   visible,
 } from "./layout";
 
@@ -50,6 +52,17 @@ describe("schedule layout", () => {
     expect(grid[5][6]).toEqual({ date: "2026-12-06", inMonth: false });
   });
 
+  it("Februari 2027 dimulai Senin dan punya 4 baris", () => {
+    const grid = monthGrid("2027-02");
+    expect(grid.length).toBe(4);
+    for (const row of grid) {
+      expect(row.length).toBe(7);
+    }
+    // All 28 days are in Feb 2027, starting Monday 2027-02-01 and ending Sunday 2027-02-28
+    expect(grid[0][0]).toEqual({ date: "2027-02-01", inMonth: true });
+    expect(grid[3][6]).toEqual({ date: "2027-02-28", inMonth: true });
+  });
+
   it("chipsFor memberi more yang benar", () => {
     const items = [
       makeItem({ id: "1", dueDate: "2026-09-30" }),
@@ -59,7 +72,11 @@ describe("schedule layout", () => {
       makeItem({ id: "5", dueDate: "2026-10-01" }),
     ];
 
-    // When rows === 5, max chips is 3
+    // When rows <= 5 (e.g. 4 or 5), max chips is 3
+    const res4 = chipsFor(items, "2026-09-30", 4);
+    expect(res4.shown.length).toBe(3);
+    expect(res4.more).toBe(1);
+
     const res5 = chipsFor(items, "2026-09-30", 5);
     expect(res5.shown.length).toBe(3);
     expect(res5.more).toBe(1);
@@ -134,5 +151,27 @@ describe("schedule layout", () => {
     expect(agendaTitle("2026-09-30")).toBe("Rabu, 30 September");
     expect(agendaTitle("2026-09-29")).toBe("Selasa, 29 September");
     expect(agendaTitle("2026-10-01")).toBe("Kamis, 1 Oktober");
+  });
+
+  it("navSelectedDate memindahkan selectedDate ke tanggal yang sesuai", () => {
+    const today = "2026-09-30";
+    // Target month contains today -> returns today
+    expect(navSelectedDate("2026-09", today)).toBe("2026-09-30");
+
+    // Target month is previous month (does not contain today) -> returns 1st
+    expect(navSelectedDate("2026-08", today)).toBe("2026-08-01");
+
+    // Target month is next month (does not contain today) -> returns 1st
+    expect(navSelectedDate("2026-10", today)).toBe("2026-10-01");
+  });
+
+  it("isBillDone hanya benar untuk tagihan dengan status done", () => {
+    const billDone = makeItem({ id: "b1", source: "bill", kind: "bill", dueDate: "2026-09-30", status: "done" });
+    const billPlan = makeItem({ id: "b2", source: "bill", kind: "bill", dueDate: "2026-09-30", status: "plan" });
+    const taskDone = makeItem({ id: "t1", source: "task", kind: "project", dueDate: "2026-09-30", status: "done" });
+
+    expect(isBillDone(billDone)).toBe(true);
+    expect(isBillDone(billPlan)).toBe(false);
+    expect(isBillDone(taskDone)).toBe(false);
   });
 });

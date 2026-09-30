@@ -36,7 +36,7 @@ Dashboard · Inbox · Email · Jadwal · Keuangan · Proyek · Berkas · Unduhan
 - Aktif: latar `--surface-2`, ikon `--accent`, `aria-current="page"`.
 - Semua ikon wajib punya tooltip (title) dan `aria-label`.
 - Badge: Inbox = titik lime; Email = angka belum dibaca (pil lime).
-- **Inbox diimplementasikan sebagai "Catatan"** (route `/catatan`): isinya ide/catatan cepat, bukan email. Label di artboard masih "Inbox".
+- **Inbox diimplementasikan sebagai halaman "Catatan"**: isinya ide/catatan cepat, bukan email. Label di artboard masih "Inbox".
 
 **Top bar:** tombol lebar bergaya kolom cari (tinggi 42, radius 10) → membuka **command palette**. Di aplikasi asli: shortcut global **Ctrl K**.
 
@@ -120,7 +120,7 @@ Dipakai sebagai **kawanan melingkar** di sekitar avatar (dashboard, popup mini, 
 - Elemen interaktif = `<button>`, `<a href>`, `<input>` asli; tombol ikon wajib `aria-label`.
 - Sakelar: `role="switch"` + `aria-checked`. Tombol toggle: `aria-pressed`.
 - Status asisten, label periode, dan hasil palette: `aria-live="polite"`.
-- Kontras teks ≥ 4.5:1 (palet di atas sudah memenuhi pada `--bg`/`--surface`).
+- Kontras teks ≥ 4.5:1 (palet di `tokens.css` sudah memenuhi pada `--bg`/`--surface`).
 - Warna bukan satu-satunya penanda (terlambat juga bertuliskan "terlambat", dsb.).
 
 ## 8. Integrasi & data

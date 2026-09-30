@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Anchoa is an all-in-one personal management desktop app in the style of Notion and Obsidian: finance, projects, tasks, schedule, notes, files, downloads and email, all linked together. It is built in phases, and each phase has its own spec and plan (written in Indonesian):
 
-- Specs: `docs/superpowers/specs/`. The current one is `2026-09-29-anchoa-fase1-design.md` (Fase 1: foundation + dashboard). The roadmap is in its section 13.
+- Specs: `docs/superpowers/specs/`. The roadmap is in section 13 of `2026-09-29-anchoa-fase1-design.md` (Fase 1: foundation + dashboard).
 - Plans: `docs/superpowers/plans/`
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.

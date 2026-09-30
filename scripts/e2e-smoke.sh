@@ -364,6 +364,48 @@ check_projects() {
   [[ "$(sql "SELECT count(*) FROM tasks WHERE project_id = '$proj_id'")" = 2 ]] || fail "expected 2 tasks in project"
   [[ "$(sql "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas A')")" = "doing" ]] || fail "Tugas A should be doing"
   [[ "$(sql "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas B')")" = "plan" ]] || fail "Tugas B should be plan"
+  # Task 10: subtask on Tugas B
+  click 450 400                 # click Tugas B card
+  sleep 1
+  click 200 380                 # Tambah sub-tugas input
+  sleep 0.5
+  xdotool type --delay 20 'Sub 1'
+  xdotool key Return
+  sleep 1
+  tugas_b_id=$(sql "SELECT id FROM items WHERE title = 'Tugas B'")
+  [[ "$(sql "SELECT parent_id FROM items WHERE title = 'Sub 1'")" = "$tugas_b_id" ]] || fail "subtask parent_id not set"
+  click 130 95                  # ← Kembali
+  sleep 1
+  shot 12-subtasks
+
+  # Task 10: palette creates loose task
+  xdotool key ctrl+k
+  sleep 0.5
+  xdotool type --delay 20 'tugas dari palette'
+  sleep 0.5
+  xdotool key Down
+  sleep 0.3
+  xdotool key Return
+  sleep 1
+  [[ "$(sql "SELECT t.status || ':' || COALESCE(t.project_id, 'loose') FROM tasks t JOIN items i ON i.id = t.item_id WHERE i.title = 'tugas dari palette'")" = "plan:loose" ]] \
+    || fail "palette task not saved as loose plan task"
+
+  # Task 10: convert note to task
+  xdotool key ctrl+n
+  sleep 0.5
+  xdotool type --delay 20 'catatan jadi tugas'
+  sleep 0.5
+  xdotool key Return
+  sleep 1
+  click 36 148                  # nav: Inbox
+  sleep 1
+  click 300 181                 # open first inbox note ("catatan jadi tugas")
+  sleep 1
+  shot 12-note-item
+  click 219 95                  # Jadikan tugas
+  sleep 1
+  [[ "$(sql "SELECT type FROM items WHERE title = 'catatan jadi tugas'")" = "task" ]] || fail "note was not converted to task"
+  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'catatan jadi tugas')")" = "plan" ]] || fail "converted task status not plan"
   click 36 94                   # nav: Dashboard
   sleep 1
   shot 12-dashboard

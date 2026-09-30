@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage, type Item, type ItemPatch } from "../api";
-import { dateInputToMs, msToDateInput } from "../format";
+import { api, errorMessage, type Item, type ItemPatch, type TaskDetail } from "../api";
+import { parentLabel } from "../projects/view";
 import { useToast } from "../shell/toast";
 import { FIELD } from "../shell/ui";
+import { Subtasks } from "./Subtasks";
+import { TaskFields } from "./TaskFields";
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
 const SAVE_LABEL: Record<SaveState, string> = {
@@ -13,9 +15,18 @@ const SAVE_LABEL: Record<SaveState, string> = {
 };
 const AUTOSAVE_MS = 500;
 
-export function ItemPage({ id, onBack }: Readonly<{ id: string; onBack: () => void }>) {
+export function ItemPage({
+  id,
+  onBack,
+  onOpenItem,
+}: Readonly<{
+  id: string;
+  onBack: () => void;
+  onOpenItem: (id: string) => void;
+}>) {
   const toast = useToast();
   const [item, setItem] = useState<Item | null>(null);
+  const [task, setTask] = useState<TaskDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [save, setSave] = useState<SaveState>("idle");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -23,7 +34,27 @@ export function ItemPage({ id, onBack }: Readonly<{ id: string; onBack: () => vo
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    api.openItem(id).then(setItem, (e) => setLoadError(errorMessage(e)));
+    let active = true;
+    api.openItem(id).then(
+      async (it) => {
+        if (!active) return;
+        setItem(it);
+        if (it.type === "task") {
+          try {
+            const t = await api.getTask(id);
+            if (active) setTask(t);
+          } catch (e) {
+            if (active) setLoadError(errorMessage(e));
+          }
+        }
+      },
+      (e) => {
+        if (active) setLoadError(errorMessage(e));
+      }
+    );
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   const flush = useCallback(async () => {
@@ -52,11 +83,27 @@ export function ItemPage({ id, onBack }: Readonly<{ id: string; onBack: () => vo
     timer.current = window.setTimeout(() => void flush(), AUTOSAVE_MS);
   }
 
+  async function handleConvertToTask() {
+    await flush();
+    try {
+      const detail = await api.convertToTask(id);
+      const updated = await api.openItem(id);
+      setItem(updated);
+      setTask(detail);
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
   async function remove() {
     window.clearTimeout(timer.current);
     pending.current = {};
     try {
-      await api.deleteItem(id);
+      if (item?.type === "task") {
+        await api.deleteTask(id);
+      } else {
+        await api.deleteItem(id);
+      }
       onBack();
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -75,12 +122,32 @@ export function ItemPage({ id, onBack }: Readonly<{ id: string; onBack: () => vo
   }
   if (!item) return null;
 
+  const isTask = item.type === "task";
+
   return (
     <div className="flex max-w-3xl flex-col gap-4">
       <div className="flex items-center gap-3 text-sm">
         <button onClick={onBack} className="text-accent hover:text-accent-hover">
           ← Kembali
         </button>
+        {isTask && task?.parentId && (
+          <button
+            type="button"
+            onClick={() => onOpenItem(task.parentId!)}
+            className="text-accent hover:text-accent-hover"
+          >
+            {parentLabel(task.parentTitle)}
+          </button>
+        )}
+        {!isTask && (
+          <button
+            type="button"
+            onClick={() => void handleConvertToTask()}
+            className="rounded-lg border border-line px-2.5 py-1 text-xs text-ink hover:bg-surface-2"
+          >
+            Jadikan tugas
+          </button>
+        )}
         <span aria-live="polite" className={`ml-auto ${save === "failed" ? "text-danger" : "text-muted"}`}>
           {SAVE_LABEL[save]}
         </span>
@@ -108,23 +175,26 @@ export function ItemPage({ id, onBack }: Readonly<{ id: string; onBack: () => vo
         className="bg-transparent font-display text-[28px] font-semibold tracking-[-0.01em] outline-none placeholder:text-muted"
       />
 
-      <div className="flex items-center gap-2 text-sm">
-        <label htmlFor="due">Jatuh tempo</label>
-        <input
-          id="due"
-          type="date"
-          value={msToDateInput(item.dueAt)}
-          onChange={(e) => change({ dueAt: dateInputToMs(e.target.value) })}
-          onBlur={() => void flush()}
-          // WebKit shows today's date in an empty date input; grey it out so it does not look set.
-          className={`${FIELD} px-2 py-1 font-mono ${item.dueAt === null ? "text-disabled" : ""}`}
+      {isTask && task && (
+        <TaskFields
+          task={task}
+          dueAt={item.dueAt}
+          onTaskChange={setTask}
+          onDueChange={(dueAt) => setItem((cur) => (cur ? { ...cur, dueAt } : cur))}
+          onSaveState={setSave}
         />
-        {item.dueAt !== null && (
-          <button onClick={() => change({ dueAt: null })} className="text-muted hover:text-ink">
-            Hapus tanggal
-          </button>
-        )}
-      </div>
+      )}
+
+      {isTask && task && !task.parentId && (
+        <Subtasks
+          parentId={id}
+          subtasks={task.subtasks}
+          onOpenItem={onOpenItem}
+          onSubtasksChange={(subtasks) =>
+            setTask((cur) => (cur ? { ...cur, subtasks } : cur))
+          }
+        />
+      )}
 
       <textarea
         value={item.body}

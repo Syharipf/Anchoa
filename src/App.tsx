@@ -96,7 +96,7 @@ export function App() {
         {page.name === "proyek" && (
           <ProjectsPage onOpenItem={openItem} onChanged={reload} />
         )}
-        {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} />}
+        {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
         {info?.about && <ComingSoon page={info} onOpenSettings={() => go("settings")} />}
       </main>

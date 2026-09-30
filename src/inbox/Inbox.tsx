@@ -5,19 +5,13 @@ import { ItemRow } from "../shell/ItemRow";
 import { useToast } from "../shell/toast";
 import { H1, PANEL } from "../shell/ui";
 
-export function Inbox({ onOpen, onCount }: Readonly<{ onOpen: (id: string) => void; onCount: (count: number) => void }>) {
+export function Inbox({ onOpen }: Readonly<{ onOpen: (id: string) => void }>) {
   const toast = useToast();
   const [items, setItems] = useState<ItemSummary[] | null>(null);
 
   useEffect(() => {
-    api.listInbox().then(
-      (list) => {
-        setItems(list);
-        onCount(list.length);
-      },
-      (e) => toast(errorMessage(e), "error"),
-    );
-  }, [toast, onCount]);
+    api.listInbox().then(setItems, (e) => toast(errorMessage(e), "error"));
+  }, [toast]);
 
   const now = Date.now();
   const detail = (i: ItemSummary) =>

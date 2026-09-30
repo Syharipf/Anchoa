@@ -95,7 +95,7 @@ export function Kanban({
                 >
                   <path d="M12 5v14M5 12h14" />
                 </svg>
-                + Tugas
+                Tugas
               </button>
             )}
 

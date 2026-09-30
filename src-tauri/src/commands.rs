@@ -9,7 +9,11 @@ use tauri_plugin_opener::OpenerExt;
 use crate::dashboard::{self, Dashboard};
 use crate::db::Db;
 use crate::error::AppError;
-use crate::finance::{self, AccountInput, AccountView};
+use crate::finance::{
+    self, AccountInput, AccountView, Categories, TransactionInput, TransactionPage, TransactionQuery, TransactionView,
+    TransferInput,
+};
+use crate::overview::{self, FinanceOverview};
 use crate::github::{self, Contributions};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::{backup, time};
@@ -87,6 +91,43 @@ pub fn save_account(db: State<'_, Db>, input: AccountInput) -> Result<AccountVie
 #[tauri::command]
 pub fn delete_account(db: State<'_, Db>, id: String) -> Result<(), AppError> {
     finance::delete_account(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn list_transactions(db: State<'_, Db>, query: TransactionQuery) -> Result<TransactionPage, AppError> {
+    finance::list_transactions(&*db.conn()?, &query, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn save_transaction(db: State<'_, Db>, input: TransactionInput) -> Result<TransactionView, AppError> {
+    finance::save_transaction(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn save_transfer(db: State<'_, Db>, input: TransferInput) -> Result<TransactionView, AppError> {
+    finance::save_transfer(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_transaction(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    finance::delete_transaction(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn finance_categories(db: State<'_, Db>) -> Result<Categories, AppError> {
+    finance::categories(&*db.conn()?)
+}
+
+/// `month: None` is the current local month.
+#[tauri::command]
+pub fn finance_overview(db: State<'_, Db>, month: Option<String>) -> Result<FinanceOverview, AppError> {
+    overview::overview(&*db.conn()?, month.as_deref(), time::now_ms(), &TimeZone::system())
+}
+
+/// `amount: None` removes the monthly limit.
+#[tauri::command]
+pub fn set_budget(db: State<'_, Db>, amount: Option<i64>) -> Result<(), AppError> {
+    overview::set_budget(&*db.conn()?, amount, time::now_ms())
 }
 
 #[derive(Serialize)]

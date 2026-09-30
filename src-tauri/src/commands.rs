@@ -17,6 +17,8 @@ use crate::overview::{self, FinanceOverview};
 use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
+use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
+use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
 use crate::{backup, time};
 
 #[derive(Serialize)]
@@ -60,13 +62,61 @@ pub fn update_item(db: State<'_, Db>, id: String, patch: ItemPatch) -> Result<It
 }
 
 #[tauri::command]
-pub fn complete_item(db: State<'_, Db>, id: String, done: bool) -> Result<Item, AppError> {
-    items::complete(&*db.conn()?, &id, done, time::now_ms())
+pub fn delete_item(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    items::delete(&*db.conn()?, &id, time::now_ms())
 }
 
 #[tauri::command]
-pub fn delete_item(db: State<'_, Db>, id: String) -> Result<(), AppError> {
-    items::delete(&*db.conn()?, &id, time::now_ms())
+pub fn projects_overview(db: State<'_, Db>) -> Result<ProjectsOverview, AppError> {
+    projects::projects_overview(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn project_board(db: State<'_, Db>, id: Option<String>) -> Result<Board, AppError> {
+    projects::project_board(&*db.conn()?, id.as_deref(), time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn save_project(db: State<'_, Db>, input: ProjectInput) -> Result<ProjectDetail, AppError> {
+    projects::save_project(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_project(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    projects::delete_project(&*db.conn()?, &id, time::now_ms())
+}
+
+#[tauri::command]
+pub fn open_repo(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    let url = projects::repo_url(&*db.conn()?, &id)?;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
+pub fn create_task(db: State<'_, Db>, input: NewTask) -> Result<TaskCard, AppError> {
+    tasks::create_task(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn get_task(db: State<'_, Db>, id: String) -> Result<TaskDetail, AppError> {
+    tasks::get_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn update_task(db: State<'_, Db>, id: String, patch: TaskPatch) -> Result<TaskDetail, AppError> {
+    tasks::update_task(&*db.conn()?, &id, &patch, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_task(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    tasks::delete_task(&*db.conn()?, &id, time::now_ms())
+}
+
+#[tauri::command]
+pub fn convert_to_task(db: State<'_, Db>, id: String) -> Result<TaskDetail, AppError> {
+    tasks::convert_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
 }
 
 #[tauri::command]

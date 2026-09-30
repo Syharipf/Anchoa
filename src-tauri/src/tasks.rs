@@ -1,5 +1,4 @@
 //! Tasks with status, subtasks, projects and notes conversion (spec Fase 3A §3-4).
-#![allow(dead_code)]
 use jiff::tz::TimeZone;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::{Connection, OptionalExtension, Params, params};

@@ -180,12 +180,118 @@ export interface FinanceSummary {
   dueBills: BillView[];
 }
 
+export type ProjectKind = "app" | "document" | "research" | "personal";
+export type ProjectStatus = "active" | "late" | "done";
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  kind: ProjectKind;
+  deadlineAt: number | null;
+  deadlineDays: number | null;
+  status: ProjectStatus;
+  done: number;
+  total: number;
+}
+
+export interface ProjectDetail {
+  id: string;
+  name: string;
+  kind: ProjectKind;
+  description: string;
+  deadlineAt: number | null;
+  deadlineDays: number | null;
+  repoUrl: string | null;
+  status: ProjectStatus;
+  done: number;
+  total: number;
+}
+
+export interface ProjectInput {
+  id?: string;
+  name: string;
+  kind: ProjectKind;
+  deadlineAt?: number | null;
+  repoUrl?: string | null;
+  description: string;
+}
+
+export interface LooseCount {
+  done: number;
+  total: number;
+}
+
+export interface ProjectsOverview {
+  projects: ProjectSummary[];
+  activeCount: number;
+  loose: LooseCount;
+  upcoming: TaskCard[];
+}
+
+export interface Columns {
+  plan: TaskCard[];
+  doing: TaskCard[];
+  done: TaskCard[];
+}
+
+export interface Board {
+  project: ProjectDetail | null;
+  columns: Columns;
+}
+
+export type TaskStatus = "plan" | "doing" | "done";
+
+export interface TaskCard {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  tag: string | null;
+  dueAt: number | null;
+  overdue: boolean;
+  subDone: number;
+  subTotal: number;
+  projectId: string | null;
+  projectName: string | null;
+}
+
+export interface TaskDetail {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  tag: string | null;
+  dueAt: number | null;
+  overdue: boolean;
+  subDone: number;
+  subTotal: number;
+  projectId: string | null;
+  projectName: string | null;
+  startAt: number | null;
+  parentId: string | null;
+  parentTitle: string | null;
+  subtasks: TaskCard[];
+}
+
+export interface NewTask {
+  title: string;
+  projectId?: string | null;
+  parentId?: string | null;
+  status: TaskStatus;
+}
+
+export interface TaskPatch {
+  status?: TaskStatus;
+  projectId?: string | null;
+  startAt?: number | null;
+  tag?: string | null;
+}
+
 export interface Dashboard {
   today: DayTask[];
   upcoming: UpcomingDay[];
   recent: ItemSummary[];
   inboxCount: number;
   finance: FinanceSummary;
+  projects: ProjectSummary[];
 }
 
 export interface DbStatus {
@@ -222,8 +328,17 @@ export const api = {
   captureNote: (text: string) => invoke<Item>("capture_note", { text }),
   openItem: (id: string) => invoke<Item>("open_item", { id }),
   updateItem: (id: string, patch: ItemPatch) => invoke<Item>("update_item", { id, patch }),
-  completeItem: (id: string, done: boolean) => invoke<Item>("complete_item", { id, done }),
   deleteItem: (id: string) => invoke<void>("delete_item", { id }),
+  projectsOverview: () => invoke<ProjectsOverview>("projects_overview"),
+  projectBoard: (id: string | null) => invoke<Board>("project_board", { id }),
+  saveProject: (input: ProjectInput) => invoke<ProjectDetail>("save_project", { input }),
+  deleteProject: (id: string) => invoke<void>("delete_project", { id }),
+  openRepo: (id: string) => invoke<void>("open_repo", { id }),
+  createTask: (input: NewTask) => invoke<TaskCard>("create_task", { input }),
+  getTask: (id: string) => invoke<TaskDetail>("get_task", { id }),
+  updateTask: (id: string, patch: TaskPatch) => invoke<TaskDetail>("update_task", { id, patch }),
+  deleteTask: (id: string) => invoke<void>("delete_task", { id }),
+  convertToTask: (id: string) => invoke<TaskDetail>("convert_to_task", { id }),
   listInbox: () => invoke<ItemSummary[]>("list_inbox"),
   getDashboard: () => invoke<Dashboard>("get_dashboard"),
   listAccounts: () => invoke<AccountView[]>("list_accounts"),

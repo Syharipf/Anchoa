@@ -7,6 +7,7 @@ use crate::error::AppError;
 use crate::finance;
 use crate::items::{ItemSummary, summaries};
 use crate::overview::{self, BudgetView};
+use crate::projects::{self, ProjectSummary};
 use crate::time::{day_bounds, month_of};
 
 pub const RECENT_LIMIT: usize = 8;
@@ -43,6 +44,7 @@ pub struct Dashboard {
     pub recent: Vec<ItemSummary>,
     pub inbox_count: i64,
     pub finance: FinanceSummary,
+    pub projects: Vec<ProjectSummary>,
 }
 
 /// The Keuangan card, the bell and the notification panel (spec Fase 2 §5).
@@ -77,7 +79,7 @@ fn finance_summary(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Finance
 fn today_tasks(conn: &Connection, start: i64, end: i64) -> Result<Vec<DayTask>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, title, due_at, completed_at FROM items
-         WHERE deleted_at IS NULL AND type = 'note' AND due_at IS NOT NULL AND (
+         WHERE deleted_at IS NULL AND type = 'task' AND due_at IS NOT NULL AND (
                (due_at >= ?1 AND due_at < ?2)
             OR (due_at < ?1 AND completed_at IS NULL)
             OR (completed_at >= ?1 AND completed_at < ?2))
@@ -95,7 +97,7 @@ fn upcoming(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Vec<UpcomingDa
     let today = Timestamp::from_millisecond(now)?.to_zoned(tz.clone()).date();
     let mut stmt = conn.prepare(
         "SELECT id, title, due_at FROM items
-         WHERE deleted_at IS NULL AND type = 'note' AND completed_at IS NULL AND due_at >= ?1 AND due_at < ?2
+         WHERE deleted_at IS NULL AND type = 'task' AND completed_at IS NULL AND due_at >= ?1 AND due_at < ?2
          ORDER BY due_at, title, id",
     )?;
     let mut days = Vec::new();
@@ -129,6 +131,7 @@ pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppE
             |r| r.get(0),
         )?,
         finance: finance_summary(conn, now, tz)?,
+        projects: projects::active_projects(conn, now, tz, 2)?,
     })
 }
 
@@ -136,7 +139,8 @@ pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppE
 mod tests {
     use super::*;
     use crate::db::open_in_memory;
-    use crate::items::{ItemPatch, capture_note, complete, delete, open, update};
+    use crate::items::{ItemPatch, capture_note, delete, open, update};
+    use crate::tasks;
 
     fn ms(rfc3339: &str) -> i64 {
         rfc3339.parse::<Timestamp>().unwrap().as_millisecond()
@@ -146,24 +150,41 @@ mod tests {
         TimeZone::fixed(jiff::tz::offset(7))
     }
 
-    fn note_due(conn: &Connection, title: &str, due: &str) -> String {
-        let item = capture_note(conn, title, 1).unwrap();
-        update(conn, &item.id, &ItemPatch { due_at: Some(Some(ms(due))), ..Default::default() }, 1).unwrap();
-        item.id
+    fn task_due(conn: &Connection, title: &str, due: &str) -> String {
+        let card = tasks::create_task(
+            conn,
+            &tasks::NewTask { title: title.into(), status: tasks::TaskStatus::Plan, ..Default::default() },
+            1,
+            &jakarta(),
+        )
+        .unwrap();
+        update(conn, &card.id, &ItemPatch { due_at: Some(Some(ms(due))), ..Default::default() }, 1).unwrap();
+        card.id
+    }
+
+    fn complete_task(conn: &Connection, id: &str, now: i64) {
+        tasks::update_task(
+            conn,
+            id,
+            &tasks::TaskPatch { status: Some(tasks::TaskStatus::Done), ..Default::default() },
+            now,
+            &jakarta(),
+        )
+        .unwrap();
     }
 
     #[test]
     fn today_lists_due_overdue_and_finished_today() {
         let conn = open_in_memory();
-        note_due(&conn, "terlambat", "2026-09-28T00:00:00+07:00");
-        let old = note_due(&conn, "selesai kemarin", "2026-09-27T00:00:00+07:00");
-        complete(&conn, &old, true, ms("2026-09-28T20:00:00+07:00")).unwrap();
-        let late_done = note_due(&conn, "terlambat tapi selesai hari ini", "2026-09-26T00:00:00+07:00");
-        complete(&conn, &late_done, true, ms("2026-09-29T01:00:00+07:00")).unwrap();
-        note_due(&conn, "b hari ini", "2026-09-29T00:00:00+07:00");
-        note_due(&conn, "a hari ini", "2026-09-29T00:00:00+07:00");
-        note_due(&conn, "besok", "2026-09-30T00:00:00+07:00");
-        let gone = note_due(&conn, "dihapus", "2026-09-29T00:00:00+07:00");
+        task_due(&conn, "terlambat", "2026-09-28T00:00:00+07:00");
+        let old = task_due(&conn, "selesai kemarin", "2026-09-27T00:00:00+07:00");
+        complete_task(&conn, &old, ms("2026-09-28T20:00:00+07:00"));
+        let late_done = task_due(&conn, "terlambat tapi selesai hari ini", "2026-09-26T00:00:00+07:00");
+        complete_task(&conn, &late_done, ms("2026-09-29T01:00:00+07:00"));
+        task_due(&conn, "b hari ini", "2026-09-29T00:00:00+07:00");
+        task_due(&conn, "a hari ini", "2026-09-29T00:00:00+07:00");
+        task_due(&conn, "besok", "2026-09-30T00:00:00+07:00");
+        let gone = task_due(&conn, "dihapus", "2026-09-29T00:00:00+07:00");
         delete(&conn, &gone, 2).unwrap();
 
         // 01:30 in Jakarta is still 28 Sep in UTC: the local day must win.
@@ -185,14 +206,14 @@ mod tests {
     #[test]
     fn upcoming_covers_the_next_seven_local_days() {
         let conn = open_in_memory();
-        note_due(&conn, "hari ini", "2026-10-01T00:00:00+07:00");
-        note_due(&conn, "besok", "2026-10-02T00:00:00+07:00");
-        note_due(&conn, "besok juga", "2026-10-02T00:00:00+07:00");
-        note_due(&conn, "hari ketujuh", "2026-10-08T00:00:00+07:00");
-        note_due(&conn, "hari kedelapan", "2026-10-09T00:00:00+07:00");
-        let done = note_due(&conn, "selesai", "2026-10-03T00:00:00+07:00");
-        complete(&conn, &done, true, 2).unwrap();
-        let gone = note_due(&conn, "dihapus", "2026-10-04T00:00:00+07:00");
+        task_due(&conn, "hari ini", "2026-10-01T00:00:00+07:00");
+        task_due(&conn, "besok", "2026-10-02T00:00:00+07:00");
+        task_due(&conn, "besok juga", "2026-10-02T00:00:00+07:00");
+        task_due(&conn, "hari ketujuh", "2026-10-08T00:00:00+07:00");
+        task_due(&conn, "hari kedelapan", "2026-10-09T00:00:00+07:00");
+        let done = task_due(&conn, "selesai", "2026-10-03T00:00:00+07:00");
+        complete_task(&conn, &done, 2);
+        let gone = task_due(&conn, "dihapus", "2026-10-04T00:00:00+07:00");
         delete(&conn, &gone, 2).unwrap();
 
         // 01:30 on 1 Oct in Jakarta is still 30 Sep in UTC: tomorrow must be 2 Oct.
@@ -296,5 +317,19 @@ mod tests {
         let due: Vec<(&str, BillStatus)> = f.due_bills.iter().map(|b| (b.name.as_str(), b.status)).collect();
         assert_eq!(due, [("Listrik", BillStatus::Overdue), ("Air", BillStatus::DueToday)]);
         assert!(d.today.is_empty(), "bills never show up as tasks");
+    }
+
+    #[test]
+    fn dashboard_lists_two_active_projects() {
+        use crate::projects::{self, ProjectInput};
+        let conn = open_in_memory();
+        let p1 = projects::save_project(&conn, &ProjectInput { name: "Proyek 1".into(), ..Default::default() }, 1, &jakarta()).unwrap();
+        let p2 = projects::save_project(&conn, &ProjectInput { name: "Proyek 2".into(), ..Default::default() }, 1, &jakarta()).unwrap();
+        let _p3 = projects::save_project(&conn, &ProjectInput { name: "Proyek 3".into(), ..Default::default() }, 1, &jakarta()).unwrap();
+
+        let d = get(&conn, 1, &jakarta()).unwrap();
+        assert_eq!(d.projects.len(), 2);
+        assert_eq!(d.projects[0].id, p1.summary.id);
+        assert_eq!(d.projects[1].id, p2.summary.id);
     }
 }

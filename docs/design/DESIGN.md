@@ -32,11 +32,11 @@ Semua angka, nama, dan isi (saldo, email, tugas, unduhan) adalah **data contoh**
 ```
 
 **Nav kiri (72px, ikon 20px, tombol 48×48, radius 12, gap 6):**
-Dashboard · Inbox · Email · Jadwal · Keuangan · Proyek · Berkas · Unduhan — lalu di bawah: Notifikasi (lonceng + titik coral) · Profil (avatar inisial) · Pengaturan.
+Dashboard · Jurnal · Email · Jadwal · Habit · Keuangan · Proyek · Berkas · Unduhan — lalu di bawah: Notifikasi (lonceng + titik coral) · Profil (avatar inisial) · Pengaturan.
 - Aktif: latar `--surface-2`, ikon `--accent`, `aria-current="page"`.
 - Semua ikon wajib punya tooltip (title) dan `aria-label`.
 - Badge: Inbox = titik lime; Email = angka belum dibaca (pil lime).
-- **Inbox diimplementasikan sebagai halaman "Catatan"**: isinya ide/catatan cepat, bukan email. Label di artboard masih "Inbox".
+- **Jurnal** (`Jurnal.dc.html`) menggantikan Inbox di nav: tempat ide, curhat, dan catatan cepat, bukan email.
 
 **Top bar:** tombol lebar bergaya kolom cari (tinggi 42, radius 10) → membuka **command palette**. Di aplikasi asli: shortcut global **Ctrl K**.
 
@@ -69,6 +69,12 @@ Toggle **Kalender | Timeline**, navigasi periode, tombol Hari ini, filter jenis 
 - Kalender: grid bulan, maksimal 3 chip per sel (2 jika 6 baris) + "+n lagi"; klik tanggal → panel agenda kanan (Terlambat, Tenggat hari itu, 7 hari berikutnya, bisa dicentang).
 - Timeline: 8 minggu, 16px/hari, dikelompokkan per proyek; batang penuh = dikerjakan, garis tepi = rencana, belah ketupat = tenggat; bingkai coral = terlambat; garis lime = hari ini.
 - Warna = **jenis** (3 kategori), bukan per proyek.
+
+### Habit
+Artboard `Habit.dc.html`. Daftar habit (nama, jam, hari aktif Sen–Min) dengan centang hari ini, streak, rekor, dan persen konsisten 30 hari. Riwayat 62 hari berupa sel: selesai (lime), terlewat (abu), libur (garis putus), hari ini (bingkai lime). Frasa suara per habit ("Anchoa, aku sudah olahraga") aktif di Fase 5. Habit "Tulis jurnal" bisa tercentang otomatis saat entri Jurnal ditulis.
+
+### Jurnal
+Artboard `Jurnal.dc.html`. Menggantikan Inbox. Daftar entri dikelompokkan per waktu (Hari ini, Kemarin, Minggu lalu), filter jenis Ide / Curhat / Catatan. Entri: judul, isi, jenis, suasana hati 1–5 (Berat, Kurang, Biasa, Baik, Senang), tag, waktu. Pertanyaan pemantik untuk menulis. Balasan asisten per entri (menjadikan ide sebagai tugas, pengingat) aktif di Fase 5.
 
 ### Keuangan
 Header bulan + Catat lewat suara + Transaksi. 4 kartu (Saldo, Pemasukan, Pengeluaran, Arus bersih). Grafik arus kas 6 bulan (batang masuk/keluar, klik pilih bulan). Transaksi terbaru (filter Semua/Masuk/Keluar, dikelompokkan per bulan). Akun (bar porsi saldo). Tagihan (tombol Tandai lunas).

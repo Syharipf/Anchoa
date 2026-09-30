@@ -7,7 +7,7 @@ Aplikasi desktop untuk mengelola semuanya di satu tempat (catatan, task, keuanga
 Unduh file `.rpm` dari halaman Releases, lalu:
 
 ```bash
-sudo dnf install ./Anchoa-0.3.0-1.x86_64.rpm
+sudo dnf install ./Anchoa-0.4.0-1.x86_64.rpm
 ```
 
 ## Data dan backup

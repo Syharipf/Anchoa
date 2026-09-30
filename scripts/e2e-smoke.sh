@@ -458,6 +458,20 @@ check_schedule() {
   click 324 155
   sleep 1
   shot 13-filter
+
+  # 7. toggle Timeline, screenshot 13-timeline
+  sql "UPDATE tasks SET status = 'doing' WHERE item_id = (SELECT id FROM items WHERE title = 'Tugas E2E')"
+  click 330 105
+  sleep 1
+  shot 13-timeline
+
+  # 8. klik batang tugas dan pastikan halaman item terbuka. The window starts on
+  # Monday of last week at x=342, 16px per day, so today's bar moves with the weekday.
+  weekday=$(( $(date +%u) - 1 ))
+  click $(( 342 + (7 + weekday) * 16 + 8 )) 264
+  sleep 1
+  shot 13-item
+  [[ -n "$(sql "SELECT opened_at FROM items WHERE title = 'Tugas E2E'")" ]] || fail "timeline bar did not open the task"
   stop_app
 }
 

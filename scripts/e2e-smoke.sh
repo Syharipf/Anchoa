@@ -70,7 +70,7 @@ check_nav() {
   start_app
   for y in 202 256 310 364 418 472 706; do
     click 36 "$y"
-    shot "3-nav-$y"     # expect: placeholder page (Email … Unduhan, then Profil)
+    shot "3-nav-$y"     # expect: placeholder page (Email, Jadwal, Proyek … Profil); y=310 is the Keuangan page
   done
   click 36 148          # Inbox: the mini assistant replaces the side panel
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
@@ -118,7 +118,7 @@ check_palette() {
   xdotool type --delay 20 'keu'
   xdotool key Return
   sleep 0.7
-  shot 4-palette-keuangan   # expect: Keuangan placeholder page, "Hadir di Fase 2"
+  shot 4-palette-keuangan   # expect: Keuangan page with "Belum ada akun"
   xdotool key ctrl+k
   sleep 0.3
   xdotool key Escape

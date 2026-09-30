@@ -10,6 +10,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/001_init.sql"),
     include_str!("../migrations/002_item_completion.sql"),
     include_str!("../migrations/003_contributions.sql"),
+    include_str!("../migrations/004_finance.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -125,6 +126,33 @@ mod tests {
         assert_eq!(version(&backup), 1);
         let x: i64 = backup.query_row("SELECT x FROM a", [], |r| r.get(0)).unwrap();
         assert_eq!(x, 42);
+    }
+
+    #[test]
+    fn version_3_database_upgrades_to_finance_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..3], Some(&path)).unwrap();
+        conn.execute("INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('n1', 'note', 'lama', 1, 1)", [])
+            .unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+
+        assert_eq!(version(&conn), 4);
+        let title: String = conn.query_row("SELECT title FROM items WHERE id = 'n1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(title, "lama");
+        for sql in [
+            "SELECT item_id, kind, currency, opening_balance FROM accounts",
+            "SELECT item_id, account_id, amount, category, occurred_at, transfer_id, bill_id FROM transactions",
+            "SELECT item_id, account_id, amount, repeat, due_day FROM bills",
+            "SELECT item_id, category, amount FROM budgets",
+        ] {
+            conn.prepare(sql).unwrap();
+        }
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v3")).unwrap();
+        assert_eq!(version(&backup), 3);
     }
 
     #[test]

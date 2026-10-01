@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa HP — Asisten</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden; background: #0B0D10">
+  <header style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 6px">
+    <a href="HpBeranda.dc.html" aria-label="Tutup asisten" style="width: 44px; height: 44px; flex-shrink: 0; position: relative; border-radius: 12px; border: 0; background: #171A21; color: #C9CED8; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    <span style="flex-grow: 1; text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600">Asisten</span>
+    <button aria-label="Riwayat percakapan" style="width: 44px; height: 44px; flex-shrink: 0; position: relative; border-radius: 12px; border: 0; background: #171A21; color: #C9CED8; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg></button>
+  </header>
+  <div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; padding: 6px 20px 0">
+    <div style="position: relative; width: 300px; height: 300px; flex-shrink: 0; display: flex; align-items: flex-end; justify-content: center">
+      <div style="position: absolute; top: 40px; left: 40px; width: 220px; height: 220px; border-radius: 50%; background: #12151B"></div>
+      <svg data-anim width="300" height="300" viewBox="0 0 300 300" aria-hidden="true" style="position: absolute; top: 0; left: 0; color: {{accent}}; fill: currentColor; opacity: {{ringOpacity}}; transition: color 0.4s; animation: anchoa-school 9s linear infinite; animation-play-state: {{motion}}"><g transform="rotate(198 150 150) translate(150 24) scale(0.95)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.15"></path></g><g transform="rotate(215 150 150) translate(150 20) scale(0.77)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.21"></path></g><g transform="rotate(221 150 150) translate(150 19) scale(0.78)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.17"></path></g><g transform="rotate(237 150 150) translate(150 13) scale(0.82)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.2"></path></g><g transform="rotate(250 150 150) translate(150 11) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(264 150 150) translate(150 25) scale(1.12)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.23"></path></g><g transform="rotate(264 150 150) translate(150 24) scale(0.93)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.33"></path></g><g transform="rotate(274 150 150) translate(150 17) scale(1.07)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.27"></path></g><g transform="rotate(288 150 150) translate(150 25) scale(0.86)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.26"></path></g><g transform="rotate(299 150 150) translate(150 19) scale(0.98)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.34"></path></g><g transform="rotate(305 150 150) translate(150 21) scale(1.19)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.37"></path></g><g transform="rotate(311 150 150) translate(150 17) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.42"></path></g><g transform="rotate(326 150 150) translate(150 21) scale(1.30)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.29"></path></g><g transform="rotate(331 150 150) translate(150 14) scale(0.97)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.38"></path></g><g transform="rotate(335 150 150) translate(150 15) scale(1.25)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.41"></path></g><g transform="rotate(353 150 150) translate(150 21) scale(1.24)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.43"></path></g><g transform="rotate(358 150 150) translate(150 19) scale(1.32)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.52"></path></g><g transform="rotate(365 150 150) translate(150 15) scale(0.99)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.48"></path></g><g transform="rotate(376 150 150) translate(150 10) scale(1.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.4"></path></g><g transform="rotate(381 150 150) translate(150 15) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(386 150 150) translate(150 24) scale(1.03)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(394 150 150) translate(150 22) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g><g transform="rotate(401 150 150) translate(150 19) scale(1.30)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.61"></path></g><g transform="rotate(418 150 150) translate(150 12) scale(1.18)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.5"></path></g><g transform="rotate(420 150 150) translate(150 12) scale(1.53)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.43"></path></g><g transform="rotate(426 150 150) translate(150 22) scale(1.19)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g></svg>
+      <svg width="170" height="204" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="4" aria-hidden="true" style="position: relative; margin-bottom: 28px"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path><circle cx="63" cy="60" r="3.5" fill="#9AA3B2" stroke="none"></circle><circle cx="87" cy="60" r="3.5" fill="#9AA3B2" stroke="none"></circle><path d="M64 76q11 {{mouth}} 22 0" stroke-width="3.5"></path></svg>
+    </div>
+    <span aria-live="polite" style="display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; color: {{accent}}">
+      <span aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 14px">
+        <span data-anim style="width: 3px; height: 14px; border-radius: 2px; background: currentColor; animation: anchoa-wave 0.9s ease-in-out -0.1s infinite; animation-play-state: {{motion}}"></span>
+        <span data-anim style="width: 3px; height: 14px; border-radius: 2px; background: currentColor; animation: anchoa-wave 0.9s ease-in-out -0.4s infinite; animation-play-state: {{motion}}"></span>
+        <span data-anim style="width: 3px; height: 14px; border-radius: 2px; background: currentColor; animation: anchoa-wave 0.9s ease-in-out -0.65s infinite; animation-play-state: {{motion}}"></span>
+      </span>{{status}}</span>
+    <div style="align-self: stretch; margin-top: 14px; display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; color: #9AA3B2">{{you}}</span>
+      <p style="margin: 0; font-size: 17px; line-height: 1.45">{{reply}}</p>
+      <sc-if value="{{showChips}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <button data-hover style="min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Ubah kategori</button>
+          <button data-hover onClick="{{undo}}" style="min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Batalkan</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 28px; padding: 14px 0 34px">
+    <button data-press aria-label="Ketik pesan" style="width: 52px; height: 52px; border-radius: 50%; border: 1px solid #262B35; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h20v12H2zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path></svg></button>
+    <div style="position: relative; width: 76px; height: 76px">
+      <sc-if value="{{listening}}" hint-placeholder-val="{{ true }}"><span data-anim aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 76px; height: 76px; border-radius: 50%; background: #FF8A7A; opacity: 0; animation: anchoa-pulse 1.6s ease-out infinite"></span></sc-if>
+      <button data-press onClick="{{toggleMic}}" aria-pressed="{{micPressed}}" aria-label="{{micLabel}}" style="position: relative; width: 76px; height: 76px; border-radius: 50%; border: 0; background: {{micBg}}; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+    </div>
+    <span style="width: 52px"></span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const mode = st.mode || 'listening';
+    const listening = mode === 'listening';
+    const undone = !!st.undone;
+    return {
+      listening: listening,
+      status: listening ? 'Mendengarkan…' : (mode === 'speaking' ? 'Berbicara' : 'Siap'),
+      accent: listening ? '#FF8A7A' : '#C6F36B',
+      motion: mode === 'idle' ? 'paused' : 'running',
+      ringOpacity: mode === 'idle' ? '0.45' : '1',
+      mouth: mode === 'speaking' ? 9 : 3,
+      you: listening ? 'Kamu: “catat pengeluaran makan siang tiga puluh lima…”' : 'Kamu: “catat pengeluaran makan siang 35 ribu”',
+      reply: listening ? '…' : (undone ? 'Oke, transaksinya kubatalkan.' : 'Kucatat Rp 35.000 untuk Makan, dari akun Tunai.'),
+      showChips: !listening && !undone,
+      undo: () => this.setState({ undone: true }),
+      toggleMic: () => this.setState({ mode: listening ? 'speaking' : 'listening', undone: false }),
+      micPressed: listening ? 'true' : 'false',
+      micLabel: listening ? 'Berhenti mendengarkan' : 'Ketuk untuk bicara',
+      micBg: listening ? '#FF8A7A' : '#C6F36B'
+    };
+  }
+}
+</script>
+</body>
+</html>

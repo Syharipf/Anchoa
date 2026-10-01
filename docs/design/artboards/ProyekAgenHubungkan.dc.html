@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Proyek: hubungkan agen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; display: flex; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+  <nav aria-label="Menu utama" style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 0 16px; background: #0B0D10; border-right: 1px solid #262B35; box-sizing: border-box">
+    <div role="img" aria-label="Logo Anchoa" title="Tempat logo Anchoa" style="width: 40px; height: 40px; border-radius: 12px; border: 1px dashed #3A4150; color: #9AA3B2; display: flex; align-items: center; justify-content: center; font-size: 10px; box-sizing: border-box; margin-bottom: 12px">Logo</div>
+    <a href="Main.dc.html" data-hover aria-label="Dashboard" title="Dashboard" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></a>
+    <a href="Jurnal.dc.html" data-hover aria-label="Jurnal" title="Jurnal" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z"></path><path d="M6 17a2 2 0 0 1 2-2h11"></path><path d="M10 7h5M10 10h3"></path></svg></a>
+    <a href="Email.dc.html" data-hover aria-label="Email, 3 belum dibaca" title="Email" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg><span aria-hidden="true" style="position: absolute; top: 5px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #C6F36B; color: #0F1115; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; line-height: 16px; text-align: center">3</span></a>
+    <a href="Jadwal.dc.html" data-hover aria-label="Jadwal" title="Jadwal" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+    <a href="Habit.dc.html" data-hover aria-label="Habit" title="Habit" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16.5 9.5"></path></svg></a>
+    <a href="Keuangan.dc.html" data-hover aria-label="Keuangan" title="Keuangan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M16 12.5h2"></path><path d="M3 10h18"></path></svg></a>
+    <a href="Proyek.dc.html" aria-label="Proyek" title="Proyek" aria-current="page" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #1D2129; color: #C6F36B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7M12 7v4M16 7v10"></path></svg></a>
+    <a href="Berkas.dc.html" data-hover aria-label="Berkas" title="Berkas" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a>
+    <a href="Unduhan.dc.html" data-hover aria-label="Unduhan" title="Unduhan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></a>
+    <div style="margin-top: auto"></div>
+    <button data-hover onClick="{{toggleNotif}}" aria-label="Notifikasi, 4 belum dibaca" aria-expanded="{{notifExpanded}}" title="Notifikasi" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; background: {{notifBg}}; color: {{notifColor}}; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #FF8A7A; border: 2px solid #0B0D10"></span></button>
+    <a href="Profil.dc.html" data-hover aria-label="Profil" title="Profil" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; "><span style="width: 32px; height: 32px; border-radius: 50%; box-sizing: border-box; border: 2px solid #3A4150; background: #2A303B; color: #C6F36B; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">S</span></a>
+    <a href="Pengaturan.dc.html" data-hover aria-label="Pengaturan" title="Pengaturan" style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg></a>
+  </nav>
+
+  <main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; min-width: 0">
+    <div style="display: flex; align-items: center; gap: 16px">
+      <button onClick="{{openPalette}}" aria-label="Buka command palette" style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 42px; background: #171A21; border: 1px solid #262B35; border-radius: 10px; color: #9AA3B2; font: inherit; font-size: 14px; text-align: left; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex-grow: 1">Cari di proyek atau jalankan perintah…</span><kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2; border: 1px solid #262B35; border-radius: 6px; padding: 2px 6px">Ctrl K</kbd></button>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #9AA3B2">Sel 29 Sep · 22:48</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px">
+      <a href="Proyek.dc.html" style="font-size: 14px; color: #9AA3B2; text-decoration: none">Proyek</a>
+      <span aria-hidden="true" style="color: #5B6475">›</span>
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 26px; letter-spacing: -0.01em">Anchoa v1</h1>
+      <nav aria-label="Tampilan proyek" style="display: flex; gap: 4px; padding: 3px; margin-left: 6px; background: #171A21; border: 1px solid #262B35; border-radius: 10px">
+        <a href="Proyek.dc.html" style="min-height: 30px; display: flex; align-items: center; padding: 0 12px; border-radius: 7px; color: #9AA3B2; font-size: 13px; text-decoration: none">Kanban</a>
+        <span aria-current="page" style="min-height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 7px; background: #1D2129; color: #E7E9EE; font-size: 13px">Agen kode<span style="width: 6px; height: 6px; border-radius: 50%; background: {{runDot}}"></span></span>
+      </nav>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+        <span aria-live="polite" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: {{runColor}}">
+          <span style="position: relative; width: 8px; height: 8px"><sc-if value="{{running}}" hint-placeholder-val="{{ true }}"><span data-anim aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 8px; height: 8px; border-radius: 50%; background: #C6F36B; opacity: 0; animation: anchoa-pulse 1.6s ease-out infinite"></span></sc-if><span style="position: absolute; top: 0; left: 0; width: 8px; height: 8px; border-radius: 50%; background: {{runColor}}"></span></span>
+          {{runText}}
+        </span>
+        <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+          <button data-hover onClick="{{stop}}" style="min-height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; border: 1px solid #FF8A7A; background: transparent; color: #FF8A7A; font: inherit; font-size: 13px; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10H7z"></path></svg>Hentikan</button>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 356px; gap: 16px">
+      <section aria-labelledby="ag-feed" style="min-height: 0; display: flex; flex-direction: column; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid #262B35">
+          <h2 id="ag-feed" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Aktivitas agen</h2>
+          <div role="group" aria-label="Saring aktivitas" style="display: flex; gap: 4px">
+            <sc-for list="{{filters}}" as="f" hint-placeholder-count="4">
+              <button onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" style="min-height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: {{f.bg}}; color: {{f.color}}; font: inherit; font-size: 12px; cursor: pointer">{{f.label}}</button>
+            </sc-for>
+          </div>
+          <span style="margin-left: auto; font-size: 11px; color: #9AA3B2">dicatat lewat MCP + hooks</span>
+        </div>
+        <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 16px">
+          <sc-for list="{{sessions}}" as="s" hint-placeholder-count="2">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0 8px">
+              <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #1D2129; color: #C9CED8; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px">CC</span>
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13px; font-weight: 500">{{s.title}}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">{{s.meta}}</span></span>
+              <span style="font-size: 11px; padding: 3px 9px; border-radius: 999px; background: {{s.pillBg}}; color: {{s.pillColor}}">{{s.status}}</span>
+            </div>
+            <sc-if value="{{s.collapsed}}" hint-placeholder-val="{{ false }}">
+              <p style="margin: 0 0 8px 42px; padding: 10px 12px; border-radius: 10px; background: #12151B; font-size: 12px; line-height: 1.55; color: #C9CED8">{{s.summary}}</p>
+            </sc-if>
+            <sc-for list="{{s.events}}" as="e" hint-placeholder-count="5">
+              <div style="display: flex; gap: 12px; padding: 8px 0 8px 42px; position: relative">
+                <span aria-hidden="true" style="position: absolute; left: 14px; top: 0; bottom: 0; width: 1px; background: #262B35"></span>
+                <span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; background: {{e.tile}}; color: {{e.color}}; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{e.icon}}"></path></svg></span>
+                <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: {{e.pad}}; border-radius: 10px; border: 1px solid {{e.border}}; background: {{e.bg}}">
+                  <div style="display: flex; align-items: baseline; gap: 10px">
+                    <span style="flex-grow: 1; font-size: 13px; font-weight: 500; color: {{e.titleColor}}">{{e.title}}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">{{e.time}}</span>
+                  </div>
+                  <sc-if value="{{e.hasBody}}" hint-placeholder-val="{{ true }}"><span style="font-size: 12px; line-height: 1.5; color: #9AA3B2">{{e.body}}</span></sc-if>
+                  <sc-if value="{{e.hasCode}}" hint-placeholder-val="{{ false }}"><code style="display: block; padding: 10px 12px; border-radius: 9px; background: #0B0D10; border: 1px solid #262B35; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; color: #C9CED8; white-space: pre-wrap; word-break: break-all">{{e.code}}</code></sc-if>
+                  <sc-if value="{{e.hasSteps}}" hint-placeholder-val="{{ false }}">
+                    <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px">
+                      <sc-for list="{{e.steps}}" as="t" hint-placeholder-count="5">
+                        <li style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: {{t.color}}"><span style="width: 14px; height: 14px; flex-shrink: 0; box-sizing: border-box; border-radius: 4px; border: 1.5px solid {{t.box}}; background: {{t.fill}}"></span>{{t.label}}</li>
+                      </sc-for>
+                    </ol>
+                  </sc-if>
+                  <sc-if value="{{e.hasList}}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; flex-direction: column; gap: 3px">
+                      <sc-for list="{{e.list}}" as="l" hint-placeholder-count="3">
+                        <span style="display: flex; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{l.color}}"><span style="flex-grow: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{l.a}}</span><span style="flex-shrink: 0; color: #9AA3B2">{{l.b}}</span></span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{e.pending}}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                      <button data-press onClick="{{e.allow}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Izinkan sekali</button>
+                      <button data-hover onClick="{{e.deny}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Tolak</button>
+                      <span style="align-self: center; font-size: 11px; color: #9AA3B2">Juga dikirim ke HP sebagai notifikasi</span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{e.hasLink}}" hint-placeholder-val="{{ false }}"><a href="Proyek.dc.html" style="font-size: 12px; text-decoration: none">{{e.link}} ›</a></sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </sc-for>
+        </div>
+      </section>
+
+      <div style="min-height: 0; display: flex; flex-direction: column; gap: 14px">
+        <section aria-labelledby="ag-send" style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+          <div style="display: flex; align-items: center; gap: 12px"><h2 id="ag-send" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Kirim ke agen</h2><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">laptop · online</span></div>
+          <button data-hover style="min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 9px; border: 1px solid #262B35; background: #12151B; color: #E7E9EE; font: inherit; font-size: 12px; text-align: left; cursor: pointer"><span style="font-family: 'JetBrains Mono', monospace">Claude Code</span><span style="flex-grow: 1; min-width: 0; font-family: 'JetBrains Mono', monospace; color: #9AA3B2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">~/proyek/anchoa-app</span><span style="display: flex; color: #9AA3B2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span></button>
+          <div role="group" aria-label="Mode agen" style="display: flex; gap: 4px; padding: 3px; background: #12151B; border-radius: 9px">
+            <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+              <button onClick="{{m.pick}}" aria-pressed="{{m.pressed}}" style="flex: 1 1 0; min-height: 30px; padding: 0 6px; border: 0; border-radius: 7px; background: {{m.bg}}; color: {{m.color}}; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap">{{m.label}}</button>
+            </sc-for>
+          </div>
+          <span style="font-size: 11px; line-height: 1.5; color: #9AA3B2">{{modeDesc}}</span>
+          <textarea aria-label="Perintah untuk agen" placeholder="Misalnya: perbaiki tes streak yang gagal, lalu jalankan ulang tesnya." style="min-height: 64px; resize: none; padding: 10px 12px; border-radius: 10px; border: 1px solid #262B35; background: #0F1115; color: #E7E9EE; font: inherit; font-size: 13px; line-height: 1.5; outline: none"></textarea>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap">
+            <sc-for list="{{quick}}" as="q" hint-placeholder-count="4">
+              <button data-hover onClick="{{q.send}}" style="min-height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #262B35; background: transparent; color: #C9CED8; font: inherit; font-size: 11px; cursor: pointer">{{q.label}}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button data-press onClick="{{dictate}}" aria-label="Dikte perintah" style="width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; border: 0; background: #1D2129; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+            <span aria-live="polite" style="flex-grow: 1; font-size: 11px; line-height: 1.4; color: {{queueColor}}">{{queueNote}}</span>
+            <button data-press onClick="{{send}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Kirim</button>
+          </div>
+        </section>
+
+        <section aria-labelledby="ag-conn" style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+          <h2 id="ag-conn" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 6px">Agen terhubung</h2>
+          <sc-for list="{{agents}}" as="a" hint-placeholder-count="2">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid {{a.line}}">
+              <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #1D2129; color: #C9CED8; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px">{{a.abbr}}</span>
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13px">{{a.name}}</span><span style="font-size: 11px; color: #9AA3B2">{{a.sub}}</span></span>
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: {{a.dot}}"></span>
+            </div>
+          </sc-for>
+          <button data-hover onClick="{{openConnect}}" style="margin-top: 6px; min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; border: 1px solid #4E6A26; background: transparent; color: #C6F36B; font: inherit; font-size: 13px; cursor: pointer; align-self: flex-start"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Hubungkan agen</button>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <sc-if value="{{connectOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 0; width: 1280px; height: 800px; z-index: 5">
+      <button onClick="{{closeConnect}}" aria-label="Tutup" tabindex="-1" style="position: absolute; top: 0; left: 0; width: 1280px; height: 800px; border: 0; padding: 0; background: #05070ACC; cursor: default"></button>
+      <div data-anim role="dialog" aria-modal="true" aria-labelledby="cn-title" style="position: absolute; top: 40px; left: 280px; width: 720px; max-height: 720px; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; background: #171A21; border: 1px solid #2E3440; border-radius: 18px; box-shadow: 0 24px 60px #000000A6; animation: anchoa-pop 0.18s ease-out">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <h2 id="cn-title" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600">Hubungkan agen kode</h2>
+          <button data-hover onClick="{{closeConnect}}" aria-label="Tutup" style="margin-left: auto; width: 34px; height: 34px; border-radius: 9px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <p style="margin: -8px 0 0; font-size: 13px; line-height: 1.55; color: #9AA3B2">Agen di terminal atau IDE mencatat rencana, progres, dan hasil tes ke proyek ini lewat server MCP Anchoa. Token hanya berlaku untuk proyek yang kamu pilih dan bisa dicabut kapan saja.</p>
+
+        <div style="display: flex; gap: 12px">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: #C6F36B; color: #0F1115; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 12px">1</span>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px">
+            <span style="font-size: 14px; font-weight: 500">Buat token untuk agen</span>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #9AA3B2">Nama</span><span style="height: 34px; display: flex; align-items: center; padding: 0 10px; border-radius: 9px; background: #0F1115; border: 1px solid #262B35; font-size: 13px">Claude Code · laptop</span></div>
+              <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #9AA3B2">Proyek</span><span style="height: 34px; display: flex; align-items: center; padding: 0 10px; border-radius: 9px; background: #0F1115; border: 1px solid #262B35; font-size: 13px">Anchoa v1</span></div>
+            </div>
+            <div role="group" aria-label="Izin token" style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #12151B">
+              <sc-for list="{{scopes}}" as="z" hint-placeholder-count="4">
+                <div style="display: flex; align-items: center; gap: 12px">
+                  <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px"><span id="{{z.id}}" style="font-size: 13px">{{z.label}}</span><span style="font-size: 11px; color: #9AA3B2">{{z.sub}}</span></span>
+                  <button role="switch" aria-checked="{{z.on}}" aria-labelledby="{{z.id}}" onClick="{{z.toggle}}" style="width: 40px; height: 22px; flex-shrink: 0; padding: 2px; border-radius: 999px; border: 0; background: {{z.track}}; cursor: pointer; display: flex; align-items: center"><span data-knob style="width: 18px; height: 18px; border-radius: 50%; background: {{z.knob}}; transform: translateX({{z.shift}}px)"></span></button>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px">
+              <code style="flex-grow: 1; display: block; padding: 10px 12px; border-radius: 9px; background: #0B0D10; border: 1px solid #262B35; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; color: #C9CED8; white-space: pre-wrap; word-break: break-all">{{tokenText}}</code>
+              <button data-press onClick="{{makeToken}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{tokenBtn}}</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: #1D2129; color: #C9CED8; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 12px">2</span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+            <span style="font-size: 14px; font-weight: 500">Tambahkan server MCP di folder repo</span>
+            <code style="display: block; padding: 10px 12px; border-radius: 9px; background: #0B0D10; border: 1px solid #262B35; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; color: #C9CED8; white-space: pre-wrap; word-break: break-all">export ANCHOA_TOKEN=anc_…   # simpan di keyring / .env lokal, jangan di-commit
+claude mcp add --transport http anchoa \
+  https://&lt;ref&gt;.supabase.co/functions/v1/agent-mcp \
+  --header "Authorization: Bearer ${ANCHOA_TOKEN}" --scope project</code>
+            <span style="font-size: 11px; line-height: 1.5; color: #9AA3B2">Agen lain yang mendukung MCP (Cursor, Codex CLI, Gemini CLI, dll.) memakai URL dan token yang sama — cara menambahkannya ada di dokumentasi masing-masing.</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: #1D2129; color: #C9CED8; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 12px">3</span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+            <span style="font-size: 14px; font-weight: 500">Beri tahu agen kapan mencatat (tempel ke CLAUDE.md / AGENTS.md)</span>
+            <code style="display: block; padding: 10px 12px; border-radius: 9px; background: #0B0D10; border: 1px solid #262B35; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; color: #C9CED8; white-space: pre-wrap; word-break: break-all">## Anchoa
+- Setelah membuat rencana: panggil anchoa.plan_create (langkah-langkahnya).
+- Saat mulai/selesai mengerjakan langkah: anchoa.task_update.
+- Setelah menjalankan tes: anchoa.test_report (lulus, gagal, nama tes gagal).
+- Jangan kirim isi file, rahasia, atau .env ke Anchoa.</code>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: #1D2129; color: #C9CED8; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 12px">4</span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 14px; font-weight: 500">Opsional: hooks supaya sesi selalu tercatat</span>
+            <span style="font-size: 12px; line-height: 1.5; color: #9AA3B2">Hook SessionStart / Stop di <span style="font-family: 'JetBrains Mono', monospace">.claude/settings.json</span> memanggil <span style="font-family: 'JetBrains Mono', monospace">anchoa-hook</span>, jadi mulai/selesainya sesi tercatat walau agen lupa memanggil MCP. Contoh lengkap ada di docs/agent-integration.md.</span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid #262B35">
+          <span style="flex-grow: 1; font-size: 12px; color: {{connColor}}">{{connNote}}</span>
+          <button data-press onClick="{{checkConn}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Cek koneksi</button>
+          <button data-press onClick="{{closeConnect}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Selesai</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+    <section data-anim aria-label="Asisten (mini)" style="position: absolute; right: 16px; bottom: 16px; width: 304px; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; box-sizing: border-box; background: #171A21; border: 1px solid #2E3440; border-radius: 18px; box-shadow: 0 16px 40px #00000073; animation: anchoa-pop 0.2s ease-out">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="position: relative; width: 44px; height: 44px; flex-shrink: 0">
+          <svg data-anim width="68" height="68" viewBox="0 0 68 68" aria-hidden="true" style="position: absolute; top: -12px; left: -12px; color: {{accent}}; fill: currentColor; opacity: {{ringOpacity}}; transition: color 0.4s, opacity 0.4s; animation: anchoa-school 12s linear infinite; animation-play-state: {{motion}}"><g transform="rotate(207 34 34) translate(34 5.4) scale(0.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(242 34 34) translate(34 6.8) scale(0.33)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(264 34 34) translate(34 6.3) scale(0.43)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(292 34 34) translate(34 5.6) scale(0.41)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.3"></path></g><g transform="rotate(312 34 34) translate(34 4.4) scale(0.42)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.44"></path></g><g transform="rotate(334 34 34) translate(34 6.8) scale(0.45)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.46"></path></g><g transform="rotate(351 34 34) translate(34 6.9) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.47"></path></g><g transform="rotate(375 34 34) translate(34 4.4) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.62"></path></g><g transform="rotate(391 34 34) translate(34 4.6) scale(0.46)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.68"></path></g><g transform="rotate(415 34 34) translate(34 6.7) scale(0.44)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.53"></path></g><g transform="rotate(435 34 34) translate(34 5.7) scale(0.51)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g></svg>
+          <div style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: #1D2129; border: 1px solid #262B35; box-sizing: border-box; display: flex; align-items: flex-end; justify-content: center; overflow: hidden">
+            <svg width="34" height="40" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg>
+          </div>
+        </div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600">Asisten</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9AA3B2">
+            <span aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 10px">
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.1s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.4s infinite; animation-play-state: {{motion}}"></span>
+              <span data-anim style="width: 2px; height: 10px; border-radius: 1px; background: {{accent}}; animation: anchoa-wave 0.9s ease-in-out -0.65s infinite; animation-play-state: {{motion}}"></span>
+            </span>
+            <span aria-live="polite">{{statusText}}</span>
+          </span>
+        </div>
+        <a href="Main.dc.html" data-hover aria-label="Buka asisten penuh" title="Buka asisten penuh" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"></path><path d="M20 4l-7 7"></path><path d="M10 20H4v-6"></path><path d="M4 20l7-7"></path></svg></a>
+        <button data-hover onClick="{{minimize}}" aria-label="Kecilkan asisten" title="Kecilkan" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #9AA3B2; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      </div>
+      <div role="group" aria-label="Mode asisten" style="display: flex; gap: 4px; padding: 3px; background: #12151B; border-radius: 9px"><button onClick="{{toAsst}}" aria-pressed="{{aiAsst}}" style="flex: 1 1 0; min-height: 28px; border: 0; border-radius: 7px; background: {{aiAsstBg}}; color: {{aiAsstColor}}; font: inherit; font-size: 12px; cursor: pointer">Asisten</button><button onClick="{{toAgen}}" aria-pressed="{{aiAgen}}" style="flex: 1 1 0; min-height: 28px; border: 0; border-radius: 7px; background: {{aiAgenBg}}; color: {{aiAgenColor}}; font: inherit; font-size: 12px; cursor: pointer">Agen kode</button></div>
+      <p style="margin: 0; font-size: 14px; line-height: 1.45">{{aiMsg}}</p>
+      <sc-if value="{{typing}}" hint-placeholder-val="{{ false }}">
+        <label data-field style="display: flex; align-items: center; gap: 6px; background: #0F1115; border: 1px solid #262B35; border-radius: 10px; padding: 4px 4px 4px 12px">
+          <input aria-label="Ketik pesan ke asisten" placeholder="Ketik pesan…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px">
+          <button aria-label="Kirim" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: #1D2129; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+        </label>
+      </sc-if>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px">
+        <button data-press onClick="{{toggleType}}" aria-label="Ketik pesan" aria-pressed="{{typePressed}}" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #262B35; background: {{typeBg}}; color: {{typeColor}}; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path></svg></button>
+        <div style="position: relative; width: 44px; height: 44px">
+          <sc-if value="{{isListening}}" hint-placeholder-val="{{ false }}">
+            <span data-anim aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 44px; height: 44px; border-radius: 50%; background: #FF8A7A; opacity: 0; animation: anchoa-pulse 1.6s ease-out infinite"></span>
+          </sc-if>
+          <button data-press onClick="{{toggleMic}}" aria-label="{{micLabel}}" aria-pressed="{{micPressed}}" style="position: relative; width: 44px; height: 44px; border-radius: 50%; border: 0; background: {{micBg}}; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+  <sc-if value="{{collapsed}}" hint-placeholder-val="{{ true }}">
+    <button data-press onClick="{{expand}}" aria-label="Buka asisten" title="Buka asisten" style="position: absolute; right: 20px; bottom: 20px; width: 60px; height: 60px; border-radius: 50%; border: 1px solid #2E3440; background: #171A21; box-shadow: 0 10px 28px #00000066; display: flex; align-items: flex-end; justify-content: center; padding: 0; cursor: pointer">
+      <span style="width: 58px; height: 58px; border-radius: 50%; overflow: hidden; display: flex; align-items: flex-end; justify-content: center"><svg width="42" height="50" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg></span>
+      <span style="position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%; background: #C6F36B; color: #0F1115; border: 2px solid #0F1115; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path></svg></span>
+    </button>
+  </sc-if>
+
+  <sc-if value="{{notifOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 72px; width: 1208px; height: 800px">
+      <dc-import name="NotifPanel" on-close="{{closeNotif}}" overlay="{{ true }}" hint-size="1208px,800px"></dc-import>
+    </div>
+  </sc-if>
+  <sc-if value="{{paletteOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; top: 0; left: 0; width: 1280px; height: 800px">
+      <dc-import name="CommandPalette" on-close="{{closePalette}}" overlay="{{ true }}" hint-size="1280px,800px"></dc-import>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const I = {
+      start: 'M7 4l13 8-13 8z',
+      plan: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+      task: 'M4 4h16v16H4zM9 12l2 2 4-4',
+      files: 'M6 3h9l3 3v15H6zM9 13h6M9 17h4',
+      test: 'M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3',
+      lock: 'M5 11h14v10H5zM8 11V8a4 4 0 0 1 8 0v3',
+      ok: 'M5 12.5l4.5 4.5L19 7.5',
+      x: 'M6 6l12 12M18 6L6 18',
+      queue: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z',
+      commit: 'M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM3 12h5M16 12h5'
+    };
+    const appr = st.appr || 'pending';
+    const stopped = !!st.stopped;
+    const running = !stopped;
+    const filter = st.filter || 'all';
+    const queue = st.queue || [];
+    const mode = st.mode || 'plan';
+    const K = {
+      approval: { tile: '#2A2412', color: '#E5B547' }, test: { tile: '#2A1A1A', color: '#FF8A7A' }, files: { tile: '#1D2129', color: '#C9CED8' },
+      task: { tile: '#1E2A12', color: '#C6F36B' }, plan: { tile: '#1E2A12', color: '#C6F36B' }, start: { tile: '#1D2129', color: '#9AA3B2' },
+      queued: { tile: '#1D2129', color: '#C9CED8' }, stop: { tile: '#2A1A1A', color: '#FF8A7A' }
+    };
+    const ev = (kind, o) => Object.assign({ kind: kind, icon: I[kind] || I.start, body: '', code: '', steps: [], list: [], link: '', pending: false, emph: false }, K[kind], o);
+    const apprEv = appr === 'pending'
+      ? ev('approval', { icon: I.lock, title: 'Minta izin menjalankan perintah', time: '22.41', body: 'Untuk grafik arus kas di halaman Keuangan. Mengubah package.json dan package-lock.json, butuh internet.', code: 'npm install chart.js@4', pending: true, emph: true })
+      : ev(appr === 'allow' ? 'task' : 'test', { icon: appr === 'allow' ? I.ok : I.x, title: appr === 'allow' ? 'Diizinkan: npm install chart.js@4' : 'Ditolak: npm install chart.js@4', time: '22.42', body: appr === 'allow' ? 'Kamu mengizinkan dari laptop · agen melanjutkan.' : 'Agen diberi tahu dan akan mencari cara lain (mis. grafik SVG manual).' });
+    const now = [];
+    queue.forEach((q, i) => now.push(ev('queued', { icon: I.queue, title: 'Perintah masuk antrean', time: '22.4' + (3 + i), body: q.mode + ' · “' + q.text + '”' + (running ? ' — dijalankan setelah sesi ini selesai.' : ' — dijalankan sekarang.') })));
+    if (stopped) now.push(ev('stop', { icon: I.x, title: 'Sesi dihentikan dari Anchoa', time: '22.43', body: 'Proses agen di laptop dihentikan. Perubahan file yang sudah terjadi tetap ada; cek git status.' }));
+    now.push(apprEv);
+    now.push(ev('test', { title: 'Tes: 41 lulus · 1 gagal', time: '22.38', body: 'npm run test · 6,2 dtk', list: [{ a: 'heatmap.test.ts › streak lintas bulan', b: 'expected 6, got 5', color: '#FF8A7A' }] }));
+    now.push(ev('files', { title: 'Mengubah 4 file (+212 −38)', time: '22.33', list: [
+      { a: 'src/lib/components/ContributionStrip.svelte', b: '+120 −10', color: '#C9CED8' },
+      { a: 'src/lib/state/contrib.svelte.ts', b: '+58 −6', color: '#C9CED8' },
+      { a: 'src/routes/+page.svelte', b: '+22 −18', color: '#C9CED8' },
+      { a: 'src/lib/api/contributions.ts', b: '+12 −4', color: '#C9CED8' }] }));
+    now.push(ev('task', { title: '“Strip kontribusi” dipindah ke Dikerjakan', time: '22.21', link: 'Lihat di Kanban' }));
+    now.push(ev('plan', { title: 'Rencana dibuat · 5 langkah', time: '22.12', body: 'Langkah-langkahnya otomatis masuk ke kolom Rencana di Kanban.', steps: [
+      ['Baca DESIGN.md bagian strip kontribusi', true], ['Buat komponen ContributionStrip', true], ['Hitung streak & % vs bulan lalu', false], ['Navigasi bulan ‹ ›', false], ['Tes unit + cek reduced-motion', false]].map((s) => ({ label: s[0], color: s[1] ? '#9AA3B2' : '#E7E9EE', box: s[1] ? '#C6F36B' : '#3A4150', fill: s[1] ? '#C6F36B' : 'transparent' })) }));
+    now.push(ev('start', { title: 'Sesi dimulai dari terminal', time: '22.10', body: 'Perintah awal: “kerjakan Fase 2: strip kontribusi”. Mode: kerjakan, minta izin.' }));
+    const FK = { all: null, plan: ['plan', 'task'], test: ['test'], approval: ['approval'] };
+    const keep = (e) => !FK[filter] || FK[filter].indexOf(e.kind) !== -1 || (filter === 'approval' && e.icon === I.lock);
+    const fmt = (e) => ({
+      icon: e.icon, tile: e.tile, color: e.color, title: e.title, time: e.time, body: e.body,
+      titleColor: e.emph ? '#E5B547' : '#E7E9EE',
+      bg: e.emph ? '#1E1A10' : 'transparent', border: e.emph ? '#5C4A1C' : 'transparent', pad: e.emph ? '10px 12px' : '4px 0',
+      hasBody: !!e.body, hasCode: !!e.code, code: e.code, hasSteps: e.steps.length > 0, steps: e.steps,
+      hasList: e.list.length > 0, list: e.list, hasLink: !!e.link, link: e.link, pending: e.pending,
+      allow: () => this.setState({ appr: 'allow' }), deny: () => this.setState({ appr: 'deny' })
+    });
+    const sessions = [
+      { title: 'Sesi 22.10 · Claude Code', meta: 'laptop · ~/proyek/anchoa-app · 33 mnt', status: stopped ? 'Dihentikan' : (appr === 'pending' ? 'Menunggu izin' : 'Berjalan'),
+        pillBg: stopped ? '#2A1A1A' : (appr === 'pending' ? '#2A2412' : '#1E2A12'), pillColor: stopped ? '#FF8A7A' : (appr === 'pending' ? '#E5B547' : '#C6F36B'),
+        collapsed: false, summary: '', events: now.filter(keep).map(fmt) },
+      { title: 'Sesi kemarin 20.05 · Claude Code', meta: 'laptop · ~/proyek/anchoa-app · 48 mnt', status: 'Selesai', pillBg: '#1D2129', pillColor: '#9AA3B2',
+        collapsed: true, summary: '3 tugas selesai (Nav kiri, Command palette, Panel notifikasi) · 2 commit: a1b2c3d feat: nav kiri, 9f8e7d6 test: palette · tes 39/39 lulus.', events: [] }
+    ];
+    const MODES = [['plan', 'Rencana saja', 'Agen hanya membaca kode dan menulis rencana. Tidak mengubah file atau menjalankan perintah.'],
+      ['ask', 'Minta izin', 'Agen boleh bekerja, tapi setiap edit file dan perintah terminal menunggu izinmu di Anchoa atau HP.'],
+      ['edits', 'Edit otomatis', 'Edit file langsung tanpa bertanya; perintah terminal tetap minta izin. Hanya untuk repo di daftar izin.']];
+    const mObj = MODES.find((m) => m[0] === mode);
+    const pushQ = (text) => this.setState({ queue: queue.concat([{ text: text, mode: mObj[1] }]) });
+    const sc = st.scopes || { plan: true, test: true, read: true, cmd: false };
+    const SC = [['plan', 'Catat rencana & progres', 'plan_create, task_update'], ['test', 'Laporkan hasil tes', 'test_report'], ['read', 'Baca tugas proyek ini', 'task_list (hanya proyek ini)'], ['cmd', 'Terima perintah dari Anchoa', 'Agen di laptop menjalankan perintah dari antrean · mati secara default']];
+    const tok = st.tok || 'none';
+    const conn = st.conn || 'idle';
+    const aimode = st.aimode || 'asisten';
+    return {
+      running: running,
+      runText: stopped ? 'Sesi dihentikan' : (appr === 'pending' ? 'Claude Code menunggu izinmu' : 'Claude Code sedang bekerja · 33 mnt'),
+      runColor: stopped ? '#FF8A7A' : (appr === 'pending' ? '#E5B547' : '#C6F36B'),
+      runDot: stopped ? '#5B6475' : '#C6F36B',
+      stop: () => this.setState({ stopped: true }),
+      filters: [['all', 'Semua'], ['plan', 'Rencana & tugas'], ['test', 'Tes'], ['approval', 'Izin']].map((f) => ({ label: f[1], pressed: filter === f[0] ? 'true' : 'false', bg: filter === f[0] ? '#1D2129' : 'transparent', color: filter === f[0] ? '#E7E9EE' : '#9AA3B2', pick: () => this.setState({ filter: f[0] }) })),
+      sessions: sessions,
+      modes: MODES.map((m) => ({ label: m[1], pressed: mode === m[0] ? 'true' : 'false', bg: mode === m[0] ? '#2A303B' : 'transparent', color: mode === m[0] ? '#E7E9EE' : '#9AA3B2', pick: () => this.setState({ mode: m[0] }) })),
+      modeDesc: mObj[2],
+      quick: ['Jalankan tes', 'Perbaiki tes yang gagal', 'Lanjutkan tugas berikutnya', 'Ringkas progres hari ini'].map((q) => ({ label: q, send: () => pushQ(q) })),
+      send: () => pushQ('perbaiki tes streak yang gagal, lalu jalankan ulang tesnya'),
+      dictate: () => this.setState({ open: true, mode: 'listening', aimode: 'agen' }),
+      queueNote: queue.length ? queue.length + ' perintah di antrean · laptop mengambilnya lewat Realtime' : 'Dikirim lewat antrean ke laptop. Laptop harus menyala dan Anchoa berjalan.',
+      queueColor: queue.length ? '#C6F36B' : '#9AA3B2',
+      agents: [
+        { abbr: 'CC', name: 'Claude Code · laptop', sub: 'MCP + hooks + runner · bisa menerima perintah', dot: '#C6F36B', line: 'transparent' },
+        { abbr: 'CR', name: 'Cursor · laptop', sub: 'MCP saja · hanya mencatat · aktif kemarin', dot: '#5B6475', line: '#262B35' }
+      ],
+      connectOpen: st.connect === undefined ? true : !!st.connect,
+      openConnect: () => this.setState({ connect: true }),
+      closeConnect: () => this.setState({ connect: false }),
+      scopes: SC.map((s) => ({ id: 'sc-' + s[0], label: s[1], sub: s[2], on: sc[s[0]] ? 'true' : 'false', track: sc[s[0]] ? '#C6F36B' : '#3A4150', knob: sc[s[0]] ? '#0F1115' : '#9AA3B2', shift: sc[s[0]] ? 18 : 0, toggle: () => { const n = Object.assign({}, sc); n[s[0]] = !sc[s[0]]; this.setState({ scopes: n }); } })),
+      tokenText: tok === 'made' ? 'anc_live_7Fq2…kP9w   (hanya ditampilkan sekali)' : 'Belum ada token',
+      tokenBtn: tok === 'made' ? 'Salin' : 'Buat token',
+      makeToken: () => this.setState({ tok: 'made' }),
+      checkConn: () => { this.setState({ conn: 'wait' }); setTimeout(() => this.setState({ conn: 'ok' }), 900); },
+      connNote: conn === 'ok' ? 'Terhubung · panggilan pertama dari Claude Code diterima 22.44' : (conn === 'wait' ? 'Menunggu panggilan pertama dari agen…' : 'Setelah langkah 2, jalankan agen di repo; Anchoa akan mendeteksinya.'),
+      connColor: conn === 'ok' ? '#C6F36B' : '#9AA3B2',
+      aiAsst: aimode === 'asisten' ? 'true' : 'false', aiAgen: aimode === 'agen' ? 'true' : 'false',
+      aiAsstBg: aimode === 'asisten' ? '#2A303B' : 'transparent', aiAgenBg: aimode === 'agen' ? '#2A303B' : 'transparent',
+      aiAsstColor: aimode === 'asisten' ? '#E7E9EE' : '#9AA3B2', aiAgenColor: aimode === 'agen' ? '#E7E9EE' : '#9AA3B2',
+      toAsst: () => this.setState({ aimode: 'asisten' }), toAgen: () => this.setState({ aimode: 'agen' }),
+      aiMsg: aimode === 'agen'
+        ? (st.mode === 'listening' ? 'Mode agen kode: ucapkan perintahnya. Kukirim ke Claude Code sebagai “' + mObj[1] + '” setelah kamu konfirmasi.' : 'Mode agen kode aktif. Ucapanmu menjadi perintah untuk Claude Code. Bilang “keluar mode agen” untuk kembali.')
+        : 'Agen sedang menunggu izin untuk npm install. Mau kuizinkan, atau kubacakan detailnya dulu?',
+      paletteOpen: !!st.palette,
+      openPalette: () => this.setState({ palette: true, notif: false }),
+      closePalette: () => this.setState({ palette: false }),
+      notifOpen: !!st.notif,
+      notifExpanded: st.notif ? 'true' : 'false',
+      notifBg: st.notif ? '#1D2129' : 'transparent',
+      notifColor: st.notif ? '#C6F36B' : '#9AA3B2',
+      toggleNotif: () => this.setState({ notif: !st.notif, palette: false }),
+      closeNotif: () => this.setState({ notif: false }),
+      open: !!st.open,
+      collapsed: !st.open,
+      expand: () => this.setState({ open: true }),
+      minimize: () => this.setState({ open: false, mode: 'idle', typing: false }),
+      isListening: st.mode === 'listening',
+      motion: st.mode === 'listening' ? 'running' : 'paused',
+      accent: st.mode === 'listening' ? '#FF8A7A' : '#C6F36B',
+      ringOpacity: st.mode === 'listening' ? '1' : '0.55',
+      statusText: st.mode === 'listening' ? 'Mendengarkan…' : 'Siap',
+      toggleMic: () => this.setState({ mode: st.mode === 'listening' ? 'idle' : 'listening' }),
+      micPressed: st.mode === 'listening' ? 'true' : 'false',
+      micLabel: st.mode === 'listening' ? 'Berhenti mendengarkan' : 'Ketuk untuk bicara',
+      micBg: st.mode === 'listening' ? '#FF8A7A' : '#C6F36B',
+      typing: !!st.typing,
+      toggleType: () => this.setState({ typing: !st.typing }),
+      typePressed: st.typing ? 'true' : 'false',
+      typeBg: st.typing ? '#1D2129' : 'transparent',
+      typeColor: st.typing ? '#C6F36B' : '#9AA3B2',
+      toggleMic: () => {
+        if (st.mode === 'listening' && aimode === 'agen') { pushQ('perbaiki tes streak lalu jalankan ulang'); this.setState({ mode: 'idle' }); }
+        else this.setState({ mode: st.mode === 'listening' ? 'idle' : 'listening' });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

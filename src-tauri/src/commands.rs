@@ -6,6 +6,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
+use crate::activities::{self, Activity, NewActivity};
+use crate::agent_runner::{self, AgentRunner};
 use crate::dashboard::{self, Dashboard};
 use crate::db::Db;
 use crate::error::AppError;
@@ -101,6 +103,55 @@ pub fn open_repo(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), Ap
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
+pub fn agent_request(
+    app: AppHandle,
+    db: State<'_, Db>,
+    runner: State<'_, AgentRunner>,
+    project_id: String,
+    text: String,
+) -> Result<TaskCard, AppError> {
+    runner.ensure_idle(&project_id)?;
+    let (task, should_start) = agent_runner::create_request(
+        &*db.conn()?,
+        &project_id,
+        &text,
+        time::now_ms(),
+        &TimeZone::system(),
+    )?;
+    // The DB guard above is dropped before start() loads the project again.
+    if should_start {
+        runner.start(&app, &project_id, &task.id, &text)?;
+    }
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn agent_stop(runner: State<'_, AgentRunner>, project_id: String) -> Result<(), AppError> {
+    runner.stop(&project_id)
+}
+
+#[tauri::command]
+pub fn agent_running(runner: State<'_, AgentRunner>) -> Vec<String> {
+    runner.running()
+}
+
+#[tauri::command]
+pub fn task_activities(db: State<'_, Db>, task_id: String) -> Result<Vec<Activity>, AppError> {
+    activities::for_task(&*db.conn()?, &task_id)
+}
+
+#[tauri::command]
+pub fn add_activity(db: State<'_, Db>, input: NewActivity) -> Result<Activity, AppError> {
+    activities::add(&*db.conn()?, &input, time::now_ms())
+}
+
+#[tauri::command]
+pub fn agent_log(app: AppHandle, db: State<'_, Db>, task_id: String) -> Result<String, AppError> {
+    tasks::get_task(&*db.conn()?, &task_id, time::now_ms(), &TimeZone::system())?;
+    agent_runner::read_log(&app.path().app_data_dir()?, &task_id)
 }
 
 #[tauri::command]

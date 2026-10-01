@@ -31,6 +31,7 @@
   --done: #4E6A26;          /* bar selesai, border terpilih, field fokus */
   --danger: #FF8A7A;        /* terlambat, pengeluaran, mikrofon aktif */
   --danger-row: #221A1C;
+  --warning: #E5B547;       /* bisa dipulihkan / menunggu (kuota, offline, peringatan) */
   --on-accent: #0F1115;     /* teks di atas lime/coral */
 
   /* Kategori data (Jadwal, label email) — lolos cek buta warna untuk semua pasangan.

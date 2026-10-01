@@ -70,7 +70,7 @@ class Component extends DCLogic {
   renderVals() {
     const st = this.state || {};
     const step = st.step || 0;
-    const STEPS = ['Menyiapkan data lokal terenkripsi…', 'Memuat model suara (STT & TTS)…', 'Membangunkan avatar Live2D…', 'Menyinkronkan jadwal & email…', 'Siap.'];
+    const STEPS = ['Memuat cache di perangkat…', 'Memuat model suara (STT & TTS)…', 'Membangunkan avatar Live2D…', 'Menyinkronkan jadwal & email…', 'Siap.'];
     const done = step >= 4;
     return {
       stepText: STEPS[Math.min(step, 4)],

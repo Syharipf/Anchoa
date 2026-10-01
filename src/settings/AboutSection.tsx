@@ -73,7 +73,7 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
         </div>
 
         <p className="m-0 text-xs text-muted">
-          Desktop personal management monolitik berbasis Tauri 2 dan Rust untuk Fedora Linux.
+          Satu aplikasi untuk keuangan, proyek, tugas, jadwal, catatan, berkas, dan unduhan, saling terhubung dan tersimpan di laptopmu.
         </p>
 
         <div className="flex flex-wrap items-center gap-3">

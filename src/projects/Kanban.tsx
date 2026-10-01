@@ -1,22 +1,29 @@
 import { useState, type FormEvent } from "react";
-import type { Columns, TaskCard, TaskStatus } from "../api";
+import type { Columns, LastActor, TaskCard, TaskStatus } from "../api";
 import { shortDate } from "../format";
 import { FIELD } from "../shell/ui";
-import { moveLabel, subLabel } from "./view";
+import { boardColumns, moveLabel, subLabel } from "./view";
 
-const COLUMNS: readonly { status: TaskStatus; title: string; dot: string }[] = [
-  { status: "plan", title: "Rencana", dot: "bg-muted" },
-  { status: "doing", title: "Dikerjakan", dot: "bg-accent" },
-  { status: "done", title: "Selesai", dot: "bg-field-focus" },
-];
+function CardActor({ lastActor }: Readonly<{ lastActor: LastActor | null }>) {
+  if (!lastActor) return null;
+  return (
+    <span className="block truncate text-[11px] font-normal text-muted" title={`${lastActor.actor} · ${lastActor.role}`}>
+      {lastActor.actor} · {lastActor.role}
+    </span>
+  );
+}
 
 export function Kanban({
   columns,
+  agent = false,
+  lastActors = {},
   onOpenItem,
   onMoveCard,
   onCreateTask,
 }: Readonly<{
   columns: Columns;
+  agent?: boolean;
+  lastActors?: Readonly<Record<string, LastActor>>;
   onOpenItem: (id: string) => void;
   onMoveCard: (card: TaskCard) => void;
   onCreateTask: (title: string, status: TaskStatus) => Promise<void>;
@@ -33,8 +40,8 @@ export function Kanban({
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-3 gap-3.5">
-      {COLUMNS.map((col) => {
+    <div className={agent ? "grid min-h-0 flex-1 grid-cols-[repeat(5,minmax(150px,1fr))] gap-3.5 overflow-x-auto" : "grid min-h-0 flex-1 grid-cols-3 gap-3.5"}>
+      {boardColumns(agent).map((col) => {
         const cards = columns[col.status];
         const isAdding = addingCol === col.status;
 
@@ -107,6 +114,7 @@ export function Kanban({
               cards.map((c) => {
                 const sub = subLabel(c);
                 const isDone = c.status === "done";
+                const actor = agent ? lastActors[c.id] ?? null : null;
 
                 if (isDone) {
                   return (
@@ -131,14 +139,15 @@ export function Kanban({
                       <button
                         type="button"
                         onClick={() => onOpenItem(c.id)}
-                        className="flex-1 truncate text-left text-[13px] text-done line-through hover:text-ink before:absolute before:inset-0"
+                        className={agent ? "min-w-0 flex-1 text-left text-[13px] text-done hover:text-ink before:absolute before:inset-0" : "flex-1 truncate text-left text-[13px] text-done line-through hover:text-ink before:absolute before:inset-0"}
                       >
-                        {c.title || "Tanpa judul"}
+                        {agent ? <span className="block truncate line-through">{c.title || "Tanpa judul"}</span> : c.title || "Tanpa judul"}
+                        <CardActor lastActor={actor} />
                       </button>
                       <button
                         type="button"
                         onClick={() => onMoveCard(c)}
-                        aria-label={moveLabel(c.status)}
+                        aria-label={moveLabel(c.status, agent)}
                         title="Buka lagi"
                         className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
                       >
@@ -173,6 +182,7 @@ export function Kanban({
                     >
                       {c.title || "Tanpa judul"}
                     </button>
+                        <CardActor lastActor={actor} />
                     <div className="flex items-center gap-2">
                       {c.tag && (
                         <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
@@ -209,8 +219,8 @@ export function Kanban({
                       <button
                         type="button"
                         onClick={() => onMoveCard(c)}
-                        aria-label={moveLabel(c.status)}
-                        title={moveLabel(c.status)}
+                        aria-label={moveLabel(c.status, agent)}
+                        title={moveLabel(c.status, agent)}
                         className="relative z-10 ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-accent transition-transform hover:scale-105 active:scale-95"
                       >
                         <svg

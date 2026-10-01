@@ -6,10 +6,16 @@ export function ProjectHeader({
   project,
   looseCount,
   onEdit,
+  tab = "kanban",
+  onTabChange,
+  running = false,
 }: Readonly<{
   project: ProjectDetail | null;
   looseCount: LooseCount;
   onEdit: () => void;
+  tab?: "kanban" | "agent";
+  onTabChange?: (tab: "kanban" | "agent") => void;
+  running?: boolean;
 }>) {
   const toast = useToast();
 
@@ -56,9 +62,36 @@ export function ProjectHeader({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 id="proyek-judul" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
-            {project.name}
-          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="proyek-judul" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
+              {project.name}
+            </h2>
+            {project.agent && (
+              <nav aria-label="Tampilan proyek" className="flex gap-1 rounded-[10px] border border-line bg-stage p-1">
+                <button
+                  type="button"
+                  onClick={() => onTabChange?.("kanban")}
+                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                    tab === "kanban" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                  }`}
+                  aria-current={tab === "kanban" ? "page" : undefined}
+                >
+                  Kanban
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTabChange?.("agent")}
+                  className={`flex min-h-[28px] items-center gap-1.5 rounded-[7px] px-3 text-xs transition-colors ${
+                    tab === "agent" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                  }`}
+                  aria-current={tab === "agent" ? "page" : undefined}
+                >
+                  Agen kode
+                  <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent animate-pulse" : "bg-disabled"}`} />
+                </button>
+              </nav>
+            )}
+          </div>
           {project.description && (
             <p className="m-0 text-[13px] text-muted">{project.description}</p>
           )}

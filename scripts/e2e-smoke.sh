@@ -836,11 +836,57 @@ check_notes() {
   stop_app
 }
 
+check_agent() {
+  fresh
+  local repo="$WORK/agent-repo" proj_id task_id
+  mkdir -p "$repo"
+  start_app
+  click 36 472                 # nav: Proyek
+  click 1203 104               # + Proyek
+  sleep 0.5
+  xdotool type --delay 20 'Agen E2E'
+  click 821 255                # sakelar Proyek agen
+  click 640 334                # Folder repo
+  xdotool type --delay 10 "$repo"
+  click 640 432                # Perintah agen
+  xdotool type --delay 10 '"$ANCHOA_CLI" agent log --task "$ANCHOA_TASK" --actor Tes --role implement --body halo'
+  sleep 0.5
+  xdotool key Return
+  sleep 1
+  proj_id=$(sql "SELECT item_id FROM projects WHERE agent = 1")
+  [[ -n "$proj_id" ]] || fail "agent project not created"
+  [[ "$(sql "SELECT agent_dir FROM projects WHERE item_id = '$proj_id'")" = "$repo" ]] || fail "agent folder not saved"
+  shot 19-agent-kanban
+
+  click 663 180                # tab Agen kode
+  click 1073 438               # Kirim ke agen
+  xdotool type --delay 20 'Tambahkan tes heatmap'
+  click 1107 565               # Kirim
+  sql_becomes "SELECT count(*) FROM activities WHERE actor = 'Tes' AND role = 'implement'" 1 \
+    || fail "agent command did not log through the CLI"
+  task_id=$(sql "SELECT task_id FROM activities WHERE actor = 'Kamu' AND role = 'request'")
+  [[ -n "$task_id" ]] || fail "request activity missing"
+  [[ "$(sql "SELECT title FROM items WHERE id = '$task_id'")" = "Tambahkan tes heatmap" ]] || fail "request task title wrong"
+  [[ -s "$APPDATA/agent-runs/$task_id.log" ]] || fail "agent run log missing"
+  sleep 3.5                    # one polling cycle
+  shot 19-agent-feed
+
+  "$BIN" agent task status --task "$task_id" test --actor Tes >/dev/null || fail "CLI task status failed"
+  [[ "$(sql "SELECT status FROM tasks WHERE item_id = '$task_id'")" = test ]] || fail "CLI did not move the task"
+  [[ "$(sql "SELECT title FROM items i JOIN activities a ON a.item_id = i.id WHERE a.kind = 'status'")" = "Tes memindahkan ke Tes" ]] \
+    || fail "status change not recorded"
+  click 600 180                # tab Kanban
+  sleep 3.5
+  shot 19-agent-moved
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
   exit 0
 fi
+
 
 check_shell
 check_corrupt_db
@@ -861,4 +907,5 @@ check_journal
 check_files
 check_downloads
 check_notes
+check_agent
 echo "PASS. Screenshots in $WORK"

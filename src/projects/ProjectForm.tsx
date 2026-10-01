@@ -25,6 +25,9 @@ export function ProjectForm({
   const [deadline, setDeadline] = useState(msToDateInput(edit?.deadlineAt ?? null));
   const [repoUrl, setRepoUrl] = useState(edit?.repoUrl ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
+  const [agent, setAgent] = useState(edit?.agent ?? false);
+  const [agentDir, setAgentDir] = useState(edit?.agentDir ?? "");
+  const [agentCommand, setAgentCommand] = useState(edit?.agentCommand ?? "");
   const { busy, run, toast } = useSave(() => {});
 
   function submit(e: FormEvent) {
@@ -44,9 +47,9 @@ export function ProjectForm({
         deadlineAt,
         repoUrl: repo,
         description: description.trim(),
-        agent: edit?.agent ?? false,
-        agentCommand: edit?.agentCommand,
-        agentDir: edit?.agentDir,
+        agent,
+        agentCommand: agentCommand.trim() || null,
+        agentDir: agentDir.trim() || null,
       });
       onSaved(saved.id);
     });
@@ -62,7 +65,7 @@ export function ProjectForm({
 
   return (
     <Dialog title={edit ? "Ubah proyek" : "Proyek baru"} onClose={onClose}>
-      <form onSubmit={submit} className="flex flex-col gap-3">
+      <form onSubmit={submit} className="flex max-h-[calc(100vh-220px)] flex-col gap-3 overflow-y-auto">
         <Field label="Nama">
           <input
             value={name}
@@ -71,6 +74,43 @@ export function ProjectForm({
             className={FIELD}
           />
         </Field>
+        <div className="flex items-center justify-between gap-3 rounded-[10px] border border-line p-3">
+          <span className="text-sm text-ink">Proyek agen</span>
+          <button
+            type="button"
+            role="switch"
+            aria-label="Proyek agen"
+            aria-checked={agent}
+            disabled={busy}
+            onClick={() => setAgent((value) => !value)}
+            className={`flex h-[22px] w-10 shrink-0 items-center rounded-full px-[3px] transition-colors ${agent ? "bg-accent" : "bg-disabled"}`}
+          >
+            <span className={`h-4 w-4 rounded-full bg-canvas transition-transform ${agent ? "translate-x-[18px]" : ""}`} />
+          </button>
+        </div>
+        {agent && (
+          <>
+            <Field label="Folder repo">
+              <input
+                value={agentDir}
+                onChange={(e) => setAgentDir(e.target.value)}
+                placeholder="/home/kamu/Proyek/repo"
+                aria-describedby="agent-dir-help"
+                className={FIELD}
+              />
+              <span id="agent-dir-help">Folder yang sudah ada di dalam direktori home.</span>
+            </Field>
+            <Field label="Perintah agen (opsional)">
+              <input
+                value={agentCommand}
+                onChange={(e) => setAgentCommand(e.target.value)}
+                placeholder={'claude -p "$ANCHOA_REQUEST"'}
+                className={`${FIELD} font-mono`}
+              />
+              <span>Tanpa perintah, permintaan menunggu di Rencana.</span>
+            </Field>
+          </>
+        )}
         <Field label="Jenis">
           <Segmented
             label="Jenis proyek"

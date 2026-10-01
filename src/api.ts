@@ -616,6 +616,9 @@ export const api = {
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */
 export function assetUrl(path: string): string {
+  if (typeof window === "undefined") {
+    return `asset://localhost/${encodeURIComponent(path)}`;
+  }
   return convertFileSrc(path);
 }
 

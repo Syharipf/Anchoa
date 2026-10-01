@@ -3,6 +3,7 @@ import { api, type DbStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
+import { FilesPage, type FileClipboard } from "./files/FilesPage";
 import { FinancePage } from "./finance/FinancePage";
 import { HabitsPage } from "./habits/HabitsPage";
 import { JournalPage } from "./journal/JournalPage";
@@ -32,6 +33,7 @@ export function App() {
   const [stack, setStack] = useState<Page[]>([{ name: "dashboard" }]);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [captures, setCaptures] = useState(0);
+  const [fileClipboard, setFileClipboard] = useState<FileClipboard | null>(null);
   const [contributionsVersion, setContributionsVersion] = useState(0);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
@@ -103,6 +105,12 @@ export function App() {
             onOpenItem={openItem}
             onOpenFinance={() => go("keuangan")}
             onChanged={reload}
+          />
+        )}
+        {page.name === "berkas" && (
+          <FilesPage
+            clipboard={fileClipboard}
+            onSetClipboard={setFileClipboard}
           />
         )}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}

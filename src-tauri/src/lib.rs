@@ -1,5 +1,7 @@
+pub mod activities;
 mod backup;
 mod bills;
+pub mod cli;
 mod commands;
 mod dashboard;
 mod db;

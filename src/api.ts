@@ -220,6 +220,9 @@ export interface ProjectDetail {
   deadlineAt: number | null;
   deadlineDays: number | null;
   repoUrl: string | null;
+  agent: boolean;
+  agentCommand: string | null;
+  agentDir: string | null;
   status: ProjectStatus;
   done: number;
   total: number;
@@ -232,6 +235,9 @@ export interface ProjectInput {
   deadlineAt?: number | null;
   repoUrl?: string | null;
   description: string;
+  agent?: boolean;
+  agentCommand?: string | null;
+  agentDir?: string | null;
 }
 
 export interface LooseCount {
@@ -249,6 +255,8 @@ export interface ProjectsOverview {
 export interface Columns {
   plan: TaskCard[];
   doing: TaskCard[];
+  test: TaskCard[];
+  review: TaskCard[];
   done: TaskCard[];
 }
 
@@ -257,7 +265,7 @@ export interface Board {
   columns: Columns;
 }
 
-export type TaskStatus = "plan" | "doing" | "done";
+export type TaskStatus = "plan" | "doing" | "test" | "review" | "done";
 
 export interface TaskCard {
   id: string;

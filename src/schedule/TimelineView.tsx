@@ -11,7 +11,9 @@ import {
   type TimelineGroup as TimelineGroupModel,
 } from "./layout";
 
-const STATUS_LABELS: Record<ScheduleItem["status"], string> = { plan: "Rencana", doing: "Dikerjakan", done: "Selesai" };
+const STATUS_LABELS: Record<ScheduleItem["status"], string> = {
+  plan: "Rencana", doing: "Dikerjakan", test: "Tes", review: "Review", done: "Selesai",
+};
 
 export function TimelineGroup({
   group,

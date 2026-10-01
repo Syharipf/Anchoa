@@ -40,12 +40,16 @@ describe("project view helpers", () => {
   test("nextStatus cycles plan -> doing -> done -> plan", () => {
     expect(nextStatus("plan")).toBe("doing");
     expect(nextStatus("doing")).toBe("done");
+    expect(nextStatus("test")).toBe("done");
+    expect(nextStatus("review")).toBe("done");
     expect(nextStatus("done")).toBe("plan");
   });
 
   test("moveLabel provides button aria-labels for each column", () => {
     expect(moveLabel("plan")).toBe("Pindah ke Dikerjakan");
     expect(moveLabel("doing")).toBe("Pindah ke Selesai");
+    expect(moveLabel("test")).toBe("Pindah ke Selesai");
+    expect(moveLabel("review")).toBe("Pindah ke Selesai");
     expect(moveLabel("done")).toBe("Kembalikan ke Rencana");
   });
 
@@ -59,6 +63,8 @@ describe("project view helpers", () => {
     expect(toggleTaskStatus("done")).toBe("plan");
     expect(toggleTaskStatus("plan")).toBe("done");
     expect(toggleTaskStatus("doing")).toBe("done");
+    expect(toggleTaskStatus("test")).toBe("done");
+    expect(toggleTaskStatus("review")).toBe("done");
   });
 
   test("parentLabel formats parent title with arrow", () => {

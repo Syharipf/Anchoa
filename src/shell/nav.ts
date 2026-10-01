@@ -47,8 +47,6 @@ export const PAGES: readonly NavPage[] = [
   {
     id: "profil",
     label: "Profil",
-    about:
-      "Profil tumbuh bersama modulnya: akun email, suara asisten, dan notifikasi. Pengaturan GitHub dan backup ada di Pengaturan.",
     bottom: true,
   },
   { id: "settings", label: "Pengaturan", bottom: true },

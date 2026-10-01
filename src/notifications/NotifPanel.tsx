@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { DayTask, FinanceSummary, HabitReminder } from "../api";
+import type { DayTask, FinanceSummary, HabitReminder, NotifyPrefs } from "../api";
 import { reminders, reminderText, type Reminder, type Tone } from "./reminders";
 
 const TONE: Record<Tone, string> = { danger: "text-danger", warn: "text-warn", muted: "text-muted" };
@@ -22,6 +22,7 @@ export function NotifPanel({
   today,
   finance,
   habitReminders = [],
+  prefs,
   onClose,
   onOpenItem,
   onOpenFinance,
@@ -30,12 +31,13 @@ export function NotifPanel({
   today: DayTask[];
   finance: FinanceSummary | null;
   habitReminders?: HabitReminder[];
+  prefs?: NotifyPrefs;
   onClose: () => void;
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
   onOpenHabits: () => void;
 }>) {
-  const groups = reminders(today, finance, habitReminders);
+  const groups = reminders(today, finance, habitReminders, prefs);
   const count = groups.reduce((n, g) => n + g.items.length, 0);
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);

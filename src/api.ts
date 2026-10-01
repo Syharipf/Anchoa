@@ -498,6 +498,11 @@ export interface NotifyPrefs {
   habit: boolean;
 }
 
+export interface SecurityStatus {
+  pinEnabled: boolean;
+  locked: boolean;
+}
+
 export interface DbStatus {
   path: string;
   error: string | null;
@@ -974,6 +979,11 @@ export const api = {
     invoke<SearchHit[]>("search_items", { text, pagesOnly, limit }),
   exportPages: () => invoke<string>("export_pages"),
   openLink: (url: string) => invoke<void>("open_link", { url }),
+  securityStatus: () => invoke<SecurityStatus>("security_status"),
+  unlock: (pin: string) => invoke<void>("unlock", { pin }),
+  setPin: (oldPin: string | null | undefined, newPin: string) =>
+    invoke<void>("set_pin", { old: oldPin ?? null, new: newPin }),
+  disablePin: (pin: string) => invoke<void>("disable_pin", { pin }),
 };
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */

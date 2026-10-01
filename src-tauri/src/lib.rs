@@ -24,11 +24,42 @@ mod overview;
 mod profile;
 mod projects;
 mod schedule;
+pub mod security;
 mod settings;
 mod tasks;
 mod time;
 
 use tauri::Manager;
+
+fn initial_locked(pin_status: Result<bool, error::AppError>) -> bool {
+    pin_status.unwrap_or(true)
+}
+
+fn check_command_access(command: &str, locked: Option<bool>) -> Result<(), error::AppError> {
+    match locked {
+        Some(false) => Ok(()),
+        Some(true) if security::is_allowed_while_locked(command) => Ok(()),
+        _ => Err(error::AppError::Locked),
+    }
+}
+
+pub fn wrap_invoke_handler<R: tauri::Runtime>(
+    handler: impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static,
+) -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
+    move |invoke| {
+        let cmd = invoke.message.command();
+        let webview = invoke.message.webview();
+        let locked = webview
+            .app_handle()
+            .try_state::<security::SecurityState>()
+            .map(|sec| sec.is_locked());
+        if let Err(error) = check_command_access(cmd, locked) {
+            invoke.resolver.reject(error);
+            return true;
+        }
+        handler(invoke)
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -42,7 +73,11 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .plugin(tauri_plugin_log::Builder::new().level(log::LevelFilter::Info).build())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
@@ -52,10 +87,15 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let mut db = db::Db::open_at(data_dir.join("anchoa.db"));
+            let locked = initial_locked(db.conn().and_then(|conn| security::has_pin(&conn)));
             match &db.open_error {
                 Some(e) => log::error!("database open failed: {e}"),
                 None => {
-                    let result = backup::daily(&*db.conn()?, &data_dir.join("backups"), &time::today_stamp());
+                    let result = backup::daily(
+                        &*db.conn()?,
+                        &data_dir.join("backups"),
+                        &time::today_stamp(),
+                    );
                     match result {
                         Ok(Some(path)) => log::info!("daily backup: {}", path.display()),
                         Ok(None) => {}
@@ -69,6 +109,7 @@ pub fn run() {
                     }
                 }
             }
+            app.manage(security::SecurityState::new(locked));
             app.manage(db);
             app.manage(downloader::Downloader::default());
             app.manage(agent_runner::AgentRunner::default());
@@ -76,7 +117,11 @@ pub fn run() {
             app.manage(assistant::voice::VoiceState::new(data_dir));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
+            security::security_status,
+            security::unlock,
+            security::set_pin,
+            security::disable_pin,
             assistant::assistant_send,
             assistant::assistant_stop,
             assistant::assistant_decide,
@@ -188,7 +233,7 @@ pub fn run() {
             commands::search_items,
             commands::export_pages,
             commands::open_link,
-        ])
+        ]))
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
@@ -198,4 +243,60 @@ pub fn run() {
                 app.state::<assistant::voice::VoiceState>().stop_all();
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use error::AppError;
+
+    #[test]
+    fn startup_locks_when_pin_status_is_unavailable() {
+        assert!(!initial_locked(Ok(false)));
+        assert!(initial_locked(Ok(true)));
+        assert!(initial_locked(Err(AppError::DbUnavailable)));
+        assert!(initial_locked(Err(AppError::Db(
+            rusqlite::Error::InvalidQuery
+        ))));
+    }
+
+    #[test]
+    fn invoke_guard_fails_closed_without_security_state() {
+        for command in [
+            "get_dashboard",
+            "set_pin",
+            "disable_pin",
+            "unlock",
+            "security_status",
+            "app_status",
+            "db_status",
+        ] {
+            assert!(matches!(
+                check_command_access(command, None),
+                Err(AppError::Locked)
+            ));
+            assert!(check_command_access(command, Some(false)).is_ok());
+            if security::is_allowed_while_locked(command) {
+                assert!(check_command_access(command, Some(true)).is_ok());
+            } else {
+                assert!(matches!(
+                    check_command_access(command, Some(true)),
+                    Err(AppError::Locked)
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn invoke_guard_serializes_the_locked_app_error() {
+        let error = check_command_access("get_dashboard", Some(true)).unwrap_err();
+        let rejected = tauri::ipc::InvokeError::from(error);
+        assert_eq!(
+            rejected.0,
+            serde_json::json!({
+                "code": "locked",
+                "message": "Anchoa terkunci",
+            })
+        );
+    }
 }

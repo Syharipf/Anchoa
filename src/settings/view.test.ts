@@ -52,9 +52,44 @@ describe("sectionStatus", () => {
     ).toBe("Ollama · qwen2.5:3b");
   });
 
-  it("returns 'Menyusul' for avatar and suara", () => {
-    expect(sectionStatus("avatar")).toBe("Menyusul");
-    expect(sectionStatus("suara")).toBe("Menyusul");
+  it("returns 'Statis' for avatar and 'Belum dipasang' / active voice for suara", () => {
+    expect(sectionStatus("avatar")).toBe("Statis");
+    expect(sectionStatus("avatar", { avatarStatus: "Live2D" })).toBe("Live2D");
+    expect(sectionStatus("suara")).toBe("Belum dipasang");
+    expect(sectionStatus("suara", { voiceStatus: null })).toBe("Belum dipasang");
+
+    const installedVoiceStatus = {
+      pwRecord: true,
+      pwPlay: true,
+      whisper: "/usr/bin/whisper-cli",
+      whisperModel: true,
+      piper: true,
+      voices: [
+        {
+          id: "id_ID-news_tts-medium",
+          label: "Indonesia · News",
+          language: "id_ID",
+          quality: "medium",
+          installed: true,
+          imported: false,
+          params: { lengthScale: 1.0, noiseScale: 0.667, noiseW: 0.8 },
+        },
+      ],
+      settings: {
+        id: "id_ID-news_tts-medium",
+        params: { lengthScale: 1.0, noiseScale: 0.667, noiseW: 0.8 },
+      },
+      recording: false,
+      speaking: false,
+    };
+    expect(sectionStatus("suara", { voiceStatus: installedVoiceStatus })).toBe("Indonesia · News");
+
+    const missingModelVoiceStatus = {
+      ...installedVoiceStatus,
+      whisperModel: false,
+    };
+    expect(sectionStatus("suara", { voiceStatus: missingModelVoiceStatus })).toBe("Belum dipasang");
+    expect(sectionStatus("suara", { voiceStatus: { ...installedVoiceStatus, pwPlay: false } })).toBe("Belum dipasang");
   });
 
   it("returns 'Lokal' for data", () => {

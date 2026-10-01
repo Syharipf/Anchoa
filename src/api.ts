@@ -1,5 +1,6 @@
 // The only module that talks to the Rust backend.
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 
 export interface Item {
   id: string;
@@ -838,6 +839,11 @@ export const api = {
   setVoice: (id: string, params?: VoiceParams) => invoke<VoiceSettings>("set_voice", { id, params }),
   voiceSpeak: (text: string) => invoke<void>("voice_speak", { text }),
   voiceStop: () => invoke<void>("voice_stop"),
+  /** Native file picker for a Piper voice; the matching .onnx.json must sit next to the file. */
+  pickVoiceModel: async (): Promise<string | null> => {
+    const path = await openFileDialog({ multiple: false, directory: false, filters: [{ name: "Suara Piper", extensions: ["onnx"] }] });
+    return typeof path === "string" ? path : null;
+  },
   assistantSend: (text: string, onEvent: (event: AssistantEvent) => void) => {
     const channel = new Channel<AssistantEvent>();
     channel.onmessage = onEvent;

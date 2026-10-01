@@ -7,7 +7,9 @@ import {
   type AssistantEvent,
   type AssistantMessage,
   type AssistantProposal,
+  type VoiceStatus,
 } from "../api";
+import { isVoiceInstalled } from "../settings/view";
 
 export type AssistantMode = "idle" | "thinking" | "listening" | "speaking";
 
@@ -18,13 +20,15 @@ export interface AssistantState {
   readonly pendingProposals: readonly AssistantProposal[];
   readonly error: string | null;
   readonly currentSendId: number;
+  readonly voiceMissing: boolean;
 }
 
 export type AssistantAction =
   | { type: "send"; text: string; sendId: number }
   | { type: "delta"; data: string; sendId: number }
   | { type: "proposal"; data: AssistantProposal; sendId: number }
-  | { type: "done"; data: AssistantMessage; sendId: number }
+  | { type: "done"; data: AssistantMessage; sendId: number; mode?: AssistantMode }
+  | { type: "begin_interaction"; sendId: number }
   | { type: "error"; error: string; sendId: number }
   | { type: "pending"; data: AssistantProposal[]; sendId: number }
   | { type: "failure"; error: string; sendId: number }
@@ -32,7 +36,9 @@ export type AssistantAction =
   | { type: "set_mode"; mode: AssistantMode }
   | { type: "stop" }
   | { type: "clear_error" }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "voice_missing"; missing: boolean }
+  | { type: "clear_voice_missing" };
 
 export const initialAssistantState: AssistantState = {
   mode: "idle",
@@ -41,6 +47,7 @@ export const initialAssistantState: AssistantState = {
   pendingProposals: [],
   error: null,
   currentSendId: 0,
+  voiceMissing: false,
 };
 
 export function assistantReducer(
@@ -48,6 +55,8 @@ export function assistantReducer(
   action: AssistantAction,
 ): AssistantState {
   switch (action.type) {
+    case "begin_interaction":
+      return { ...state, mode: "thinking", currentSendId: action.sendId, error: null, voiceMissing: false };
     case "send":
       return {
         ...state,
@@ -56,6 +65,7 @@ export function assistantReducer(
         streamingCaption: "",
         pendingProposals: [],
         error: null,
+        voiceMissing: false,
         messages: [...state.messages, { role: "user", content: action.text }],
       };
     case "delta":
@@ -78,7 +88,7 @@ export function assistantReducer(
         : state.messages;
       return {
         ...state,
-        mode: "idle",
+        mode: action.mode ?? "idle",
         streamingCaption: action.data.content || state.streamingCaption,
         messages: nextMessages,
       };
@@ -114,11 +124,13 @@ export function assistantReducer(
       return {
         ...state,
         mode: action.mode,
+        voiceMissing: action.mode !== "idle" ? false : state.voiceMissing,
       };
     case "stop":
       return {
         ...state,
         mode: "idle",
+        voiceMissing: false,
         currentSendId: state.currentSendId + 1,
       };
     case "clear_error":
@@ -131,6 +143,16 @@ export function assistantReducer(
         ...initialAssistantState,
         currentSendId: state.currentSendId + 1,
       };
+    case "voice_missing":
+      return {
+        ...state,
+        voiceMissing: action.missing,
+      };
+    case "clear_voice_missing":
+      return {
+        ...state,
+        voiceMissing: false,
+      };
     default:
       return state;
   }
@@ -142,39 +164,84 @@ export interface UseAssistantOptions {
 
 export function useAssistant(options?: UseAssistantOptions) {
   const [state, setState] = useState<AssistantState>(initialAssistantState);
+  const stateRef = useRef(state);
+  const mountedRef = useRef(true);
+  // One token owns recording, transcription, the reply channel, and playback.
+  const interactionRef = useRef(0);
+  const recorderTaskRef = useRef<Promise<unknown> | null>(null);
+  const recordingRef = useRef(false);
+  const cleanupRef = useRef<Promise<void> | null>(null);
   const dispatch = useCallback((action: AssistantAction) => {
-    setState((prev) => assistantReducer(prev, action));
+    if (!mountedRef.current) return;
+    stateRef.current = assistantReducer(stateRef.current, action);
+    setState(stateRef.current);
   }, []);
-  const sendIdRef = useRef(0);
-  const sendingRef = useRef(false);
-  const proposalsRef = useRef(state.pendingProposals);
-  proposalsRef.current = state.pendingProposals;
+  const isCurrent = useCallback((token: number) =>
+    mountedRef.current && interactionRef.current === token, []);
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
   const statusCheckIdRef = useRef(0);
+  const voiceCheckIdRef = useRef(0);
 
   const checkStatus = useCallback(async () => {
     const checkId = ++statusCheckIdRef.current;
     try {
       const status = await api.aiStatus();
-      if (checkId === statusCheckIdRef.current) setAiStatus(status);
+      if (mountedRef.current && checkId === statusCheckIdRef.current) setAiStatus(status);
       return status;
     } catch (e) {
-      const fallback: AiStatus = {
-        available: false,
-        models: [],
-        error: errorMessage(e),
-      };
-      if (checkId === statusCheckIdRef.current) setAiStatus(fallback);
+      const fallback: AiStatus = { available: false, models: [], error: errorMessage(e) };
+      if (mountedRef.current && checkId === statusCheckIdRef.current) setAiStatus(fallback);
       return fallback;
     }
   }, []);
 
+  const checkVoiceStatus = useCallback(async () => {
+    const checkId = ++voiceCheckIdRef.current;
+    try {
+      const status = await api.voiceStatus();
+      if (mountedRef.current && checkId === voiceCheckIdRef.current) setVoiceStatus(status);
+      return status;
+    } catch {
+      if (mountedRef.current && checkId === voiceCheckIdRef.current) setVoiceStatus(null);
+      return null;
+    }
+  }, []);
+
+  const cancelOperations = useCallback((reset = false) => {
+    // voiceStop only stops speech. Drain pw-record separately and discard STT.
+    if (recordingRef.current) {
+      recordingRef.current = false;
+      recorderTaskRef.current = api.voiceRecordStop().catch(() => {});
+    }
+    const cleanup = Promise.allSettled([
+      cleanupRef.current,
+      recorderTaskRef.current,
+      reset ? api.assistantReset() : api.assistantStop(),
+      api.voiceStop(),
+    ]).then(() => {});
+    cleanupRef.current = cleanup;
+    return cleanup;
+  }, []);
+
   useEffect(() => {
+    mountedRef.current = true;
     void checkStatus();
-    const onFocus = () => { void checkStatus(); };
+    void checkVoiceStatus();
+    const onFocus = () => {
+      void checkStatus();
+      void checkVoiceStatus();
+    };
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [checkStatus]);
+    return () => {
+      mountedRef.current = false;
+      interactionRef.current++;
+      statusCheckIdRef.current++;
+      voiceCheckIdRef.current++;
+      window.removeEventListener("focus", onFocus);
+      void cancelOperations();
+    };
+  }, [checkStatus, checkVoiceStatus, cancelOperations]);
 
   useEffect(() => {
     if (aiStatus?.available !== false) return;
@@ -183,111 +250,190 @@ export function useAssistant(options?: UseAssistantOptions) {
   }, [aiStatus?.available, checkStatus]);
 
   useEffect(() => {
-    let mounted = true;
-    const sendId = sendIdRef.current;
+    const token = interactionRef.current;
+    const sendId = stateRef.current.currentSendId;
     api.assistantPending().then(
-      (data) => {
-        if (mounted) dispatch({ type: "pending", data, sendId });
-      },
-      (e) => {
-        if (mounted) dispatch({ type: "failure", error: errorMessage(e), sendId });
-      },
+      (data) => { if (isCurrent(token)) dispatch({ type: "pending", data, sendId }); },
+      (e) => { if (isCurrent(token)) dispatch({ type: "failure", error: errorMessage(e), sendId }); },
     );
-    return () => { mounted = false; };
-  }, [dispatch]);
+  }, [dispatch, isCurrent]);
 
-  const send = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || sendingRef.current) return;
-      sendingRef.current = true;
-      const sendId = ++sendIdRef.current;
-      dispatch({ type: "send", text: trimmed, sendId });
-
-      try {
-        await api.assistantSend(trimmed, (event: AssistantEvent) => {
-          switch (event.type) {
-            case "delta":
-              dispatch({ type: "delta", data: event.data, sendId });
-              break;
-            case "proposal":
-              dispatch({ type: "proposal", data: event.data, sendId });
-              break;
-            case "done":
-              dispatch({ type: "done", data: event.data, sendId });
-              break;
-            case "error":
-              dispatch({ type: "error", error: event.data, sendId });
-              break;
-          }
-        });
-        void checkStatus();
-      } catch (e) {
-        dispatch({ type: "error", error: errorMessage(e), sendId });
-        void checkStatus();
-      } finally {
-        sendingRef.current = false;
+  const sendInteraction = useCallback(async (text: string, token: number, voice: boolean) => {
+    if (!isCurrent(token)) return;
+    dispatch({ type: "send", text, sendId: token });
+    let completed = false;
+    let failed = false;
+    const complete = (message: AssistantMessage) => {
+      if (completed || failed || !isCurrent(token)) return;
+      completed = true;
+      dispatch({ type: "done", data: message, sendId: token, mode: voice ? "thinking" : "idle" });
+    };
+    try {
+      const reply = await api.assistantSend(text, (event: AssistantEvent) => {
+        if (!isCurrent(token) || failed) return;
+        switch (event.type) {
+          case "delta":
+            if (!completed) dispatch({ type: "delta", data: event.data, sendId: token });
+            break;
+          case "proposal":
+            dispatch({ type: "proposal", data: event.data, sendId: token });
+            break;
+          case "done":
+            complete(event.data);
+            break;
+          case "error":
+            failed = true;
+            dispatch({ type: "error", error: event.data, sendId: token });
+            break;
+        }
+      });
+      if (!isCurrent(token)) return;
+      void checkStatus();
+      if (failed) return;
+      complete(reply.message);
+      if (!voice || !reply.message.content.trim()) {
+        dispatch({ type: "set_mode", mode: "idle" });
+        return;
       }
-    },
-    [checkStatus],
-  );
+      dispatch({ type: "set_mode", mode: "speaking" });
+      try {
+        await api.voiceSpeak(reply.message.content.trim());
+        if (!isCurrent(token)) return;
+      } catch {
+        if (!isCurrent(token)) return;
+      }
+      dispatch({ type: "set_mode", mode: "idle" });
+    } catch (e) {
+      if (!isCurrent(token)) return;
+      dispatch({ type: "error", error: errorMessage(e), sendId: token });
+      void checkStatus();
+    }
+  }, [checkStatus, dispatch, isCurrent]);
+
+  const startSend = useCallback(async (text: string, voice: boolean) => {
+    const trimmed = text.trim();
+    if (!trimmed || !mountedRef.current ||
+        stateRef.current.mode === "thinking" || stateRef.current.mode === "listening") return;
+    if (stateRef.current.mode === "speaking") void cancelOperations();
+    const token = ++interactionRef.current;
+    dispatch({ type: "begin_interaction", sendId: token });
+    if (cleanupRef.current) {
+      await cleanupRef.current;
+      if (!isCurrent(token)) return;
+    }
+    await sendInteraction(trimmed, token, voice);
+    if (!isCurrent(token)) return;
+  }, [cancelOperations, dispatch, isCurrent, sendInteraction]);
+  const send = useCallback((text: string) => startSend(text, false), [startSend]);
+  const sendVoice = useCallback((text: string) => startSend(text, true), [startSend]);
 
   const stop = useCallback(async () => {
-    sendIdRef.current++;
+    const token = ++interactionRef.current;
     dispatch({ type: "stop" });
+    await cancelOperations();
+    if (!isCurrent(token)) return;
+    // Cancellation has no completion callback that can change a newer mode.
+  }, [cancelOperations, dispatch, isCurrent]);
+
+  const transcribeInteraction = useCallback(async (token: number) => {
+    dispatch({ type: "set_mode", mode: "thinking" });
+    recordingRef.current = false;
     try {
-      await api.assistantStop();
-    } catch {
-      // ignore
+      const task = api.voiceRecordStop();
+      recorderTaskRef.current = task;
+      const transcript = await task;
+      if (!isCurrent(token)) return;
+      if (!transcript.trim()) {
+        dispatch({ type: "set_mode", mode: "idle" });
+        return;
+      }
+      await sendInteraction(transcript.trim(), token, true);
+      if (!isCurrent(token)) return;
+    } catch (e) {
+      if (!isCurrent(token)) return;
+      dispatch({ type: "error", error: errorMessage(e), sendId: token });
     }
-  }, []);
+  }, [dispatch, isCurrent, sendInteraction]);
+
+  const recordInteraction = useCallback(async () => {
+    const token = ++interactionRef.current;
+    dispatch({ type: "begin_interaction", sendId: token });
+    // A cancelled start must finish and drain before another start can acquire pw-record.
+    if (cleanupRef.current) {
+      await cleanupRef.current;
+      if (!isCurrent(token)) return;
+    }
+    let status = voiceStatus;
+    if (!isVoiceInstalled(status)) {
+      status = await checkVoiceStatus();
+      if (!isCurrent(token)) return;
+    }
+    if (!isVoiceInstalled(status)) {
+      dispatch({ type: "set_mode", mode: "idle" });
+      dispatch({ type: "voice_missing", missing: true });
+      return;
+    }
+    const task = (async () => {
+      try {
+        await api.voiceRecordStart();
+        if (!isCurrent(token)) {
+          return api.voiceRecordStop().catch(() => {});
+        }
+        recordingRef.current = true;
+        dispatch({ type: "set_mode", mode: "listening" });
+      } catch (e) {
+        if (!isCurrent(token)) return;
+        dispatch({ type: "error", error: errorMessage(e), sendId: token });
+      }
+    })();
+    recorderTaskRef.current = task;
+    await task;
+    if (!isCurrent(token)) return;
+  }, [voiceStatus, checkVoiceStatus, dispatch, isCurrent]);
+
+  const toggleMic = useCallback(async () => {
+    if (!mountedRef.current) return;
+    switch (stateRef.current.mode) {
+      case "speaking": return stop();
+      case "thinking": return;
+      case "listening": return transcribeInteraction(interactionRef.current);
+      case "idle": return recordInteraction();
+    }
+  }, [stop, transcribeInteraction, recordInteraction]);
 
   const decide = useCallback(
     async (id: string, approve: boolean): Promise<AssistantDecision> => {
-      const summary = proposalsRef.current.find((p) => p.id === id)?.summary ?? "Usulan";
-      const sendId = sendIdRef.current;
+      const summary = stateRef.current.pendingProposals.find((p) => p.id === id)?.summary ?? "Usulan";
+      const token = interactionRef.current;
       let result: AssistantDecision;
       try {
         result = await api.assistantDecide(id, approve);
+        if (!isCurrent(token)) return result;
       } catch (e) {
-        dispatch({ type: "failure", error: errorMessage(e), sendId });
+        if (isCurrent(token)) dispatch({ type: "failure", error: errorMessage(e), sendId: token });
         throw e;
       }
       dispatch({ type: "decided", proposalId: id, summary, approved: approve });
       if (approve) options?.onChanged?.();
       return result;
-    },
-    [options],
+    }, [options, dispatch, isCurrent],
   );
 
   const setMode = useCallback((mode: AssistantMode) => {
-    if (sendingRef.current) return;
+    if (stateRef.current.mode === "thinking") return;
     dispatch({ type: "set_mode", mode });
-  }, []);
-
-  const clearError = useCallback(() => {
-    dispatch({ type: "clear_error" });
   }, [dispatch]);
-
+  const clearError = useCallback(() => { dispatch({ type: "clear_error" }); }, [dispatch]);
+  const clearVoiceMissing = useCallback(() => { dispatch({ type: "clear_voice_missing" }); }, [dispatch]);
   const reset = useCallback(async () => {
-    sendIdRef.current++;
+    const token = ++interactionRef.current;
     dispatch({ type: "reset" });
-    try {
-      await api.assistantReset();
-    } catch {
-      // ignore
-    }
-  }, []);
+    await cancelOperations(true);
+    if (!isCurrent(token)) return;
+  }, [cancelOperations, dispatch, isCurrent]);
 
   return {
-    ...state,
-    aiStatus,
-    checkStatus,
-    send,
-    stop,
-    decide,
-    setMode,
-    clearError,
-    reset,
+    ...state, aiStatus, voiceStatus, checkStatus, checkVoiceStatus,
+    send, sendVoice, toggleMic, stop, decide, setMode, clearError, clearVoiceMissing, reset,
   };
 }

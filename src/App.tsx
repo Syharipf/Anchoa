@@ -212,6 +212,7 @@ export function App() {
           contributionsVersion={contributionsVersion}
           onOpenSettings={() => openSettings("integrations")}
           onOpenAiSettings={() => openSettings("ai")}
+          onOpenVoiceSettings={() => openSettings("suara")}
           onChanged={onAssistantChanged}
         />
       ) : (
@@ -220,6 +221,7 @@ export function App() {
           hint={assistantHint(info)}
           onOpenFull={() => go("dashboard")}
           onOpenAiSettings={() => openSettings("ai")}
+          onOpenVoiceSettings={() => openSettings("suara")}
           onChanged={onAssistantChanged}
         />
       )}

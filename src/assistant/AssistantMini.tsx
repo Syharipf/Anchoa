@@ -2,41 +2,23 @@ import {
   useEffect,
   useRef,
   useState,
-  type KeyboardEvent,
-  type ReactNode,
 } from "react";
-import { FIELD } from "../shell/ui";
-import { AssistantFeedback, STATUS } from "./AssistantFeedback";
-import { OllamaOfflineCard } from "./OllamaOfflineCard";
+import { AssistantCaption, AssistantFeedback, STATUS } from "./AssistantFeedback";
 import { School } from "./School";
 import { useAssistant } from "./useAssistant";
 import { usePageVisible } from "./usePageVisible";
+import {
+  AssistantComposer,
+  AssistantIcon as Icon,
+  AssistantMicButton,
+  AssistantTypingButton,
+  useAssistantComposer,
+} from "./AssistantControls";
 
 const ROUND =
   "flex items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95 cursor-pointer";
 const ICON_BUTTON =
   "flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 cursor-pointer";
-
-function Icon({
-  size,
-  children,
-}: Readonly<{ size: number; children: ReactNode }>) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
 
 const FACE = (
   <>
@@ -52,11 +34,11 @@ const MIC = (
   </>
 );
 
-
 export interface AssistantMiniProps {
   readonly hint: string;
   readonly onOpenFull: () => void;
   readonly onOpenAiSettings?: () => void;
+  readonly onOpenVoiceSettings?: () => void;
   readonly onChanged?: () => void;
 }
 
@@ -67,12 +49,12 @@ export function AssistantMini({
   hint,
   onOpenFull,
   onOpenAiSettings,
+  onOpenVoiceSettings,
   onChanged,
 }: Readonly<AssistantMiniProps>) {
   const assistant = useAssistant({ onChanged });
   const [open, setOpen] = useState(false);
-  const [typing, setTyping] = useState(false);
-  const [text, setText] = useState("");
+  const composer = useAssistantComposer(assistant);
   const visible = usePageVisible();
   const trigger = useRef<HTMLButtonElement>(null);
   const mic = useRef<HTMLButtonElement>(null);
@@ -83,7 +65,6 @@ export function AssistantMini({
   const thinking = mode === "thinking";
   const running = mode !== "idle" && visible;
   const status = STATUS[mode];
-  const ollamaOffline = assistant.aiStatus !== null && !assistant.aiStatus.available;
 
   useEffect(() => {
     if (open !== wasOpen.current) (open ? mic : trigger).current?.focus();
@@ -98,7 +79,7 @@ export function AssistantMini({
         onClick={() => setOpen(true)}
         aria-label="Buka asisten"
         title="Asisten"
-        className={`${ROUND} fixed right-6 bottom-6 z-30 h-[60px] w-[60px] border border-line bg-surface-2 text-muted shadow-[0_16px_40px_rgb(0_0_0/0.45)]`}
+        className={`${ROUND} fixed right-6 bottom-6 z-30 h-[60px] w-[60px] border border-line bg-surface-2 text-muted shadow-[0_16px_40px] shadow-canvas/45`}
       >
         <Icon size={28}>{FACE}</Icon>
         <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-canvas">
@@ -110,22 +91,8 @@ export function AssistantMini({
 
   const collapse = () => {
     setOpen(false);
-    if (mode === "listening") assistant.setMode("idle");
-    setTyping(false);
-  };
-
-  const handleSend = () => {
-    const trimmed = text.trim();
-    if (!trimmed || thinking) return;
-    assistant.send(trimmed);
-    setText("");
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    void assistant.stop();
+    composer.setTyping(false);
   };
 
   return (
@@ -136,7 +103,7 @@ export function AssistantMini({
       }}
       data-anim
       style={{ animation: "anchoa-pop 0.2s ease-out" }}
-      className="fixed right-6 bottom-6 z-30 flex w-[304px] flex-col gap-3 rounded-[18px] border border-line bg-surface p-4 shadow-[0_16px_40px_rgb(0_0_0/0.45)]"
+      className="fixed right-6 bottom-6 z-30 flex w-[304px] flex-col gap-3 rounded-[18px] border border-line bg-surface p-4 shadow-[0_16px_40px] shadow-canvas/45"
     >
       <div className="flex items-center gap-3">
         <div className="relative h-11 w-11 shrink-0">
@@ -191,107 +158,15 @@ export function AssistantMini({
         </button>
       </div>
 
-      {ollamaOffline && !thinking ? (
-        <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />
-      ) : listening ? (
-        <p className="m-0 text-sm leading-snug text-ink">
-          Pengenalan suara hadir di Fase 5. Ketuk lagi untuk berhenti.
-        </p>
-      ) : thinking ? (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-accent">Sedang berpikir…</span>
-            <button
-              type="button"
-              aria-label="Hentikan"
-              onClick={assistant.stop}
-              className="rounded border border-danger/40 bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger hover:bg-danger/20 cursor-pointer"
-            >
-              Hentikan
-            </button>
-          </div>
-          <p className="m-0 text-sm leading-snug text-ink">
-            {assistant.streamingCaption || "Memproses permintaan…"}
-          </p>
-        </div>
-      ) : assistant.streamingCaption ? (
-        <p className="m-0 text-sm leading-snug text-ink">
-          {assistant.streamingCaption}
-        </p>
-      ) : (
-        <p className="m-0 text-sm leading-snug text-ink">{hint}</p>
-      )}
+      <AssistantCaption assistant={assistant} hint={hint} compact onOpenAiSettings={onOpenAiSettings} onOpenVoiceSettings={onOpenVoiceSettings} />
 
       <AssistantFeedback assistant={assistant} showHistory compact />
 
-      {typing && (
-        <div
-          className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5 focus-within:border-field-focus`}
-        >
-          <input
-            aria-label="Ketik pesan ke asisten"
-            placeholder="Ketik pesan…"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={thinking}
-            className="min-w-0 flex-1 border-0 bg-transparent text-sm text-ink outline-none placeholder:text-muted focus-visible:outline-none"
-          />
-          {thinking ? (
-            <button
-              type="button"
-              aria-label="Hentikan"
-              onClick={assistant.stop}
-              className="flex h-8 items-center justify-center rounded-lg bg-danger/15 px-2 text-xs font-semibold text-danger hover:bg-danger/25 cursor-pointer"
-            >
-              Hentikan
-            </button>
-          ) : (
-            <button
-              type="button"
-              aria-label="Kirim"
-              onClick={handleSend}
-              disabled={!text.trim()}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-canvas disabled:bg-surface-2 disabled:text-disabled cursor-pointer transition-transform hover:scale-105 active:scale-95"
-            >
-              <Icon size={16}>
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </Icon>
-            </button>
-          )}
-        </div>
-      )}
+      <AssistantComposer assistant={assistant} composer={composer} compact />
 
       <div className="flex items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={() => setTyping((t) => !t)}
-          aria-label="Ketik pesan"
-          aria-pressed={typing}
-          className={`${ROUND} h-9 w-9 border border-line ${
-            typing ? "bg-surface-2 text-accent" : "text-muted"
-          }`}
-        >
-          <Icon size={17}>
-            <rect x="2" y="6" width="20" height="12" rx="2" />
-            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
-          </Icon>
-        </button>
-        <button
-          ref={mic}
-          type="button"
-          onClick={() => assistant.setMode(listening ? "idle" : "listening")}
-          aria-label={
-            listening ? "Berhenti mendengarkan" : "Ketuk untuk bicara"
-          }
-          aria-pressed={listening}
-          disabled={thinking}
-          className={`${ROUND} h-11 w-11 text-canvas disabled:opacity-50 disabled:cursor-not-allowed ${
-            listening ? "bg-danger" : "bg-accent"
-          }`}
-        >
-          <Icon size={20}>{MIC}</Icon>
-        </button>
+        <AssistantTypingButton composer={composer} compact />
+        <AssistantMicButton assistant={assistant} compact ref={mic} />
       </div>
     </section>
   );

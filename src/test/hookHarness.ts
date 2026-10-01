@@ -1,7 +1,7 @@
 import { spyOn } from "bun:test";
 import * as React from "react";
 
-type Effect = { deps?: React.DependencyList; cleanup?: () => void };
+type Effect = { run: React.EffectCallback; deps?: React.DependencyList; cleanup?: () => void };
 
 /** Exercise component handlers without a DOM or an additional test dependency.
  * Only the component under test runs; child elements retain their real props/keys.
@@ -83,7 +83,7 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
         pendingEffects.push(() => {
           previous?.cleanup?.();
           const cleanup = run();
-          effects[index] = { deps, cleanup: cleanup || undefined };
+          effects[index] = { run, deps, cleanup: cleanup || undefined };
         });
       }
     }),
@@ -116,6 +116,13 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
     intervalDelays() { return [...intervals.values()].map(({ delay }) => delay); },
     focus() { listeners.get("focus")?.forEach((run) => run()); },
     blur() { listeners.get("blur")?.forEach((run) => run()); },
+    replayEffects() {
+      effects.forEach((effect) => effect.cleanup?.());
+      effects.forEach((effect) => {
+        const cleanup = effect.run();
+        effect.cleanup = cleanup || undefined;
+      });
+    },
     dispose() {
       if (disposed) return;
       disposed = true;

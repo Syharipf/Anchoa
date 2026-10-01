@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { api, type AiStatus, type AssistantEvent, type AssistantProposal } from "../api";
-import { deferred, elements, hookHarness } from "../test/hookHarness";
+import { deferred, hookHarness } from "../test/hookHarness";
+import { elements } from "../test/assistantElements";
 import { AssistantFeedback } from "./AssistantFeedback";
 import { AssistantStage } from "./AssistantStage";
 import { ProposalCard } from "./ProposalCard";
+import { VoiceMissingCard } from "./VoiceMissingCard";
 
 describe("AssistantStage", () => {
   const spies: ReturnType<typeof spyOn>[] = [];
@@ -239,5 +241,45 @@ describe("AssistantStage", () => {
     harness.focus();
     await harness.settle();
     expect(renderToStaticMarkup(harness.render())).not.toContain("Ollama belum berjalan");
+  });
+
+  it("shows VoiceMissingCard linking to Pengaturan > Suara when voice parts are missing and mic is pressed", async () => {
+    spies.push(spyOn(api, "aiStatus").mockResolvedValue({ available: true, models: [], error: null }));
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue({
+      pwRecord: true,
+      pwPlay: true,
+      whisper: null,
+      whisperModel: false,
+      piper: false,
+      voices: [],
+      settings: { id: "id_ID-news_tts-medium", params: { lengthScale: 1.0, noiseScale: 0.667, noiseW: 0.8 } },
+      recording: false,
+      speaking: false,
+    }));
+
+    let voiceSettingsOpened = false;
+    harness = hookHarness<ReactNode>(() =>
+      AssistantStage({ onOpenVoiceSettings: () => { voiceSettingsOpened = true; } }),
+    );
+    harness.render();
+    await harness.settle();
+
+    const micBtn = elements(harness.render()).find((el) => el.props["aria-label"] === "Ketuk untuk bicara")!;
+    expect(micBtn).toBeDefined();
+
+    await (micBtn.props.onClick as () => Promise<void>)();
+    await harness.settle();
+
+    const markup = renderToStaticMarkup(harness.render());
+    expect(markup).toContain("Suara belum dipasang");
+    expect(markup).toContain("Pengaturan › Suara");
+
+    const card = elements(harness.render()).find((el) => el.type === VoiceMissingCard);
+    expect(card).toBeDefined();
+    const cardElements = elements(VoiceMissingCard(card!.props as any));
+    const linkBtn = cardElements.find((el) => el.type === "button");
+    expect(linkBtn).toBeDefined();
+    (linkBtn!.props.onClick as () => void)();
+    expect(voiceSettingsOpened).toBe(true);
   });
 });

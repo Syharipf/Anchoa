@@ -18,6 +18,12 @@ function createMockAssistant(
     currentSendId: 0,
     aiStatus: null,
     checkStatus: async () => ({ available: true, models: [], error: null }),
+    voiceMissing: false,
+    voiceStatus: null,
+    checkVoiceStatus: async () => null,
+    toggleMic: async () => {},
+    sendVoice: async () => {},
+    clearVoiceMissing: () => {},
     send: async () => {},
     stop: async () => {},
     decide: async () => ({

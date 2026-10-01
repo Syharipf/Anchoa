@@ -1,13 +1,20 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { useCallback, useEffect, useState } from "react";
-import { api, type AiRoles, type AiStatus, type GithubStatus } from "../api";
+import {
+  api,
+  type AiRoles,
+  type AiStatus,
+  type GithubStatus,
+  type VoiceStatus,
+} from "../api";
 import { H1 } from "../shell/ui";
 import { AboutSection } from "./AboutSection";
 import { AiSection } from "./AiSection";
-import { ComingSection } from "./ComingSection";
+import { AvatarSection } from "./AvatarSection";
 import { DataSection } from "./DataSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { SettingsNav } from "./SettingsNav";
+import { VoiceSection } from "./VoiceSection";
 import { normalizeSection, type SettingsSection } from "./view";
 
 export interface SettingsProps {
@@ -28,6 +35,7 @@ export function Settings({
   const [ghStatus, setGhStatus] = useState<GithubStatus | null>(null);
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [aiRoles, setAiRoles] = useState<AiRoles | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
 
   const loadAi = useCallback(() => {
     api.aiStatus().then(setAiStatus, () =>
@@ -36,11 +44,16 @@ export function Settings({
     api.aiRoles().then(setAiRoles, () => setAiRoles(null));
   }, []);
 
+  const loadVoice = useCallback(() => {
+    api.voiceStatus().then(setVoiceStatus, () => setVoiceStatus(null));
+  }, []);
+
   useEffect(() => {
     getVersion().then(setVersion, () => setVersion(""));
     api.githubStatus().then(setGhStatus, () => setGhStatus(null));
     loadAi();
-  }, [loadAi]);
+    loadVoice();
+  }, [loadAi, loadVoice]);
 
   useEffect(() => {
     setSection(normalizeSection(initialSection));
@@ -74,14 +87,14 @@ export function Settings({
             version,
             aiStatus,
             aiChatModel: aiRoles?.chat.model,
+            voiceStatus,
           }}
         />
 
         <div className="min-w-0">
           {section === "ai" && <AiSection onChanged={loadAi} />}
-          {(section === "avatar" || section === "suara") && (
-            <ComingSection section={section} />
-          )}
+          {section === "avatar" && <AvatarSection />}
+          {section === "suara" && <VoiceSection onChanged={loadVoice} />}
           {section === "data" && <DataSection />}
           {section === "integrations" && (
             <IntegrationsSection onChanged={handleGithubChanged} />

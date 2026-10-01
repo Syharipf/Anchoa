@@ -944,6 +944,24 @@ check_assistant_ai() {
   SERVER=
 }
 
+check_voice_settings() {
+  fresh
+  start_app
+  click 36 760                 # nav: Pengaturan
+  click 170 255                # Suara
+  sleep 1
+  shot 23-voice-status          # expect: pw-record, whisper hint, Pasang buttons; nothing downloaded
+  [[ ! -e "$APPDATA/piper" ]] || fail "voice files appeared without a click"
+  xdotool mousemove 790 600
+  for _ in $(seq 1 10); do xdotool click 5; done   # scroll to the end: slider rows are bottom-anchored
+  sleep 1
+  click 1100 438               # Kecepatan slider, towards slower speech
+  sql_becomes "SELECT value FROM settings WHERE key = 'voice.length_scale'" 1.25 \
+    || fail "voice speed not saved (got $(sql "SELECT value FROM settings WHERE key = 'voice.length_scale'"))"
+  shot 23-voice-params
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -974,4 +992,5 @@ check_agent
 check_settings
 check_profile
 check_assistant_ai
+check_voice_settings
 echo "PASS. Screenshots in $WORK"

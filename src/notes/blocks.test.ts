@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import {
   blockKind,
+  createBlock,
   enterAt,
+  filterSlashOptions,
   insertLink,
   joinBlocks,
   linkQuery,
+  mergeBlockWithPrevious,
   resetBlockIdCounterForTests,
   setKind,
+  slashQuery,
+  splitBlockAt,
   splitBlocks,
   toggleTodo,
   type BlockKind,
@@ -418,4 +423,94 @@ describe("blocks model", () => {
       });
     });
   });
+
+  describe("createBlock", () => {
+    it("creates blocks with incrementing ids from module counter", () => {
+      const b1 = createBlock("Satu");
+      const b2 = createBlock("Dua");
+      expect(b1).toEqual({ id: 1, text: "Satu" });
+      expect(b2).toEqual({ id: 2, text: "Dua" });
+    });
+  });
+
+  describe("slashQuery and filterSlashOptions", () => {
+    it("extracts query from text starting with slash on single line", () => {
+      expect(slashQuery("/")).toBe("");
+      expect(slashQuery("/jud")).toBe("jud");
+      expect(slashQuery("/judul 1")).toBe("judul 1");
+      expect(slashQuery("bukan/slash")).toBeNull();
+      expect(slashQuery("/baris1\nbaris2")).toBeNull();
+      expect(slashQuery("")).toBeNull();
+    });
+
+    it("filters slash options by query case-insensitively", () => {
+      expect(filterSlashOptions("")).toHaveLength(9);
+      const judul = filterSlashOptions("jud");
+      expect(judul.map((o) => o.label)).toEqual(["Judul 1", "Judul 2", "Judul 3"]);
+      const tugas = filterSlashOptions("tug");
+      expect(tugas.map((o) => o.label)).toEqual(["Tugas"]);
+      expect(filterSlashOptions("tidak-ada")).toEqual([]);
+    });
+  });
+
+  describe("splitBlockAt", () => {
+    it("splits paragraph into two blocks on enter", () => {
+      const blocks = [createBlock("Halo Dunia")];
+      const res = splitBlockAt(blocks, 0, 4); // "Halo" and " Dunia"
+      expect(res.blocks).toHaveLength(2);
+      expect(res.blocks[0].text).toBe("Halo");
+      expect(res.blocks[1].text).toBe(" Dunia");
+      expect(res.activeId).toBe(res.blocks[1].id);
+      expect(res.caret).toBe(0);
+    });
+
+    it("continues list item in same block", () => {
+      const blocks = [createBlock("- Item 1")];
+      const res = splitBlockAt(blocks, 0, 8);
+      expect(res.blocks).toHaveLength(1);
+      expect(res.blocks[0].text).toBe("- Item 1\n- ");
+      expect(res.activeId).toBe(blocks[0].id);
+      expect(res.caret).toBe("- Item 1\n- ".length);
+    });
+
+    it("splits empty list item into empty block after it", () => {
+      const blocks = [createBlock("- Item 1\n- ")];
+      const res = splitBlockAt(blocks, 0, "- Item 1\n- ".length);
+      expect(res.blocks).toHaveLength(2);
+      expect(res.blocks[0].text).toBe("- Item 1");
+      expect(res.blocks[1].text).toBe("");
+      expect(res.activeId).toBe(res.blocks[1].id);
+      expect(res.caret).toBe(0);
+    });
+  });
+
+  describe("mergeBlockWithPrevious", () => {
+    it("returns null when at index 0 or out of bounds", () => {
+      const blocks = [createBlock("Blok 1")];
+      expect(mergeBlockWithPrevious(blocks, 0)).toBeNull();
+      expect(mergeBlockWithPrevious(blocks, 5)).toBeNull();
+      expect(mergeBlockWithPrevious(blocks, -1)).toBeNull();
+    });
+
+    it("deletes empty block and moves caret to end of previous block", () => {
+      const blocks = [createBlock("Paragraf pertama"), createBlock("")];
+      const res = mergeBlockWithPrevious(blocks, 1);
+      expect(res).not.toBeNull();
+      expect(res?.blocks).toHaveLength(1);
+      expect(res?.blocks[0].text).toBe("Paragraf pertama");
+      expect(res?.activeId).toBe(blocks[0].id);
+      expect(res?.caret).toBe("Paragraf pertama".length);
+    });
+
+    it("merges non-empty block into previous block at join point", () => {
+      const blocks = [createBlock("Halo "), createBlock("Dunia")];
+      const res = mergeBlockWithPrevious(blocks, 1);
+      expect(res).not.toBeNull();
+      expect(res?.blocks).toHaveLength(1);
+      expect(res?.blocks[0].text).toBe("Halo Dunia");
+      expect(res?.activeId).toBe(blocks[0].id);
+      expect(res?.caret).toBe("Halo ".length);
+    });
+  });
 });
+

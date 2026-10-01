@@ -215,7 +215,7 @@ function stripFirstLineMarker(text: string): { content: string; rest: string } {
   let firstLine = lines[0] ?? "";
   const rest = lines.slice(1).join("\n");
 
-  if (/^\/\w*\s*$/.test(firstLine)) {
+  if (/^\/[^\n]*$/.test(firstLine)) {
     firstLine = "";
   }
 
@@ -350,3 +350,147 @@ export function insertLink(
 
   return { text: newText, caret: newCaret };
 }
+
+export interface SlashOption {
+  readonly kind: BlockKind;
+  readonly label: string;
+}
+
+export const SLASH_OPTIONS: readonly SlashOption[] = [
+  { kind: "paragraph", label: "Teks" },
+  { kind: "heading1", label: "Judul 1" },
+  { kind: "heading2", label: "Judul 2" },
+  { kind: "heading3", label: "Judul 3" },
+  { kind: "bullet", label: "Daftar" },
+  { kind: "numbered", label: "Daftar bernomor" },
+  { kind: "todo", label: "Tugas" },
+  { kind: "quote", label: "Kutipan" },
+  { kind: "code", label: "Kode" },
+];
+
+/**
+ * Returns query string after leading '/' if text begins with '/' and is a single line,
+ * or null if text does not represent a slash command.
+ */
+export function slashQuery(text: string): string | null {
+  if (!text.startsWith("/") || text.includes("\n")) {
+    return null;
+  }
+  return text.slice(1);
+}
+
+/**
+ * Filters slash options case-insensitively by query.
+ */
+export function filterSlashOptions(query: string): readonly SlashOption[] {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return SLASH_OPTIONS;
+  }
+  return SLASH_OPTIONS.filter((opt) => opt.label.toLowerCase().includes(q));
+}
+
+/**
+ * Creates a new block using the module-level counter.
+ */
+export function createBlock(text = ""): Block {
+  return { id: nextId(), text };
+}
+
+export interface SplitBlockResult {
+  readonly blocks: Block[];
+  readonly activeId: number;
+  readonly caret: number;
+}
+
+/**
+ * Transforms blocks on Enter at caret within the block at index:
+ * - Uses enterAt to determine whether to split or continue inside the block.
+ * - Returns new blocks array, the ID of the block that should be active, and caret position.
+ */
+export function splitBlockAt(
+  blocks: readonly Block[],
+  index: number,
+  caret: number,
+): SplitBlockResult {
+  if (index < 0 || index >= blocks.length) {
+    return {
+      blocks: [...blocks],
+      activeId: blocks[0]?.id ?? 0,
+      caret: 0,
+    };
+  }
+
+  const curr = blocks[index];
+  const res = enterAt(curr.text, caret);
+
+  if (res.after !== null) {
+    const updatedCurr: Block = { id: curr.id, text: res.before };
+    const nextBlock: Block = { id: nextId(), text: res.after };
+    const newBlocks = [
+      ...blocks.slice(0, index),
+      updatedCurr,
+      nextBlock,
+      ...blocks.slice(index + 1),
+    ];
+    return {
+      blocks: newBlocks,
+      activeId: nextBlock.id,
+      caret: res.caret,
+    };
+  }
+
+  const updatedCurr: Block = { id: curr.id, text: res.before };
+  const newBlocks = [
+    ...blocks.slice(0, index),
+    updatedCurr,
+    ...blocks.slice(index + 1),
+  ];
+  return {
+    blocks: newBlocks,
+    activeId: curr.id,
+    caret: res.caret,
+  };
+}
+
+export interface MergeBlockResult {
+  readonly blocks: Block[];
+  readonly activeId: number;
+  readonly caret: number;
+}
+
+/**
+ * Handles Backspace at caret 0:
+ * - If index <= 0, does nothing and returns null.
+ * - Otherwise merges the block at index into the block at index - 1 (or removes the empty block)
+ *   and sets caret at the join point.
+ */
+export function mergeBlockWithPrevious(
+  blocks: readonly Block[],
+  index: number,
+): MergeBlockResult | null {
+  if (index <= 0 || index >= blocks.length) {
+    return null;
+  }
+
+  const prev = blocks[index - 1];
+  const curr = blocks[index];
+  const caret = prev.text.length;
+  const merged: Block = {
+    id: prev.id,
+    text: prev.text + curr.text,
+  };
+
+  const newBlocks = [
+    ...blocks.slice(0, index - 1),
+    merged,
+    ...blocks.slice(index + 1),
+  ];
+
+  return {
+    blocks: newBlocks,
+    activeId: prev.id,
+    caret,
+  };
+}
+

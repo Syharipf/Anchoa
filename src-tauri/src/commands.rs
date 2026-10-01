@@ -22,6 +22,7 @@ use crate::github::{self, Contributions};
 use crate::habits::{self, HabitInput, HabitRow, History as HabitHistory, Overview as HabitsOverview};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery, Side};
+use crate::profile::{self, NotifyPrefs, Profile};
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::settings::{self, DataOverview, UpdateCheck};
@@ -409,6 +410,26 @@ pub fn open_folder(app: AppHandle, kind: String) -> Result<(), AppError> {
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
+pub fn get_profile(db: State<'_, Db>) -> Result<Profile, AppError> {
+    profile::profile(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn set_profile_name(db: State<'_, Db>, name: String) -> Result<Profile, AppError> {
+    profile::set_name(&*db.conn()?, &name)
+}
+
+#[tauri::command]
+pub fn get_notify_prefs(db: State<'_, Db>) -> Result<NotifyPrefs, AppError> {
+    profile::notify_prefs(&*db.conn()?)
+}
+
+#[tauri::command]
+pub fn set_notify_prefs(db: State<'_, Db>, prefs: NotifyPrefs) -> Result<NotifyPrefs, AppError> {
+    profile::set_notify_prefs(&*db.conn()?, &prefs)
 }
 
 #[tauri::command]

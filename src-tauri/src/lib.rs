@@ -20,6 +20,7 @@ pub mod links;
 pub mod notes;
 pub mod search;
 mod overview;
+mod profile;
 mod projects;
 mod schedule;
 mod settings;
@@ -119,6 +120,10 @@ pub fn run() {
             commands::data_overview,
             commands::check_update,
             commands::schedule,
+            commands::get_profile,
+            commands::set_profile_name,
+            commands::get_notify_prefs,
+            commands::set_notify_prefs,
             commands::habits_overview,
             commands::habit_history,
             commands::save_habit,

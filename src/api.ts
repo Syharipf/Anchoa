@@ -477,6 +477,26 @@ export interface Side {
 
 export type JournalSide = Side;
 
+export interface Profile {
+  name: string;
+  since: number | null;
+  stats: ProfileStats;
+}
+
+export interface ProfileStats {
+  habitStreak: number;
+  tasksDone: number;
+  journalEntries: number;
+  notes: number;
+}
+
+export interface NotifyPrefs {
+  task: boolean;
+  bill: boolean;
+  budget: boolean;
+  habit: boolean;
+}
+
 export interface DbStatus {
   path: string;
   error: string | null;
@@ -763,6 +783,10 @@ export const api = {
   checkUpdate: () => invoke<UpdateCheck>("check_update"),
   schedule: (from: string, to: string) =>
     invoke<Schedule>("schedule", { range: { from, to } }),
+  getProfile: () => invoke<Profile>("get_profile"),
+  setProfileName: (name: string) => invoke<Profile>("set_profile_name", { name }),
+  getNotifyPrefs: () => invoke<NotifyPrefs>("get_notify_prefs"),
+  setNotifyPrefs: (prefs: NotifyPrefs) => invoke<NotifyPrefs>("set_notify_prefs", { prefs }),
   habitsOverview: () => invoke<HabitsOverview>("habits_overview"),
   habitHistory: (id: string, month: string) =>
     invoke<HabitHistory>("habit_history", { id, month }),

@@ -134,8 +134,12 @@ pub fn list_inbox(db: State<'_, Db>) -> Result<Vec<ItemSummary>, AppError> {
 }
 
 #[tauri::command]
-pub fn get_dashboard(db: State<'_, Db>) -> Result<Dashboard, AppError> {
-    dashboard::get(&*db.conn()?, time::now_ms(), &TimeZone::system())
+pub fn get_dashboard(
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+) -> Result<Dashboard, AppError> {
+    let live = downloader.live();
+    dashboard::get(&*db.conn()?, &live, time::now_ms(), &TimeZone::system())
 }
 
 #[tauri::command]

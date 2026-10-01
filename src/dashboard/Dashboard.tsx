@@ -3,6 +3,7 @@ import { greeting } from "../format";
 import { pageInfo, type PageId } from "../shell/nav";
 import { H1, SECONDARY } from "../shell/ui";
 import { FinanceCard } from "./FinanceCard";
+import { DownloadsCard } from "./DownloadsCard";
 import { ModuleCard } from "./ModuleCard";
 import { ProjectsCard } from "./ProjectsCard";
 import { RecentPanel } from "./RecentPanel";
@@ -46,7 +47,7 @@ export function Dashboard({
         <UpcomingCard days={data?.upcoming} onOpen={onOpen} />
         {moduleCard("email")}
         <ProjectsCard projects={data?.projects} onSelect={onSelect} />
-        {moduleCard("unduhan")}
+        <DownloadsCard downloads={data?.downloads} onSelect={onSelect} />
         <RecentPanel items={data?.recent} onOpen={onOpen} />
       </div>
     </>

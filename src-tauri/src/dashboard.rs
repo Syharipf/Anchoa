@@ -3,6 +3,8 @@ use rusqlite::{Connection, params};
 use serde::Serialize;
 
 use crate::bills::{self, BillStatus, BillView};
+use crate::downloader::LiveProgress;
+use crate::downloads::{self, DownloadStatus};
 use crate::error::AppError;
 use crate::finance;
 use crate::habits::{self, HabitReminder};
@@ -36,6 +38,28 @@ pub struct UpcomingDay {
     pub tasks: Vec<DayTask>,
 }
 
+/// An active download row on the dashboard card.
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadSummaryRow {
+    pub id: String,
+    pub title: String,
+    pub progress: u32,
+    pub done_bytes: i64,
+    pub total_bytes: Option<i64>,
+    pub speed: Option<f64>,
+    pub eta: Option<u64>,
+    pub status: DownloadStatus,
+}
+
+/// The Unduhan card summary on the dashboard (spec Fase 7 §5).
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadsSummary {
+    pub speed: f64,
+    pub items: Vec<DownloadSummaryRow>,
+}
+
 /// Data for the dashboard, the palette and the notification bell.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,6 +71,7 @@ pub struct Dashboard {
     pub finance: FinanceSummary,
     pub projects: Vec<ProjectSummary>,
     pub habit_reminders: Vec<HabitReminder>,
+    pub downloads: DownloadsSummary,
 }
 
 /// The Keuangan card, the bell and the notification panel (spec Fase 2 §5).
@@ -117,7 +142,69 @@ fn upcoming(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Vec<UpcomingDa
     Ok(days)
 }
 
-pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppError> {
+pub fn downloads_summary(
+    conn: &Connection,
+    live: &std::collections::HashMap<String, LiveProgress>,
+) -> Result<DownloadsSummary, AppError> {
+    let rows = downloads::list(conn)?;
+    let mut active_items: Vec<DownloadSummaryRow> = Vec::new();
+
+    for mut row in rows {
+        if !matches!(
+            row.status,
+            DownloadStatus::Running | DownloadStatus::Processing | DownloadStatus::Queued
+        ) {
+            continue;
+        }
+
+        let l = live.get(&row.id);
+        if let Some(l) = l.filter(|l| l.done > 0) {
+            row.done_bytes = l.done as i64;
+            row.total_bytes = l.total.map(|t| t as i64).or(row.total_bytes);
+        }
+
+        let progress = match (row.status, row.total_bytes) {
+            (DownloadStatus::Done, _) => 100,
+            (DownloadStatus::Queued | DownloadStatus::Failed, _) => 0,
+            (_, Some(total)) if total > 0 => {
+                let pct = (row.done_bytes as f64 / total as f64 * 100.0).round() as u32;
+                pct.min(100)
+            }
+            _ => 0,
+        };
+
+        active_items.push(DownloadSummaryRow {
+            id: row.id,
+            title: row.title,
+            progress,
+            done_bytes: row.done_bytes,
+            total_bytes: row.total_bytes,
+            speed: l.and_then(|l| l.speed),
+            eta: l.and_then(|l| l.eta),
+            status: row.status,
+        });
+    }
+
+    // Sort active items: running, then processing, then queued
+    active_items.sort_by_key(|item| match item.status {
+        DownloadStatus::Running => 0,
+        DownloadStatus::Processing => 1,
+        DownloadStatus::Queued => 2,
+        _ => 3,
+    });
+
+    let speed = live.values().filter_map(|l| l.speed).sum();
+    let items = active_items.into_iter().take(2).collect();
+
+    Ok(DownloadsSummary { speed, items })
+}
+
+pub fn get(
+    conn: &Connection,
+    live: &std::collections::HashMap<String, LiveProgress>,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<Dashboard, AppError> {
     let (start, end) = day_bounds(now, tz)?;
     Ok(Dashboard {
         today: today_tasks(conn, start, end)?,
@@ -135,6 +222,7 @@ pub fn get(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppE
         finance: finance_summary(conn, now, tz)?,
         projects: projects::active_projects(conn, now, tz, 2)?,
         habit_reminders: habits::due_reminders(conn, now, tz)?,
+        downloads: downloads_summary(conn, live)?,
     })
 }
 
@@ -176,6 +264,10 @@ mod tests {
         .unwrap();
     }
 
+    fn get_test(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Dashboard, AppError> {
+        get(conn, &std::collections::HashMap::new(), now, tz)
+    }
+
     #[test]
     fn today_lists_due_overdue_and_finished_today() {
         let conn = open_in_memory();
@@ -191,7 +283,7 @@ mod tests {
         delete(&conn, &gone, 2).unwrap();
 
         // 01:30 in Jakarta is still 28 Sep in UTC: the local day must win.
-        let d = get(&conn, ms("2026-09-29T01:30:00+07:00"), &jakarta()).unwrap();
+        let d = get_test(&conn, ms("2026-09-29T01:30:00+07:00"), &jakarta()).unwrap();
 
         let rows: Vec<(&str, bool, bool)> =
             d.today.iter().map(|t| (t.title.as_str(), t.overdue, t.completed_at.is_some())).collect();
@@ -220,7 +312,7 @@ mod tests {
         delete(&conn, &gone, 2).unwrap();
 
         // 01:30 on 1 Oct in Jakarta is still 30 Sep in UTC: tomorrow must be 2 Oct.
-        let d = get(&conn, ms("2026-10-01T01:30:00+07:00"), &jakarta()).unwrap();
+        let d = get_test(&conn, ms("2026-10-01T01:30:00+07:00"), &jakarta()).unwrap();
 
         let days: Vec<(&str, Vec<&str>)> = d
             .upcoming
@@ -248,7 +340,7 @@ mod tests {
         capture_note(&conn, "a", 1).unwrap();
         let b = capture_note(&conn, "b", 2).unwrap();
         delete(&conn, &b.id, 3).unwrap();
-        assert_eq!(get(&conn, 4, &jakarta()).unwrap().inbox_count, 1);
+        assert_eq!(get_test(&conn, 4, &jakarta()).unwrap().inbox_count, 1);
     }
 
     #[test]
@@ -260,7 +352,7 @@ mod tests {
         }
         open(&conn, &ids[0], 5000).unwrap();
 
-        let d = get(&conn, 6000, &jakarta()).unwrap();
+        let d = get_test(&conn, 6000, &jakarta()).unwrap();
 
         let titles: Vec<&str> = d.recent.iter().map(|s| s.title.as_str()).collect();
         assert_eq!(d.recent.len(), RECENT_LIMIT);
@@ -282,7 +374,7 @@ mod tests {
             .unwrap();
         }
 
-        let d = get(&conn, ms("2026-09-29T12:00:00+07:00"), &jakarta()).unwrap();
+        let d = get_test(&conn, ms("2026-09-29T12:00:00+07:00"), &jakarta()).unwrap();
 
         assert!(d.today.is_empty());
         assert!(d.upcoming.iter().all(|day| day.tasks.is_empty()));
@@ -298,7 +390,7 @@ mod tests {
         use crate::overview::{BudgetLevel, BudgetView, set_budget};
 
         let conn = open_in_memory();
-        assert!(!get(&conn, now(), &jakarta()).unwrap().finance.has_accounts);
+        assert!(!get_test(&conn, now(), &jakarta()).unwrap().finance.has_accounts);
         let bca = account(&conn, "BCA", 1_000_000);
         spend(&conn, &bca, 25_000, "Makan & minum", "2026-09-29T00:00:00+07:00");
         spend(&conn, &bca, 10_000, "Belanja", "2026-08-31T00:00:00+07:00");
@@ -312,7 +404,7 @@ mod tests {
             save_bill(&conn, &input, now(), &jakarta()).unwrap();
         }
 
-        let d = get(&conn, now(), &jakarta()).unwrap();
+        let d = get_test(&conn, now(), &jakarta()).unwrap();
 
         let f = d.finance;
         assert_eq!((f.has_accounts, f.balance, f.expense), (true, 965_000, 25_000));
@@ -330,7 +422,7 @@ mod tests {
         let p2 = projects::save_project(&conn, &ProjectInput { name: "Proyek 2".into(), ..Default::default() }, 1, &jakarta()).unwrap();
         let _p3 = projects::save_project(&conn, &ProjectInput { name: "Proyek 3".into(), ..Default::default() }, 1, &jakarta()).unwrap();
 
-        let d = get(&conn, 1, &jakarta()).unwrap();
+        let d = get_test(&conn, 1, &jakarta()).unwrap();
         assert_eq!(d.projects.len(), 2);
         assert_eq!(d.projects[0].id, p1.summary.id);
         assert_eq!(d.projects[1].id, p2.summary.id);
@@ -358,7 +450,7 @@ mod tests {
         )
         .unwrap();
 
-        let d = get(&conn, current, &tz).unwrap();
+        let d = get_test(&conn, current, &tz).unwrap();
         assert_eq!(d.habit_reminders.len(), 1);
         assert_eq!(d.habit_reminders[0].id, h1.id);
         assert_eq!(d.habit_reminders[0].name, "Minum air");
@@ -366,7 +458,81 @@ mod tests {
 
         // After checking the habit, it leaves the reminders
         check_habit(&conn, &h1.id, true, current, &tz).unwrap();
-        let d = get(&conn, current, &tz).unwrap();
+        let d = get_test(&conn, current, &tz).unwrap();
         assert!(d.habit_reminders.is_empty());
+    }
+
+    #[test]
+    fn downloads_summary_lists_up_to_two_active_with_speed_and_progress() {
+        use std::collections::HashMap;
+        use crate::downloads::{self, DownloadKind, DownloadStatus, NewDownload};
+        use crate::downloader::LiveProgress;
+
+        let conn = open_in_memory();
+        let mut live = HashMap::new();
+
+        // Empty summary
+        let empty = downloads_summary(&conn, &live).unwrap();
+        assert_eq!(empty.items.len(), 0);
+        assert_eq!(empty.speed, 0.0);
+
+        // Add 1 done, 2 running, 1 queued
+        let done = downloads::add(&conn, &NewDownload {
+            url: "https://example.com/done.mp4".into(),
+            kind: DownloadKind::Media,
+            options: None,
+        }, 1000).unwrap();
+        downloads::set_status(&conn, &done.id, DownloadStatus::Done, None, 1100).unwrap();
+
+        let run1 = downloads::add(&conn, &NewDownload {
+            url: "https://example.com/run1.mp4".into(),
+            kind: DownloadKind::Media,
+            options: None,
+        }, 2000).unwrap();
+        downloads::set_status(&conn, &run1.id, DownloadStatus::Running, None, 2100).unwrap();
+
+        let run2 = downloads::add(&conn, &NewDownload {
+            url: "https://example.com/run2.mp4".into(),
+            kind: DownloadKind::Media,
+            options: None,
+        }, 3000).unwrap();
+        downloads::set_status(&conn, &run2.id, DownloadStatus::Running, None, 3100).unwrap();
+
+        let _queued = downloads::add(&conn, &NewDownload {
+            url: "https://example.com/queued.mp4".into(),
+            kind: DownloadKind::Media,
+            options: None,
+        }, 4000).unwrap();
+
+        // Add live progress for run1 and run2
+        live.insert(run1.id.clone(), LiveProgress {
+            done: 500,
+            total: Some(1000),
+            speed: Some(150_000.0),
+            eta: Some(10),
+        });
+        live.insert(run2.id.clone(), LiveProgress {
+            done: 250,
+            total: Some(1000),
+            speed: Some(250_000.0),
+            eta: Some(20),
+        });
+
+        let summary = downloads_summary(&conn, &live).unwrap();
+        assert_eq!(summary.speed, 400_000.0);
+        assert_eq!(summary.items.len(), 2);
+        // Only 2 active items (run2 and run1, queued is excluded by limit of 2)
+        assert_eq!(summary.items[0].id, run2.id);
+        assert_eq!(summary.items[0].progress, 25);
+        assert_eq!(summary.items[0].speed, Some(250_000.0));
+        assert_eq!(summary.items[0].eta, Some(20));
+        assert_eq!(summary.items[1].id, run1.id);
+        assert_eq!(summary.items[1].progress, 50);
+        assert_eq!(summary.items[1].speed, Some(150_000.0));
+        assert_eq!(summary.items[1].eta, Some(10));
+
+        let d = get(&conn, &live, 5000, &jakarta()).unwrap();
+        assert_eq!(d.downloads.speed, 400_000.0);
+        assert_eq!(d.downloads.items.len(), 2);
     }
 }

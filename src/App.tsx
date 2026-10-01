@@ -4,6 +4,7 @@ import { AssistantMini } from "./assistant/AssistantMini";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
 import { FilesPage, type FileClipboard } from "./files/FilesPage";
+import { DownloadsPage } from "./downloads/DownloadsPage";
 import { FinancePage } from "./finance/FinancePage";
 import { HabitsPage } from "./habits/HabitsPage";
 import { JournalPage } from "./journal/JournalPage";
@@ -23,7 +24,7 @@ import { TopBar } from "./shell/TopBar";
 import { useToast } from "./shell/toast";
 
 /** A new `intent` number remounts Keuangan with the transaction form open (palette "Catat transaksi"). */
-type Page = { name: PageId; intent?: number } | { name: "item"; id: string };
+type Page = { name: PageId; intent?: number; path?: string } | { name: "item"; id: string };
 /** Only one overlay is open at a time. */
 type Overlay = "palette" | "notifications" | null;
 
@@ -37,6 +38,7 @@ export function App() {
   const [contributionsVersion, setContributionsVersion] = useState(0);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
+  const onReveal = useCallback((path: string) => setStack([{ name: "berkas", path }]), []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
   const page = stack[stack.length - 1];
@@ -109,9 +111,14 @@ export function App() {
         )}
         {page.name === "berkas" && (
           <FilesPage
+            key={page.path ?? ""}
+            initialPath={page.path}
             clipboard={fileClipboard}
             onSetClipboard={setFileClipboard}
           />
+        )}
+        {page.name === "unduhan" && (
+          <DownloadsPage onReveal={onReveal} />
         )}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}
         {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}

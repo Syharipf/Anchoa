@@ -88,9 +88,11 @@ function TrashConfirmDialog({
 export function FilesPage({
   clipboard,
   onSetClipboard,
+  initialPath,
 }: Readonly<{
   clipboard: FileClipboard | null;
   onSetClipboard: (clip: FileClipboard | null) => void;
+  initialPath?: string;
 }>) {
   const toast = useToast();
   const [places, setPlaces] = useState<Place[]>([]);
@@ -105,7 +107,7 @@ export function FilesPage({
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [conflictCount, setConflictCount] = useState<number | null>(null);
 
-  const history = useHistory();
+  const history = useHistory(initialPath ?? "");
   const currentPath = history.current;
   const canGoUp = Boolean(listing?.parent);
 
@@ -123,6 +125,13 @@ export function FilesPage({
     setAnchor(null);
   }, [currentPath]);
 
+  // Navigate to initialPath if provided or updated
+  useEffect(() => {
+    if (initialPath) {
+      history.go(initialPath);
+    }
+  }, [initialPath, history.go]);
+
   // Load places once on mount and initialize Home directory via functional update
   useEffect(() => {
     let active = true;
@@ -134,7 +143,7 @@ export function FilesPage({
         const home =
           res.places.find((p) => p.icon === "home")?.path ?? res.places[0]?.path;
         if (home) {
-          history.go((prev) => prev || home);
+          history.go((prev) => prev || initialPath || home);
         }
       },
       (e) => {
@@ -144,7 +153,7 @@ export function FilesPage({
     return () => {
       active = false;
     };
-  }, [history.go, toast]);
+  }, [history.go, initialPath, toast]);
 
   // Load listing when currentPath, showHidden or reloadToken changes
   useEffect(() => {

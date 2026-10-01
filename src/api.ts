@@ -293,6 +293,7 @@ export interface Dashboard {
   finance: FinanceSummary;
   projects: ProjectSummary[];
   habitReminders: HabitReminder[];
+  downloads: DownloadsSummary;
 }
 
 export type DayState = "blank" | "future" | "off" | "done" | "todo" | "miss";
@@ -585,6 +586,22 @@ export interface DownloadsPayload {
   items: DownloadView[];
   speed: number;
   active: number;
+}
+
+export interface DownloadSummaryRow {
+  id: string;
+  title: string;
+  progress: number;
+  doneBytes: number;
+  totalBytes: number | null;
+  speed: number | null;
+  eta: number | null;
+  status: DownloadStatus;
+}
+
+export interface DownloadsSummary {
+  speed: number;
+  items: DownloadSummaryRow[];
 }
 
 export interface YtDlpEngine {

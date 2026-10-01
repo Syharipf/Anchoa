@@ -23,21 +23,21 @@ describe("blocks model", () => {
   });
 
   describe("review fixes", () => {
-  it("keeps a four-backtick fence whole when it contains three backticks", () => {
-    const body = "````\n```\n\ncode\n````\n\nafter";
-    const blocks = splitBlocks(body);
-    expect(blocks.map((b) => b.text)).toEqual(["````\n```\n\ncode\n````", "after"]);
-    expect(joinBlocks(blocks)).toBe(body);
+    it("keeps a four-backtick fence whole when it contains three backticks", () => {
+      const body = "````\n```\n\ncode\n````\n\nafter";
+      const blocks = splitBlocks(body);
+      expect(blocks.map((b) => b.text)).toEqual(["````\n```\n\ncode\n````", "after"]);
+      expect(joinBlocks(blocks)).toBe(body);
+    });
+
+    it("toggles only the checkbox, not brackets inside the task", () => {
+      expect(toggleTodo("- [x] explain [ ] syntax", 0)).toBe("- [ ] explain [ ] syntax");
+      expect(toggleTodo("- [ ] explain [x] syntax", 0)).toBe("- [x] explain [x] syntax");
+      expect(toggleTodo("plain [ ] text", 0)).toBe("plain [ ] text");
+    });
   });
 
-  it("toggles only the checkbox, not brackets inside the task", () => {
-    expect(toggleTodo("- [x] explain [ ] syntax", 0)).toBe("- [ ] explain [ ] syntax");
-    expect(toggleTodo("- [ ] explain [x] syntax", 0)).toBe("- [x] explain [x] syntax");
-    expect(toggleTodo("plain [ ] text", 0)).toBe("plain [ ] text");
-  });
-});
-
-describe("splitBlocks and joinBlocks", () => {
+  describe("splitBlocks and joinBlocks", () => {
     it("returns empty array for empty or whitespace-only bodies", () => {
       expect(splitBlocks("")).toEqual([]);
       expect(splitBlocks("   ")).toEqual([]);
@@ -149,52 +149,36 @@ describe("splitBlocks and joinBlocks", () => {
   });
 
   describe("blockKind", () => {
-    it("detects paragraph", () => {
-      expect(blockKind("Teks biasa")).toBe("paragraph");
-      expect(blockKind("")).toBe("paragraph");
-      expect(blockKind("Baris pertama\nBaris kedua")).toBe("paragraph");
-    });
-
-    it("detects headings 1, 2, and 3", () => {
-      expect(blockKind("# Judul 1")).toBe("heading1");
-      expect(blockKind("# ")).toBe("heading1");
-      expect(blockKind("## Judul 2")).toBe("heading2");
-      expect(blockKind("### Judul 3")).toBe("heading3");
-      expect(blockKind("#tagbukanjudul")).toBe("paragraph");
-    });
-
-    it("detects bullets", () => {
-      expect(blockKind("- Poin A")).toBe("bullet");
-      expect(blockKind("* Poin B")).toBe("bullet");
-      expect(blockKind("+ Poin C")).toBe("bullet");
-      expect(blockKind("- ")).toBe("bullet");
-    });
-
-    it("detects numbered lists", () => {
-      expect(blockKind("1. Langkah satu")).toBe("numbered");
-      expect(blockKind("2. Langkah dua")).toBe("numbered");
-      expect(blockKind("10. Langkah sepuluh")).toBe("numbered");
-      expect(blockKind("1. ")).toBe("numbered");
-    });
-
-    it("detects todo items", () => {
-      expect(blockKind("- [ ] Belum selesai")).toBe("todo");
-      expect(blockKind("- [x] Sudah selesai")).toBe("todo");
-      expect(blockKind("- [X] Selesai kapital")).toBe("todo");
-      expect(blockKind("* [ ] Bintang todo")).toBe("todo");
-      expect(blockKind("[ ] Tanpa dash")).toBe("todo");
-      expect(blockKind("- [ ] ")).toBe("todo");
-    });
-
-    it("detects quotes", () => {
-      expect(blockKind("> Kutipan penting")).toBe("quote");
-      expect(blockKind("> ")).toBe("quote");
-    });
-
-    it("detects code blocks", () => {
-      expect(blockKind("```\ncode\n```")).toBe("code");
-      expect(blockKind("```python\nprint(1)\n```")).toBe("code");
-      expect(blockKind("```")).toBe("code");
+    it.each([
+      ["Teks biasa", "paragraph"],
+      ["", "paragraph"],
+      ["Baris pertama\nBaris kedua", "paragraph"],
+      ["#tagbukanjudul", "paragraph"],
+      ["# Judul 1", "heading1"],
+      ["# ", "heading1"],
+      ["## Judul 2", "heading2"],
+      ["### Judul 3", "heading3"],
+      ["- Poin A", "bullet"],
+      ["* Poin B", "bullet"],
+      ["+ Poin C", "bullet"],
+      ["- ", "bullet"],
+      ["1. Langkah satu", "numbered"],
+      ["2. Langkah dua", "numbered"],
+      ["10. Langkah sepuluh", "numbered"],
+      ["1. ", "numbered"],
+      ["- [ ] Belum selesai", "todo"],
+      ["- [x] Sudah selesai", "todo"],
+      ["- [X] Selesai kapital", "todo"],
+      ["* [ ] Bintang todo", "todo"],
+      ["[ ] Tanpa dash", "todo"],
+      ["- [ ] ", "todo"],
+      ["> Kutipan penting", "quote"],
+      ["> ", "quote"],
+      ["```\ncode\n```", "code"],
+      ["```python\nprint(1)\n```", "code"],
+      ["```", "code"],
+    ])("detects kind for '%s'", (input, expected) => {
+      expect(blockKind(input)).toBe(expected as BlockKind);
     });
   });
 
@@ -233,61 +217,27 @@ describe("splitBlocks and joinBlocks", () => {
       });
     });
 
-    it("adds next bullet marker on non-empty bullet line", () => {
-      const text = "- Item pertama";
-      const res = enterAt(text, text.length);
+    it.each([
+      ["bullet", "- Item pertama", "- Item pertama\n- "],
+      ["numbered", "2. Langkah dua", "2. Langkah dua\n3. "],
+      ["todo", "- [x] Tugas selesai", "- [x] Tugas selesai\n- [ ] "],
+    ])("adds next marker on non-empty %s line", (_kind, input, expectedBefore) => {
+      const res = enterAt(input, input.length);
       expect(res).toEqual({
-        before: "- Item pertama\n- ",
+        before: expectedBefore,
         after: null,
-        caret: "- Item pertama\n- ".length,
+        caret: expectedBefore.length,
       });
     });
 
-    it("clears empty bullet line and creates empty block after it", () => {
-      const text = "- Item pertama\n- ";
-      const res = enterAt(text, text.length);
+    it.each([
+      ["bullet", "- Item pertama\n- ", "- Item pertama"],
+      ["numbered", "1. Langkah satu\n2. ", "1. Langkah satu"],
+      ["todo", "- [ ] Selesai\n- [ ] ", "- [ ] Selesai"],
+    ])("clears empty %s line and creates empty block after it", (_kind, input, expectedBefore) => {
+      const res = enterAt(input, input.length);
       expect(res).toEqual({
-        before: "- Item pertama",
-        after: "",
-        caret: 0,
-      });
-    });
-
-    it("increments numbered list marker on enter", () => {
-      const text = "2. Langkah dua";
-      const res = enterAt(text, text.length);
-      expect(res).toEqual({
-        before: "2. Langkah dua\n3. ",
-        after: null,
-        caret: "2. Langkah dua\n3. ".length,
-      });
-    });
-
-    it("clears empty numbered list line and creates empty block after it", () => {
-      const text = "1. Langkah satu\n2. ";
-      const res = enterAt(text, text.length);
-      expect(res).toEqual({
-        before: "1. Langkah satu",
-        after: "",
-        caret: 0,
-      });
-    });
-
-    it("adds unchecked todo marker on enter, even when current item is checked", () => {
-      const text = "- [x] Tugas selesai";
-      const res = enterAt(text, text.length);
-      expect(res).toEqual({
-        before: "- [x] Tugas selesai\n- [ ] ",
-        after: null,
-        caret: "- [x] Tugas selesai\n- [ ] ".length,
-      });
-    });
-
-    it("clears empty todo line and creates empty block after it", () => {
-      const text = "- [ ] Selesai\n- [ ] ";
-      const res = enterAt(text, text.length);
-      expect(res).toEqual({
-        before: "- [ ] Selesai",
+        before: expectedBefore,
         after: "",
         caret: 0,
       });
@@ -318,17 +268,18 @@ describe("splitBlocks and joinBlocks", () => {
       "code",
     ];
 
-    it("converts from paragraph to every other kind", () => {
-      const base = "Konten blok";
-      expect(setKind(base, "paragraph")).toBe("Konten blok");
-      expect(setKind(base, "heading1")).toBe("# Konten blok");
-      expect(setKind(base, "heading2")).toBe("## Konten blok");
-      expect(setKind(base, "heading3")).toBe("### Konten blok");
-      expect(setKind(base, "bullet")).toBe("- Konten blok");
-      expect(setKind(base, "numbered")).toBe("1. Konten blok");
-      expect(setKind(base, "todo")).toBe("- [ ] Konten blok");
-      expect(setKind(base, "quote")).toBe("> Konten blok");
-      expect(setKind(base, "code")).toBe("```\nKonten blok\n```");
+    it.each([
+      ["paragraph", "Konten blok"],
+      ["heading1", "# Konten blok"],
+      ["heading2", "## Konten blok"],
+      ["heading3", "### Konten blok"],
+      ["bullet", "- Konten blok"],
+      ["numbered", "1. Konten blok"],
+      ["todo", "- [ ] Konten blok"],
+      ["quote", "> Konten blok"],
+      ["code", "```\nKonten blok\n```"],
+    ])("converts paragraph to %s", (targetKind, expected) => {
+      expect(setKind("Konten blok", targetKind as BlockKind)).toBe(expected);
     });
 
     it("converts between every pair of kinds preserving content", () => {
@@ -341,19 +292,25 @@ describe("splitBlocks and joinBlocks", () => {
       }
     });
 
-    it("sets proper prefix on empty string or slash menu trigger", () => {
-      expect(setKind("", "heading1")).toBe("# ");
-      expect(setKind("", "heading2")).toBe("## ");
-      expect(setKind("", "heading3")).toBe("### ");
-      expect(setKind("", "bullet")).toBe("- ");
-      expect(setKind("", "numbered")).toBe("1. ");
-      expect(setKind("", "todo")).toBe("- [ ] ");
-      expect(setKind("", "quote")).toBe("> ");
-      expect(setKind("", "paragraph")).toBe("");
-      expect(setKind("", "code")).toBe("```\n\n```");
+    it.each([
+      ["heading1", "# "],
+      ["heading2", "## "],
+      ["heading3", "### "],
+      ["bullet", "- "],
+      ["numbered", "1. "],
+      ["todo", "- [ ] "],
+      ["quote", "> "],
+      ["paragraph", ""],
+      ["code", "```\n\n```"],
+    ])("sets proper prefix on empty string for %s", (targetKind, expected) => {
+      expect(setKind("", targetKind as BlockKind)).toBe(expected);
+    });
 
-      expect(setKind("/", "heading1")).toBe("# ");
-      expect(setKind("/h1", "heading1")).toBe("# ");
+    it.each([
+      ["/", "heading1", "# "],
+      ["/h1", "heading1", "# "],
+    ])("sets proper prefix on slash menu trigger '%s' for %s", (trigger, targetKind, expected) => {
+      expect(setKind(trigger, targetKind as BlockKind)).toBe(expected);
     });
   });
 
@@ -372,11 +329,12 @@ describe("splitBlocks and joinBlocks", () => {
       expect(toggleTodo(text, 0)).toBe("- [ ] Tugas lama");
     });
 
-    it("ignores non-todo lines and out of bounds line numbers", () => {
-      const text = "Paragraf biasa\n- Item daftar";
-      expect(toggleTodo(text, 0)).toBe(text);
-      expect(toggleTodo(text, 5)).toBe(text);
-      expect(toggleTodo(text, -1)).toBe(text);
+    it.each([
+      ["Paragraf biasa\n- Item daftar", 0],
+      ["Paragraf biasa\n- Item daftar", 5],
+      ["Paragraf biasa\n- Item daftar", -1],
+    ])("ignores non-todo lines or out of bounds line numbers (%s, line %i)", (text, line) => {
+      expect(toggleTodo(text, line)).toBe(text);
     });
   });
 
@@ -449,13 +407,15 @@ describe("splitBlocks and joinBlocks", () => {
   });
 
   describe("slashQuery and filterSlashOptions", () => {
-    it("extracts query from text starting with slash on single line", () => {
-      expect(slashQuery("/")).toBe("");
-      expect(slashQuery("/jud")).toBe("jud");
-      expect(slashQuery("/judul 1")).toBe("judul 1");
-      expect(slashQuery("bukan/slash")).toBeNull();
-      expect(slashQuery("/baris1\nbaris2")).toBeNull();
-      expect(slashQuery("")).toBeNull();
+    it.each([
+      ["/", ""],
+      ["/jud", "jud"],
+      ["/judul 1", "judul 1"],
+      ["bukan/slash", null],
+      ["/baris1\nbaris2", null],
+      ["", null],
+    ])("extracts slashQuery for '%s'", (input, expected) => {
+      expect(slashQuery(input)).toBe(expected);
     });
 
     it("filters slash options by query case-insensitively", () => {
@@ -500,11 +460,9 @@ describe("splitBlocks and joinBlocks", () => {
   });
 
   describe("mergeBlockWithPrevious", () => {
-    it("returns null when at index 0 or out of bounds", () => {
+    it.each([0, 5, -1])("returns null when index is out of merge range (%i)", (index) => {
       const blocks = [createBlock("Blok 1")];
-      expect(mergeBlockWithPrevious(blocks, 0)).toBeNull();
-      expect(mergeBlockWithPrevious(blocks, 5)).toBeNull();
-      expect(mergeBlockWithPrevious(blocks, -1)).toBeNull();
+      expect(mergeBlockWithPrevious(blocks, index)).toBeNull();
     });
 
     it("deletes empty block and moves caret to end of previous block", () => {
@@ -528,4 +486,3 @@ describe("splitBlocks and joinBlocks", () => {
     });
   });
 });
-

@@ -27,6 +27,10 @@ function nextId(): number {
   return nextBlockId++;
 }
 
+function fenceBackticks(line: string): number {
+  return /^\s{0,3}(`{3,})/.exec(line)?.[1].length ?? 0;
+}
+
 /**
  * Splits Markdown body into distinct blocks separated by blank lines.
  * Fenced code blocks (```) remain intact even if they contain blank lines.
@@ -36,46 +40,41 @@ export function splitBlocks(body: string): Block[] {
   if (!body || body.trim() === "") {
     return [];
   }
-  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  const lines = body.replaceAll("\r\n", "\n").split("\n");
   const blocks: Block[] = [];
   // Length of the open fence's backtick run; 0 outside a fence. A fence closes
   // only on a line of at least as many backticks and nothing else (CommonMark).
   let fence = 0;
   let currentLines: string[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const ticks = /^\s{0,3}(`{3,})/.exec(line)?.[1].length ?? 0;
-    const isFence = ticks > 0;
+  function flush(): void {
+    if (currentLines.length > 0) {
+      blocks.push({ id: nextId(), text: currentLines.join("\n") });
+      currentLines = [];
+    }
+  }
+
+  for (const line of lines) {
+    const ticks = fenceBackticks(line);
 
     if (fence > 0) {
       currentLines.push(line);
       if (ticks >= fence && /^\s*`+\s*$/.test(line)) {
         fence = 0;
-        blocks.push({ id: nextId(), text: currentLines.join("\n") });
-        currentLines = [];
+        flush();
       }
-    } else if (isFence) {
-      if (currentLines.length > 0) {
-        blocks.push({ id: nextId(), text: currentLines.join("\n") });
-        currentLines = [];
-      }
+    } else if (ticks > 0) {
+      flush();
       fence = ticks;
       currentLines.push(line);
     } else if (line.trim() === "") {
-      if (currentLines.length > 0) {
-        blocks.push({ id: nextId(), text: currentLines.join("\n") });
-        currentLines = [];
-      }
+      flush();
     } else {
       currentLines.push(line);
     }
   }
 
-  if (currentLines.length > 0) {
-    blocks.push({ id: nextId(), text: currentLines.join("\n") });
-  }
-
+  flush();
   return blocks;
 }
 
@@ -128,6 +127,60 @@ export function blockKind(text: string): BlockKind {
   return "paragraph";
 }
 
+function computeNextListMarker(kind: BlockKind, currentLine: string): string {
+  if (kind === "todo") {
+    const todoMatch = /^(\s*)([-*+]\s+)?\[[ xX]\](\s*)/.exec(currentLine);
+    return todoMatch ? `${todoMatch[1]}${todoMatch[2] ?? "- "}[ ] ` : "- [ ] ";
+  }
+  if (kind === "numbered") {
+    const numMatch = /^(\s*)(\d+)\.(\s*)/.exec(currentLine);
+    const nextNum = numMatch ? Number.parseInt(numMatch[2], 10) + 1 : 1;
+    return numMatch ? `${numMatch[1]}${nextNum}. ` : "1. ";
+  }
+  const bulletMatch = /^(\s*[-*+]\s*)/.exec(currentLine);
+  return bulletMatch ? `${bulletMatch[1].trimEnd()} ` : "- ";
+}
+
+function isEmptyListLine(line: string): boolean {
+  return (
+    /^\s*[-*+]\s*$/.test(line) ||
+    /^\s*(?:[-*+]\s+)?\[[ xX]\]\s*$/.test(line) ||
+    /^\s*\d+\.\s*$/.test(line)
+  );
+}
+
+function enterAtList(
+  text: string,
+  clampedCaret: number,
+  kind: BlockKind,
+): { before: string; after: string | null; caret: number } {
+  const lastNl = text.lastIndexOf("\n", clampedCaret - 1);
+  const lineStart = lastNl === -1 ? 0 : lastNl + 1;
+  const nextNl = text.indexOf("\n", clampedCaret);
+  const lineEnd = nextNl === -1 ? text.length : nextNl;
+  const currentLine = text.slice(lineStart, lineEnd);
+
+  if (isEmptyListLine(currentLine)) {
+    let before = "";
+    if (lastNl !== -1) {
+      before = text.slice(0, lastNl) + text.slice(lineEnd);
+    } else if (nextNl !== -1) {
+      before = text.slice(nextNl + 1);
+    }
+    return { before, after: "", caret: 0 };
+  }
+
+  const nextMarker = computeNextListMarker(kind, currentLine);
+  const inserted = "\n" + nextMarker;
+  const before =
+    text.slice(0, clampedCaret) + inserted + text.slice(clampedCaret);
+  return {
+    before,
+    after: null,
+    caret: clampedCaret + inserted.length,
+  };
+}
+
 /**
  * Handles Enter key at caret:
  * - Paragraph, headings, quotes: split into before and after (heading markers not copied to after).
@@ -148,67 +201,34 @@ export function enterAt(
   }
 
   if (kind === "bullet" || kind === "numbered" || kind === "todo") {
-    const lastNl = text.lastIndexOf("\n", clampedCaret - 1);
-    const lineStart = lastNl === -1 ? 0 : lastNl + 1;
-    const nextNl = text.indexOf("\n", clampedCaret);
-    const lineEnd = nextNl === -1 ? text.length : nextNl;
-    const currentLine = text.slice(lineStart, lineEnd);
-
-    const isBulletEmpty = /^\s*[-*+]\s*$/.test(currentLine);
-    const isTodoEmpty = /^\s*(?:[-*+]\s+)?\[[ xX]\]\s*$/.test(currentLine);
-    const isNumEmpty = /^\s*\d+\.\s*$/.test(currentLine);
-
-    if (isBulletEmpty || isTodoEmpty || isNumEmpty) {
-      let before = "";
-      if (lastNl !== -1) {
-        before = text.slice(0, lastNl) + text.slice(lineEnd);
-      } else if (nextNl !== -1) {
-        before = text.slice(nextNl + 1);
-      }
-      return { before, after: "", caret: 0 };
-    }
-
-    let nextMarker = "- ";
-    if (kind === "todo") {
-      const todoMatch = currentLine.match(/^(\s*)([-*+]\s+)?\[[ xX]\](\s*)/);
-      nextMarker = todoMatch
-        ? `${todoMatch[1]}${todoMatch[2] ?? "- "}[ ] `
-        : "- [ ] ";
-    } else if (kind === "numbered") {
-      const numMatch = currentLine.match(/^(\s*)(\d+)\.(\s*)/);
-      const nextNum = numMatch ? parseInt(numMatch[2], 10) + 1 : 1;
-      nextMarker = numMatch ? `${numMatch[1]}${nextNum}. ` : "1. ";
-    } else {
-      const bulletMatch = currentLine.match(/^(\s*[-*+]\s*)/);
-      nextMarker = bulletMatch ? `${bulletMatch[1].trimEnd()} ` : "- ";
-    }
-
-    const inserted = "\n" + nextMarker;
-    const before =
-      text.slice(0, clampedCaret) + inserted + text.slice(clampedCaret);
-    return {
-      before,
-      after: null,
-      caret: clampedCaret + inserted.length,
-    };
+    return enterAtList(text, clampedCaret, kind);
   }
 
   // Paragraph, headings, and quotes: split into before and after
-  const before = text.slice(0, clampedCaret);
-  const after = text.slice(clampedCaret);
-  return { before, after, caret: 0 };
+  return {
+    before: text.slice(0, clampedCaret),
+    after: text.slice(clampedCaret),
+    caret: 0,
+  };
+}
+
+/**
+ * Unwraps fenced code block lines by removing the opening and optional closing fence.
+ */
+export function unwrapFencedCodeLines(lines: readonly string[]): string[] {
+  if (lines.length === 0 || !lines[0].trimStart().startsWith("```")) {
+    return [...lines];
+  }
+  if (lines.length > 1 && lines.at(-1)?.trimStart().startsWith("```")) {
+    return lines.slice(1, -1);
+  }
+  return lines.slice(1);
 }
 
 function stripFirstLineMarker(text: string): { content: string; rest: string } {
   const trimmed = text.trimStart();
   if (trimmed.startsWith("```")) {
-    const lines = text.split("\n");
-    let innerLines: string[];
-    if (lines.length > 1 && lines[lines.length - 1].trimStart().startsWith("```")) {
-      innerLines = lines.slice(1, -1);
-    } else {
-      innerLines = lines.slice(1);
-    }
+    const innerLines = unwrapFencedCodeLines(text.split("\n"));
     const content = innerLines[0] ?? "";
     const rest = innerLines.slice(1).join("\n");
     return { content, rest };
@@ -234,44 +254,33 @@ function stripFirstLineMarker(text: string): { content: string; rest: string } {
   return { content: firstLine, rest };
 }
 
+const KIND_PREFIXES: Record<Exclude<BlockKind, "paragraph" | "code">, string> = {
+  heading1: "#",
+  heading2: "##",
+  heading3: "###",
+  bullet: "-",
+  numbered: "1.",
+  todo: "- [ ]",
+  quote: ">",
+};
+
 /**
  * Changes block kind by rewriting the first line's marker (for slash menu).
  */
 export function setKind(text: string, kind: BlockKind): string {
   const { content, rest } = stripFirstLineMarker(text);
 
-  let newFirstLine = "";
-  switch (kind) {
-    case "paragraph":
-      newFirstLine = content;
-      break;
-    case "heading1":
-      newFirstLine = content ? `# ${content}` : "# ";
-      break;
-    case "heading2":
-      newFirstLine = content ? `## ${content}` : "## ";
-      break;
-    case "heading3":
-      newFirstLine = content ? `### ${content}` : "### ";
-      break;
-    case "bullet":
-      newFirstLine = content ? `- ${content}` : "- ";
-      break;
-    case "numbered":
-      newFirstLine = content ? `1. ${content}` : "1. ";
-      break;
-    case "todo":
-      newFirstLine = content ? `- [ ] ${content}` : "- [ ] ";
-      break;
-    case "quote":
-      newFirstLine = content ? `> ${content}` : "> ";
-      break;
-    case "code": {
-      const codeBody = rest ? `${content}\n${rest}` : content;
-      return codeBody ? `\`\`\`\n${codeBody}\n\`\`\`` : "```\n\n```";
-    }
+  if (kind === "code") {
+    const codeBody = rest ? `${content}\n${rest}` : content;
+    return codeBody ? `\`\`\`\n${codeBody}\n\`\`\`` : "```\n\n```";
   }
 
+  if (kind === "paragraph") {
+    return rest ? `${content}\n${rest}` : content;
+  }
+
+  const prefix = KIND_PREFIXES[kind];
+  const newFirstLine = content ? `${prefix} ${content}` : `${prefix} `;
   return rest ? `${newFirstLine}\n${rest}` : newFirstLine;
 }
 
@@ -494,4 +503,3 @@ export function mergeBlockWithPrevious(
     caret,
   };
 }
-

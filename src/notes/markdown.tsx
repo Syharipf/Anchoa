@@ -1,5 +1,5 @@
 import { Fragment, type JSX } from "react";
-import { blockKind } from "./blocks";
+import { blockKind, unwrapFencedCodeLines } from "./blocks";
 
 export interface LinkTarget {
   readonly title: string;
@@ -13,6 +13,114 @@ export type InlineToken =
   | { readonly type: "code"; readonly value: string }
   | { readonly type: "link"; readonly text: string; readonly href: string }
   | { readonly type: "wikilink"; readonly title: string; readonly alias?: string };
+
+type ParsedToken = { readonly token: InlineToken; readonly nextIndex: number };
+
+function hasNewlineBefore(text: string, start: number, end: number): boolean {
+  const nextNl = text.indexOf("\n", start);
+  return nextNl !== -1 && nextNl < end;
+}
+
+function tryParseCode(text: string, i: number): ParsedToken | null {
+  if (text[i] !== "`") return null;
+  const close = text.indexOf("`", i + 1);
+  if (close > i + 1 && !hasNewlineBefore(text, i, close)) {
+    return {
+      token: { type: "code", value: text.slice(i + 1, close) },
+      nextIndex: close + 1,
+    };
+  }
+  return null;
+}
+
+function tryParseWikilink(text: string, i: number): ParsedToken | null {
+  if (!text.startsWith("[[", i)) return null;
+  const close = text.indexOf("]]", i + 2);
+  if (close === -1 || hasNewlineBefore(text, i, close)) return null;
+
+  const inner = text.slice(i + 2, close);
+  const pipeIdx = inner.indexOf("|");
+  const title = (pipeIdx !== -1 ? inner.slice(0, pipeIdx) : inner).trim();
+  const alias = pipeIdx !== -1 ? inner.slice(pipeIdx + 1).trim() || undefined : undefined;
+
+  if (title.length === 0) return null;
+  return {
+    token: alias !== undefined ? { type: "wikilink", title, alias } : { type: "wikilink", title },
+    nextIndex: close + 2,
+  };
+}
+
+function tryParseLink(text: string, i: number): ParsedToken | null {
+  if (text[i] !== "[" || text.startsWith("[[", i)) return null;
+  const closeBracket = text.indexOf("]", i + 1);
+  if (closeBracket === -1 || hasNewlineBefore(text, i, closeBracket)) return null;
+  if (text[closeBracket + 1] !== "(") return null;
+
+  const closeParen = text.indexOf(")", closeBracket + 2);
+  if (closeParen === -1 || hasNewlineBefore(text, i, closeParen)) return null;
+
+  return {
+    token: {
+      type: "link",
+      text: text.slice(i + 1, closeBracket),
+      href: text.slice(closeBracket + 2, closeParen).trim(),
+    },
+    nextIndex: closeParen + 1,
+  };
+}
+
+function tryParseBold(text: string, i: number): ParsedToken | null {
+  if (!text.startsWith("**", i)) return null;
+  const close = text.indexOf("**", i + 2);
+  if (close > i + 2 && !hasNewlineBefore(text, i, close)) {
+    return {
+      token: { type: "bold", value: text.slice(i + 2, close) },
+      nextIndex: close + 2,
+    };
+  }
+  return null;
+}
+
+function tryParseAsteriskItalic(text: string, i: number): ParsedToken | null {
+  if (text[i] !== "*" || text.startsWith("**", i)) return null;
+  const close = text.indexOf("*", i + 1);
+  if (
+    close > i + 1 &&
+    text[close + 1] !== "*" &&
+    !hasNewlineBefore(text, i, close)
+  ) {
+    return {
+      token: { type: "italic", value: text.slice(i + 1, close) },
+      nextIndex: close + 1,
+    };
+  }
+  return null;
+}
+
+function tryParseUnderscoreItalic(text: string, i: number, len: number): ParsedToken | null {
+  if (text[i] !== "_") return null;
+  if (i > 0 && /\w/.test(text[i - 1])) return null;
+
+  const close = text.indexOf("_", i + 1);
+  if (close <= i + 1 || hasNewlineBefore(text, i, close)) return null;
+
+  const isWordCharAfter = close + 1 < len && /\w/.test(text[close + 1]);
+  if (isWordCharAfter) return null;
+
+  return {
+    token: { type: "italic", value: text.slice(i + 1, close) },
+    nextIndex: close + 1,
+  };
+}
+
+function parseNextInlineToken(text: string, i: number, len: number): ParsedToken | null {
+  const char = text[i];
+  if (char === "`") return tryParseCode(text, i);
+  if (char === "[") return tryParseWikilink(text, i) ?? tryParseLink(text, i);
+  if (char === "*") return tryParseBold(text, i) ?? tryParseAsteriskItalic(text, i);
+  if (char === "_") return tryParseUnderscoreItalic(text, i, len);
+  return null;
+}
 
 /**
  * Parses inline Markdown tokens: bold, italic, code, links, wikilinks, and plain text.
@@ -36,124 +144,15 @@ export function inlineTokens(text: string): InlineToken[] {
   }
 
   while (i < len) {
-    const char = text[i];
-
-    // Inline code: `code`
-    if (char === "`") {
-      const close = text.indexOf("`", i + 1);
-      const nextNl = text.indexOf("\n", i);
-      if (close !== -1 && (nextNl === -1 || close < nextNl) && close > i + 1) {
-        flushText();
-        tokens.push({ type: "code", value: text.slice(i + 1, close) });
-        i = close + 1;
-        continue;
-      }
+    const match = parseNextInlineToken(text, i, len);
+    if (match) {
+      flushText();
+      tokens.push(match.token);
+      i = match.nextIndex;
+    } else {
+      textBuffer += text[i];
+      i++;
     }
-
-    // Wikilink: [[title]] or [[title|alias]]
-    if (char === "[" && text.startsWith("[[", i)) {
-      const close = text.indexOf("]]", i + 2);
-      const nextNl = text.indexOf("\n", i);
-      if (close !== -1 && (nextNl === -1 || close < nextNl)) {
-        const inner = text.slice(i + 2, close);
-        const pipeIdx = inner.indexOf("|");
-        let title: string;
-        let alias: string | undefined;
-        if (pipeIdx !== -1) {
-          title = inner.slice(0, pipeIdx).trim();
-          alias = inner.slice(pipeIdx + 1).trim() || undefined;
-        } else {
-          title = inner.trim();
-          alias = undefined;
-        }
-
-        if (title.length > 0) {
-          flushText();
-          tokens.push(
-            alias !== undefined
-              ? { type: "wikilink", title, alias }
-              : { type: "wikilink", title },
-          );
-          i = close + 2;
-          continue;
-        }
-      }
-    }
-
-    // Markdown link: [text](href)
-    if (char === "[" && !text.startsWith("[[", i)) {
-      const closeBracket = text.indexOf("]", i + 1);
-      const nextNl = text.indexOf("\n", i);
-      if (
-        closeBracket !== -1 &&
-        (nextNl === -1 || closeBracket < nextNl) &&
-        text[closeBracket + 1] === "("
-      ) {
-        const closeParen = text.indexOf(")", closeBracket + 2);
-        if (closeParen !== -1 && (nextNl === -1 || closeParen < nextNl)) {
-          const linkText = text.slice(i + 1, closeBracket);
-          const href = text.slice(closeBracket + 2, closeParen).trim();
-          flushText();
-          tokens.push({ type: "link", text: linkText, href });
-          i = closeParen + 1;
-          continue;
-        }
-      }
-    }
-
-    // Bold: **bold**
-    if (char === "*" && text.startsWith("**", i)) {
-      const close = text.indexOf("**", i + 2);
-      const nextNl = text.indexOf("\n", i);
-      if (close !== -1 && (nextNl === -1 || close < nextNl) && close > i + 2) {
-        flushText();
-        tokens.push({ type: "bold", value: text.slice(i + 2, close) });
-        i = close + 2;
-        continue;
-      }
-    }
-
-    // Italic: *italic*
-    if (char === "*" && !text.startsWith("**", i)) {
-      const close = text.indexOf("*", i + 1);
-      const nextNl = text.indexOf("\n", i);
-      if (
-        close !== -1 &&
-        (nextNl === -1 || close < nextNl) &&
-        close > i + 1 &&
-        text[close + 1] !== "*"
-      ) {
-        flushText();
-        tokens.push({ type: "italic", value: text.slice(i + 1, close) });
-        i = close + 1;
-        continue;
-      }
-    }
-
-    // Italic: _italic_ (not inside snake_case words)
-    if (char === "_") {
-      const isWordCharBefore = i > 0 && /\w/.test(text[i - 1]);
-      if (!isWordCharBefore) {
-        const close = text.indexOf("_", i + 1);
-        const nextNl = text.indexOf("\n", i);
-        const isWordCharAfter =
-          close !== -1 && close + 1 < len && /\w/.test(text[close + 1]);
-        if (
-          close !== -1 &&
-          (nextNl === -1 || close < nextNl) &&
-          close > i + 1 &&
-          !isWordCharAfter
-        ) {
-          flushText();
-          tokens.push({ type: "italic", value: text.slice(i + 1, close) });
-          i = close + 1;
-          continue;
-        }
-      }
-    }
-
-    textBuffer += char;
-    i++;
   }
 
   flushText();
@@ -177,28 +176,34 @@ type PreviewProps = Readonly<{
   onToggleTodo: (line: number) => void;
 }>;
 
+let elementKeyCounter = 0;
+function nextKey(prefix: string): string {
+  return `${prefix}-${++elementKeyCounter}`;
+}
+
 function renderInline(text: string, props: PreviewProps): JSX.Element[] {
   const tokens = inlineTokens(text);
-  return tokens.map((token, idx) => {
+  return tokens.map((token) => {
+    const key = nextKey("token");
     switch (token.type) {
       case "text":
-        return <Fragment key={idx}>{token.value}</Fragment>;
+        return <Fragment key={key}>{token.value}</Fragment>;
       case "bold":
         return (
-          <strong key={idx} className="font-semibold text-ink">
+          <strong key={key} className="font-semibold text-ink">
             {token.value}
           </strong>
         );
       case "italic":
         return (
-          <em key={idx} className="italic text-ink">
+          <em key={key} className="italic text-ink">
             {token.value}
           </em>
         );
       case "code":
         return (
           <code
-            key={idx}
+            key={key}
             className="rounded bg-stage px-1.5 py-0.5 font-mono text-[0.9em] text-ink"
           >
             {token.value}
@@ -206,11 +211,11 @@ function renderInline(text: string, props: PreviewProps): JSX.Element[] {
         );
       case "link": {
         if (!isHttpUrl(token.href)) {
-          return <Fragment key={idx}>{token.text}</Fragment>;
+          return <Fragment key={key}>{token.text}</Fragment>;
         }
         return (
           <a
-            key={idx}
+            key={key}
             href={token.href}
             onClick={(e) => {
               e.stopPropagation();
@@ -228,7 +233,7 @@ function renderInline(text: string, props: PreviewProps): JSX.Element[] {
         const displayText = token.alias ?? token.title;
         return (
           <button
-            key={idx}
+            key={key}
             type="button"
             onClick={(e) => {
               e.stopPropagation();
@@ -284,8 +289,8 @@ export function BlockPreview(props: PreviewProps): JSX.Element {
       const lines = props.text.split("\n");
       return (
         <ul className="m-0 list-disc pl-5 text-ink space-y-1">
-          {lines.map((line, idx) => (
-            <li key={idx} className="leading-relaxed">
+          {lines.map((line) => (
+            <li key={nextKey("bullet")} className="leading-relaxed">
               {renderInline(line.replace(/^\s*[-*+]\s*/, ""), props)}
             </li>
           ))}
@@ -296,8 +301,8 @@ export function BlockPreview(props: PreviewProps): JSX.Element {
       const lines = props.text.split("\n");
       return (
         <ol className="m-0 list-decimal pl-5 text-ink space-y-1">
-          {lines.map((line, idx) => (
-            <li key={idx} className="leading-relaxed">
+          {lines.map((line) => (
+            <li key={nextKey("num")} className="leading-relaxed">
               {renderInline(line.replace(/^\s*\d+\.\s*/, ""), props)}
             </li>
           ))}
@@ -308,24 +313,25 @@ export function BlockPreview(props: PreviewProps): JSX.Element {
       const lines = props.text.split("\n");
       return (
         <ul className="m-0 list-none p-0 space-y-1">
-          {lines.map((line, idx) => {
-            const match = line.match(/^(\s*(?:[-*+]\s+)?)\[([ xX])\]\s*(.*)$/);
+          {lines.map((line, lineIndex) => {
+            const match = /^\s*(?:[-*+]\s+)?\[([ xX])\]\s?/.exec(line);
+            const key = nextKey("todo");
             if (!match) {
               return (
-                <li key={idx} className="leading-relaxed text-ink pl-6">
+                <li key={key} className="leading-relaxed text-ink pl-6">
                   {renderInline(line, props)}
                 </li>
               );
             }
-            const checked = match[2].toLowerCase() === "x";
-            const content = match[3];
+            const checked = match[1].toLowerCase() === "x";
+            const content = line.slice(match[0].length);
             return (
-              <li key={idx} className="flex items-start gap-2 leading-relaxed">
+              <li key={key} className="flex items-start gap-2 leading-relaxed">
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() => {
-                    props.onToggleTodo(idx);
+                    props.onToggleTodo(lineIndex);
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -345,8 +351,8 @@ export function BlockPreview(props: PreviewProps): JSX.Element {
       const lines = props.text.split("\n");
       return (
         <blockquote className="m-0 border-l-2 border-line pl-3.5 italic text-muted space-y-1">
-          {lines.map((line, idx) => (
-            <p key={idx} className="m-0 leading-relaxed">
+          {lines.map((line) => (
+            <p key={nextKey("quote")} className="m-0 leading-relaxed">
               {renderInline(line.replace(/^\s*>\s?/, ""), props)}
             </p>
           ))}
@@ -354,23 +360,7 @@ export function BlockPreview(props: PreviewProps): JSX.Element {
       );
     }
     case "code": {
-      const lines = props.text.split("\n");
-      let innerLines: string[];
-      if (
-        lines.length > 0 &&
-        lines[0].trimStart().startsWith("```")
-      ) {
-        if (
-          lines.length > 1 &&
-          lines[lines.length - 1].trimStart().startsWith("```")
-        ) {
-          innerLines = lines.slice(1, -1);
-        } else {
-          innerLines = lines.slice(1);
-        }
-      } else {
-        innerLines = lines;
-      }
+      const innerLines = unwrapFencedCodeLines(props.text.split("\n"));
       const codeContent = innerLines.join("\n");
       return (
         <pre className="m-0 overflow-x-auto rounded-[10px] bg-stage p-3 font-mono text-sm text-ink">

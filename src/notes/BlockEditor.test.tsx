@@ -23,11 +23,10 @@ describe("BlockEditor", () => {
     );
 
     expect(html).toContain("Ketik / untuk jenis blok, [[ untuk menautkan");
-    expect(html).toContain('role="button"');
-    expect(html).toContain('tabindex="0"');
+    expect(html).toContain('<button type="button"');
   });
 
-  it("renders three previews with role=button for body with heading, list, and code", () => {
+  it("renders three previews as buttons for body with heading, list, and code", () => {
     const body = [
       "# Rencana Peluncuran",
       "",
@@ -40,8 +39,8 @@ describe("BlockEditor", () => {
       <BlockEditor {...defaultProps} body={body} />,
     );
 
-    // Each block in preview mode has role="button"
-    const buttonMatches = html.match(/role="button"/g);
+    // Each block in preview mode is a <button type="button">
+    const buttonMatches = html.match(/<button type="button"/g);
     expect(buttonMatches).toHaveLength(3);
 
     expect(html).toContain("Rencana Peluncuran");
@@ -93,17 +92,15 @@ describe("BlockEditor", () => {
     expect(html).toContain("Langkah kedua");
   });
 
-  it("renders headings h2, h3, h4 for markdown headings 1, 2, 3", () => {
-    const body = "# Judul 1\n\n## Judul 2\n\n### Judul 3";
+  it.each([
+    ["# Judul 1", "<h2", "Judul 1"],
+    ["## Judul 2", "<h3", "Judul 2"],
+    ["### Judul 3", "<h4", "Judul 3"],
+  ])("renders heading level for %s", (body, tag, label) => {
     const html = renderToStaticMarkup(
       <BlockEditor {...defaultProps} body={body} />,
     );
-
-    expect(html).toContain("<h2");
-    expect(html).toContain("Judul 1");
-    expect(html).toContain("<h3");
-    expect(html).toContain("Judul 2");
-    expect(html).toContain("<h4");
-    expect(html).toContain("Judul 3");
+    expect(html).toContain(tag);
+    expect(html).toContain(label);
   });
 });

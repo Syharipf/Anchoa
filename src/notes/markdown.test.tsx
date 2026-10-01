@@ -47,25 +47,15 @@ describe("markdown", () => {
       ]);
     });
 
-    it("preserves unclosed syntax as plain text", () => {
-      expect(inlineTokens("**teks tanpa penutup")).toEqual([
-        { type: "text", value: "**teks tanpa penutup" },
-      ]);
-      expect(inlineTokens("*teks tanpa penutup")).toEqual([
-        { type: "text", value: "*teks tanpa penutup" },
-      ]);
-      expect(inlineTokens("`teks tanpa penutup")).toEqual([
-        { type: "text", value: "`teks tanpa penutup" },
-      ]);
-      expect(inlineTokens("[teks tanpa penutup")).toEqual([
-        { type: "text", value: "[teks tanpa penutup" },
-      ]);
-      expect(inlineTokens("[teks](tanpa penutup")).toEqual([
-        { type: "text", value: "[teks](tanpa penutup" },
-      ]);
-      expect(inlineTokens("[[teks tanpa penutup")).toEqual([
-        { type: "text", value: "[[teks tanpa penutup" },
-      ]);
+    it.each([
+      ["**teks tanpa penutup"],
+      ["*teks tanpa penutup"],
+      ["`teks tanpa penutup"],
+      ["[teks tanpa penutup"],
+      ["[teks](tanpa penutup"],
+      ["[[teks tanpa penutup"],
+    ])("preserves unclosed syntax as plain text for '%s'", (input) => {
+      expect(inlineTokens(input)).toEqual([{ type: "text", value: input }]);
     });
 
     it("parses mixed inline tokens with surrounding plain text", () => {
@@ -169,27 +159,17 @@ describe("markdown", () => {
       expect(html).toContain("Ada");
     });
 
-    it("renders heading levels # as h2, ## as h3, and ### as h4", () => {
-      const h1Html = renderToStaticMarkup(
-        <BlockPreview {...defaultProps} text="# Judul Utama" />,
+    it.each([
+      ["# Judul Utama", "<h2", "Judul Utama", "# "],
+      ["## Sub Judul", "<h3", "Sub Judul", "## "],
+      ["### Bagian Kecil", "<h4", "Bagian Kecil", "### "],
+    ])("renders heading level %s", (text, tag, label, marker) => {
+      const html = renderToStaticMarkup(
+        <BlockPreview {...defaultProps} text={text} />,
       );
-      expect(h1Html).toContain("<h2");
-      expect(h1Html).toContain("Judul Utama");
-      expect(h1Html).not.toContain("# ");
-
-      const h2Html = renderToStaticMarkup(
-        <BlockPreview {...defaultProps} text="## Sub Judul" />,
-      );
-      expect(h2Html).toContain("<h3");
-      expect(h2Html).toContain("Sub Judul");
-      expect(h2Html).not.toContain("## ");
-
-      const h3Html = renderToStaticMarkup(
-        <BlockPreview {...defaultProps} text="### Bagian Kecil" />,
-      );
-      expect(h3Html).toContain("<h4");
-      expect(h3Html).toContain("Bagian Kecil");
-      expect(h3Html).not.toContain("### ");
+      expect(html).toContain(tag);
+      expect(html).toContain(label);
+      expect(html).not.toContain(marker);
     });
 
     it("renders bullet and numbered lists", () => {

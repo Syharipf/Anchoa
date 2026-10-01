@@ -7,6 +7,7 @@ import {
   type ChangeEvent,
   type JSX,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import {
   blockKind,
@@ -25,6 +26,107 @@ import {
   type SlashOption,
 } from "./blocks";
 import { BlockPreview } from "./markdown";
+
+interface PopupItem {
+  readonly id: string;
+  readonly content: ReactNode;
+  readonly onSelect: () => void;
+  readonly isSeparator?: boolean;
+}
+
+function PopupList(
+  props: Readonly<{
+    items: readonly PopupItem[];
+    selectedIndex: number;
+    widthClass: string;
+  }>,
+): JSX.Element {
+  return (
+    <ul
+      className={`absolute z-20 mt-1 max-h-60 ${props.widthClass} overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg m-0 list-none`}
+    >
+      {props.items.map((item, idx) => (
+        <li key={item.id}>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={item.onSelect}
+            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
+              item.isSeparator ? "border-t border-line/50 mt-1" : ""
+            } ${
+              props.selectedIndex === idx
+                ? "bg-surface-2 text-ink font-medium"
+                : "text-muted hover:bg-surface-2 hover:text-ink"
+            }`}
+          >
+            {item.content}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function handlePopupNavigation(
+  e: KeyboardEvent<HTMLTextAreaElement>,
+  total: number,
+  setIndex: (updater: (prev: number) => number) => void,
+  onConfirm: () => void,
+  onDismiss: () => void,
+): boolean {
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    setIndex((prev) => (prev + 1) % total);
+    return true;
+  }
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    setIndex((prev) => (prev - 1 + total) % total);
+    return true;
+  }
+  if (e.key === "Enter" || e.key === "Tab") {
+    e.preventDefault();
+    onConfirm();
+    return true;
+  }
+  if (e.key === "Escape") {
+    e.preventDefault();
+    onDismiss();
+    return true;
+  }
+  return false;
+}
+
+function handleBlockArrowMove(
+  e: KeyboardEvent<HTMLTextAreaElement>,
+  textarea: HTMLTextAreaElement,
+  blockIndex: number,
+  blocks: readonly Block[],
+  onMove: (id: number, caret: number) => void,
+): boolean {
+  if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) {
+    return false;
+  }
+  if (e.key === "ArrowUp" && blockIndex > 0) {
+    const textBefore = textarea.value.slice(0, textarea.selectionStart);
+    if (!textBefore.includes("\n")) {
+      e.preventDefault();
+      const prevBlock = blocks[blockIndex - 1];
+      onMove(prevBlock.id, prevBlock.text.length);
+      return true;
+    }
+  }
+  if (e.key === "ArrowDown" && blockIndex < blocks.length - 1) {
+    const textAfter = textarea.value.slice(textarea.selectionEnd);
+    if (!textAfter.includes("\n")) {
+      e.preventDefault();
+      const nextBlock = blocks[blockIndex + 1];
+      onMove(nextBlock.id, 0);
+      return true;
+    }
+  }
+  return false;
+}
 
 export function BlockEditor(
   props: Readonly<{
@@ -133,68 +235,84 @@ export function BlockEditor(
     [props.titles],
   );
 
+  const applyBlocks = useCallback(
+    (newBlocks: Block[], nextActiveId?: number, caret?: number) => {
+      setBlocks(newBlocks);
+      if (nextActiveId !== undefined) {
+        setActiveBlockId(nextActiveId);
+      }
+      if (caret !== undefined) {
+        pendingCaret.current = caret;
+      }
+      props.onChange(joinBlocks(newBlocks));
+    },
+    [props],
+  );
+
   function handleTextChange(e: ChangeEvent<HTMLTextAreaElement>) {
     if (activeBlockId === null) return;
     const value = e.target.value;
     const newBlocks = blocks.map((b) =>
       b.id === activeBlockId ? { ...b, text: value } : b,
     );
-    setBlocks(newBlocks);
     setCaretPos(e.target.selectionStart);
-    props.onChange(joinBlocks(newBlocks));
+    applyBlocks(newBlocks);
   }
 
-  function handleSelectSlash(option: SlashOption) {
-    if (activeBlockId === null) return;
-    const currentBlock = blocks.find((b) => b.id === activeBlockId);
-    if (!currentBlock) return;
-    const newText = setKind(currentBlock.text, option.kind);
-    const newBlocks = blocks.map((b) =>
-      b.id === activeBlockId ? { ...b, text: newText } : b,
-    );
-    setBlocks(newBlocks);
-    // Inside a code block the caret goes before the closing fence.
-    const closing = option.kind === "code" ? newText.lastIndexOf("\n```") : -1;
-    pendingCaret.current = closing >= 0 ? closing : newText.length;
-    props.onChange(joinBlocks(newBlocks));
-    setDismissedSlashQuery(null);
-  }
+  const handleSelectSlash = useCallback(
+    (option: SlashOption) => {
+      if (activeBlockId === null) return;
+      const currentBlock = blocks.find((b) => b.id === activeBlockId);
+      if (!currentBlock) return;
+      const newText = setKind(currentBlock.text, option.kind);
+      const newBlocks = blocks.map((b) =>
+        b.id === activeBlockId ? { ...b, text: newText } : b,
+      );
+      const closing = option.kind === "code" ? newText.lastIndexOf("\n```") : -1;
+      const nextCaret = closing >= 0 ? closing : newText.length;
+      applyBlocks(newBlocks, activeBlockId, nextCaret);
+      setDismissedSlashQuery(null);
+    },
+    [activeBlockId, blocks, applyBlocks],
+  );
 
-  function handleSelectExistingLink(title: string) {
-    if (activeBlockId === null) return;
-    const currentBlock = blocks.find((b) => b.id === activeBlockId);
-    if (!currentBlock) return;
-    const caret = textareaRef.current?.selectionStart ?? currentBlock.text.length;
-    const res = insertLink(currentBlock.text, caret, title);
-    const newBlocks = blocks.map((b) =>
-      b.id === activeBlockId ? { ...b, text: res.text } : b,
-    );
-    setBlocks(newBlocks);
-    pendingCaret.current = res.caret;
-    props.onChange(joinBlocks(newBlocks));
-    setDismissedLinkQuery(null);
-  }
+  const handleSelectExistingLink = useCallback(
+    (title: string) => {
+      if (activeBlockId === null) return;
+      const currentBlock = blocks.find((b) => b.id === activeBlockId);
+      if (!currentBlock) return;
+      const caret = textareaRef.current?.selectionStart ?? currentBlock.text.length;
+      const res = insertLink(currentBlock.text, caret, title);
+      const newBlocks = blocks.map((b) =>
+        b.id === activeBlockId ? { ...b, text: res.text } : b,
+      );
+      applyBlocks(newBlocks, activeBlockId, res.caret);
+      setDismissedLinkQuery(null);
+    },
+    [activeBlockId, blocks, applyBlocks],
+  );
 
   // The link goes in first and the page is created in the background, so nothing
   // typed meanwhile is overwritten by a stale copy of the blocks.
-  function handleSelectCreateLink(query: string) {
-    if (activeBlockId === null) return;
-    const currentBlock = blocks.find((b) => b.id === activeBlockId);
-    if (!currentBlock) return;
-    const trimmed = query.trim();
-    if (trimmed) {
-      void props.onCreatePage(trimmed);
-    }
-    const caret = textareaRef.current?.selectionStart ?? currentBlock.text.length;
-    const res = insertLink(currentBlock.text, caret, trimmed);
-    const newBlocks = blocks.map((b) =>
-      b.id === activeBlockId ? { ...b, text: res.text } : b,
-    );
-    setBlocks(newBlocks);
-    pendingCaret.current = res.caret;
-    props.onChange(joinBlocks(newBlocks));
-    setDismissedLinkQuery(null);
-  }
+  const handleSelectCreateLink = useCallback(
+    (query: string) => {
+      if (activeBlockId === null) return;
+      const currentBlock = blocks.find((b) => b.id === activeBlockId);
+      if (!currentBlock) return;
+      const trimmed = query.trim();
+      if (trimmed) {
+        void props.onCreatePage(trimmed);
+      }
+      const caret = textareaRef.current?.selectionStart ?? currentBlock.text.length;
+      const res = insertLink(currentBlock.text, caret, trimmed);
+      const newBlocks = blocks.map((b) =>
+        b.id === activeBlockId ? { ...b, text: res.text } : b,
+      );
+      applyBlocks(newBlocks, activeBlockId, res.caret);
+      setDismissedLinkQuery(null);
+    },
+    [activeBlockId, blocks, props, applyBlocks],
+  );
 
   function handleToggleTodo(blockId: number, line: number) {
     const targetBlock = blocks.find((b) => b.id === blockId);
@@ -203,8 +321,7 @@ export function BlockEditor(
     const newBlocks = blocks.map((b) =>
       b.id === blockId ? { ...b, text: newText } : b,
     );
-    setBlocks(newBlocks);
-    props.onChange(joinBlocks(newBlocks));
+    applyBlocks(newBlocks);
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -212,142 +329,108 @@ export function BlockEditor(
     const blockIndex = blocks.findIndex((b) => b.id === activeBlockId);
     if (blockIndex === -1) return;
 
-    // 1. Link suggestions popup navigation
     if (showLinkSuggestions) {
-      const total = matchingTitles.length + 1;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setLinkSelectedIndex((prev) => (prev + 1) % total);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setLinkSelectedIndex((prev) => (prev - 1 + total) % total);
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        if (linkSelectedIndex < matchingTitles.length) {
-          handleSelectExistingLink(matchingTitles[linkSelectedIndex]);
-        } else {
-          handleSelectCreateLink(lq!);
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setDismissedLinkQuery(lq);
-        return;
-      }
+      const handled = handlePopupNavigation(
+        e,
+        matchingTitles.length + 1,
+        setLinkSelectedIndex,
+        () => {
+          if (linkSelectedIndex < matchingTitles.length) {
+            handleSelectExistingLink(matchingTitles[linkSelectedIndex]);
+          } else {
+            handleSelectCreateLink(lq!);
+          }
+        },
+        () => setDismissedLinkQuery(lq),
+      );
+      if (handled) return;
     }
 
-    // 2. Slash menu popup navigation
     if (showSlashMenu && filteredSlashOptions.length > 0) {
-      const total = filteredSlashOptions.length;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSlashSelectedIndex((prev) => (prev + 1) % total);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSlashSelectedIndex((prev) => (prev - 1 + total) % total);
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        handleSelectSlash(filteredSlashOptions[slashSelectedIndex]);
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setDismissedSlashQuery(sq);
-        return;
-      }
+      const handled = handlePopupNavigation(
+        e,
+        filteredSlashOptions.length,
+        setSlashSelectedIndex,
+        () => handleSelectSlash(filteredSlashOptions[slashSelectedIndex]),
+        () => setDismissedSlashQuery(sq),
+      );
+      if (handled) return;
     }
 
-    // 3. Escape key (no popup open): exit edit mode
-    if (e.key === "Escape") {
+    if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) {
       e.preventDefault();
       setActiveBlockId(null);
       return;
     }
 
-    // 4. Ctrl+Enter or Cmd+Enter: exit edit mode
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      setActiveBlockId(null);
-      return;
-    }
-
-    // 5. Enter without modifier (split block or continue list item/code)
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       const res = splitBlockAt(blocks, blockIndex, textarea.selectionStart);
-      setBlocks(res.blocks);
-      setActiveBlockId(res.activeId);
-      pendingCaret.current = res.caret;
-      props.onChange(joinBlocks(res.blocks));
+      applyBlocks(res.blocks, res.activeId, res.caret);
       return;
     }
 
-    // 6. Backspace at start of block
-    if (e.key === "Backspace") {
-      if (textarea.selectionStart === 0 && textarea.selectionEnd === 0) {
-        if (blockIndex > 0) {
-          e.preventDefault();
-          const res = mergeBlockWithPrevious(blocks, blockIndex);
-          if (res) {
-            setBlocks(res.blocks);
-            setActiveBlockId(res.activeId);
-            pendingCaret.current = res.caret;
-            props.onChange(joinBlocks(res.blocks));
-          }
-          return;
-        }
+    if (
+      e.key === "Backspace" &&
+      textarea.selectionStart === 0 &&
+      textarea.selectionEnd === 0 &&
+      blockIndex > 0
+    ) {
+      e.preventDefault();
+      const res = mergeBlockWithPrevious(blocks, blockIndex);
+      if (res) {
+        applyBlocks(res.blocks, res.activeId, res.caret);
       }
+      return;
     }
 
-    // 7. ArrowUp at first line -> move to previous block
-    if (
-      e.key === "ArrowUp" &&
-      !e.shiftKey &&
-      !e.altKey &&
-      !e.ctrlKey &&
-      !e.metaKey
-    ) {
-      const textBefore = textarea.value.slice(0, textarea.selectionStart);
-      if (!textBefore.includes("\n") && blockIndex > 0) {
-        e.preventDefault();
-        const prevBlock = blocks[blockIndex - 1];
-        setActiveBlockId(prevBlock.id);
-        pendingCaret.current = prevBlock.text.length;
-        return;
-      }
-    }
-
-    // 8. ArrowDown at last line -> move to next block
-    if (
-      e.key === "ArrowDown" &&
-      !e.shiftKey &&
-      !e.altKey &&
-      !e.ctrlKey &&
-      !e.metaKey
-    ) {
-      const textAfter = textarea.value.slice(textarea.selectionEnd);
-      if (!textAfter.includes("\n") && blockIndex < blocks.length - 1) {
-        e.preventDefault();
-        const nextBlock = blocks[blockIndex + 1];
-        setActiveBlockId(nextBlock.id);
-        pendingCaret.current = 0;
-        return;
-      }
-    }
+    handleBlockArrowMove(e, textarea, blockIndex, blocks, (id, caret) => {
+      setActiveBlockId(id);
+      pendingCaret.current = caret;
+    });
   }
 
   function updateCaretPos(e: { currentTarget: HTMLTextAreaElement }) {
     setCaretPos(e.currentTarget.selectionStart);
   }
+
+  const slashItems: readonly PopupItem[] = useMemo(
+    () =>
+      filteredSlashOptions.map((opt) => ({
+        id: opt.kind,
+        content: <span>{opt.label}</span>,
+        onSelect: () => handleSelectSlash(opt),
+      })),
+    [filteredSlashOptions, handleSelectSlash],
+  );
+
+  const linkItems: readonly PopupItem[] = useMemo(() => {
+    const existing: PopupItem[] = matchingTitles.map((title) => ({
+      id: `link-${title}`,
+      content: (
+        <>
+          <span className="text-accent font-mono text-xs">[[</span>
+          <span className="truncate text-ink">{title}</span>
+          <span className="text-accent font-mono text-xs">]]</span>
+        </>
+      ),
+      onSelect: () => handleSelectExistingLink(title),
+    }));
+
+    const createItem: PopupItem = {
+      id: "link-create-new-page",
+      content: (
+        <>
+          <span className="text-accent text-base leading-none">+</span>
+          <span className="truncate">Buat halaman &quot;{lq}&quot;</span>
+        </>
+      ),
+      onSelect: () => handleSelectCreateLink(lq ?? ""),
+      isSeparator: matchingTitles.length > 0,
+    };
+
+    return [...existing, createItem];
+  }, [matchingTitles, lq, handleSelectExistingLink, handleSelectCreateLink]);
 
   return (
     <div className="flex flex-col gap-1.5 py-2">
@@ -373,70 +456,19 @@ export function BlockEditor(
                     : "font-sans text-[15px] leading-relaxed"
                 }`}
               />
-              {showSlashMenu && filteredSlashOptions.length > 0 && (
-                <div
-                  className="absolute z-20 mt-1 max-h-60 w-64 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg"
-                  role="listbox"
-                  aria-label="Pilihan jenis blok"
-                >
-                  {filteredSlashOptions.map((opt, idx) => (
-                    <button
-                      key={opt.kind}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => handleSelectSlash(opt)}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                        slashSelectedIndex === idx
-                          ? "bg-surface-2 text-ink font-medium"
-                          : "text-muted hover:bg-surface-2 hover:text-ink"
-                      }`}
-                    >
-                      <span>{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
+              {showSlashMenu && slashItems.length > 0 && (
+                <PopupList
+                  items={slashItems}
+                  selectedIndex={slashSelectedIndex}
+                  widthClass="w-64"
+                />
               )}
               {showLinkSuggestions && (
-                <div
-                  className="absolute z-20 mt-1 max-h-60 w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg"
-                  role="listbox"
-                  aria-label="Saran tautan"
-                >
-                  {matchingTitles.map((title, idx) => (
-                    <button
-                      key={title}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => handleSelectExistingLink(title)}
-                      className={`flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                        linkSelectedIndex === idx
-                          ? "bg-surface-2 text-ink font-medium"
-                          : "text-muted hover:bg-surface-2 hover:text-ink"
-                      }`}
-                    >
-                      <span className="text-accent font-mono text-xs">[[</span>
-                      <span className="truncate text-ink">{title}</span>
-                      <span className="text-accent font-mono text-xs">]]</span>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelectCreateLink(lq!)}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                      matchingTitles.length > 0
-                        ? "border-t border-line/50 mt-1"
-                        : ""
-                    } ${
-                      linkSelectedIndex === matchingTitles.length
-                        ? "bg-surface-2 text-ink font-medium"
-                        : "text-muted hover:bg-surface-2 hover:text-ink"
-                    }`}
-                  >
-                    <span className="text-accent text-base leading-none">+</span>
-                    <span className="truncate">Buat halaman &quot;{lq}&quot;</span>
-                  </button>
-                </div>
+                <PopupList
+                  items={linkItems}
+                  selectedIndex={linkSelectedIndex}
+                  widthClass="w-72"
+                />
               )}
             </div>
           );
@@ -444,10 +476,9 @@ export function BlockEditor(
 
         const isEmpty = block.text.trim() === "";
         return (
-          <div
+          <button
             key={block.id}
-            role="button"
-            tabIndex={0}
+            type="button"
             onClick={() => {
               setActiveBlockId(block.id);
               pendingCaret.current = block.text.length;
@@ -461,7 +492,7 @@ export function BlockEditor(
                 pendingCaret.current = block.text.length;
               }
             }}
-            className="group relative min-h-[30px] cursor-text rounded-lg px-2 py-1 transition-colors hover:bg-surface-2/30 focus-visible:outline-accent"
+            className="group relative min-h-[30px] w-full cursor-text rounded-lg px-2 py-1 text-left transition-colors hover:bg-surface-2/30 focus-visible:outline-accent"
           >
             {isEmpty ? (
               <p className="m-0 leading-relaxed text-muted italic text-[15px]">
@@ -476,7 +507,7 @@ export function BlockEditor(
                 onToggleTodo={(line) => handleToggleTodo(block.id, line)}
               />
             )}
-          </div>
+          </button>
         );
       })}
     </div>

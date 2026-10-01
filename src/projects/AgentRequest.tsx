@@ -5,7 +5,7 @@ import { FIELD, H2, PRIMARY, SECONDARY } from "../shell/ui";
 import { AGENT_QUICK_BUTTONS } from "./view";
 
 export function AgentRequest({
-  project, running, logAvailable, onRequested, onRefresh, onShowLog,
+  project, running, onRequested, onRefresh,
 }: Readonly<{
   project: ProjectDetail;
   running: boolean;
@@ -57,7 +57,7 @@ export function AgentRequest({
   return (
     <section aria-labelledby="agent-request-title" className="flex shrink-0 flex-col gap-3 rounded-[14px] border border-line bg-surface p-4">
       <div className="flex items-center gap-3">
-        <h2 id="agent-request-title" className={H2}>Kirim ke agen</h2>
+        <h2 id="agent-request-title" className={`${H2} whitespace-nowrap`}>Kirim ke agen</h2>
         {project.agentDir && (
           <span className="font-mono text-xs text-muted truncate max-w-[200px]" title={project.agentDir}>
             {project.agentDir}
@@ -67,8 +67,6 @@ export function AgentRequest({
           {running && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />}
           {running ? "Agen berjalan…" : ""}
         </span>
-        <button type="button" onClick={onShowLog} disabled={!logAvailable}
-          className="text-xs text-accent hover:text-accent-hover disabled:text-disabled">Lihat log</button>
       </div>
       <form onSubmit={send} className="flex flex-col gap-2.5">
         <textarea

@@ -120,7 +120,8 @@ function EventCard({
   }
 
   const roleLabel = ROLE_LABELS[activity.role];
-  const displayTitle = activity.title || `${activity.actor} · ${roleLabel}`;
+  // CLI logs without --title reuse the first body line; show the rendered body instead of raw Markdown twice.
+  const displayTitle = activity.title && activity.title.trim() !== activity.body.trim() ? activity.title : roleLabel;
 
   return (
     <div className="relative flex gap-3 pb-3 last:pb-0">
@@ -471,7 +472,7 @@ export function AgentTab({
                 </button>
               ))}
             </div>
-            <span className="ml-auto text-[11px] text-muted">dicatat lewat CLI & hooks</span>
+            <span className="ml-auto text-[11px] text-muted">dicatat lewat anchoa agent</span>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2">

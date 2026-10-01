@@ -181,7 +181,7 @@ export function AgentThread({
           <form onSubmit={sendReply} className="flex flex-col gap-2">
             <textarea aria-label="Balas di utas" value={reply} onChange={(event) => setReply(event.target.value)}
               disabled={busy} rows={3} placeholder="Tulis balasan… (Markdown)" className={`${FIELD} resize-y`} />
-            <button type="submit" disabled={busy || !reply.trim()} className={`${PRIMARY} self-end`}>Balas</button>
+            <button type="submit" disabled={busy || !reply.trim()} className={`${PRIMARY} self-start`}>Balas</button>
           </form>
         </div>
       )}

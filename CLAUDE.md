@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Fase 4B Catatan built (page tree, block editor, wikilinks, FTS5, and Markdown export); next phases wait for the user.
+Status: Proyek × Agen built (spec `2026-10-01-anchoa-agen-proyek-design.md`): agent projects with a 5-column kanban, task threads, the Agen kode tab, the agent runner, and the `anchoa agent` CLI. Next phases wait for the user.
 
 ## Commands
 
@@ -88,6 +88,17 @@ Do not start implementing a phase until the user approves moving from planning t
 
   `codex review --base` does not accept custom instructions, so use `codex exec`. Keep `< /dev/null`: without a terminal, `codex exec` otherwise waits for more input on stdin. Check every finding before fixing it: reviewers also report false positives.
 - Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when Codex fails (auth, quota, timeout, or no output after a retry). Use the `implementer` agent (Sonnet, `.claude/agents/implementer.md`) when a task fails twice through `agy-multi`, and Opus only when it also fails twice with Sonnet.
+
+## Reporting to Anchoa
+
+When a task belongs to an agent project in Anchoa, report through the CLI in the app binary (`anchoa agent …`, or `"$ANCHOA_CLI" agent …` inside a run that Anchoa started). Each command prints one JSON line; errors exit with code 2.
+
+- Find work with `anchoa agent projects` and `anchoa agent inbox [--project ID]`. When Anchoa starts the run, the task id is `$ANCHOA_TASK`.
+- Log the start and the end of each task: `anchoa agent log --task ID --actor <name> --role implement --body "…"`.
+- Save plans with `anchoa agent plan --task ID --actor <name> --file plan.md`. The plan also becomes a Catatan page under "Rencana <project>".
+- Move the card as work progresses: `anchoa agent task status --task ID doing|test|review|done --actor <name>`. Status changes are logged automatically.
+- Log review findings with `--role review`, and the PR link with `--role merge --kind link`, before moving the task to `done`.
+- Never send file contents, secrets, or `.env` values to Anchoa.
 
 ## GUI testing
 

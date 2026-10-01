@@ -708,6 +708,8 @@ mod tests {
         // Backlinks still exist under new title
         let back2 = links::backlinks(&conn, &target.id).unwrap();
         assert_eq!(back2.len(), 2);
+        assert!(back2.iter().any(|backlink| backlink.excerpt == page_body));
+        assert!(back2.iter().any(|backlink| backlink.excerpt == note_body));
 
         // Renaming with exact same title does nothing
         let same = rename(&conn, &target.id, "Catatan Baru", 300).unwrap();
@@ -874,7 +876,8 @@ mod tests {
 
         let bl1 = links::backlinks(&conn, &target.id).unwrap();
         assert_eq!(bl1.len(), 1);
-        assert_eq!(bl1[0].id, source.id);
+        assert_eq!(bl1[0].item.id, source.id);
+        assert_eq!(bl1[0].excerpt, "Menghubungkan ke [[Target]].");
 
         save_body(&conn, &source.id, "Sudah dihapus tautannya.", 300).unwrap();
 
@@ -902,7 +905,7 @@ mod tests {
 
         let bl = links::backlinks(&conn, &page.id).unwrap();
         assert_eq!(bl.len(), 1);
-        assert_eq!(bl[0].id, note_id);
+        assert_eq!(bl[0].item.id, note_id);
     }
 
     #[test]

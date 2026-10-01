@@ -1,18 +1,28 @@
 import type { JSX } from "react";
-import type { ItemSummary } from "../api";
+import type { Backlink } from "../api";
 
 function formatItemType(type: string): string {
   switch (type) {
     case "page":
-      return "Halaman";
-    case "journal":
+      return "Catatan halaman";
+    case "note":
       return "Jurnal";
     case "task":
       return "Tugas";
     case "project":
       return "Proyek";
+    case "habit":
+      return "Kebiasaan";
+    case "account":
+      return "Akun";
+    case "transaction":
+      return "Transaksi";
+    case "bill":
+      return "Tagihan";
+    case "download":
+      return "Unduhan";
     default:
-      return type;
+      return "Item";
   }
 }
 
@@ -20,7 +30,7 @@ export function Backlinks({
   items,
   onOpenItem,
 }: Readonly<{
-  items: readonly ItemSummary[];
+  items: readonly Backlink[];
   onOpenItem: (id: string) => void;
 }>): JSX.Element {
   return (
@@ -51,6 +61,11 @@ export function Backlinks({
                 <span className="text-[10px] uppercase tracking-wider text-muted">
                   {formatItemType(item.type)}
                 </span>
+                {item.excerpt && (
+                  <span className="line-clamp-2 text-[11px] leading-tight text-muted">
+                    {item.excerpt}
+                  </span>
+                )}
               </button>
             </li>
           ))}

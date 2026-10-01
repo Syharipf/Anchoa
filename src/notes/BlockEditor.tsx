@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -8,6 +9,7 @@ import {
   type JSX,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 import {
   blockKind,
@@ -32,6 +34,10 @@ interface PopupItem {
   readonly content: ReactNode;
   readonly onSelect: () => void;
   readonly isSeparator?: boolean;
+}
+
+export interface BlockEditorHandle {
+  focusFirstBlock: () => void;
 }
 
 function PopupList(
@@ -130,6 +136,7 @@ function handleBlockArrowMove(
 
 export function BlockEditor(
   props: Readonly<{
+    ref?: Ref<BlockEditorHandle>;
     pageId: string;
     body: string;
     titles: readonly string[]; // judul halaman untuk saran [[ dan isResolved
@@ -157,6 +164,21 @@ export function BlockEditor(
 
   const pendingCaret = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useImperativeHandle(props.ref, () => ({
+    focusFirstBlock() {
+      const firstBlock = blocks[0];
+      if (!firstBlock) return;
+      pendingCaret.current = 0;
+      setCaretPos(0);
+      setActiveBlockId(firstBlock.id);
+      if (activeBlockId === firstBlock.id && textareaRef.current) {
+        textareaRef.current.setSelectionRange(0, 0);
+        textareaRef.current.focus();
+        pendingCaret.current = null;
+      }
+    },
+  }), [blocks, activeBlockId]);
 
   const [dismissedSlashQuery, setDismissedSlashQuery] = useState<string | null>(
     null,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { Backlink } from "../api";
 import { Backlinks } from "./Backlinks";
 import { MoveDialog } from "./MoveDialog";
 import { PageTree } from "./PageTree";
@@ -40,30 +41,70 @@ describe("Backlinks", () => {
     expect(html).toContain("Belum ada yang menautkan halaman ini.");
   });
 
-  it("renders backlink items with titles and types", () => {
-    const items = [
+  it("renders backlink titles, Indonesian types, and linking-line excerpts", () => {
+    const items: Backlink[] = [
       {
         id: "p1",
         type: "page",
         title: "Halaman Penting",
         dueAt: null,
         lastActivityAt: 100,
+        excerpt: "Lihat [[Rencana]] untuk langkah berikutnya.",
       },
       {
         id: "j1",
-        type: "journal",
+        type: "note",
         title: "Catatan Harian",
         dueAt: null,
         lastActivityAt: 200,
+        excerpt: "Hari ini membahas [[Rencana|peluncuran]].",
       },
     ];
     const html = renderToStaticMarkup(
       <Backlinks items={items} onOpenItem={() => {}} />,
     );
     expect(html).toContain("Halaman Penting");
-    expect(html).toContain("Halaman");
+    expect(html).toContain("Catatan halaman");
     expect(html).toContain("Catatan Harian");
     expect(html).toContain("Jurnal");
+    expect(html).toContain(items[0].excerpt);
+    expect(html).toContain(items[1].excerpt);
+  });
+
+  it.each([
+    ["task", "Tugas"],
+    ["project", "Proyek"],
+    ["habit", "Kebiasaan"],
+    ["account", "Akun"],
+    ["transaction", "Transaksi"],
+    ["bill", "Tagihan"],
+    ["download", "Unduhan"],
+    ["unknown", "Item"],
+  ])("labels %s backlinks as %s", (type, label) => {
+    const html = renderToStaticMarkup(
+      <Backlinks
+        items={[{
+          id: "source", type, title: "Penaut", dueAt: null,
+          lastActivityAt: 100, excerpt: "",
+        }]}
+        onOpenItem={() => {}}
+      />,
+    );
+    expect(html).toContain(`>${label}</span>`);
+  });
+
+  it("renders excerpts as escaped text", () => {
+    const html = renderToStaticMarkup(
+      <Backlinks
+        items={[{
+          id: "source", type: "note", title: "Penaut", dueAt: null,
+          lastActivityAt: 100, excerpt: '<script>alert("[[Rencana]]")</script>',
+        }]}
+        onOpenItem={() => {}}
+      />,
+    );
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
   });
 });
 

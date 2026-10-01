@@ -37,6 +37,8 @@ export interface TrashEntry {
 
 export type SearchHit = ItemSummary & { snippet: string };
 
+export type Backlink = ItemSummary & { excerpt: string };
+
 /** Omitted fields stay unchanged; `dueAt: null` clears the due date. */
 export interface ItemPatch {
   title?: string;
@@ -737,7 +739,7 @@ export const api = {
   pagesTrash: () => invoke<TrashEntry[]>("pages_trash"),
   restorePage: (id: string) => invoke<PageNode>("restore_page", { id }),
   pageBacklinks: (id: string) =>
-    invoke<ItemSummary[]>("page_backlinks", { id }),
+    invoke<Backlink[]>("page_backlinks", { id }),
   resolveLink: (title: string) =>
     invoke<ItemSummary | null>("resolve_link", { title }),
   searchItems: (text: string, pagesOnly: boolean, limit: number) =>

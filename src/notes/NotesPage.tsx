@@ -9,7 +9,7 @@ import {
 import {
   api,
   errorMessage,
-  type ItemSummary,
+  type Backlink,
   type PageNode,
   type SearchHit,
   type TrashEntry,
@@ -19,7 +19,7 @@ import { Dialog } from "../shell/Dialog";
 import { useToast } from "../shell/toast";
 import { PRIMARY, SECONDARY } from "../shell/ui";
 import { Backlinks } from "./Backlinks";
-import { BlockEditor } from "./BlockEditor";
+import { BlockEditor, type BlockEditorHandle } from "./BlockEditor";
 import { MoveDialog } from "./MoveDialog";
 import { PageTree } from "./PageTree";
 import { TrashDialog } from "./TrashDialog";
@@ -58,7 +58,8 @@ export function NotesPage({
   const [loadedPage, setLoadedPage] = useState<LoadedPage | null>(null);
   const [isBodyLoading, setIsBodyLoading] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-  const [backlinks, setBacklinks] = useState<ItemSummary[]>([]);
+  const [backlinks, setBacklinks] = useState<Backlink[]>([]);
+  const blockEditorRef = useRef<BlockEditorHandle>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -620,10 +621,7 @@ export function NotesPage({
                       if (e.key === "Enter") {
                         e.preventDefault();
                         void handleRenameActivePage(titleDraft);
-                        const firstBlock = document.querySelector<HTMLElement>(
-                          '[role="button"][tabindex="0"], textarea',
-                        );
-                        firstBlock?.focus();
+                        blockEditorRef.current?.focusFirstBlock();
                       }
                     }}
                     placeholder="Tanpa judul"
@@ -641,6 +639,7 @@ export function NotesPage({
                 <div className="min-h-0 flex-1">
                   <BlockEditor
                     key={loadedPage.id}
+                    ref={blockEditorRef}
                     pageId={loadedPage.id}
                     body={loadedPage.body}
                     titles={titles}

@@ -1,11 +1,10 @@
 use super::{
-    catalog::import_voice,
-    settings::VoiceParams,
-    speak::{Programs, speak, split_sentences},
+    download::Download,
+    process::{ProcessControl, Recorder, find_whisper, transcribe},
 };
 use super::{
-    download::Download,
-    process::{Recorder, find_whisper, transcribe},
+    settings::VoiceParams,
+    speak::{Programs, speak, split_sentences},
 };
 use std::{
     fs,
@@ -15,6 +14,10 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+
+fn import_voice(data: &Path, onnx: &Path) -> Result<String, crate::error::AppError> {
+    super::catalog::import_voice(data, onnx, &ProcessControl::default())
+}
 
 fn script(dir: &Path, name: &str, body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
@@ -34,6 +37,260 @@ fn wait_file(path: &Path) {
         );
         thread::sleep(Duration::from_millis(5));
     }
+}
+
+#[test]
+fn startup_sweeps_voice_temporary_files_and_preserves_installed_voices() {
+    use super::{VoiceState, catalog};
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().join("data");
+    let tmp = data.join("voice-tmp");
+    fs::create_dir_all(tmp.join("abandoned-download/nested")).unwrap();
+    fs::write(
+        tmp.join("abandoned-download/nested/model.onnx.part"),
+        b"part",
+    )
+    .unwrap();
+    fs::write(tmp.join("process.log"), b"log").unwrap();
+    let installed = data.join("models/whisper/ggml-base.bin");
+    fs::create_dir_all(installed.parent().unwrap()).unwrap();
+    fs::write(&installed, b"installed model").unwrap();
+    let onnx = dir.path().join("Imported.onnx");
+    fs::write(&onnx, b"imported model").unwrap();
+    fs::write(
+        catalog::config_path(&onnx),
+        r#"{"audio":{"sample_rate":22050}}"#,
+    )
+    .unwrap();
+    let imported = catalog::model_path(&data, &import_voice(&data, &onnx).unwrap()).unwrap();
+    let builtin = catalog::model_path(&data, catalog::VOICES[0].id).unwrap();
+    fs::create_dir_all(builtin.parent().unwrap()).unwrap();
+    fs::write(&builtin, b"builtin model").unwrap();
+    symlink(installed.parent().unwrap(), tmp.join("installed-link")).unwrap();
+    let state = VoiceState::with_path(data, dir.path().as_os_str().to_owned());
+    assert_eq!(fs::read_dir(&tmp).unwrap().count(), 0);
+    assert_eq!(fs::read(&installed).unwrap(), b"installed model");
+    assert_eq!(fs::read(&imported).unwrap(), b"imported model");
+    assert_eq!(fs::read(&builtin).unwrap(), b"builtin model");
+    fs::create_dir_all(tmp.join("shutdown-download")).unwrap();
+    fs::write(tmp.join("shutdown-download/model.part"), b"part").unwrap();
+    state.stop_all();
+    assert_eq!(fs::read_dir(tmp).unwrap().count(), 0);
+    assert_eq!(fs::read(installed).unwrap(), b"installed model");
+    assert_eq!(fs::read(imported).unwrap(), b"imported model");
+    assert_eq!(fs::read(builtin).unwrap(), b"builtin model");
+}
+
+fn assert_child_stopped(pid_file: &Path) {
+    let pid = fs::read_to_string(pid_file).unwrap();
+    assert!(
+        pid.trim().parse::<u32>().is_ok(),
+        "Invalid child PID: {pid}"
+    );
+    assert!(
+        !std::process::Command::new("/usr/bin/kill")
+            .args(["-0", pid.trim()])
+            .stderr(std::process::Stdio::null())
+            .status()
+            .unwrap()
+            .success(),
+        "Child {pid} is still running after shutdown"
+    );
+}
+
+#[test]
+fn shutdown_sweeps_a_blocked_download_and_prevents_late_recreation() {
+    use super::{VoiceState, process};
+    use std::sync::{Arc, mpsc};
+
+    struct PausedBody {
+        ready: mpsc::Sender<()>,
+        resume: mpsc::Receiver<()>,
+    }
+
+    impl Read for PausedBody {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            self.ready.send(()).unwrap();
+            self.resume.recv().unwrap();
+            buffer[..3].copy_from_slice(b"abc");
+            Ok(3)
+        }
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().join("data");
+    let state = Arc::new(VoiceState::with_path(
+        data.clone(),
+        dir.path().as_os_str().to_owned(),
+    ));
+    let run = state.begin_run(&state.installation).unwrap();
+    let scratch = run
+        .control
+        .scratch(&process::temporary_root(&data))
+        .unwrap();
+    let dest = scratch.0.join("model.onnx");
+    let (ready, reading) = mpsc::channel();
+    let (resume, paused) = mpsc::channel();
+    let worker = thread::spawn(move || {
+        let download = Download {
+            url: "unused",
+            sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            dest: &dest,
+        };
+        assert!(
+            download
+                .store(
+                    PausedBody {
+                        ready,
+                        resume: paused
+                    },
+                    Some(3),
+                    &run.control,
+                    |_| {}
+                )
+                .is_err()
+        );
+        // A response arriving after shutdown must not recreate a swept parent.
+        assert!(
+            download
+                .store(&b"abc"[..], Some(3), &run.control, |_| {})
+                .is_err()
+        );
+        assert!(!scratch.0.exists());
+        drop(scratch);
+        drop(run);
+    });
+    reading.recv_timeout(Duration::from_secs(3)).unwrap();
+    let stopped = Instant::now();
+    state.stop_all();
+    let elapsed = stopped.elapsed();
+    resume.send(()).unwrap();
+    worker.join().unwrap();
+    assert!(elapsed < Duration::from_secs(3));
+    assert_eq!(
+        fs::read_dir(process::temporary_root(&data))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+
+#[test]
+fn startup_sweep_unlinks_a_temporary_root_symlink_without_touching_models() {
+    use super::VoiceState;
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().join("data");
+    let models = data.join("models");
+    fs::create_dir_all(&models).unwrap();
+    fs::write(models.join("installed.bin"), b"installed").unwrap();
+    symlink(&models, data.join("voice-tmp")).unwrap();
+    let _state = VoiceState::with_path(data.clone(), dir.path().as_os_str().to_owned());
+    assert!(
+        !fs::symlink_metadata(data.join("voice-tmp"))
+            .unwrap()
+            .is_symlink()
+    );
+    assert_eq!(fs::read_dir(data.join("voice-tmp")).unwrap().count(), 0);
+    assert_eq!(
+        fs::read(models.join("installed.bin")).unwrap(),
+        b"installed"
+    );
+}
+
+#[test]
+fn shutdown_kills_speech_children_and_waits_for_cleanup() {
+    use super::{VoiceSettings, VoiceState, catalog};
+    use std::sync::Arc;
+    for blocking_program in ["piper", "pw-play"] {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("data");
+        let state = Arc::new(VoiceState::with_path(
+            data.clone(),
+            dir.path().as_os_str().to_owned(),
+        ));
+        let model = catalog::model_path(&data, catalog::VOICES[0].id).unwrap();
+        fs::create_dir_all(model.parent().unwrap()).unwrap();
+        fs::write(&model, b"model").unwrap();
+        fs::write(
+            catalog::config_path(&model),
+            r#"{"audio":{"sample_rate":22050}}"#,
+        )
+        .unwrap();
+        fs::create_dir_all(data.join("piper/bin")).unwrap();
+        let programs = fake_speech(dir.path());
+        fs::copy(&programs.piper, state.piper()).unwrap();
+        let blocked = if blocking_program == "piper" {
+            state.piper()
+        } else {
+            programs.pw_play
+        };
+        script(
+            blocked.parent().unwrap(),
+            blocking_program,
+            "printf '%s' \"$$\" > \"$0.pid\"\nexec sleep 30",
+        );
+        let pid_file = blocked.with_extension("pid");
+        let run = state.begin_speech().unwrap();
+        let active = state.clone();
+        let worker = thread::spawn(move || {
+            active.speak(
+                &"a".repeat(256 * 1024),
+                VoiceSettings {
+                    id: catalog::VOICES[0].id.into(),
+                    params: VoiceParams::default(),
+                },
+                run,
+            )
+        });
+        wait_file(&pid_file);
+        let stopped = Instant::now();
+        state.stop_all();
+        assert!(stopped.elapsed() < Duration::from_secs(3));
+        assert_child_stopped(&pid_file);
+        assert!(state.speech.lock().unwrap().is_none());
+        assert_eq!(fs::read_dir(data.join("voice-tmp")).unwrap().count(), 0);
+        worker.join().unwrap().unwrap();
+        assert!(state.begin_speech().is_err());
+    }
+}
+
+#[test]
+fn shutdown_kills_whisper_and_removes_the_recording_directory() {
+    use super::VoiceState;
+    use std::sync::Arc;
+    let dir = tempfile::tempdir().unwrap();
+    script(
+        dir.path(),
+        "pw-record",
+        "trap 'exit 0' INT\nfor wav do :; done\nprintf RIFF > \"$wav\"\nprintf ready > \"$0.ready\"\nwhile :; do sleep 0.02; done",
+    );
+    script(
+        dir.path(),
+        "whisper-cli",
+        "printf '%s' \"$$\" > \"$0.pid\"\nexec sleep 30",
+    );
+    let data = dir.path().join("data");
+    let state = Arc::new(VoiceState::with_path(
+        data.clone(),
+        dir.path().as_os_str().to_owned(),
+    ));
+    fs::create_dir_all(state.whisper_model().parent().unwrap()).unwrap();
+    fs::write(state.whisper_model(), b"model").unwrap();
+    state.record_start().unwrap();
+    wait_file(&dir.path().join("pw-record.ready"));
+    let active = state.clone();
+    let worker = thread::spawn(move || active.record_stop());
+    let pid_file = dir.path().join("whisper-cli.pid");
+    wait_file(&pid_file);
+    let stopped = Instant::now();
+    state.stop_all();
+    assert!(stopped.elapsed() < Duration::from_secs(3));
+    assert_child_stopped(&pid_file);
+    assert_eq!(fs::read_dir(data.join("voice-tmp")).unwrap().count(), 0);
+    assert!(worker.join().unwrap().is_err());
+    assert!(state.record_start().is_err());
 }
 
 #[test]
@@ -82,7 +339,10 @@ fn transcribe_uses_whisper_arguments_and_trims_text() {
     let wav = dir.path().join("input.wav");
     fs::write(&model, b"model").unwrap();
     fs::write(&wav, b"RIFF").unwrap();
-    assert_eq!(transcribe(&binary, &model, &wav).unwrap(), "Halo teri.");
+    assert_eq!(
+        transcribe(&binary, &model, &wav, &ProcessControl::default()).unwrap(),
+        "Halo teri."
+    );
     assert_eq!(
         fs::read_to_string(dir.path().join("whisper-cli.args")).unwrap(),
         format!(
@@ -150,7 +410,7 @@ fn wrong_hash_deletes_part_and_errors() {
         sha256: "0000000000000000000000000000000000000000000000000000000000000000",
         dest: &dest,
     }
-    .run(|_| {})
+    .run(&ProcessControl::default(), |_| {})
     .unwrap_err();
     assert!(error.to_string().contains("SHA-256"));
     assert!(!dir.path().join("model.bin.part").exists());
@@ -169,7 +429,7 @@ fn matching_hash_renames_part_and_reports_progress() {
         sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
         dest: &dest,
     }
-    .run(|event| events.push(event))
+    .run(&ProcessControl::default(), |event| events.push(event))
     .unwrap();
     assert_eq!(fs::read(&dest).unwrap(), b"abc");
     assert!(!dest.with_file_name("model.bin.part").exists());
@@ -192,18 +452,24 @@ fn hash_writer_rejects_corruption_and_truncated_bodies_without_sockets() {
     };
     assert!(
         download
-            .store(&b"corrupt"[..], None, |_| {})
+            .store(&b"corrupt"[..], None, &ProcessControl::default(), |_| {})
             .unwrap_err()
             .to_string()
             .contains("SHA-256")
     );
     assert!(!dir.path().join("model.onnx.part").exists());
     assert_eq!(fs::read(&dest).unwrap(), b"previous");
-    assert!(download.store(&b"abc"[..], Some(10), |_| {}).is_err());
+    assert!(
+        download
+            .store(&b"abc"[..], Some(10), &ProcessControl::default(), |_| {})
+            .is_err()
+    );
     assert!(!dir.path().join("model.onnx.part").exists());
     let mut events = Vec::new();
     download
-        .store(&b"abc"[..], Some(3), |event| events.push(event))
+        .store(&b"abc"[..], Some(3), &ProcessControl::default(), |event| {
+            events.push(event)
+        })
         .unwrap();
     assert_eq!(fs::read(&dest).unwrap(), b"abc");
     assert!(events.last().unwrap().verified);
@@ -298,7 +564,7 @@ fn piper_arguments_and_parameter_clamping() {
         params,
         &programs,
         dir.path(),
-        &std::sync::atomic::AtomicBool::new(false),
+        &ProcessControl::default(),
     )
     .unwrap();
     let args = fs::read_to_string(dir.path().join("piper.args")).unwrap();
@@ -348,15 +614,12 @@ fn import_rejects_missing_or_invalid_json() {
 
 #[test]
 fn speak_calls_fake_binaries_sequentially_and_stops() {
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    };
+    use std::sync::Arc;
     let dir = tempfile::tempdir().unwrap();
     let programs = fake_speech(dir.path());
     let model = dir.path().join("model.onnx");
     fs::write(&model, b"model").unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Arc::new(ProcessControl::default());
     speak(
         "Satu. Dua?",
         &model,
@@ -386,7 +649,7 @@ fn speak_calls_fake_binaries_sequentially_and_stops() {
     });
     wait_file(&dir.path().join("pw-play.started"));
     let stopped = Instant::now();
-    cancel.store(true, Ordering::SeqCst);
+    cancel.cancel();
     worker.join().unwrap().unwrap();
     assert!(stopped.elapsed() < Duration::from_secs(2));
     assert_eq!(
@@ -493,13 +756,12 @@ fn voice_status_and_catalog_work_without_installed_binaries_and_show_imports() {
 #[test]
 fn voice_state_stop_cancels_the_reserved_run_and_error_releases_it() {
     use super::{VoiceSettings, VoiceState};
-    use std::sync::atomic::Ordering;
     let dir = tempfile::tempdir().unwrap();
     let state = VoiceState::with_path(dir.path().to_path_buf(), dir.path().as_os_str().to_owned());
     let run = state.begin_speech().unwrap();
     assert!(state.begin_speech().is_err());
     state.stop().unwrap();
-    assert!(run.cancel.load(Ordering::SeqCst));
+    assert!(run.control.is_cancelled());
     drop(run);
     let run = state.begin_speech().unwrap();
     assert!(
@@ -545,7 +807,7 @@ fn piper_install_keeps_libraries_and_rolls_back_failed_extraction() {
     );
     let data = dir.path().join("data");
     let archive = dir.path().join("verified.tar.gz");
-    super::install::extract_piper(&data, &archive, &tar).unwrap();
+    super::install::extract_piper(&data, &archive, &tar, &ProcessControl::default()).unwrap();
     for file in [
         "piper",
         "libonnxruntime.so",
@@ -561,7 +823,10 @@ fn piper_install_keeps_libraries_and_rolls_back_failed_extraction() {
             .starts_with(&format!("-xzf\n{}\n-C\n", archive.display()))
     );
     let failed = script(dir.path(), "tar-failed", "exit 1");
-    assert!(super::install::extract_piper(&data, &archive, &failed).is_err());
+    assert!(
+        super::install::extract_piper(&data, &archive, &failed, &ProcessControl::default())
+            .is_err()
+    );
     assert_eq!(
         fs::read(data.join("piper/bin/libonnxruntime.so")).unwrap(),
         b"library"
@@ -604,7 +869,7 @@ fn speak_normalizes_line_breaks_into_one_piper_utterance_per_sentence() {
         VoiceParams::default(),
         &programs,
         dir.path(),
-        &std::sync::atomic::AtomicBool::new(false),
+        &ProcessControl::default(),
     )
     .unwrap();
     assert_eq!(
@@ -627,7 +892,7 @@ fn download_writer_replaces_stale_parts_without_following_symlinks() {
         sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
         dest: &dest,
     }
-    .store(&b"abc"[..], Some(3), |_| {})
+    .store(&b"abc"[..], Some(3), &ProcessControl::default(), |_| {})
     .unwrap();
     assert_eq!(fs::read(dest).unwrap(), b"abc");
     assert_eq!(fs::read(other).unwrap(), b"leave untouched");
@@ -636,10 +901,7 @@ fn download_writer_replaces_stale_parts_without_following_symlinks() {
 
 #[test]
 fn cancelling_synthesis_unblocks_stdin_and_removes_scratch_files() {
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    };
+    use std::sync::Arc;
     let dir = tempfile::tempdir().unwrap();
     let mut programs = fake_speech(dir.path());
     programs.piper = script(
@@ -649,7 +911,7 @@ fn cancelling_synthesis_unblocks_stdin_and_removes_scratch_files() {
     );
     let model = dir.path().join("model.onnx");
     fs::write(&model, b"model").unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Arc::new(ProcessControl::default());
     let cancelled = cancel.clone();
     let root = dir.path().join("scratch");
     let scratch = root.clone();
@@ -665,7 +927,7 @@ fn cancelling_synthesis_unblocks_stdin_and_removes_scratch_files() {
     });
     wait_file(&dir.path().join("piper-blocked.ready"));
     let stopped = Instant::now();
-    cancel.store(true, Ordering::SeqCst);
+    cancel.cancel();
     worker.join().unwrap().unwrap();
     assert!(stopped.elapsed() < Duration::from_secs(2));
     assert_eq!(fs::read_dir(scratch).unwrap().count(), 0);
@@ -690,7 +952,7 @@ fn synthesis_errors_stop_playback_and_report_stderr() {
         VoiceParams::default(),
         &programs,
         &scratch,
-        &std::sync::atomic::AtomicBool::new(false),
+        &ProcessControl::default(),
     )
     .unwrap_err();
     assert!(error.to_string().contains("model rusak"));

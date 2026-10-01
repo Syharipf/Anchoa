@@ -16,7 +16,7 @@ use std::{
         Arc, Mutex, MutexGuard,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
@@ -24,7 +24,10 @@ pub struct VoiceState {
     data: PathBuf,
     path: OsString,
     recorder: Mutex<Option<process::Recorder>>,
-    speech: Arc<Mutex<Option<Arc<AtomicBool>>>>,
+    speech: RunSlot,
+    transcription: RunSlot,
+    installation: RunSlot,
+    shutting_down: AtomicBool,
     install_lock: Mutex<()>,
 }
 
@@ -40,11 +43,17 @@ impl VoiceState {
     }
 
     fn with_path(data: PathBuf, path: OsString) -> Self {
+        if let Err(error) = process::sweep_temporary(&data) {
+            log::warn!("failed to sweep voice temporary files at startup: {error}");
+        }
         Self {
             data,
             path,
             recorder: Mutex::new(None),
             speech: Arc::new(Mutex::new(None)),
+            transcription: Arc::new(Mutex::new(None)),
+            installation: Arc::new(Mutex::new(None)),
+            shutting_down: AtomicBool::new(false),
             install_lock: Mutex::new(()),
         }
     }
@@ -65,6 +74,7 @@ impl VoiceState {
         self.stop()?;
         let binary = self.binary("pw-record")?;
         let mut slot = lock(&self.recorder)?;
+        self.check_active()?;
         if slot.is_some() {
             return Err(AppError::Invalid(
                 "Rekaman sebelumnya belum dihentikan".into(),
@@ -72,7 +82,7 @@ impl VoiceState {
         }
         *slot = Some(process::Recorder::start(
             &binary,
-            &self.data.join("tmp/voice"),
+            &process::temporary_root(&self.data),
             Duration::from_secs(60),
             Duration::from_secs(2),
         )?);
@@ -80,30 +90,67 @@ impl VoiceState {
     }
 
     fn record_stop(&self) -> Result<String, AppError> {
-        let mut recorder = lock(&self.recorder)?
+        // Register before the recorder leaves shared state. The run outlives
+        // the local recorder, so completion also means its scratch was removed.
+        let mut slot = lock(&self.transcription)?;
+        self.check_active()?;
+        if slot.is_some() {
+            return Err(AppError::Invalid("Transkripsi masih berjalan".into()));
+        }
+        let mut recording = lock(&self.recorder)?;
+        let control = recording
+            .as_ref()
+            .map(|recorder| recorder.control.clone())
+            .ok_or_else(|| AppError::Invalid("Tidak ada rekaman aktif".into()))?;
+        *slot = Some(control.clone());
+        let run = VoiceRun {
+            slot: self.transcription.clone(),
+            control,
+        };
+        let mut recorder = recording
             .take()
             .ok_or_else(|| AppError::Invalid("Tidak ada rekaman aktif".into()))?;
+        drop(recording);
+        drop(slot);
         recorder.stop()?;
         let whisper = process::find_whisper(&self.path).ok_or_else(|| {
             AppError::Other("whisper.cpp belum tersedia; pasang paket whisper-cpp".into())
         })?;
-        process::transcribe(&whisper, &self.whisper_model(), recorder.wav())
+        process::transcribe(
+            &whisper,
+            &self.whisper_model(),
+            recorder.wav(),
+            &run.control,
+        )
     }
 
-    fn begin_speech(&self) -> Result<SpeechRun, AppError> {
-        let mut slot = lock(&self.speech)?;
+    fn begin_speech(&self) -> Result<VoiceRun, AppError> {
+        self.begin_run(&self.speech)
+    }
+
+    fn check_active(&self) -> Result<(), AppError> {
+        if self.shutting_down.load(Ordering::SeqCst) {
+            Err(AppError::Other("Layanan suara sedang ditutup".into()))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn begin_run(&self, runs: &RunSlot) -> Result<VoiceRun, AppError> {
+        let mut slot = lock(runs)?;
+        self.check_active()?;
         if slot.is_some() {
             return Err(AppError::Invalid("Suara masih diputar".into()));
         }
-        let cancel = Arc::new(AtomicBool::new(false));
-        *slot = Some(cancel.clone());
-        Ok(SpeechRun {
-            slot: self.speech.clone(),
-            cancel,
+        let control = Arc::new(process::ProcessControl::default());
+        *slot = Some(control.clone());
+        Ok(VoiceRun {
+            slot: runs.clone(),
+            control,
         })
     }
 
-    fn speak(&self, text: &str, settings: VoiceSettings, run: SpeechRun) -> Result<(), AppError> {
+    fn speak(&self, text: &str, settings: VoiceSettings, run: VoiceRun) -> Result<(), AppError> {
         let model = catalog::model_path(&self.data, &settings.id)?;
         catalog::validate_pair(&model).map_err(|error| {
             AppError::Invalid(format!("Suara belum dipasang atau tidak valid: {error}"))
@@ -121,22 +168,40 @@ impl VoiceState {
             &model,
             settings.params,
             &programs,
-            &self.data.join("tmp/voice"),
-            &run.cancel,
+            &process::temporary_root(&self.data),
+            &run.control,
         )
     }
 
     fn stop(&self) -> Result<(), AppError> {
-        if let Some(cancel) = lock(&self.speech)?.as_ref() {
-            cancel.store(true, Ordering::SeqCst);
+        if let Some(control) = lock(&self.speech)?.as_ref() {
+            control.cancel();
         }
         Ok(())
     }
 
     pub fn stop_all(&self) {
-        let _ = self.stop();
+        self.shutting_down.store(true, Ordering::SeqCst);
+        let runs: Vec<_> = [&self.speech, &self.transcription, &self.installation]
+            .into_iter()
+            .filter_map(|slot| slot.lock().ok().and_then(|slot| slot.clone()))
+            .collect();
+        // Kill immediately, then give workers one shared, bounded cleanup window.
+        for run in &runs {
+            run.cancel();
+        }
         let recorder = self.recorder.lock().ok().and_then(|mut slot| slot.take());
+        if let Some(recorder) = &recorder {
+            recorder.control.cancel();
+        }
         drop(recorder);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        for run in runs {
+            run.wait_until(deadline);
+        }
+        if let Err(error) = process::sweep_temporary(&self.data) {
+            log::warn!("failed to sweep voice temporary files at shutdown: {error}");
+        }
     }
 
     fn validate_id(&self, id: &str) -> Result<(), AppError> {
@@ -195,7 +260,7 @@ impl VoiceState {
                 .is_some_and(process::Recorder::is_recording),
             speaking: lock(&self.speech)?
                 .as_ref()
-                .is_some_and(|cancel| !cancel.load(Ordering::SeqCst)),
+                .is_some_and(|control| !control.is_cancelled()),
         })
     }
 
@@ -208,7 +273,14 @@ impl VoiceState {
             .install_lock
             .try_lock()
             .map_err(|_| AppError::Other("Pemasangan suara lain masih berjalan".into()))?;
-        install::install(&self.data, &self.path, component, &mut progress)
+        let run = self.begin_run(&self.installation)?;
+        install::install(
+            &self.data,
+            &self.path,
+            component,
+            &mut progress,
+            &run.control,
+        )
     }
 }
 
@@ -218,20 +290,23 @@ impl Drop for VoiceState {
     }
 }
 
-struct SpeechRun {
-    slot: Arc<Mutex<Option<Arc<AtomicBool>>>>,
-    cancel: Arc<AtomicBool>,
+type RunSlot = Arc<Mutex<Option<Arc<process::ProcessControl>>>>;
+
+struct VoiceRun {
+    slot: RunSlot,
+    control: Arc<process::ProcessControl>,
 }
 
-impl Drop for SpeechRun {
+impl Drop for VoiceRun {
     fn drop(&mut self) {
         if let Ok(mut slot) = self.slot.lock()
             && slot
                 .as_ref()
-                .is_some_and(|active| Arc::ptr_eq(active, &self.cancel))
+                .is_some_and(|active| Arc::ptr_eq(active, &self.control))
         {
             *slot = None;
         }
+        self.control.finish();
     }
 }
 
@@ -333,7 +408,8 @@ pub async fn voice_import(app: AppHandle, onnx_path: String) -> Result<String, A
             .install_lock
             .try_lock()
             .map_err(|_| AppError::Other("Pemasangan suara lain masih berjalan".into()))?;
-        catalog::import_voice(&state.data, Path::new(&onnx_path))
+        let run = state.begin_run(&state.installation)?;
+        catalog::import_voice(&state.data, Path::new(&onnx_path), &run.control)
     })
     .await
     .map_err(|_| AppError::Other("Impor suara gagal".into()))?

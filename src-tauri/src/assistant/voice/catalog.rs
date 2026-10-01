@@ -1,4 +1,4 @@
-use super::process::ScratchDir;
+use super::process::{self, ProcessControl};
 use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -145,14 +145,18 @@ pub fn validate_pair(onnx: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn import_voice(data: &Path, onnx: &Path) -> Result<String, AppError> {
+pub fn import_voice(
+    data: &Path,
+    onnx: &Path,
+    control: &ProcessControl,
+) -> Result<String, AppError> {
     if onnx.extension() != Some(std::ffi::OsStr::new("onnx")) {
         return Err(AppError::Invalid("Pilih model suara .onnx".into()));
     }
     let model = open_voice_file(onnx)?;
     let config = read_config(&mut open_voice_file(&config_path(onnx))?)?;
     let root = data.join("piper/voices/custom");
-    let scratch = ScratchDir::new(&root)?;
+    let scratch = control.scratch(&process::temporary_root(data))?;
     let id = format!("custom-{}", uuid::Uuid::now_v7());
     let mut target = File::create(scratch.0.join("voice.onnx"))?;
     let copied = std::io::copy(&mut model.take(MAX_VOICE_BYTES), &mut target)?;
@@ -169,7 +173,11 @@ pub fn import_voice(data: &Path, onnx: &Path) -> Result<String, AppError> {
     let metadata = serde_json::to_vec(&ImportedVoice { label })
         .map_err(|error| AppError::Other(error.to_string()))?;
     fs::write(scratch.0.join("voice.json"), metadata)?;
-    fs::rename(&scratch.0, root.join(&id))?;
+    control.with_active(|| {
+        fs::create_dir_all(&root)?;
+        fs::rename(&scratch.0, root.join(&id))?;
+        Ok(())
+    })?;
     Ok(id)
 }
 

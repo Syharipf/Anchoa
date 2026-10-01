@@ -1,3 +1,4 @@
+use super::process::ProcessControl;
 use crate::error::AppError;
 use sha2::{Digest, Sha256};
 use std::{
@@ -21,7 +22,12 @@ pub struct DownloadProgress {
 }
 
 impl Download<'_> {
-    pub fn run(&self, progress: impl FnMut(DownloadProgress)) -> Result<(), AppError> {
+    pub fn run(
+        &self,
+        control: &ProcessControl,
+        progress: impl FnMut(DownloadProgress),
+    ) -> Result<(), AppError> {
+        control.check_active()?;
         let agent: ureq::Agent = ureq::Agent::config_builder()
             .timeout_connect(Some(Duration::from_secs(5)))
             .timeout_recv_response(Some(Duration::from_secs(60)))
@@ -44,7 +50,7 @@ impl Download<'_> {
             .get("content-length")
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.parse().ok());
-        self.store(response.body_mut().as_reader(), total, progress)
+        self.store(response.body_mut().as_reader(), total, control, progress)
     }
 
     /// The HTTP body and test readers use exactly the same atomic writer.
@@ -52,6 +58,7 @@ impl Download<'_> {
         &self,
         mut reader: impl Read,
         total: Option<u64>,
+        control: &ProcessControl,
         mut progress: impl FnMut(DownloadProgress),
     ) -> Result<(), AppError> {
         if self.sha256.len() != 64 || !self.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
@@ -61,19 +68,21 @@ impl Download<'_> {
             .dest
             .parent()
             .ok_or_else(|| AppError::Invalid("Lokasi unduhan tidak valid".into()))?;
-        fs::create_dir_all(parent)?;
         let part = part_path(self.dest);
         // Installs are serialized. Remove a crashed download's file (or link),
         // then create_new ensures a symlink is never opened for writing.
-        match fs::remove_file(&part) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error.into()),
-        }
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&part)?;
+        let mut file = control.with_active(|| {
+            fs::create_dir_all(parent)?;
+            match fs::remove_file(&part) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+            Ok(OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&part)?)
+        })?;
         let result = (|| {
             let mut hash = Sha256::new();
             let mut done = 0;
@@ -84,10 +93,12 @@ impl Download<'_> {
                 verified: false,
             });
             loop {
+                control.check_active()?;
                 let count = match reader.read(&mut buffer) {
                     Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
                     result => result?,
                 };
+                control.check_active()?;
                 if count == 0 {
                     break;
                 }
@@ -112,7 +123,10 @@ impl Download<'_> {
                 ));
             }
             file.sync_all()?;
-            fs::rename(&part, self.dest)?;
+            control.with_active(|| {
+                fs::rename(&part, self.dest)?;
+                Ok(())
+            })?;
             progress(DownloadProgress {
                 done_bytes: done,
                 total_bytes: total,

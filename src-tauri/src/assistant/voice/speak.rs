@@ -1,10 +1,9 @@
-use super::process::{self, ScratchDir};
+use super::process::{self, ProcessControl};
 use super::settings::VoiceParams;
 use crate::error::AppError;
 use std::{
     path::{Path, PathBuf},
     process::Command,
-    sync::atomic::{AtomicBool, Ordering},
 };
 
 pub struct Programs {
@@ -78,18 +77,21 @@ pub fn speak(
     params: VoiceParams,
     programs: &Programs,
     root: &Path,
-    cancel: &AtomicBool,
+    control: &ProcessControl,
 ) -> Result<(), AppError> {
     let params = params.clamped()?;
     let sentences = split_sentences(text);
     if sentences.is_empty() {
         return Err(AppError::Empty);
     }
-    let scratch = ScratchDir::new(root)?;
+    if control.is_cancelled() {
+        return Ok(());
+    }
+    let scratch = control.scratch(root)?;
     let wav = scratch.0.join("sentence.wav");
     let log = scratch.0.join("process.log");
     for sentence in sentences {
-        if cancel.load(Ordering::SeqCst) {
+        if control.is_cancelled() {
             break;
         }
         let mut synth = Command::new(&programs.piper);
@@ -109,12 +111,12 @@ pub fn speak(
                 "--output_file",
             ])
             .arg(&wav);
-        if !process::run(synth, Some(format!("{sentence}\n")), cancel, &log)? {
+        if !process::run(synth, Some(format!("{sentence}\n")), control, &log)? {
             break;
         }
         let mut play = Command::new(&programs.pw_play);
         play.arg(&wav);
-        if !process::run(play, None, cancel, &log)? {
+        if !process::run(play, None, control, &log)? {
             break;
         }
         std::fs::remove_file(&wav)?;

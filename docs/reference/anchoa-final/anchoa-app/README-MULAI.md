@@ -117,7 +117,7 @@ Cubism Core bersifat proprietary: **jangan di-commit ke repo publik** (sudah dia
 
 ## Langkah 6 — Screenshot desain
 
-Dari canvas desain, ekspor gambar setiap artboard (Share › Export) ke `docs/design/screenshots/` dengan nama sesuai artboard: `Main.png`, `Email.png`, `Jadwal.png`, `Keuangan.png`, `Proyek.png`, `Berkas.png`, `Unduhan.png`, `Profil.png`, `Loading.png`, `CommandPalette.png`, `NotifPanel.png`, `Palet.png`.
+Dari canvas desain, ekspor gambar setiap artboard (Share › Export) ke `docs/design/screenshots/` dengan nama sesuai artboard: `Main.png`, `Jurnal.png`, `Email.png`, `Jadwal.png`, `Habit.png`, `Keuangan.png`, `Proyek.png`, `Berkas.png`, `Unduhan.png`, `Profil.png`, `Pengaturan.png`, `PengaturanAvatar.png`, `PengaturanSinkron.png`, `Login.png`, `Onboarding.png`, semua layar HP (`HpMasuk.png` … `HpProfil.png`, 19 berkas, daftar lengkap di `docs/design/screenshots/BACA-SAYA.txt`), `State.png`, `ProyekAgen.png`, `ProyekAgenHubungkan.png`, `Loading.png`, `CommandPalette.png`, `NotifPanel.png`, `Palet.png`. Canvas-nya dibagi **satu halaman per menu** (pilih halaman di kiri atas), jadi setiap artboard termuat penuh sebelum diekspor.
 
 ## Langkah 7 — Jalankan Claude Code
 

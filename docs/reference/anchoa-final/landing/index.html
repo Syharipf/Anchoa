@@ -1,0 +1,1590 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anchoa</title>
+<meta name="description" content="Anchoa — dashboard pribadi dengan asisten suara. Saat ini tersedia untuk Fedora Linux.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one deep water column — sections are depth bands (0 m → 200 m), the school lives on a fixed canvas behind them. */
+:root {
+  color-scheme: dark;
+  --abyss: #03080B;
+  --water-top: #0C2533;
+  --water-mid: #081822;
+  --panel: #0D1B23;
+  --panel-2: #12242E;
+  --line: #1D3441;
+  --text: #E6EEF0;
+  --muted: #8FA6AF;
+  --faint: #5E7782;
+  --lime: #C6F36B;
+  --lime-deep: #86B33A;
+  --silver: #CFE3EA;
+  --coral: #FF8A7A;
+  --amber: #E5B547;
+  --on-lime: #0B1206;
+  --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --wrap: 1160px;
+  --r: 14px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: linear-gradient(180deg, var(--water-top) 0px, var(--water-mid) 900px, #050D13 2600px, var(--abyss) 100%) var(--abyss);
+  color: var(--text);
+  font: 400 16px/1.6 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+a { color: var(--lime); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+p { margin: 0; text-wrap: pretty; }
+code, kbd, .mono { font-family: var(--f-mono); }
+
+#sea { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.rays { position: absolute; top: 0; left: 0; right: 0; height: 720px; z-index: 0; pointer-events: none; overflow: hidden; }
+.rays span { position: absolute; top: -120px; width: 140px; height: 900px; background: linear-gradient(180deg, rgba(198,243,107,0.07), rgba(207,227,234,0.03) 40%, transparent 75%); transform-origin: top center; animation: sway 14s ease-in-out infinite alternate; }
+.rays span:nth-child(1) { left: 8%; transform: rotate(14deg); }
+.rays span:nth-child(2) { left: 30%; width: 90px; transform: rotate(9deg); animation-duration: 18s; }
+.rays span:nth-child(3) { left: 58%; width: 180px; transform: rotate(12deg); animation-duration: 16s; }
+.rays span:nth-child(4) { left: 82%; width: 70px; transform: rotate(6deg); animation-duration: 20s; }
+@keyframes sway { from { transform: rotate(4deg) translateX(-20px); } to { transform: rotate(16deg) translateX(30px); } }
+
+.page { position: relative; z-index: 1; }
+.wrap { width: 100%; max-width: var(--wrap); margin: 0 auto; padding-inline: 24px; }
+
+/* nav */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(9,26,35,0.82); border-bottom: 1px solid rgba(29,52,65,0.7); }
+.nav .wrap { display: flex; align-items: center; gap: 20px; min-height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font: 600 19px var(--f-display); }
+.brand:hover { text-decoration: none; }
+.logo-slot { width: 32px; height: 32px; border-radius: 9px; border: 1px dashed #3B5A68; display: grid; place-items: center; font: 500 8px var(--f-mono); color: var(--faint); }
+.nav ul { display: flex; gap: 22px; list-style: none; margin: 0 0 0 12px; padding: 0; }
+.nav ul a { color: var(--muted); font-size: 14px; }
+.nav ul a:hover { color: var(--text); text-decoration: none; }
+.nav .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.lang { display: flex; padding: 3px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line); }
+.lang button { min-width: 40px; min-height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font: 500 12px var(--f-mono); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); }
+.btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 11px; font: 600 15px var(--f-body); cursor: pointer; border: 1px solid transparent; transition: transform .15s ease, background-color .15s ease, border-color .15s ease; }
+.btn:hover { text-decoration: none; transform: translateY(-1px); }
+.btn-primary { background: var(--lime); color: var(--on-lime); }
+.btn-primary:hover { background: #D8FA92; }
+.btn-ghost { background: rgba(13,27,35,0.7); color: var(--text); border-color: var(--line); }
+.btn-ghost:hover { border-color: #3B5A68; }
+.btn-sm { min-height: 38px; padding: 0 14px; font-size: 14px; }
+.btn svg { flex-shrink: 0; }
+
+/* depth gauge */
+.gauge { position: fixed; right: 22px; top: 50%; transform: translateY(-50%); z-index: 15; display: flex; align-items: center; gap: 10px; pointer-events: none; }
+.gauge .track { position: relative; width: 2px; height: 220px; background: linear-gradient(180deg, rgba(198,243,107,0.5), rgba(29,52,65,0.6)); border-radius: 2px; }
+.gauge .pin { position: absolute; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 12px rgba(198,243,107,0.7); top: 0; }
+.gauge .read { display: flex; flex-direction: column; align-items: flex-end; font: 500 11px/1.4 var(--f-mono); color: var(--muted); text-align: right; min-width: 92px; }
+.gauge .read b { font-weight: 500; font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* hero */
+.hero { position: relative; padding-block: 72px 56px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 48px; align-items: center; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 500 12px var(--f-mono); color: var(--muted); letter-spacing: 0.04em; }
+.eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 10px rgba(198,243,107,0.8); }
+.hero h1 { margin-top: 18px; font-size: clamp(40px, 6vw, 68px); line-height: 1.02; font-weight: 700; }
+.hero h1 em { font-style: normal; color: var(--lime); }
+.hero .lead { margin-top: 20px; max-width: 34em; font-size: 18px; color: #BFD0D6; }
+.cta { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; }
+.hint { margin-top: 18px; font: 400 12px var(--f-mono); color: var(--faint); }
+
+.term { position: relative; border-radius: 16px; background: rgba(6,15,20,0.92); border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,0.45); overflow: hidden; min-width: 0; }
+.term-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); font: 500 12px var(--f-mono); color: var(--faint); }
+.term-bar i { width: 10px; height: 10px; border-radius: 50%; background: #1E3A48; display: block; }
+.term-bar span { margin-left: 6px; }
+.term pre { margin: 0; padding: 18px 18px 22px; font: 400 13.5px/1.75 var(--f-mono); color: var(--silver); white-space: pre-wrap; word-break: break-word; }
+.term .p { color: var(--lime); }
+.term .c { color: var(--faint); }
+.term .o { color: #BFD0D6; }
+.term .w { color: var(--amber); }
+.term .line { display: block; transition: opacity .35s ease; }
+.term .line.dim { opacity: 0.35; }
+.caret { display: inline-block; width: 8px; height: 16px; vertical-align: -3px; background: var(--lime); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* product mock */
+.shot { padding-block: 8px 96px; }
+.window { position: relative; border-radius: 18px; border: 1px solid var(--line); background: #0F1115; box-shadow: 0 40px 120px rgba(0,0,0,0.5), 0 0 0 1px rgba(198,243,107,0.05); overflow: hidden; }
+.window-bar { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; background: #0B0D10; border-bottom: 1px solid #262B35; font: 500 12px var(--f-mono); color: #5B6475; }
+.window-bar .sp { flex: 1; }
+.window-bar i { width: 11px; height: 11px; border-radius: 50%; border: 1px solid #3A4150; display: block; }
+.stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 224px; align-items: end; }
+.stage .window { margin: 0; width: 100%; }
+.stage + .shot-caption { margin-top: 64px; }
+.phone { position: relative; z-index: 2; margin: 0 0 -44px -20px; padding: 7px; border-radius: 36px; background: #05090C; border: 1px solid #2A3E49; box-shadow: 0 30px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(198,243,107,0.06); }
+.phone .dcm-fit { border-radius: 29px; }
+.dcm-fit { position: relative; width: 100%; overflow: hidden; }
+.dcm { position: absolute; top: 0; left: 0; transform-origin: 0 0; transform: scale(var(--k, 0.6)); }
+/* the replica is a 1:1 copy of the canvas artboards; undo page-level type rules inside it */
+.dcm, .dcm * { box-sizing: content-box; }
+.dcm { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 16px; line-height: normal; color: #E7E9EE; text-align: left; letter-spacing: normal; }
+.dcm h1, .dcm h2, .dcm h3, .dcm p { letter-spacing: normal; text-wrap: wrap; }
+.dcm a, .dcm a:hover { text-decoration: none; }
+.dcm button, .dcm input { font: inherit; }
+@keyframes anchoa-school { to { transform: rotate(360deg); } }
+@keyframes anchoa-wave { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+@keyframes anchoa-pulse { 0% { transform: scale(1); opacity: .45; } 100% { transform: scale(1.7); opacity: 0; } }
+.shot-caption { margin-top: 14px; font: 400 12px var(--f-mono); color: var(--faint); text-align: center; }
+
+/* sections */
+section.band { position: relative; padding-block: 88px; }
+.band-head { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; align-items: start; margin-bottom: 40px; }
+.depth { font: 500 12px/1.5 var(--f-mono); color: var(--lime); padding-top: 8px; border-top: 1px solid rgba(198,243,107,0.35); }
+.depth small { display: block; color: var(--faint); font-size: 11px; }
+.band-head h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1.08; max-width: 18em; }
+.band-head p { margin-top: 14px; max-width: 40em; color: #B3C6CD; font-size: 17px; }
+
+.features { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.card { position: relative; background: rgba(13,27,35,0.86); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; transition: border-color .2s ease, transform .2s ease; }
+.card:hover { border-color: #2F5262; transform: translateY(-2px); }
+.card h3 { font-size: 18px; }
+.card p { font-size: 14.5px; color: #A9BDC4; }
+.card .ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: rgba(198,243,107,0.08); color: var(--lime); border: 1px solid rgba(198,243,107,0.18); }
+.card.span2 { grid-column: span 2; }
+.card .tag { align-self: flex-start; font: 500 11px var(--f-mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+.mini-term { margin-top: 4px; padding: 12px 14px; border-radius: 10px; background: #061017; border: 1px solid var(--line); font: 400 12px/1.7 var(--f-mono); color: #BFD0D6; overflow-x: auto; white-space: pre; }
+.mini-term .p { color: var(--lime); } .mini-term .w { color: var(--amber); } .mini-term .c { color: var(--faint); }
+
+/* how it works */
+.flow { display: grid; grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr) 120px minmax(0, 1fr); align-items: stretch; }
+.node { background: rgba(13,27,35,0.9); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.node h3 { font-size: 19px; }
+.node ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #A9BDC4; }
+.node ul li::before { content: "› "; color: var(--lime); font-family: var(--f-mono); }
+.node .tag { font: 500 11px var(--f-mono); color: var(--lime); }
+.link { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font: 500 11px/1.4 var(--f-mono); color: var(--muted); text-align: center; padding: 0 6px; }
+.link svg { width: 100%; height: 14px; overflow: visible; }
+.link .dash { stroke: var(--lime); stroke-width: 2; stroke-dasharray: 4 7; animation: flowdash 1.2s linear infinite; }
+.link .dash.rev { animation-direction: reverse; }
+@keyframes flowdash { to { stroke-dashoffset: -22; } }
+.note { margin-top: 22px; font-size: 14px; color: var(--muted); max-width: 48em; }
+
+/* engineering */
+.eng { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.checks { display: flex; flex-direction: column; gap: 12px; }
+.check { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; padding: 14px 16px; border-radius: 12px; background: rgba(13,27,35,0.86); border: 1px solid var(--line); }
+.check .ok { width: 26px; height: 26px; border-radius: 50%; background: rgba(198,243,107,0.12); color: var(--lime); display: grid; place-items: center; }
+.check b { display: block; font: 600 15px var(--f-display); }
+.check span { font-size: 14px; color: #A9BDC4; }
+.code { border-radius: var(--r); background: #061017; border: 1px solid var(--line); overflow: hidden; min-width: 0; }
+.code-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); font: 500 12px var(--f-mono); color: var(--faint); }
+.code pre { margin: 0; padding: 16px; font: 400 12.5px/1.7 var(--f-mono); color: #C5D6DC; overflow-x: auto; }
+.code .k { color: #9DCBFF; } .code .s { color: var(--lime); } .code .c { color: var(--faint); } .code .n { color: var(--amber); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip { font: 500 12px var(--f-mono); color: #BFD0D6; border: 1px solid var(--line); background: rgba(13,27,35,0.8); border-radius: 999px; padding: 5px 11px; }
+
+/* download */
+.dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.dl .card.main { grid-column: span 3; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; align-items: center; border-color: rgba(198,243,107,0.35); }
+.status { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font: 500 11px var(--f-mono); padding: 3px 10px; border-radius: 999px; }
+.status.ready { color: var(--lime); background: rgba(198,243,107,0.1); border: 1px solid rgba(198,243,107,0.3); }
+.status.soon { color: var(--amber); background: rgba(229,181,71,0.08); border: 1px solid rgba(229,181,71,0.3); }
+.status.later { color: var(--muted); background: rgba(143,166,175,0.06); border: 1px solid var(--line); }
+.cmd { display: flex; align-items: stretch; border-radius: 10px; border: 1px solid var(--line); background: #061017; overflow: hidden; min-width: 0; }
+.cmd code { flex: 1; min-width: 0; padding: 11px 12px; font-size: 12.5px; color: #C5D6DC; white-space: nowrap; overflow-x: auto; }
+.cmd code::before { content: "$ "; color: var(--lime); }
+.copy { flex-shrink: 0; min-width: 72px; border: 0; border-left: 1px solid var(--line); background: var(--panel-2); color: var(--muted); font: 500 12px var(--f-mono); cursor: pointer; }
+.copy:hover { color: var(--text); }
+.copy.done { color: var(--lime); }
+.cmds { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+/* platform route */
+.dl .roadmap { grid-column: 1 / -1; }
+.rm-head { display: flex; align-items: baseline; gap: 12px; }
+.rm-head span { margin-left: auto; font: 500 11px var(--f-mono); color: var(--faint); }
+.route { position: relative; list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 12px; }
+.route::before { content: ""; position: absolute; left: 8px; right: 8px; top: 7px; border-top: 2px dashed #24414F; }
+.route li { position: relative; display: flex; flex-direction: column; gap: 3px; padding-top: 28px; min-width: 0; }
+.route .rn { position: absolute; top: 0; left: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--panel); border: 2px solid #35505C; box-sizing: border-box; }
+.route li.now .rn { background: var(--lime); border-color: var(--lime); box-shadow: 0 0 14px rgba(198,243,107,0.7); }
+.route li.next .rn { border-color: var(--amber); }
+.route b { font: 600 16px var(--f-display); }
+.route small { font: 500 11px var(--f-mono); color: var(--muted); }
+.route li.now small { color: var(--lime); }
+.route li.next small { color: var(--amber); }
+.route-fish { position: absolute; top: 2px; left: 22px; width: 22px; height: 8px; fill: var(--lime); animation: swimroute 4.5s ease-in-out infinite alternate; }
+@keyframes swimroute { from { left: 22px; } to { left: calc(100% - 4px); } }
+
+/* field guide */
+.guide { margin-top: 48px; padding: 22px; border-radius: 18px; border: 1px solid var(--line); background: rgba(8,22,30,0.85); }
+.guide h3 { font-size: 21px; }
+.guide-head p { margin-top: 6px; color: var(--muted); font-size: 14.5px; }
+.guide ul { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.guide li { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; background: rgba(13,27,35,0.9); border: 1px solid var(--line); min-width: 0; }
+.guide li b { display: flex; align-items: center; gap: 8px; font: 600 15px var(--f-display); }
+.guide li b::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); flex-shrink: 0; }
+.guide li i { font-size: 12.5px; color: var(--muted); }
+.guide li span { font-size: 13.5px; color: #A9BDC4; }
+
+/* faq */
+.faq { display: flex; flex-direction: column; gap: 10px; max-width: 820px; }
+.faq details { border-radius: 12px; border: 1px solid var(--line); background: rgba(13,27,35,0.86); padding: 0 18px; }
+.faq summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 12px; min-height: 56px; font: 600 16px var(--f-display); }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; margin-left: auto; font: 400 20px var(--f-mono); color: var(--lime); }
+.faq details[open] summary::after { content: "−"; }
+.faq details p { padding-bottom: 18px; color: #A9BDC4; font-size: 15px; max-width: 46em; }
+
+/* author + footer */
+.author { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: 28px; border-radius: 18px; border: 1px solid var(--line); background: rgba(13,27,35,0.9); }
+.author h3 { font-size: 24px; }
+.author p { margin-top: 10px; color: #A9BDC4; }
+.author .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+footer { padding-block: 40px 56px; border-top: 1px solid rgba(29,52,65,0.6); color: var(--faint); font-size: 13px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; }
+footer .sp { flex: 1; }
+
+.reveal { transition: transform .7s cubic-bezier(.2,.7,.2,1); }
+.reveal.below { transform: translateY(18px); }
+
+@media (max-width: 980px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+  .stage { grid-template-columns: minmax(0, 1fr) 176px; }
+  .phone { margin-left: -16px; border-radius: 30px; }
+  .phone .dcm-fit { border-radius: 24px; }
+  .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .link { flex-direction: row; padding: 10px 0; }
+  .link svg { width: 14px; height: 48px; }
+  .eng { grid-template-columns: minmax(0, 1fr); }
+  .dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dl .card.main { grid-column: span 2; grid-template-columns: minmax(0, 1fr); }
+  .author { grid-template-columns: minmax(0, 1fr); }
+  .author .links { justify-content: flex-start; }
+  .guide ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .route { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .route::before { left: 7px; right: auto; top: 8px; bottom: 8px; border-top: 0; border-left: 2px dashed #24414F; }
+  .route li { padding: 0 0 14px 30px; }
+  .route li:last-child { padding-bottom: 0; }
+  .route .rn { top: 3px; }
+  .route-fish { display: none; }
+  .gauge { display: none; }
+  .nav ul { display: none; }
+}
+@media (max-width: 620px) {
+  .wrap { padding-inline: 16px; }
+  .hero { padding-block: 44px 36px; }
+  .hero .lead { font-size: 16.5px; }
+  .band-head { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  section.band { padding-block: 64px; }
+  .features { grid-template-columns: minmax(0, 1fr); }
+  .card.span2 { grid-column: auto; }
+  .dl { grid-template-columns: minmax(0, 1fr); }
+  .dl .card.main { grid-column: auto; }
+  .stage { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .phone { width: min(300px, 82vw); margin: -40px 0 0; }
+  .stage + .shot-caption { margin-top: 18px; }
+  .guide ul { grid-template-columns: minmax(0, 1fr); }
+  .guide { padding: 18px 16px; }
+  .nav .btn-sm { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+<div class="rays" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+<canvas id="sea" aria-hidden="true"></canvas>
+
+<div class="gauge" aria-hidden="true">
+  <div class="read"><b id="g-depth">−0 m</b><span id="g-zone">epipelagik</span></div>
+  <div class="track"><span class="pin" id="g-pin"></span></div>
+</div>
+
+<div class="page">
+  <header class="nav">
+    <div class="wrap">
+      <a class="brand" href="#top" aria-label="Anchoa, ke atas"><span class="logo-slot" title="Tempat logo">LOGO</span>Anchoa</a>
+      <ul>
+        <li><a href="#fitur" data-i18n="nav.features">Fitur</a></li>
+        <li><a href="#cara-kerja" data-i18n="nav.how">Cara kerja</a></li>
+        <li><a href="#rekayasa" data-i18n="nav.eng">Rekayasa</a></li>
+        <li><a href="#unduh" data-i18n="nav.download">Unduh</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <div class="right">
+        <div class="lang" role="group" aria-label="Bahasa / Language">
+          <button type="button" id="lang-id" aria-pressed="true">ID</button>
+          <button type="button" id="lang-en" aria-pressed="false">EN</button>
+        </div>
+        <a class="btn btn-primary btn-sm" href="#unduh" data-i18n="nav.cta">Unduh</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="h-hero">
+      <div class="wrap">
+        <div>
+          <span class="eyebrow"><span class="dot"></span><span data-i18n="hero.eyebrow">v0.1 · baru tersedia di Fedora · OS lain menyusul</span></span>
+          <h1 id="h-hero" data-i18n-html="hero.title">Satu kawanan untuk <em>semua urusan harianmu.</em></h1>
+          <p class="lead" data-i18n="hero.lead">Anchoa adalah dashboard pribadi dengan asisten suara. Tugas, jadwal, keuangan, jurnal, habit, dan file di laptopmu bergerak bersama, seperti kawanan teri.</p>
+          <div class="cta">
+            <a class="btn btn-primary" href="#unduh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span data-i18n="hero.cta1">Unduh untuk Fedora</span></a>
+            <a class="btn btn-ghost js-repo" href="https://github.com/USERNAME/anchoa" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5a3 3 0 0 0-.9-2.4c3-.3 6-1.4 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.6 1.4a12.5 12.5 0 0 0-6.6 0C5.9 1.3 4.8 1.6 4.8 1.6a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 3.3 8.6c0 5.1 3 6.2 6 6.5a3 3 0 0 0-.9 2.4V21"/></svg><span data-i18n="hero.cta2">Lihat kode</span></a>
+          </div>
+          <p class="hint" data-i18n="hero.hint">› gerakkan kursor untuk membubarkan kawanan, klik untuk memberi makan, gulir untuk menyelam</p>
+        </div>
+
+        <div class="term" aria-label="Contoh terminal">
+          <div class="term-bar"><i></i><i></i><i></i><span>~ — bash</span></div>
+<pre><span class="line"><span class="p">$</span> sudo dnf install ./anchoa-*.x86_64.rpm</span><span class="line"><span class="c">Terpasang: anchoa · tauri 2 · svelte 5</span></span><span class="line"><span class="p">$</span> anchoa --rekap</span><span class="line o" data-i18n="term.l1">› Halo Syharipf. 3 tugas hari ini, 1 tagihan terlambat.</span><span class="line o" data-i18n="term.l2">› Habit 3/5 · streak baca 21 hari</span><span class="line w" data-i18n="term.l3">› Agen kode menunggu izin: npm install chart.js</span><span class="line"><span class="p">$</span> <span class="caret"></span></span></pre>
+        </div>
+      </div>
+    </section>
+
+    <div class="shot">
+      <div class="wrap">
+        <div class="stage reveal">
+          <figure class="window" role="img" aria-label="Dashboard Anchoa di desktop: rekap hari ini, keuangan, 7 hari ke depan, email, proyek, unduhan, berkas, kontribusi kode, dan asisten suara dengan avatar.">
+            <div class="window-bar" aria-hidden="true"><span>Anchoa — Dashboard</span><span class="sp"></span><i></i><i></i><i></i></div>
+            <div class="dcm-fit" data-w="1280" style="aspect-ratio: 1280 / 800"><div class="dcm" inert aria-hidden="true" style="width: 1280px; height: 800px"><div><div style="width: 1280px; height: 800px; display: flex; background: rgb(15, 17, 21); color: rgb(231, 233, 238); font-family: &quot;IBM Plex Sans&quot;, system-ui, sans-serif; overflow: hidden;">
+
+  <nav style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 0px 16px; background: rgb(11, 13, 16); border-right: 1px solid rgb(38, 43, 53); box-sizing: border-box;">
+    <div style="width: 40px; height: 40px; border-radius: 12px; border: 1px dashed rgb(58, 65, 80); color: rgb(154, 163, 178); display: flex; align-items: center; justify-content: center; font-size: 10px; box-sizing: border-box; margin-bottom: 12px;">Logo</div>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgb(29, 33, 41); color: rgb(198, 243, 107);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z"></path><path d="M6 17a2 2 0 0 1 2-2h11"></path><path d="M10 7h5M10 10h3"></path></svg></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg><span aria-hidden="true" style="position: absolute; top: 5px; right: 4px; min-width: 16px; height: 16px; padding: 0px 4px; box-sizing: border-box; border-radius: 8px; background: rgb(198, 243, 107); color: rgb(15, 17, 21); font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 10px; font-weight: 500; line-height: 16px; text-align: center;">3</span></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16.5 9.5"></path></svg></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M16 12.5h2"></path><path d="M3 10h18"></path></svg></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7M12 7v4M16 7v10"></path></svg></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></a>
+    <div style="margin-top: auto;"></div>
+    <button style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 0px; padding: 0px; background: transparent; color: rgb(154, 163, 178); cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: rgb(255, 138, 122); border: 2px solid rgb(11, 13, 16);"></span></button>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;"><span style="width: 32px; height: 32px; border-radius: 50%; box-sizing: border-box; border: 2px solid rgb(58, 65, 80); background: rgb(42, 48, 59); color: rgb(198, 243, 107); display: flex; align-items: center; justify-content: center; font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">S</span></a>
+    <a style="position: relative; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgb(154, 163, 178);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg></a>
+  </nav>
+
+  <main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; min-width: 0px;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <button style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 0px 14px; height: 42px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 10px; color: rgb(154, 163, 178); font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-size: 14px; text-align: left; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex-grow: 1;">Cari, tulis ide, atau jalankan perintah…</span><kbd style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178); border: 1px solid rgb(38, 43, 53); border-radius: 6px; padding: 2px 6px;">Ctrl K</kbd></button>
+      <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; color: rgb(154, 163, 178);">Sel 29 Sep · 22:48</span>
+    </div>
+
+    <div style="display: flex; align-items: flex-end; gap: 16px;">
+      <div style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 2px;">
+        <h1 style="margin: 0px; font-family: &quot;Space Grotesk&quot;, sans-serif; font-weight: 600; font-size: 26px; letter-spacing: -0.01em;">Selamat malam, Syharipf</h1>
+        <span style="font-size: 13px; color: rgb(154, 163, 178);">Selasa, 29 September · 3 tugas tersisa · 3 email belum dibaca · 2 unduhan berjalan</span>
+      </div>
+      <button style="min-height: 38px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0px 14px; border-radius: 10px; border: 1px solid rgb(38, 43, 53); background: rgb(23, 26, 33); color: rgb(231, 233, 238); font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-size: 13px; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"></path></svg>Dengarkan rekap</button>
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <a style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0px 14px; border-radius: 999px; border: 1px solid rgb(38, 43, 53); background: rgb(23, 26, 33); color: rgb(231, 233, 238); font-size: 13px; text-decoration: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Tugas</a>
+      <a style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0px 14px; border-radius: 999px; border: 1px solid rgb(38, 43, 53); background: rgb(23, 26, 33); color: rgb(231, 233, 238); font-size: 13px; text-decoration: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Transaksi</a>
+      <button style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0px 14px; border-radius: 999px; border: 1px solid rgb(38, 43, 53); background: rgb(23, 26, 33); color: rgb(231, 233, 238); font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-size: 13px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>Catatan suara</button>
+      <a style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0px 14px; border-radius: 999px; border: 1px solid rgb(38, 43, 53); background: rgb(23, 26, 33); color: rgb(231, 233, 238); font-size: 13px; text-decoration: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>Unduh dari clipboard</a>
+      <a style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0px 14px; border-radius: 999px; border: 1px solid rgb(38, 43, 53); background: rgb(23, 26, 33); color: rgb(231, 233, 238); font-size: 13px; text-decoration: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>Tulis email</a>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0px; display: grid; grid-template-columns: repeat(3, minmax(0px, 1fr)); grid-template-rows: repeat(3, minmax(0px, 1fr)); gap: 12px;">
+
+      <section style="grid-column: span 2; min-height: 0px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"></path></svg>
+          <h2 style="margin: 0px; font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">Hari ini</h2>
+          <div aria-hidden="true" style="display: flex; gap: 3px; width: 72px; margin-left: 8px;">
+            <span style="flex: 1 1 0px; height: 4px; border-radius: 2px; background: rgb(255, 138, 122); transition: background-color 0.2s;"></span><span style="flex: 1 1 0px; height: 4px; border-radius: 2px; background: rgb(38, 43, 53); transition: background-color 0.2s;"></span><span style="flex: 1 1 0px; height: 4px; border-radius: 2px; background: rgb(38, 43, 53); transition: background-color 0.2s;"></span>
+          </div>
+          <span style="margin-left: auto; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">0/3</span>
+          <a style="font-size: 12px; text-decoration: none;">Jadwal ›</a>
+        </div>
+        
+          <label style="display: flex; align-items: center; gap: 10px; padding: 7px 8px; margin: 0px -4px; border-radius: 8px; background: rgb(34, 26, 28); font-size: 13px; cursor: pointer;">
+            <input type="checkbox" style="width: 15px; height: 15px; margin: 0px; accent-color: rgb(198, 243, 107); cursor: pointer;">
+            <span style="flex-grow: 1; color: rgb(231, 233, 238); text-decoration: none;">Bayar tagihan listrik</span>
+            <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(255, 138, 122);">28 Sep</span>
+          </label>
+        
+          <label style="display: flex; align-items: center; gap: 10px; padding: 7px 8px; margin: 0px -4px; border-radius: 8px; background: transparent; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" style="width: 15px; height: 15px; margin: 0px; accent-color: rgb(198, 243, 107); cursor: pointer;">
+            <span style="flex-grow: 1; color: rgb(231, 233, 238); text-decoration: none;">Kirim laporan project</span>
+            <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">hari ini</span>
+          </label>
+        
+          <label style="display: flex; align-items: center; gap: 10px; padding: 7px 8px; margin: 0px -4px; border-radius: 8px; background: transparent; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" style="width: 15px; height: 15px; margin: 0px; accent-color: rgb(198, 243, 107); cursor: pointer;">
+            <span style="flex-grow: 1; color: rgb(231, 233, 238); text-decoration: none;">Telepon bengkel</span>
+            <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">hari ini</span>
+          </label>
+        
+      </section>
+
+      <a style="min-height: 0px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; color: rgb(231, 233, 238); text-decoration: none; overflow: hidden;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M16 12.5h2"></path><path d="M3 10h18"></path></svg>
+          <span style="font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">Keuangan</span>
+          <span style="margin-left: auto; font-size: 12px; color: rgb(198, 243, 107);">›</span>
+        </span>
+        <span style="font-size: 11px; color: rgb(154, 163, 178); text-transform: uppercase; letter-spacing: 0.08em;">Saldo</span>
+        <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 22px; font-weight: 500; line-height: 1.1;">Rp 975.000</span>
+        <span style="font-size: 12px; color: rgb(154, 163, 178);">Keluar Sep <span style="font-family: &quot;JetBrains Mono&quot;, monospace; color: rgb(255, 138, 122);">Rp 25.000</span></span>
+        <span style="margin-top: auto; align-self: flex-start; display: flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgb(255, 138, 122); font-size: 12px; color: rgb(255, 138, 122);"><span style="width: 6px; height: 6px; border-radius: 50%; background: rgb(255, 138, 122);"></span>Listrik terlambat 1 hari</span>
+      </a>
+
+      <section style="grid-column: span 2; min-height: 0px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+          <h2 style="margin: 0px; font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">7 hari ke depan</h2>
+          <a style="margin-left: auto; font-size: 12px; text-decoration: none;">Kalender ›</a>
+        </div>
+        <div style="flex-grow: 1; min-height: 0px; display: grid; grid-template-columns: repeat(7, minmax(0px, 1fr)); gap: 6px;">
+          
+            <a style="min-width: 0px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: rgb(29, 33, 41); color: rgb(231, 233, 238); text-decoration: none;">
+              <span style="font-size: 11px; color: rgb(154, 163, 178);">Sel</span>
+              <span style="align-self: flex-start; min-width: 24px; height: 24px; padding: 0px 5px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; background: rgb(198, 243, 107); color: rgb(15, 17, 21);">29</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px;">
+                <span style="width: 6px; height: 6px; border-radius: 2px; background: rgb(57, 135, 229);"></span><span style="width: 6px; height: 6px; border-radius: 2px; background: rgb(213, 81, 129);"></span>
+              </span>
+              <span style="font-size: 11px; line-height: 1.3; color: rgb(201, 206, 216); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">Kirim laporan project</span>
+              <span style="font-size: 10px; color: rgb(154, 163, 178);">+1 lagi</span>
+            </a>
+          
+            <a style="min-width: 0px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: transparent; color: rgb(231, 233, 238); text-decoration: none;">
+              <span style="font-size: 11px; color: rgb(154, 163, 178);">Rab</span>
+              <span style="align-self: flex-start; min-width: 24px; height: 24px; padding: 0px 5px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; background: transparent; color: rgb(231, 233, 238);">30</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px;">
+                
+              </span>
+              <span style="font-size: 11px; line-height: 1.3; color: rgb(91, 100, 117); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">Kosong</span>
+              <span style="font-size: 10px; color: rgb(154, 163, 178);"></span>
+            </a>
+          
+            <a style="min-width: 0px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: transparent; color: rgb(231, 233, 238); text-decoration: none;">
+              <span style="font-size: 11px; color: rgb(154, 163, 178);">Kam</span>
+              <span style="align-self: flex-start; min-width: 24px; height: 24px; padding: 0px 5px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; background: transparent; color: rgb(231, 233, 238);">1</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px;">
+                
+              </span>
+              <span style="font-size: 11px; line-height: 1.3; color: rgb(91, 100, 117); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">Kosong</span>
+              <span style="font-size: 10px; color: rgb(154, 163, 178);"></span>
+            </a>
+          
+            <a style="min-width: 0px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: transparent; color: rgb(231, 233, 238); text-decoration: none;">
+              <span style="font-size: 11px; color: rgb(154, 163, 178);">Jum</span>
+              <span style="align-self: flex-start; min-width: 24px; height: 24px; padding: 0px 5px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; background: transparent; color: rgb(231, 233, 238);">2</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px;">
+                
+              </span>
+              <span style="font-size: 11px; line-height: 1.3; color: rgb(91, 100, 117); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">Kosong</span>
+              <span style="font-size: 10px; color: rgb(154, 163, 178);"></span>
+            </a>
+          
+            <a style="min-width: 0px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: transparent; color: rgb(231, 233, 238); text-decoration: none;">
+              <span style="font-size: 11px; color: rgb(154, 163, 178);">Sab</span>
+              <span style="align-self: flex-start; min-width: 24px; height: 24px; padding: 0px 5px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; background: transparent; color: rgb(231, 233, 238);">3</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px;">
+                <span style="width: 6px; height: 6px; border-radius: 2px; background: rgb(57, 135, 229);"></span><span style="width: 6px; height: 6px; border-radius: 2px; background: rgb(213, 81, 129);"></span>
+              </span>
+              <span style="font-size: 11px; line-height: 1.3; color: rgb(201, 206, 216); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">Halaman Keuangan</span>
+              <span style="font-size: 10px; color: rgb(154, 163, 178);">+1 lagi</span>
+            </a>
+          
+            <a style="min-width: 0px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: transparent; color: rgb(231, 233, 238); text-decoration: none;">
+              <span style="font-size: 11px; color: rgb(154, 163, 178);">Min</span>
+              <span style="align-self: flex-start; min-width: 24px; height: 24px; padding: 0px 5px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; background: transparent; color: rgb(231, 233, 238);">4</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px;">
+                
+              </span>
+              <span style="font-size: 11px; line-height: 1.3; color: rgb(91, 100, 117); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">Kosong</span>
+              <span style="font-size: 10px; color: rgb(154, 163, 178);"></span>
+            </a>
+          
+            <a style="min-width: 0px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: transparent; color: rgb(231, 233, 238); text-decoration: none;">
+              <span style="font-size: 11px; color: rgb(154, 163, 178);">Sen</span>
+              <span style="align-self: flex-start; min-width: 24px; height: 24px; padding: 0px 5px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 13px; background: transparent; color: rgb(231, 233, 238);">5</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px;">
+                <span style="width: 6px; height: 6px; border-radius: 2px; background: rgb(201, 133, 0);"></span><span style="width: 6px; height: 6px; border-radius: 2px; background: rgb(57, 135, 229);"></span>
+              </span>
+              <span style="font-size: 11px; line-height: 1.3; color: rgb(201, 206, 216); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">Bayar internet</span>
+              <span style="font-size: 10px; color: rgb(154, 163, 178);">+1 lagi</span>
+            </a>
+          
+        </div>
+      </section>
+
+      <a style="min-height: 0px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; color: rgb(231, 233, 238); text-decoration: none; overflow: hidden;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>
+          <span style="font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">Email</span>
+          <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(15, 17, 21); background: rgb(198, 243, 107); border-radius: 999px; padding: 0px 7px;">3 baru</span>
+          <span style="margin-left: auto; font-size: 12px; color: rgb(198, 243, 107);">›</span>
+        </span>
+        <span style="display: flex; flex-direction: column; min-width: 0px;"><span style="font-size: 12px; font-weight: 600;">Dimas Pratama</span><span style="font-size: 12px; color: rgb(154, 163, 178); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Review desain dashboard Anchoa</span></span>
+        <span style="display: flex; flex-direction: column; min-width: 0px;"><span style="font-size: 12px; font-weight: 600;">Info Tagihan</span><span style="font-size: 12px; color: rgb(154, 163, 178); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Tagihan listrik September</span></span>
+        <span style="display: flex; flex-direction: column; min-width: 0px;"><span style="font-size: 12px; font-weight: 600;">Sari Wulandari</span><span style="font-size: 12px; color: rgb(154, 163, 178); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Jadwal presentasi laporan</span></span>
+      </a>
+
+      <a style="min-height: 0px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; color: rgb(231, 233, 238); text-decoration: none; overflow: hidden;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7M12 7v4M16 7v10"></path></svg>
+          <span style="font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">Proyek</span>
+          <span style="margin-left: auto; font-size: 12px; color: rgb(198, 243, 107);">›</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 5px;">
+          <span style="display: flex; justify-content: space-between; font-size: 12px;"><span>Anchoa v1</span><span style="font-family: &quot;JetBrains Mono&quot;, monospace; color: rgb(154, 163, 178);">42%</span></span>
+          <span aria-hidden="true" style="height: 4px; border-radius: 2px; background: rgb(38, 43, 53); overflow: hidden;"><span style="display: block; width: 42%; height: 4px; background: rgb(198, 243, 107);"></span></span>
+          <span style="font-size: 11px; color: rgb(154, 163, 178);">Berikutnya: Halaman Keuangan · 3 Okt</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 5px;">
+          <span style="display: flex; justify-content: space-between; font-size: 12px;"><span>Laporan project</span><span style="font-family: &quot;JetBrains Mono&quot;, monospace; color: rgb(154, 163, 178);">80%</span></span>
+          <span aria-hidden="true" style="height: 4px; border-radius: 2px; background: rgb(38, 43, 53); overflow: hidden;"><span style="display: block; width: 80%; height: 4px; background: rgb(198, 243, 107);"></span></span>
+          <span style="font-size: 11px; color: rgb(255, 138, 122);">Tenggat hari ini</span>
+        </span>
+      </a>
+
+      <a style="min-height: 0px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; color: rgb(231, 233, 238); text-decoration: none; overflow: hidden;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>
+          <span style="font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">Unduhan</span>
+          <span style="margin-left: auto; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(198, 243, 107);">↓ 11,3 MB/s</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 5px; min-width: 0px;">
+          <span style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Tutorial rigging Live2D Cubism</span>
+          <span aria-hidden="true" style="height: 4px; border-radius: 2px; background: rgb(38, 43, 53); overflow: hidden;"><span style="display: block; width: 63%; height: 4px; background: rgb(198, 243, 107);"></span></span>
+          <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">63% · 19 dtk lagi</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 5px; min-width: 0px;">
+          <span style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Big Buck Bunny (torrent)</span>
+          <span aria-hidden="true" style="height: 4px; border-radius: 2px; background: rgb(38, 43, 53); overflow: hidden;"><span style="display: block; width: 41%; height: 4px; background: rgb(198, 243, 107);"></span></span>
+          <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">41% · 2 mnt lagi</span>
+        </span>
+      </a>
+
+      <a style="min-height: 0px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; color: rgb(231, 233, 238); text-decoration: none; overflow: hidden;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+          <span style="font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 14px; font-weight: 600;">Berkas terbaru</span>
+          <span style="margin-left: auto; font-size: 12px; color: rgb(198, 243, 107);">›</span>
+        </span>
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 17l-5-5-9 8"></path></svg><span style="flex-grow: 1; min-width: 0px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">layout-dashboard.png</span><span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">21.40</span></span>
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path><path d="M9 11h6M9 15h6"></path></svg><span style="flex-grow: 1; min-width: 0px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">DESIGN.md</span><span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">17.27</span></span>
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4-2.5z"></path></svg><span style="flex-grow: 1; min-width: 0px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">demo-asisten.mp4</span><span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">kemarin</span></span>
+      </a>
+    </div>
+  </main>
+
+  <aside style="width: 380px; flex-shrink: 0; display: flex; flex-direction: column; background: rgb(11, 13, 16); border-left: 1px solid rgb(38, 43, 53); box-sizing: border-box;">
+
+    <section style="flex-shrink: 0; padding: 16px 20px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid rgb(38, 43, 53);">
+      <div style="flex-shrink: 0; display: grid; grid-template-rows: repeat(7, 10px); grid-auto-flow: column; grid-auto-columns: 10px; gap: 3px;">
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: transparent;"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(198, 243, 107);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(198, 243, 107);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(78, 106, 38);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: rgb(47, 59, 30);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid rgb(231, 233, 238); background: rgb(26, 30, 37);"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid rgb(42, 48, 59); background: transparent;"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: transparent;"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: transparent;"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: transparent;"></span>
+        
+          <span style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid transparent; background: transparent;"></span>
+        
+      </div>
+      <div style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <h2 style="margin: 0px; font-size: 11px; font-weight: 500; color: rgb(154, 163, 178); text-transform: uppercase; letter-spacing: 0.08em;">Kontribusi kode</h2>
+          <div style="display: flex; align-items: center; gap: 2px;">
+            <button style="width: 28px; height: 28px; border-radius: 8px; border: 0px; background: transparent; color: rgb(231, 233, 238); display: flex; align-items: center; justify-content: center; padding: 0px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+            <span style="min-width: 60px; text-align: center; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 12px;">Sep 2026</span>
+            <button style="width: 28px; height: 28px; border-radius: 8px; border: 0px; background: transparent; color: rgb(58, 65, 80); display: flex; align-items: center; justify-content: center; padding: 0px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+          </div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 6px;">
+          <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 22px; font-weight: 500; line-height: 1.2;">87</span>
+          <span style="font-size: 12px; color: rgb(154, 163, 178);">kontribusi</span>
+        </div>
+        <div style="font-size: 11px; color: rgb(154, 163, 178);"><span style="color: rgb(255, 138, 122);">−13% vs Agu</span> · streak 6 hari</div>
+      </div>
+    </section>
+
+    <section style="flex: 1 1 0px; min-height: 0px; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 18px; box-sizing: border-box;">
+      <div style="flex-grow: 1; min-height: 0px; position: relative; border-radius: 18px; background: rgb(18, 21, 27); border: 1px solid rgb(38, 43, 53); overflow: hidden; display: flex; align-items: flex-end; justify-content: center;">
+        <div style="position: absolute; left: 50%; bottom: 143px; margin-left: -130px; width: 260px; height: 260px; border-radius: 50%; background: rgb(23, 27, 34);"></div>
+        <svg data-anim="" width="300" height="300" viewBox="0 0 300 300" aria-hidden="true" style="position: absolute; left: 50%; bottom: 123px; margin-left: -150px; color: rgb(198, 243, 107); fill: currentcolor; opacity: 1; transition: color 0.4s, opacity 0.4s; animation: 48s linear 0s infinite normal none running anchoa-school;"><g transform="rotate(198 150 150) translate(150 24) scale(0.95)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.15"></path></g><g transform="rotate(215 150 150) translate(150 20) scale(0.77)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.21"></path></g><g transform="rotate(221 150 150) translate(150 19) scale(0.78)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.17"></path></g><g transform="rotate(237 150 150) translate(150 13) scale(0.82)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.2"></path></g><g transform="rotate(250 150 150) translate(150 11) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(264 150 150) translate(150 25) scale(1.12)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.23"></path></g><g transform="rotate(264 150 150) translate(150 24) scale(0.93)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.33"></path></g><g transform="rotate(274 150 150) translate(150 17) scale(1.07)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.27"></path></g><g transform="rotate(288 150 150) translate(150 25) scale(0.86)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.26"></path></g><g transform="rotate(299 150 150) translate(150 19) scale(0.98)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.34"></path></g><g transform="rotate(305 150 150) translate(150 21) scale(1.19)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.37"></path></g><g transform="rotate(311 150 150) translate(150 17) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.42"></path></g><g transform="rotate(326 150 150) translate(150 21) scale(1.30)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.29"></path></g><g transform="rotate(331 150 150) translate(150 14) scale(0.97)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.38"></path></g><g transform="rotate(335 150 150) translate(150 15) scale(1.25)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.41"></path></g><g transform="rotate(353 150 150) translate(150 21) scale(1.24)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.43"></path></g><g transform="rotate(358 150 150) translate(150 19) scale(1.32)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.52"></path></g><g transform="rotate(365 150 150) translate(150 15) scale(0.99)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.48"></path></g><g transform="rotate(376 150 150) translate(150 10) scale(1.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.4"></path></g><g transform="rotate(381 150 150) translate(150 15) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(386 150 150) translate(150 24) scale(1.03)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(394 150 150) translate(150 22) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g><g transform="rotate(401 150 150) translate(150 19) scale(1.30)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.61"></path></g><g transform="rotate(418 150 150) translate(150 12) scale(1.18)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.5"></path></g><g transform="rotate(420 150 150) translate(150 12) scale(1.53)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.43"></path></g><g transform="rotate(426 150 150) translate(150 22) scale(1.19)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g></svg>
+        <svg width="250" height="384" viewBox="0 0 150 230" fill="none" stroke="#9AA3B2" stroke-width="1.6" aria-hidden="true" style="position: relative; margin-bottom: -8px;"><path d="M40 230c0-58 16-110 35-110s35 52 35 110" fill="#1D2129"></path><circle cx="75" cy="62" r="34" fill="#1D2129"></circle><path d="M41 58c4-30 64-34 68 0" fill="#2A303B"></path><circle cx="63" cy="66" r="3" fill="#9AA3B2"></circle><circle cx="87" cy="66" r="3" fill="#9AA3B2"></circle><path d="M67 80c5 4 11 4 16 0"></path></svg>
+
+        <div style="position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 999px; background: rgb(11, 13, 16); border: 1px solid rgb(38, 43, 53); font-size: 12px;">
+          <div aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 12px;">
+            <span data-anim="" style="width: 3px; height: 12px; border-radius: 2px; background: rgb(198, 243, 107); animation: 0.9s ease-in-out -0.1s infinite normal none running anchoa-wave;"></span>
+            <span data-anim="" style="width: 3px; height: 12px; border-radius: 2px; background: rgb(198, 243, 107); animation: 0.9s ease-in-out -0.4s infinite normal none running anchoa-wave;"></span>
+            <span data-anim="" style="width: 3px; height: 12px; border-radius: 2px; background: rgb(198, 243, 107); animation: 0.9s ease-in-out -0.65s infinite normal none running anchoa-wave;"></span>
+            <span data-anim="" style="width: 3px; height: 12px; border-radius: 2px; background: rgb(198, 243, 107); animation: 0.9s ease-in-out -0.25s infinite normal none running anchoa-wave;"></span>
+          </div>
+          <span>Berbicara</span>
+        </div>
+        <span style="position: absolute; top: 16px; right: 14px; font-size: 11px; color: rgb(154, 163, 178);">Avatar Live2D</span>
+
+        <div style="position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; background: rgba(11, 13, 16, 0.92); border: 1px solid rgb(38, 43, 53);">
+          
+          
+            <span style="font-size: 12px; color: rgb(154, 163, 178);">Kamu: “Apa yang harus kukerjakan malam ini?”</span>
+            <span style="font-size: 14px; line-height: 1.45;">Satu yang terlambat: Bayar tagihan listrik. Mau kucatat pengeluarannya sekalian?</span>
+          
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; justify-content: center;">
+        <button style="min-height: 40px; font-style: inherit; font-variant: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-size: 13px; padding: 0px 16px; border-radius: 999px; border: 0px; background: rgb(198, 243, 107); color: rgb(15, 17, 21); font-weight: 600; cursor: pointer;">Catat pengeluaran</button>
+        <button style="min-height: 40px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-size: 13px; padding: 0px 16px; border-radius: 999px; border: 1px solid rgb(38, 43, 53); background: transparent; color: rgb(231, 233, 238); cursor: pointer;">Nanti</button>
+      </div>
+
+      
+
+      <div style="display: flex; align-items: center; justify-content: center; gap: 24px;">
+        <button style="width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgb(38, 43, 53); background: transparent; color: rgb(154, 163, 178); display: flex; align-items: center; justify-content: center; padding: 0px; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path></svg></button>
+        <div style="position: relative; width: 64px; height: 64px;">
+          
+          <button style="position: relative; width: 64px; height: 64px; border-radius: 50%; border: 0px; background: rgb(198, 243, 107); color: rgb(15, 17, 21); box-shadow: rgba(198, 243, 107, 0.12) 0px 0px 0px 6px; display: flex; align-items: center; justify-content: center; padding: 0px; cursor: pointer;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+        </div>
+        <button style="width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgb(38, 43, 53); background: transparent; color: rgb(154, 163, 178); display: flex; align-items: center; justify-content: center; padding: 0px; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg></button>
+      </div>
+    </section>
+  </aside>
+  
+  </div></div></div></div>
+          </figure>
+          <figure class="phone" role="img" aria-label="Anchoa di HP: Beranda dengan dok menu; tombol tengah membuka roda menu yang dikelilingi kawanan teri.">
+            <div class="dcm-fit" data-w="390" style="aspect-ratio: 390 / 844"><div class="dcm" inert aria-hidden="true" style="width: 390px; height: 844px"><div><div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: rgb(15, 17, 21); color: rgb(231, 233, 238); font-family: &quot;IBM Plex Sans&quot;, system-ui, sans-serif; overflow: hidden;">
+  <header style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px;"><div style="flex-grow: 1; min-width: 0px; display: flex; flex-direction: column; gap: 2px;"><h1 style="margin: 0px; font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Malam, Syharipf</h1><span style="font-size: 12px; color: rgb(154, 163, 178);">Selasa, 29 September</span></div><a style="width: 44px; height: 44px; flex-shrink: 0; position: relative; border-radius: 12px; border: 0px; background: rgb(23, 26, 33); color: rgb(201, 206, 216); display: flex; align-items: center; justify-content: center; padding: 0px; cursor: pointer; text-decoration: none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: rgb(255, 138, 122); border: 2px solid rgb(23, 26, 33);"></span></a></header>
+  <div style="flex-grow: 1; min-height: 0px; overflow-y: auto; padding: 4px 16px 120px; display: flex; flex-direction: column; gap: 12px;">
+    <section style="display: flex; flex-direction: column; gap: 12px; padding: 14px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="position: relative; width: 52px; height: 52px; flex-shrink: 0;">
+          <svg data-anim="" width="80" height="80" viewBox="0 0 68 68" aria-hidden="true" style="position: absolute; top: -14px; left: -14px; color: rgb(91, 100, 117); fill: currentcolor; opacity: 0.7; animation: 12s linear 0s infinite normal none paused anchoa-school;"><g transform="rotate(207 34 34) translate(34 5.4) scale(0.35)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.24"></path></g><g transform="rotate(242 34 34) translate(34 6.8) scale(0.33)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(264 34 34) translate(34 6.3) scale(0.43)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.31"></path></g><g transform="rotate(292 34 34) translate(34 5.6) scale(0.41)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.3"></path></g><g transform="rotate(312 34 34) translate(34 4.4) scale(0.42)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.44"></path></g><g transform="rotate(334 34 34) translate(34 6.8) scale(0.45)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.46"></path></g><g transform="rotate(351 34 34) translate(34 6.9) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.47"></path></g><g transform="rotate(375 34 34) translate(34 4.4) scale(0.48)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.62"></path></g><g transform="rotate(391 34 34) translate(34 4.6) scale(0.46)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.68"></path></g><g transform="rotate(415 34 34) translate(34 6.7) scale(0.44)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.53"></path></g><g transform="rotate(435 34 34) translate(34 5.7) scale(0.51)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.59"></path></g></svg>
+          <span style="position: relative; width: 52px; height: 52px; border-radius: 50%; background: rgb(29, 33, 41); border: 1px solid rgb(38, 43, 53); box-sizing: border-box; display: flex; align-items: flex-end; justify-content: center; overflow: hidden;"><svg width="38" height="46" viewBox="0 0 150 180" fill="none" stroke="#9AA3B2" stroke-width="6" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg></span>
+        </div>
+        <p style="margin: 0px; flex-grow: 1; font-size: 14px; line-height: 1.45;">Satu yang terlambat: tagihan listrik. Mau kucatat pembayarannya?</p>
+      </div>
+      <button style="min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 12px; border: 1px solid rgb(78, 106, 38); background: transparent; color: rgb(198, 243, 107); font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-size: 14px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"></path></svg>Dengarkan rekap</button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px;">
+      <div style="display: flex; align-items: center; margin-bottom: 4px;"><h2 style="margin: 0px; font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 15px; font-weight: 600;">Hari ini</h2><span style="margin-left: auto; font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 12px; color: rgb(154, 163, 178);">0/3</span></div>
+      
+        <button style="min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0px; border-width: 1px 0px 0px; border-right-style: initial; border-bottom-style: initial; border-left-style: initial; border-right-color: initial; border-bottom-color: initial; border-left-color: initial; border-image: initial; border-top-style: solid; border-top-color: transparent; background: transparent; color: rgb(231, 233, 238); font: inherit; text-align: left; cursor: pointer;">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; box-sizing: border-box; border-radius: 7px; border: 2px solid rgb(58, 65, 80); background: transparent; color: rgb(15, 17, 21); display: flex; align-items: center; justify-content: center;"><span style="display: flex; opacity: 0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></span>
+          <span style="flex-grow: 1; font-size: 14px; color: rgb(231, 233, 238);">Bayar tagihan listrik</span>
+          <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(255, 138, 122);">terlambat</span>
+        </button>
+      
+        <button style="min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0px; border-width: 1px 0px 0px; border-right-style: initial; border-bottom-style: initial; border-left-style: initial; border-right-color: initial; border-bottom-color: initial; border-left-color: initial; border-image: initial; border-top-style: solid; border-top-color: rgb(38, 43, 53); background: transparent; color: rgb(231, 233, 238); font: inherit; text-align: left; cursor: pointer;">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; box-sizing: border-box; border-radius: 7px; border: 2px solid rgb(58, 65, 80); background: transparent; color: rgb(15, 17, 21); display: flex; align-items: center; justify-content: center;"><span style="display: flex; opacity: 0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></span>
+          <span style="flex-grow: 1; font-size: 14px; color: rgb(231, 233, 238);">Kirim laporan project</span>
+          <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">18.00</span>
+        </button>
+      
+        <button style="min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0px; border-width: 1px 0px 0px; border-right-style: initial; border-bottom-style: initial; border-left-style: initial; border-right-color: initial; border-bottom-color: initial; border-left-color: initial; border-image: initial; border-top-style: solid; border-top-color: rgb(38, 43, 53); background: transparent; color: rgb(231, 233, 238); font: inherit; text-align: left; cursor: pointer;">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; box-sizing: border-box; border-radius: 7px; border: 2px solid rgb(58, 65, 80); background: transparent; color: rgb(15, 17, 21); display: flex; align-items: center; justify-content: center;"><span style="display: flex; opacity: 0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></span>
+          <span style="flex-grow: 1; font-size: 14px; color: rgb(231, 233, 238);">Telepon bengkel</span>
+          <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(154, 163, 178);">hari ini</span>
+        </button>
+      
+    </section>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0px, 1fr)); gap: 12px;">
+      <a style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; color: rgb(231, 233, 238); text-decoration: none;">
+        <span style="font-size: 12px; color: rgb(154, 163, 178);">Habit</span>
+        <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 22px;">3<span style="font-size: 13px; color: rgb(154, 163, 178);"> / 5</span></span>
+        <span aria-hidden="true" style="display: flex; gap: 3px;"><span style="flex-grow: 1; height: 5px; border-radius: 3px; background: rgb(198, 243, 107);"></span><span style="flex-grow: 1; height: 5px; border-radius: 3px; background: rgb(198, 243, 107);"></span><span style="flex-grow: 1; height: 5px; border-radius: 3px; background: rgb(198, 243, 107);"></span><span style="flex-grow: 1; height: 5px; border-radius: 3px; background: rgb(38, 43, 53);"></span><span style="flex-grow: 1; height: 5px; border-radius: 3px; background: rgb(38, 43, 53);"></span></span>
+      </a>
+      <a style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; color: rgb(231, 233, 238); text-decoration: none;">
+        <span style="font-size: 12px; color: rgb(154, 163, 178);">Saldo</span>
+        <span style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 18px;">Rp 975.000</span>
+        <span style="font-size: 11px; color: rgb(255, 138, 122);">Listrik terlambat 1 hari</span>
+      </a>
+    </div>
+
+    <a style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; color: rgb(231, 233, 238); text-decoration: none;">
+      <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: rgb(29, 33, 41); color: rgb(201, 206, 216); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H4zM2 19h20"></path></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px;">File di laptop</span><span style="font-size: 12px; color: rgb(198, 243, 107);">Online lewat Tailscale · 24 ms</span></span>
+      <span style="display: flex; color: rgb(154, 163, 178);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></span>
+    </a>
+    <a style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: rgb(23, 26, 33); border: 1px solid rgb(38, 43, 53); border-radius: 14px; color: rgb(231, 233, 238); text-decoration: none;">
+      <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: rgb(29, 33, 41); color: rgb(201, 206, 216); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM3 7l9 6 9-6"></path></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px;">3 email baru</span><span style="font-size: 12px; color: rgb(154, 163, 178); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Dimas Pratama: Review desain dashboard…</span></span>
+      <span style="display: flex; color: rgb(154, 163, 178);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></span>
+    </a>
+  </div>
+  <div aria-hidden="true" style="position: absolute; left: 0px; right: 0px; bottom: 0px; height: 136px; z-index: 2; background: linear-gradient(rgba(15, 17, 21, 0) 0%, rgba(15, 17, 21, 0.94) 42%, rgb(15, 17, 21) 60%); pointer-events: none;"></div>
+  <button style="position: absolute; top: 0px; left: 0px; width: 390px; height: 844px; z-index: 3; margin: 0px; padding: 0px; border: 0px; background: rgba(5, 7, 10, 0.76); opacity: 0; pointer-events: none; transition: opacity 0.25s; cursor: default;"></button>
+  <nav style="position: absolute; left: 0px; right: 0px; bottom: 0px; height: 300px; z-index: 4; pointer-events: none;">
+    <div style="position: absolute; inset: 0px; touch-action: none; pointer-events: none;">
+      <div aria-hidden="true" style="position: absolute; left: 37px; top: 78px; width: 316px; height: 316px; border-radius: 50%; box-sizing: border-box; background: rgb(11, 13, 16); border: 1px solid rgb(38, 43, 53); opacity: 0; transform: scale(0.3); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s;"></div>
+      <svg aria-hidden="true" width="224" height="224" viewBox="-112 -112 224 224" style="position: absolute; left: 83px; top: 124px; overflow: visible; opacity: 0; transition: opacity 0.25s;"><circle r="112" fill="none" stroke="#2E3440" stroke-dasharray="2 9"></circle></svg>
+      <div aria-hidden="true" style="position: absolute; left: 195px; top: 236px; width: 0px; height: 0px; transform: rotate(0deg) scale(0.58); transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);">
+        <svg data-anim="" width="180" height="180" viewBox="-90 -90 180 180" style="position: absolute; left: -90px; top: -90px; color: rgb(198, 243, 107); fill: currentcolor; overflow: visible; animation: 16s linear 0s infinite normal none running anchoa-school;"><g transform="rotate(0.0) translate(0 -75) rotate(-8) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(17.4) translate(0 -65) rotate(3) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(34.7) translate(0 -77) rotate(-3) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(52.1) translate(0 -67) rotate(8) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(69.5) translate(0 -75) rotate(2) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(86.8) translate(0 -65) rotate(-4) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(98.2) translate(0 -77) rotate(7) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(115.5) translate(0 -67) rotate(1) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(132.9) translate(0 -75) rotate(-5) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(150.3) translate(0 -65) rotate(6) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(167.6) translate(0 -77) rotate(0) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(185.0) translate(0 -67) rotate(-6) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(196.4) translate(0 -75) rotate(5) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(213.7) translate(0 -65) rotate(-1) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(231.1) translate(0 -77) rotate(-7) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(248.5) translate(0 -67) rotate(4) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(265.8) translate(0 -75) rotate(-2) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(283.2) translate(0 -65) rotate(-8) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(294.5) translate(0 -77) rotate(3) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(311.9) translate(0 -67) rotate(-3) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(329.3) translate(0 -75) rotate(8) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(346.6) translate(0 -65) rotate(2) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g></svg>
+      </div>
+      <div aria-hidden="true" style="position: absolute; left: 195px; top: 236px; width: 0px; height: 0px; opacity: 0; transform: rotate(0deg) scale(0.3); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s;">
+        
+          <button style="position: absolute; left: 0px; top: -112px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(198, 243, 107); background: rgb(198, 243, 107); color: rgb(15, 17, 21); opacity: 0; transform: rotate(0deg) scale(1.12); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3zM9 20v-6h6v6"></path></svg></button>
+        
+          <button style="position: absolute; left: 61px; top: -94px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2zM6 17a2 2 0 0 1 2-2h11"></path></svg></button>
+        
+          <button style="position: absolute; left: 102px; top: -47px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12.5l2.7 2.7L16.5 9.5"></path></svg></button>
+        
+          <button style="position: absolute; left: 111px; top: 16px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"></path></svg></button>
+        
+          <button style="position: absolute; left: 85px; top: 73px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18v13H3zM16 12.5h2M3 10h18"></path></svg></button>
+        
+          <button style="position: absolute; left: 32px; top: 107px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3zM8 7v7M12 7v4M16 7v10"></path></svg></button>
+        
+          <button style="position: absolute; left: -32px; top: 107px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg></button>
+        
+          <button style="position: absolute; left: -85px; top: 73px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM3 7l9 6 9-6"></path></svg></button>
+        
+          <button style="position: absolute; left: -111px; top: 16px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></button>
+        
+          <button style="position: absolute; left: -102px; top: -47px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg></button>
+        
+          <button style="position: absolute; left: -61px; top: -94px; width: 52px; height: 52px; margin: -26px 0px 0px -26px; padding: 0px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 0; transform: rotate(0deg) scale(0.92); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s, background-color 0.3s; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"></path></svg></button>
+        
+      </div>
+      <span style="position: absolute; left: 0px; right: 0px; top: 170px; text-align: center; font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 13px; font-weight: 600; color: rgb(231, 233, 238); text-shadow: rgb(11, 13, 16) 0px 0px 4px, rgb(11, 13, 16) 0px 0px 8px, rgb(11, 13, 16) 0px 0px 12px; opacity: 0; transition: opacity 0.2s; pointer-events: none;">Beranda</span>
+      
+      <span aria-hidden="true" style="position: absolute; left: 0px; right: 0px; top: 274px; text-align: center; font-size: 11px; color: rgb(91, 100, 117); opacity: 0; transition: opacity 0.2s; pointer-events: none;">geser kiri / kanan</span>
+    </div>
+    <a style="position: absolute; top: 210px; width: 52px; height: 52px; border-radius: 50%; border: 0px; padding: 0px; display: flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: opacity 0.2s; left: 40px; background: rgb(23, 26, 33); color: rgb(201, 206, 216); opacity: 1; pointer-events: auto;"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4"></path></svg></a>
+    <a style="position: absolute; top: 210px; width: 52px; height: 52px; border-radius: 50%; border: 0px; padding: 0px; display: flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: opacity 0.2s; left: 298px; background: rgb(198, 243, 107); color: rgb(15, 17, 21); opacity: 1; pointer-events: auto;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></a>
+    <button style="position: absolute; top: 238px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); padding: 0px; background: rgb(23, 26, 33); color: rgb(231, 233, 238); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.2s; left: 22px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <button style="position: absolute; top: 238px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgb(46, 52, 64); padding: 0px; background: rgb(23, 26, 33); color: rgb(231, 233, 238); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.2s; left: 324px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    <button style="position: absolute; left: 165px; top: 206px; width: 60px; height: 60px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid rgb(78, 106, 38); padding: 0px; background: rgb(23, 26, 33); color: rgb(198, 243, 107); display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer; box-shadow: rgb(15, 17, 21) 0px 0px 0px 5px, rgba(0, 0, 0, 0.5) 0px 10px 24px; transition: background-color 0.2s, border-color 0.2s;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3zM9 20v-6h6v6"></path></svg></button>
+    <span aria-hidden="true" style="position: absolute; left: 0px; right: 0px; top: 270px; text-align: center; font-size: 11px; font-weight: 500; color: rgb(198, 243, 107); text-shadow: rgb(15, 17, 21) 0px 0px 4px, rgb(15, 17, 21) 0px 0px 8px; opacity: 1; transition: opacity 0.2s; pointer-events: none;">Beranda</span>
+  </nav></div></div></div></div>
+          </figure>
+        </div>
+        <p class="shot-caption" data-i18n="mock.caption">Dashboard desktop dan versi HP, diambil langsung dari canvas desain · data contoh</p>
+      </div>
+    </div>
+
+    <section class="band" id="fitur" data-depth="20" aria-labelledby="h-feat">
+      <div class="wrap">
+        <div class="band-head">
+          <div class="depth">−20 m<small data-i18n="zone.epi">zona epipelagik</small></div>
+          <div><h2 id="h-feat" data-i18n="feat.title">Semua yang kamu urus tiap hari, dalam satu aplikasi.</h2><p data-i18n="feat.lead">Bicara seperti ke teman, atau ketik kalau sedang di tempat ramai. Asisten membaca konteks dari semua menu, bukan hanya satu.</p></div>
+        </div>
+        <div class="features">
+          <article class="card span2 reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+            <h3 data-i18n="f1.t">Asisten suara dengan avatar Live2D</h3>
+            <p data-i18n="f1.d">Ucapkan “catat makan siang 35 ribu” atau “aku sudah olahraga”. STT dan TTS bisa berjalan di laptop, jadi suaramu tidak harus keluar dari perangkat. Avatar berhenti bergerak saat diam supaya hemat baterai.</p>
+            <div class="mini-term"><span class="c" data-i18n="f1.c1"># kamu</span>
+<span data-i18n="f1.c2">“tambah tugas kirim laporan jumat jam 5”</span>
+<span class="c" data-i18n="f1.c3"># anchoa</span>
+<span class="p" data-i18n="f1.c4">✓ Tugas dibuat · Jumat 17.00 · Proyek: Laporan</span></div>
+          </article>
+          <article class="card reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"/></svg></div>
+            <h3 data-i18n="f2.t">Jadwal & tugas</h3>
+            <p data-i18n="f2.d">Kalender, timeline 8 minggu, dan Kanban proyek. Tenggat dan tagihan muncul di rekap pagi.</p>
+          </article>
+          <article class="card reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12.5l2.7 2.7L16.5 9.5"/></svg></div>
+            <h3 data-i18n="f3.t">Habit</h3>
+            <p data-i18n="f3.d">Centang harian, streak yang adil untuk hari libur, dan heatmap bulanan per kebiasaan.</p>
+          </article>
+          <article class="card reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2zM6 17a2 2 0 0 1 2-2h11"/></svg></div>
+            <h3 data-i18n="f4.t">Jurnal privat</h3>
+            <p data-i18n="f4.d">Ide, curhat, dan catatan. Isinya dienkripsi di perangkat sebelum disinkronkan; asisten hanya membaca entri yang kamu minta.</p>
+          </article>
+          <article class="card reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v12H4zM8 7V5h8v2M4 12h16"/></svg></div>
+            <h3 data-i18n="f5.t">Keuangan</h3>
+            <p data-i18n="f5.d">Saldo, arus kas 6 bulan, tagihan, dan transaksi yang bisa dicatat lewat suara.</p>
+          </article>
+          <article class="card span2 reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+            <h3 data-i18n="f6.t">File laptop dari HP</h3>
+            <p data-i18n="f6.d">File tetap di laptop. HP membukanya lewat Tailscale dan SFTP, lengkap dengan pratinjau dan “Simpan ke HP”.</p>
+          </article>
+          <article class="card span2 reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div>
+            <span class="tag" data-i18n="f7.tag">untuk developer</span>
+            <h3 data-i18n="f7.t">Agen kode tercatat di proyekmu</h3>
+            <p data-i18n="f7.d">Claude Code dan agen lain yang mendukung MCP mencatat rencana, progres, dan hasil tes ke Kanban. Izin untuk perintah berisiko bisa kamu jawab dari HP.</p>
+            <div class="mini-term"><span class="p">$</span> claude mcp add --transport http anchoa \
+    https://&lt;ref&gt;.supabase.co/functions/v1/agent-mcp
+<span class="c" data-i18n="f7.c1"># di Anchoa</span>
+<span class="p" data-i18n="f7.c2">✓ Rencana dibuat · 5 langkah → Kanban</span>
+<span class="w" data-i18n="f7.c3">! Minta izin: npm install chart.js@4</span></div>
+          </article>
+          <article class="card span2 reveal">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></div>
+            <h3 data-i18n="f8.t">Unduhan & email</h3>
+            <p data-i18n="f8.d">yt-dlp dan ffmpeg untuk video dan audio, torrent opsional. Email lewat IMAP dengan ringkasan dari asisten; kata sandinya tinggal di keyring perangkat, tidak di cloud.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="cara-kerja" data-depth="60" aria-labelledby="h-how">
+      <div class="wrap">
+        <div class="band-head">
+          <div class="depth">−60 m<small data-i18n="zone.epi">zona epipelagik</small></div>
+          <div><h2 id="h-how" data-i18n="how.title">Data kecil di cloud, file besar tetap di rumah.</h2><p data-i18n="how.lead">Tugas, jadwal, dan keuangan tersinkron lewat Supabase supaya HP tetap jalan saat laptop mati. File, email, dan unduhan tidak pernah diunggah.</p></div>
+        </div>
+        <div class="flow reveal">
+          <div class="node">
+            <span class="tag" data-i18n="how.n1tag">laptop · HP</span>
+            <h3>Anchoa App</h3>
+            <ul><li data-i18n="how.n1a">Tauri 2 + Svelte 5 + Rust</li><li data-i18n="how.n1b">Cache lokal, tampil instan</li><li data-i18n="how.n1c">Suara, email, unduhan di perangkat</li></ul>
+          </div>
+          <div class="link"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><line class="dash" x1="0" y1="7" x2="100" y2="7"/></svg><span data-i18n="how.l1">HTTPS + JWT<br>Realtime</span></div>
+          <div class="node">
+            <span class="tag" data-i18n="how.n2tag">cloud · Singapura</span>
+            <h3>Supabase</h3>
+            <ul><li data-i18n="how.n2a">Postgres + Row Level Security</li><li data-i18n="how.n2b">Edge Functions untuk AI</li><li data-i18n="how.n2c">Kunci API di Vault</li></ul>
+          </div>
+          <div class="link"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><line class="dash rev" x1="0" y1="7" x2="100" y2="7"/></svg><span data-i18n="how.l2">Tailscale<br>SFTP</span></div>
+          <div class="node">
+            <span class="tag" data-i18n="how.n3tag">rumah</span>
+            <h3 data-i18n="how.n3t">Laptop</h3>
+            <ul><li data-i18n="how.n3a">Folder file utama</li><li data-i18n="how.n3b">sshd hanya di jaringan Tailscale</li><li data-i18n="how.n3c">Model AI lokal (opsional)</li></ul>
+          </div>
+        </div>
+        <p class="note" data-i18n="how.note">Garis kanan tidak lewat cloud: HP bicara langsung ke laptop lewat jaringan pribadi Tailscale.</p>
+      </div>
+    </section>
+
+    <section class="band" id="rekayasa" data-depth="120" aria-labelledby="h-eng">
+      <div class="wrap">
+        <div class="band-head">
+          <div class="depth">−120 m<small data-i18n="zone.epi">zona epipelagik</small></div>
+          <div><h2 id="h-eng" data-i18n="eng.title">Dibangun dengan kebiasaan QA dan keamanan sejak hari pertama.</h2><p data-i18n="eng.lead">Proyek ini juga portofolio. Setiap keputusan keamanan punya test, dan setiap fase punya kriteria selesai.</p></div>
+        </div>
+        <div class="eng">
+          <div class="checks">
+            <div class="check reveal"><span class="ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b data-i18n="e1.t">RLS menolak secara default</b><span data-i18n="e1.d">Setiap tabel punya policy pemilik-saja dan test pgTAP: pengguna B tidak bisa membaca atau mengubah data pengguna A.</span></div></div>
+            <div class="check reveal"><span class="ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b data-i18n="e2.t">Rahasia tidak pernah ada di aplikasi</b><span data-i18n="e2.d">Kunci API AI disimpan di Supabase Vault; aplikasi hanya melihat 4 karakter terakhir. Kredensial email dan SSH ada di keyring perangkat.</span></div></div>
+            <div class="check reveal"><span class="ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b data-i18n="e3.t">Jurnal terenkripsi di perangkat</b><span data-i18n="e3.d">Server hanya menyimpan ciphertext. Pencarian berjalan lokal.</span></div></div>
+            <div class="check reveal"><span class="ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b data-i18n="e4.t">Agen kode dengan izin, bukan kepercayaan buta</b><span data-i18n="e4.d">Token per proyek yang bisa dicabut, mode bawaan “Rencana saja”, dan setiap perintah berisiko menunggu persetujuanmu.</span></div></div>
+          </div>
+          <div class="reveal">
+            <div class="code">
+              <div class="code-head">supabase/tests/tasks_rls.test.sql</div>
+<pre><span class="k">begin</span>;
+<span class="k">select</span> plan(<span class="n">2</span>);
+
+<span class="c">-- masuk sebagai pengguna B</span>
+<span class="k">set local</span> role authenticated;
+<span class="k">set local</span> request.jwt.claims <span class="k">to</span>
+  <span class="s">'{"sub":"0000…0002"}'</span>;
+
+<span class="k">select</span> is_empty(
+  <span class="s">$$select * from tasks where user_id = '0000…0001'$$</span>,
+  <span class="s">'B tidak bisa melihat tugas A'</span>
+);
+<span class="k">select</span> throws_ok(
+  <span class="s">$$update tasks set title = 'x' where user_id = '0000…0001'$$</span>
+);
+
+<span class="k">select</span> * <span class="k">from</span> finish();
+<span class="k">rollback</span>;</pre>
+            </div>
+            <div class="chips">
+              <span class="chip">supabase db lint</span><span class="chip">supabase test db</span><span class="chip">svelte-check</span><span class="chip">cargo clippy -D warnings</span><span class="chip">cargo audit</span><span class="chip">deno test</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="unduh" data-depth="180" aria-labelledby="h-dl">
+      <div class="wrap">
+        <div class="band-head">
+          <div class="depth">−180 m<small data-i18n="zone.epi">zona epipelagik</small></div>
+          <div><h2 id="h-dl" data-i18n="dl.title">Saat ini baru tersedia di Fedora.</h2><p data-i18n="dl.lead">Paket .rpm ada di GitHub Releases. Karena dibangun dengan Tauri, OS lain bisa menyusul dari codebase yang sama, satu per satu. Repo DNF dan Flatpak sedang disiapkan lebih dulu.</p></div>
+        </div>
+        <div class="dl">
+          <article class="card main reveal">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <span class="status ready" data-i18n="dl.ready">● tersedia</span>
+              <h3 data-i18n="dl.rpmT">Fedora · paket .rpm</h3>
+              <p data-i18n="dl.rpmD">Unduh berkas .rpm terbaru dari halaman rilis, lalu pasang dengan dnf supaya dependensinya ikut terpasang.</p>
+              <div><a class="btn btn-primary js-releases" href="https://github.com/USERNAME/anchoa/releases/latest" target="_blank" rel="noopener"><span data-i18n="dl.rpmBtn">Buka GitHub Releases</span></a></div>
+            </div>
+            <div class="cmds">
+              <div class="cmd"><code id="c1">sudo dnf install ./anchoa-*.x86_64.rpm</code><button class="copy" type="button" data-copy="c1" data-i18n="copy">Salin</button></div>
+              <div class="cmd"><code id="c2">anchoa</code><button class="copy" type="button" data-copy="c2" data-i18n="copy">Salin</button></div>
+            </div>
+          </article>
+          <article class="card reveal">
+            <span class="status soon" data-i18n="dl.soon">◌ segera</span>
+            <h3 data-i18n="dl.dnfT">Repo DNF (Copr)</h3>
+            <p data-i18n="dl.dnfD">Sekali aktifkan, lalu pembaruan datang lewat dnf upgrade.</p>
+            <div class="cmd"><code id="c3" class="js-copr">sudo dnf copr enable USERNAME/anchoa</code><button class="copy" type="button" data-copy="c3" data-i18n="copy">Salin</button></div>
+          </article>
+          <article class="card reveal">
+            <span class="status soon" data-i18n="dl.soon">◌ segera</span>
+            <h3>Flatpak · Flathub</h3>
+            <p data-i18n="dl.flatD">Untuk distro Linux lain, berjalan dalam sandbox Flatpak.</p>
+            <div class="cmd"><code id="c4" class="js-flat">flatpak install flathub io.github.USERNAME.Anchoa</code><button class="copy" type="button" data-copy="c4" data-i18n="copy">Salin</button></div>
+          </article>
+          <article class="card roadmap reveal">
+            <div class="rm-head"><h3 data-i18n="rm.title">Rute platform</h3><span data-i18n="rm.note">urutan bisa berubah</span></div>
+            <ol class="route">
+              <li class="now"><span class="rn"></span><svg class="route-fish" viewBox="-12 -4 22 8" aria-hidden="true"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z"/></svg><b>Fedora</b><small data-i18n="rm.s1">.rpm · tersedia</small></li>
+              <li class="next"><span class="rn"></span><b data-i18n="rm.l2">Linux lain</b><small data-i18n="rm.s2">Flatpak · Copr · segera</small></li>
+              <li><span class="rn"></span><b>Android</b><small data-i18n="rm.s3">direncanakan</small></li>
+              <li><span class="rn"></span><b>Windows</b><small data-i18n="rm.s3">direncanakan</small></li>
+              <li><span class="rn"></span><b>macOS</b><small data-i18n="rm.s3">direncanakan</small></li>
+              <li><span class="rn"></span><b>iOS</b><small data-i18n="rm.s4">dipertimbangkan</small></li>
+            </ol>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="faq" data-depth="200" aria-labelledby="h-faq">
+      <div class="wrap">
+        <div class="band-head">
+          <div class="depth">−200 m<small data-i18n="zone.meso">batas mesopelagik</small></div>
+          <div><h2 id="h-faq" data-i18n="faq.title">Pertanyaan yang sering muncul</h2></div>
+        </div>
+        <div class="faq">
+          <details><summary data-i18n="q1">Apakah Anchoa gratis?</summary><p data-i18n="a1">Ya. Kamu hanya membayar layanan pihak ketiga yang kamu pilih sendiri, misalnya kunci API AI. Model lokal lewat Ollama tidak butuh kunci.</p></details>
+          <details><summary data-i18n="q2">Data saya disimpan di mana?</summary><p data-i18n="a2">Data terstruktur (tugas, jadwal, keuangan, habit) ada di proyek Supabase-mu, region Singapura. Jurnal dienkripsi dulu di perangkat. File, email, dan unduhan tetap di laptop atau HP-mu.</p></details>
+          <details><summary data-i18n="q3">Apakah butuh internet?</summary><p data-i18n="a3">Data terakhir tampil dari cache di perangkat, jadi app tetap bisa dibaca saat offline. Sinkron, AI cloud, dan akses file laptop dari luar rumah butuh koneksi.</p></details>
+          <details><summary data-i18n="q4">Kenapa namanya Anchoa?</summary><p data-i18n="a4">Anchoa adalah kata Spanyol untuk ikan teri. Teri kecil, tapi bergerak dalam kawanan besar yang rapi; itu gambaran yang kami mau untuk urusan harianmu.</p></details>
+          <details><summary data-i18n="q6">Bisa dipakai di Windows, macOS, atau Ubuntu?</summary><p data-i18n="a6">Belum. Saat ini Anchoa baru tersedia untuk Fedora (.rpm). Distro Linux lain menyusul lewat Flatpak, lalu Android, Windows, dan macOS dari codebase Tauri yang sama. Urutannya ada di rute platform pada bagian Unduh.</p></details>
+          <details><summary data-i18n="q5">Avatar-nya bisa diganti?</summary><p data-i18n="a5">Bisa. Anchoa memakai Cubism SDK dari Live2D; kamu bisa mengimpor model .model3.json milikmu sendiri. Model contoh dari Live2D hanya untuk uji, sesuai lisensinya.</p></details>
+        </div>
+        <div class="guide reveal" id="penghuni">
+          <div class="guide-head"><h3 data-i18n="g.title">Yang berenang di halaman ini</h3><p data-i18n="g.lead">Diurutkan dari permukaan. Ikan lentera biasanya tinggal lebih dalam dan naik ke atas saat malam.</p></div>
+          <ul>
+            <li style="--c:#6F9C7E"><b data-i18n="g.n1">Penyu hijau</b><i>Chelonia mydas</i><span data-i18n="g.d1">Sesekali lewat dekat permukaan. Ia harus naik untuk bernapas.</span></li>
+            <li style="--c:#D9C9F5"><b data-i18n="g.n2">Ubur-ubur bulan</b><i>Aurelia aurita</i><span data-i18n="g.d2">Melayang dengan denyut payungnya. Kawanan teri menghindarinya.</span></li>
+            <li style="--c:#CFE3EA"><b data-i18n="g.n3">Teri</b><i>Stolephorus spp.</i><span data-i18n="g.d3">Kawanan utama, pemakan plankton. Klik untuk memberi makan.</span></li>
+            <li style="--c:#7FA3B8"><b data-i18n="g.n4">Tongkol</b><i>Euthynnus affinis</i><span data-i18n="g.d4">Pemangsa teri. Saat ia datang, kawanan merapat jadi bola umpan.</span></li>
+            <li style="--c:#3E6B80"><b data-i18n="g.n5">Pari manta karang</b><i>Mobula alfredi</i><span data-i18n="g.d5">Meluncur pelan di perairan tengah sambil menyaring plankton.</span></li>
+            <li style="--c:#8FF0E8"><b data-i18n="g.n6">Ikan lentera</b><i>Myctophidae</i><span data-i18n="g.d6">Muncul saat kamu menyelam mendekati 200 m. Titik cahayanya disebut fotofor.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="h-author" style="padding-top:24px">
+      <div class="wrap">
+        <div class="author reveal">
+          <div>
+            <span class="eyebrow"><span class="dot"></span><span data-i18n="au.eyebrow">di balik Anchoa</span></span>
+            <h3 id="h-author" style="margin-top:12px" data-i18n="au.title">Dibuat oleh Syharipf</h3>
+            <p data-i18n="au.d">Mahasiswa Rekayasa Perangkat Lunak di Bandung yang fokus di QA dan DevSecOps. Anchoa adalah proyek pribadi untuk mempraktikkan desain sistem, pengujian keamanan data, dan kerja bareng agen AI dengan roadmap per fase.</p>
+          </div>
+          <div class="links">
+            <a class="btn btn-ghost btn-sm js-repo" href="https://github.com/USERNAME/anchoa" target="_blank" rel="noopener">GitHub</a>
+            <a class="btn btn-ghost btn-sm js-portfolio" href="https://example.com" target="_blank" rel="noopener" data-i18n="au.port">Portofolio</a>
+            <a class="btn btn-primary btn-sm js-linkedin" href="https://www.linkedin.com/" target="_blank" rel="noopener">LinkedIn</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 Anchoa</span>
+      <span data-i18n="ft.live2d">Live2D Cubism adalah merek Live2D Inc. Model contoh mengikuti lisensinya.</span>
+      <span class="sp"></span>
+      <a href="#top" data-i18n="ft.top">Kembali ke permukaan ↑</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ---------- links: ganti di sini ---------- */
+const LINKS = {
+  githubUser: "USERNAME",          // akun GitHub
+  repo: "anchoa",                  // nama repo
+  portfolio: "https://example.com",// situs portofolio
+  linkedin: "https://www.linkedin.com/"
+};
+(function applyLinks() {
+  const base = "https://github.com/" + LINKS.githubUser + "/" + LINKS.repo;
+  document.querySelectorAll(".js-repo").forEach(a => a.href = base);
+  document.querySelectorAll(".js-releases").forEach(a => a.href = base + "/releases/latest");
+  document.querySelectorAll(".js-portfolio").forEach(a => a.href = LINKS.portfolio);
+  document.querySelectorAll(".js-linkedin").forEach(a => a.href = LINKS.linkedin);
+  document.querySelectorAll(".js-copr").forEach(c => c.textContent = "sudo dnf copr enable " + LINKS.githubUser + "/" + LINKS.repo);
+  document.querySelectorAll(".js-flat").forEach(c => c.textContent = "flatpak install flathub io.github." + LINKS.githubUser + ".Anchoa");
+})();
+
+/* ---------- i18n ---------- */
+const EN = {
+  "nav.features": "Features", "nav.how": "How it works", "nav.eng": "Engineering", "nav.download": "Download", "nav.cta": "Download",
+  "hero.eyebrow": "v0.1 · Fedora only for now · more platforms on the way",
+  "hero.title": "One school for <em>everything in your day.</em>",
+  "hero.lead": "Anchoa is a personal dashboard with a voice assistant. Tasks, calendar, money, journal, habits and the files on your laptop move together, like a school of anchovies.",
+  "hero.cta1": "Download for Fedora", "hero.cta2": "View the code",
+  "hero.hint": "› move your cursor to scatter the school, click to feed it, scroll to dive",
+  "term.l1": "› Hi Syharipf. 3 tasks today, 1 bill overdue.", "term.l2": "› Habits 3/5 · reading streak 21 days", "term.l3": "› Code agent awaiting approval: npm install chart.js",
+  "mock.caption": "Desktop dashboard and phone version, taken straight from the design canvas · sample data · the app UI is in Indonesian",
+  "zone.epi": "epipelagic zone", "zone.meso": "edge of the mesopelagic",
+  "feat.title": "Everything you handle every day, in one app.", "feat.lead": "Talk to it like a friend, or type when you're somewhere loud. The assistant reads context from every menu, not just one.",
+  "f1.t": "Voice assistant with a Live2D avatar", "f1.d": "Say “log lunch 35k” or “I worked out”. Speech-to-text and text-to-speech can run on your laptop, so your voice doesn't have to leave the device. The avatar stops moving when idle to save battery.",
+  "f1.c1": "# you", "f1.c2": "“add a task: send the report friday at 5”", "f1.c3": "# anchoa", "f1.c4": "✓ Task created · Friday 17:00 · Project: Report",
+  "f2.t": "Calendar & tasks", "f2.d": "Month view, an 8-week timeline and project Kanban. Deadlines and bills show up in the morning recap.",
+  "f3.t": "Habits", "f3.d": "Daily check-offs, streaks that respect rest days, and a monthly heatmap per habit.",
+  "f4.t": "Private journal", "f4.d": "Ideas, venting and notes. Entries are encrypted on your device before syncing; the assistant only reads the entry you ask about.",
+  "f5.t": "Money", "f5.d": "Balance, 6-month cash flow, bills, and transactions you can log by voice.",
+  "f6.t": "Laptop files from your phone", "f6.d": "Files stay on your laptop. Your phone opens them over Tailscale and SFTP, with previews and “Save to phone”.",
+  "f7.tag": "for developers", "f7.t": "Coding agents report into your project", "f7.d": "Claude Code and other MCP-capable agents log plans, progress and test results to the Kanban. Approvals for risky commands can be answered from your phone.",
+  "f7.c1": "# in Anchoa", "f7.c2": "✓ Plan created · 5 steps → Kanban", "f7.c3": "! Approval needed: npm install chart.js@4",
+  "f8.t": "Downloads & email", "f8.d": "yt-dlp and ffmpeg for video and audio, optional torrents. IMAP email with assistant summaries; the password lives in your device keyring, not in the cloud.",
+  "how.title": "Small data in the cloud, big files stay home.", "how.lead": "Tasks, calendar and money sync through Supabase so your phone keeps working when the laptop is off. Files, email and downloads are never uploaded.",
+  "how.n1tag": "laptop · phone", "how.n1a": "Tauri 2 + Svelte 5 + Rust", "how.n1b": "Local cache, instant display", "how.n1c": "Voice, email, downloads on device",
+  "how.l1": "HTTPS + JWT<br>Realtime", "how.n2tag": "cloud · Singapore", "how.n2a": "Postgres + Row Level Security", "how.n2b": "Edge Functions for AI", "how.n2c": "API keys in Vault",
+  "how.l2": "Tailscale<br>SFTP", "how.n3tag": "home", "how.n3t": "Laptop", "how.n3a": "Main file folders", "how.n3b": "sshd only on the Tailscale network", "how.n3c": "Local AI model (optional)",
+  "how.note": "The right-hand link skips the cloud: your phone talks to your laptop directly over your private Tailscale network.",
+  "eng.title": "Built with QA and security habits from day one.", "eng.lead": "This project is also a portfolio. Every security decision has a test, and every phase has a definition of done.",
+  "e1.t": "RLS denies by default", "e1.d": "Every table has an owner-only policy and a pgTAP test: user B can't read or change user A's data.",
+  "e2.t": "Secrets never live in the app", "e2.d": "AI API keys are stored in Supabase Vault; the app only sees the last 4 characters. Email and SSH credentials stay in the device keyring.",
+  "e3.t": "Journal encrypted on device", "e3.d": "The server only stores ciphertext. Search runs locally.",
+  "e4.t": "Coding agents with approvals, not blind trust", "e4.d": "Revocable per-project tokens, “Plan only” as the default mode, and every risky command waits for your approval.",
+  "dl.title": "Available on Fedora, for now.", "dl.lead": "The .rpm package is on GitHub Releases. Because Anchoa is built with Tauri, other operating systems can follow from the same codebase, one at a time. A DNF repo and a Flatpak come first.",
+  "dl.ready": "● available", "dl.rpmT": "Fedora · .rpm package", "dl.rpmD": "Download the latest .rpm from the releases page, then install it with dnf so its dependencies come along.", "dl.rpmBtn": "Open GitHub Releases",
+  "dl.soon": "◌ coming soon", "dl.dnfT": "DNF repository (Copr)", "dl.dnfD": "Enable it once, then updates arrive with dnf upgrade.", "dl.flatD": "For other Linux distros, running in the Flatpak sandbox.",
+  "rm.title": "Platform route", "rm.note": "order may change", "rm.s1": ".rpm · available", "rm.l2": "Other Linux", "rm.s2": "Flatpak · Copr · soon", "rm.s3": "planned", "rm.s4": "considering",
+  "copy": "Copy",
+  "faq.title": "Frequently asked questions",
+  "q1": "Is Anchoa free?", "a1": "Yes. You only pay for third-party services you choose yourself, such as an AI API key. Local models through Ollama need no key.",
+  "q2": "Where is my data stored?", "a2": "Structured data (tasks, calendar, money, habits) lives in your Supabase project in the Singapore region. Journal entries are encrypted on device first. Files, email and downloads stay on your laptop or phone.",
+  "q3": "Does it need internet?", "a3": "The latest data shows from the on-device cache, so the app is readable offline. Sync, cloud AI and reaching your laptop from outside need a connection.",
+  "q4": "Why is it called Anchoa?", "a4": "Anchoa is Spanish for anchovy. Anchovies are small but move in large, orderly schools; that's what we want for your day.",
+  "q6": "Can I use it on Windows, macOS or Ubuntu?", "a6": "Not yet. Anchoa is Fedora-only (.rpm) for now. Other Linux distros come next through Flatpak, then Android, Windows and macOS from the same Tauri codebase. The order is on the platform route in the Download section.",
+  "q5": "Can I change the avatar?", "a5": "Yes. Anchoa uses Live2D's Cubism SDK; you can import your own .model3.json model. Live2D sample models are for testing only, per their license.",
+  "au.eyebrow": "behind Anchoa", "au.title": "Made by Syharipf", "au.d": "A software engineering student in Bandung focused on QA and DevSecOps. Anchoa is a personal project to practise system design, data-security testing, and working alongside AI agents with a phased roadmap.", "au.port": "Portfolio",
+  "g.title": "Who swims on this page", "g.lead": "Ordered from the surface down. Lanternfish usually live deeper and rise at night.",
+  "g.n1": "Green sea turtle", "g.d1": "Passes by near the surface now and then. It has to come up to breathe.",
+  "g.n2": "Moon jellyfish", "g.d2": "Drifts by pulsing its bell. The anchovy school steers clear.",
+  "g.n3": "Anchovy", "g.d3": "The main school, plankton feeders. Click to feed them.",
+  "g.n4": "Kawakawa (mackerel tuna)", "g.d4": "Hunts anchovies. When it arrives, the school tightens into a bait ball.",
+  "g.n5": "Reef manta ray", "g.d5": "Glides slowly through mid-water, filtering plankton.",
+  "g.n6": "Lanternfish", "g.d6": "Shows up as you dive toward 200 m. Its glowing dots are called photophores.",
+  "ft.live2d": "Live2D Cubism is a trademark of Live2D Inc. Sample models follow their license.", "ft.top": "Back to the surface ↑"
+};
+const ID = {};
+document.querySelectorAll("[data-i18n]").forEach(el => { ID[el.dataset.i18n] = el.innerHTML.indexOf("<br") !== -1 ? el.innerHTML : el.textContent; });
+document.querySelectorAll("[data-i18n-html]").forEach(el => { ID[el.dataset.i18nHtml] = el.innerHTML; });
+let lang = "id";
+function setLang(l) {
+  lang = l;
+  const dict = l === "en" ? EN : ID;
+  document.querySelectorAll("[data-i18n]").forEach(el => { const v = dict[el.dataset.i18n]; if (v != null) { if (v.indexOf("<br") !== -1) el.innerHTML = v; else el.textContent = v; } });
+  document.querySelectorAll("[data-i18n-html]").forEach(el => { const v = dict[el.dataset.i18nHtml]; if (v != null) el.innerHTML = v; });
+  document.documentElement.lang = l;
+  document.getElementById("lang-id").setAttribute("aria-pressed", l === "id");
+  document.getElementById("lang-en").setAttribute("aria-pressed", l === "en");
+  try { localStorage.setItem("anchoa-lang", l); } catch (e) {}
+  updateGauge();
+}
+document.getElementById("lang-id").addEventListener("click", () => setLang("id"));
+document.getElementById("lang-en").addEventListener("click", () => setLang("en"));
+
+/* ---------- copy ---------- */
+document.querySelectorAll(".copy").forEach(btn => btn.addEventListener("click", () => {
+  const code = document.getElementById(btn.dataset.copy);
+  const done = () => { btn.classList.add("done"); btn.textContent = lang === "en" ? "Copied" : "Tersalin"; setTimeout(() => { btn.classList.remove("done"); btn.textContent = lang === "en" ? "Copy" : "Salin"; }, 1600); };
+  const select = () => { const r = document.createRange(); r.selectNodeContents(code); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+  try { navigator.clipboard.writeText(code.textContent).then(done, select); } catch (e) { select(); }
+}));
+
+/* ---------- design replicas: scale the 1:1 artboards to their box ---------- */
+(function fit() {
+  const boxes = [...document.querySelectorAll(".dcm-fit")];
+  const apply = () => boxes.forEach(el => el.style.setProperty("--k", (el.clientWidth / +el.dataset.w).toFixed(4)));
+  apply();
+  if ("ResizeObserver" in window) { const ro = new ResizeObserver(apply); boxes.forEach(el => ro.observe(el)); }
+  else addEventListener("resize", apply);
+})();
+
+/* ---------- depth gauge ---------- */
+const gDepth = document.getElementById("g-depth"), gZone = document.getElementById("g-zone"), gPin = document.getElementById("g-pin");
+let depthRatio = 0;
+function updateGauge() {
+  const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+  depthRatio = Math.min(1, Math.max(0, scrollY / max));
+  const m = Math.round(depthRatio * 200);
+  gDepth.textContent = "−" + m + " m";
+  gZone.textContent = m < 200 ? (lang === "en" ? "epipelagic zone" : "zona epipelagik") : (lang === "en" ? "edge of the mesopelagic" : "batas mesopelagik");
+  gPin.style.transform = "translateY(" + (depthRatio * 210) + "px)";
+}
+addEventListener("scroll", updateGauge, { passive: true });
+addEventListener("resize", updateGauge);
+
+/* ---------- reveal (starts visible, only nudges) ---------- */
+(function reveal() {
+  if (!("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const els = [...document.querySelectorAll(".reveal")];
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.remove("below"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" });
+  els.forEach(el => { if (el.getBoundingClientRect().top > innerHeight) { el.classList.add("below"); io.observe(el); } });
+})();
+
+/* ---------- terminal lines light up ---------- */
+(function term() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const lines = [...document.querySelectorAll(".term .line")];
+  lines.forEach((l, i) => { if (i > 1) l.classList.add("dim"); });
+  lines.forEach((l, i) => setTimeout(() => l.classList.remove("dim"), 350 + i * 260));
+})();
+
+/* ---------- the sea: two anchovy schools + the neighbours ---------- */
+(function sea() {
+  const cv = document.getElementById("sea");
+  const ctx = cv.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const GLYPHS = ["{", "}", "</>", ";", "=>", "[]", "()", "#", "0", "1", "&&", "fn"];
+  const TAU = Math.PI * 2;
+  let W = 0, H = 0, DPR = 1, small = false;
+  let fish = [], bubbles = [], glyphs = [], food = [], jellies = [], lanterns = [], snow = [], tuna = [], big = null;
+  const mouse = { x: -9999, y: -9999 };
+  let t = 0, running = true, raf = 0, nextBig = 240, nextHunt = 720, bigTurn = 0, cap = 300, slow = 0, last = 0, ema = 16;
+  const CELL = 56, grid = new Map();
+  const centres = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+  let school = { x: 0, y: 0 };
+
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const fit = (arr, n, make) => { while (arr.length < n) arr.push(make(true)); arr.length = n; };
+
+  function resize() {
+    DPR = Math.min(1.5, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight; small = W < 700;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    // density follows screen area: ~60 on a phone, ~240 on a 1440×900 laptop, max 300
+    fit(fish, Math.round(clamp(W * H / 5500, 60, cap)), newFish);
+    fit(bubbles, Math.round(Math.min(30, W / 50)), newBubble);
+    fit(glyphs, Math.round(Math.min(40, W / 36)), newGlyph);
+    fit(jellies, small ? 2 : Math.round(clamp(W / 380, 3, 5)), newJelly);
+    fit(lanterns, Math.round(clamp(W / 60, 10, 26)), newLantern);
+    fit(snow, Math.round(clamp(W / 18, 24, 90)), newSnow);
+  }
+  function newFish() {
+    const z = Math.random(), a = rnd(-0.4, 0.4);
+    return { x: rnd(W * 0.15, W * 0.85), y: rnd(H * 0.15, H * 0.7), vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 1.2, z: z,
+      s: 0.62 + z * 0.85 + rnd(-0.08, 0.08), ph: rnd(0, TAU), sc: Math.random() < 0.68 ? 0 : 1, fear: 0 };
+  }
+  function newBubble(any) { return { x: rnd(0, W), y: any ? rnd(0, H) : H + 10, r: rnd(1.2, 3.6), v: rnd(0.25, 0.8), w: rnd(0, TAU) }; }
+  function newGlyph(any) { return { x: rnd(0, W), y: any ? rnd(0, H) : H + 20, g: GLYPHS[(Math.random() * GLYPHS.length) | 0], v: rnd(0.08, 0.25), a: rnd(0.15, 0.5), sz: rnd(10, 15) }; }
+  function newJelly(any) { return { x: rnd(W * 0.05, W * 0.95), y: any ? rnd(H * 0.12, H * 0.9) : H + 90, r: rnd(13, small ? 20 : 30), ph: rnd(0, TAU), sp: rnd(0.028, 0.045), dx: rnd(-0.12, 0.12), z: rnd(0.35, 1) }; }
+  function newLantern() { return { x: rnd(0, W), y: rnd(H * 0.08, H * 0.95), a: rnd(0, TAU), v: rnd(0.35, 0.8), s: rnd(1.5, 2.3) * (small ? 0.8 : 1), bl: rnd(0, TAU) }; }
+  function newSnow(any) { return { x: rnd(0, W), y: any ? rnd(0, H) : -6, r: rnd(0.5, 1.5), v: rnd(0.12, 0.35), w: rnd(0, TAU) }; }
+
+  // a turtle near the surface, a manta further down; nothing big near 200 m
+  function spawnBig() {
+    const d = depthRatio;
+    const kind = d < 0.38 ? (bigTurn++ % 2 ? "manta" : "turtle") : d < 0.85 ? "manta" : null;
+    if (!kind) return;
+    const dir = Math.random() < 0.5 ? 1 : -1, k = small ? 0.62 : 1;
+    const y = rnd(H * 0.2, H * 0.68);
+    big = { kind: kind, dir: dir, x: dir > 0 ? -170 * k : W + 170 * k, y: y, base: y, ph: 0, k: k };
+  }
+  // kawakawa come from the far side and drive through the main school
+  function spawnHunt() {
+    const dir = school.x < W / 2 ? -1 : 1, n = small ? 2 : 3;
+    for (let i = 0; i < n; i++) {
+      tuna.push({ x: dir > 0 ? -90 - i * 60 : W + 90 + i * 60, y: school.y + rnd(-60, 60), vx: dir * 4.3, vy: 0, sp: rnd(4, 4.6),
+        s: (small ? 0.75 : 1) * rnd(0.9, 1.12), ph: rnd(0, TAU), off: (i - (n - 1) / 2) * 34, life: 0 });
+    }
+  }
+
+  function step() {
+    t++;
+    centres[0].x = W * (0.5 + 0.32 * Math.sin(t * 0.0021)); centres[0].y = H * (0.42 + 0.22 * Math.sin(t * 0.0033 + 1.3));
+    centres[1].x = W * (0.5 + 0.38 * Math.sin(t * 0.0016 + 2.4)); centres[1].y = H * (0.5 + 0.25 * Math.sin(t * 0.0027 + 4.1));
+
+    grid.clear();
+    let sx0 = 0, sy0 = 0, n0 = 0;
+    for (let i = 0; i < fish.length; i++) {
+      const f = fish[i], key = (Math.floor(f.x / CELL) + 64) * 4096 + Math.floor(f.y / CELL) + 64;
+      let b = grid.get(key); if (!b) { b = []; grid.set(key, b); } b.push(f);
+      if (f.sc === 0) { sx0 += f.x; sy0 += f.y; n0++; }
+    }
+    school = n0 ? { x: sx0 / n0, y: sy0 / n0 } : centres[0];
+
+    for (let i = 0; i < fish.length; i++) {
+      const f = fish[i], gx = Math.floor(f.x / CELL) + 64, gy = Math.floor(f.y / CELL) + 64;
+      let sx = 0, sy = 0, ax = 0, ay = 0, cxs = 0, cys = 0, n = 0;
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        const b = grid.get((gx + ox) * 4096 + gy + oy); if (!b) continue;
+        for (let j = 0; j < b.length; j++) {
+          const o = b[j]; if (o === f || Math.abs(o.z - f.z) > 0.35) continue;
+          const dx = o.x - f.x, dy = o.y - f.y, d2 = dx * dx + dy * dy;
+          if (d2 >= 3136) continue;
+          if (d2 < 196 * f.s) { sx -= dx / (d2 + 1); sy -= dy / (d2 + 1); }
+          if (o.sc !== f.sc) continue;
+          n++; ax += o.vx; ay += o.vy; cxs += o.x; cys += o.y;
+          if (o.fear > f.fear) f.fear += (o.fear - f.fear) * 0.08; // panic spreads through the school
+        }
+      }
+      const coh = 0.0009 + f.fear * 0.0045;
+      if (n) {
+        f.vx += (ax / n - f.vx) * 0.045 + (cxs / n - f.x) * coh + sx * 1.6;
+        f.vy += (ay / n - f.vy) * 0.045 + (cys / n - f.y) * coh + sy * 1.6;
+      }
+      const c = centres[f.sc];
+      f.vx += (c.x - f.x) * 0.00012; f.vy += (c.y - f.y) * 0.00012;
+      for (let k = 0; k < food.length; k++) {
+        const p = food[k], dx = p.x - f.x, dy = p.y - f.y, d2 = dx * dx + dy * dy;
+        if (d2 < 90000) { const d = Math.sqrt(d2) + 1; f.vx += dx / d * 0.09; f.vy += dy / d * 0.09; if (d < 9) p.e -= 0.05; }
+      }
+      for (let k = 0; k < tuna.length; k++) {
+        const p = tuna[k], dx = f.x - p.x, dy = f.y - p.y, d2 = dx * dx + dy * dy;
+        if (d2 < 30000) { const d = Math.sqrt(d2) + 1, q = (173 - d) / 173; f.vx += dx / d * 1.2 * q; f.vy += dy / d * 1.2 * q; f.fear = 1; }
+      }
+      for (let k = 0; k < jellies.length; k++) {
+        const j = jellies[k], dx = f.x - j.x, dy = f.y - (j.y + j.r * 0.5), R = j.r * 1.4 + 18, d2 = dx * dx + dy * dy;
+        if (d2 < R * R) { const d = Math.sqrt(d2) + 1; f.vx += dx / d * 0.22; f.vy += dy / d * 0.22; }
+      }
+      if (big) {
+        const dx = f.x - big.x, dy = f.y - big.y, R = 95 * big.k, d2 = dx * dx + dy * dy;
+        if (d2 < R * R) { const d = Math.sqrt(d2) + 1; f.vx += dx / d * 0.3; f.vy += dy / d * 0.3; }
+      }
+      const mx = f.x - mouse.x, my = f.y - mouse.y, md2 = mx * mx + my * my;
+      if (md2 < 16000) { const d = Math.sqrt(md2) + 1; f.vx += mx / d * 0.7; f.vy += my / d * 0.7; }
+      if (f.x < 40) f.vx += 0.08; if (f.x > W - 40) f.vx -= 0.08;
+      if (f.y < 60) f.vy += 0.08; if (f.y > H - 40) f.vy -= 0.08;
+      const sp = Math.hypot(f.vx, f.vy), max = 1.5 + f.z * 0.9 + f.fear * 1.9, min = 0.6;
+      if (sp > max) { f.vx *= max / sp; f.vy *= max / sp; } else if (sp < min) { f.vx *= min / sp; f.vy *= min / sp; }
+      f.x += f.vx; f.y += f.vy; f.ph += 0.25 + sp * 0.08; f.fear *= 0.985;
+    }
+
+    for (let i = tuna.length - 1; i >= 0; i--) {
+      const p = tuna[i], dir = p.vx >= 0 ? 1 : -1;
+      p.life++; p.ph += 0.42;
+      if ((school.x - p.x) * dir > 50 && p.life < 420) {
+        const base = dir > 0 ? 0 : Math.PI, cur = Math.atan2(p.vy, p.vx);
+        let da = Math.atan2(school.y + p.off - p.y, school.x - p.x) - cur;
+        da = Math.atan2(Math.sin(da), Math.cos(da));
+        let na = cur + clamp(da, -0.035, 0.035), rel = Math.atan2(Math.sin(na - base), Math.cos(na - base));
+        na = base + clamp(rel, -0.6, 0.6);
+        p.vx = Math.cos(na) * p.sp; p.vy = Math.sin(na) * p.sp;
+      }
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < -280 || p.x > W + 280 || p.y < -220 || p.y > H + 220 || p.life > 1200) tuna.splice(i, 1);
+    }
+    if (t >= nextHunt && !tuna.length) {
+      if (depthRatio < 0.9) spawnHunt();
+      nextHunt = t + rnd(1100, 1900);
+    }
+
+    if (big) {
+      big.ph += big.kind === "turtle" ? 0.045 : 0.03;
+      big.x += big.dir * (big.kind === "turtle" ? 0.9 : 1.25) * big.k;
+      big.y = big.base + Math.sin(big.ph * 0.5) * 10;
+      if (big.x < -260 || big.x > W + 260) { big = null; nextBig = t + rnd(900, 1500); }
+    } else if (t >= nextBig) { spawnBig(); if (!big) nextBig = t + 300; }
+
+    for (const j of jellies) {
+      j.ph += j.sp;
+      j.y += 0.07 - 0.3 * Math.max(0, Math.sin(j.ph));
+      j.x += j.dx + Math.sin(j.ph * 0.3) * 0.05;
+      if (j.y < -j.r * 4) Object.assign(j, newJelly(false));
+      if (j.x < -60) j.x = W + 60; else if (j.x > W + 60) j.x = -60;
+    }
+    if (depthRatio > 0.45) {
+      for (const l of lanterns) {
+        l.a += rnd(-0.05, 0.05); l.bl += 0.035;
+        l.x += Math.cos(l.a) * l.v; l.y += Math.sin(l.a) * l.v * 0.5;
+        if (l.x < -20) l.x = W + 20; else if (l.x > W + 20) l.x = -20;
+        if (l.y < 30) l.a = Math.abs(l.a); else if (l.y > H - 20) l.a = -Math.abs(l.a);
+      }
+    }
+    for (let k = food.length - 1; k >= 0; k--) { const p = food[k]; p.y += 0.25; p.e -= 0.002; if (p.e <= 0) food.splice(k, 1); }
+    for (const b of bubbles) { b.y -= b.v; b.w += 0.03; if (b.y < -10) Object.assign(b, newBubble(false)); }
+    for (const g of glyphs) { g.y -= g.v; if (g.y < -20) Object.assign(g, newGlyph(false)); }
+    for (const p of snow) { p.y += p.v; p.w += 0.02; if (p.y > H + 6) Object.assign(p, newSnow(false)); }
+  }
+
+  /* ----- drawing ----- */
+  function drawFish(f, alpha) {
+    const ang = Math.atan2(f.vy, f.vx), s = f.s * 1.25 * DPR, wag = Math.sin(f.ph) * 0.35;
+    const co = Math.cos(ang) * s, si = Math.sin(ang) * s;
+    ctx.setTransform(co, si, -si, co, f.x * DPR, f.y * DPR);
+    const silver = 150 + Math.round(f.z * 80);
+    ctx.globalAlpha = alpha * (0.3 + f.z * 0.45);
+    ctx.fillStyle = "rgb(" + (silver - 20) + "," + (silver + 10) + "," + (silver + 25) + ")";
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.bezierCurveTo(4, -2.6, -3, -2.8, -7, -0.6);
+    ctx.lineTo(-7, 0.6);
+    ctx.bezierCurveTo(-3, 2.8, 4, 2.6, 8, 0);
+    ctx.moveTo(-6.5, 0);
+    ctx.lineTo(-11, -2.8 + wag * 2);
+    ctx.lineTo(-9.6, wag);
+    ctx.lineTo(-11, 2.8 + wag * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = alpha * (0.25 + f.z * 0.55);
+    ctx.beginPath(); ctx.moveTo(5.5, 0.1); ctx.lineTo(-6, 0.1); ctx.stroke();
+  }
+
+  function drawJelly(j, a) {
+    const k = Math.max(0, Math.sin(j.ph)), w = j.r * (1 - 0.18 * k), h = j.r * (0.62 + 0.16 * k), al = a * (0.45 + j.z * 0.4);
+    ctx.save(); ctx.translate(j.x, j.y);
+    // marginal tentacles
+    ctx.globalAlpha = al * 0.45; ctx.strokeStyle = "#CFE3EA"; ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    for (let i = 0; i <= 16; i++) {
+      const x0 = -w + (i / 16) * 2 * w, len = j.r * (0.75 + 0.3 * Math.sin(i * 1.7)) * (1 - 0.2 * k);
+      ctx.moveTo(x0, 0); ctx.quadraticCurveTo(x0 + Math.sin(j.ph * 1.2 + i) * 4, len * 0.5, x0 + Math.sin(j.ph + i * 0.8) * 6, len);
+    }
+    ctx.stroke();
+    // four frilly oral arms
+    ctx.globalAlpha = al * 0.55; ctx.strokeStyle = "#D9C9F5"; ctx.lineWidth = 1.7;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const x0 = (i - 1.5) * w * 0.17, L = j.r * 1.55;
+      ctx.moveTo(x0, 0); ctx.bezierCurveTo(x0 + Math.sin(j.ph * 0.8 + i) * 6, L * 0.35, x0 - Math.sin(j.ph * 0.7 + i * 2) * 7, L * 0.7, x0 + Math.sin(j.ph * 0.9 + i) * 5, L);
+    }
+    ctx.stroke();
+    // bell
+    const g = ctx.createRadialGradient(0, -h * 0.55, 1, 0, -h * 0.3, w * 1.15);
+    g.addColorStop(0, "rgba(236,242,255,0.55)"); g.addColorStop(0.65, "rgba(190,205,240,0.22)"); g.addColorStop(1, "rgba(198,243,107,0.08)");
+    ctx.globalAlpha = al; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(-w, 0); ctx.bezierCurveTo(-w, -h * 1.3, w, -h * 1.3, w, 0); ctx.quadraticCurveTo(0, h * 0.22, -w, 0); ctx.fill();
+    ctx.strokeStyle = "rgba(207,227,234,0.55)"; ctx.lineWidth = 0.8; ctx.stroke();
+    // the four horseshoe gonads that give the moon jelly its name
+    ctx.strokeStyle = "rgba(227,184,240,0.75)"; ctx.fillStyle = "rgba(227,184,240,0.18)"; ctx.lineWidth = 1.1;
+    for (let i = 0; i < 4; i++) {
+      const u = (i - 1.5) / 1.5, rx = w * (0.15 - Math.abs(u) * 0.04);
+      ctx.globalAlpha = al * (0.95 - Math.abs(u) * 0.35);
+      ctx.beginPath(); ctx.ellipse(u * w * 0.5, -h * (0.42 + (1 - Math.abs(u)) * 0.12), rx, rx * 0.62, u * 0.5, 0, TAU); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawTurtle(b, a) {
+    const S = b.k;
+    ctx.save(); ctx.translate(b.x, b.y); ctx.scale(b.dir * S, S); ctx.globalAlpha = a;
+    const fl = Math.sin(b.ph);
+    const flipper = (x, y, rot, len, col) => {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = col;
+      ctx.beginPath(); ctx.moveTo(0, -4); ctx.quadraticCurveTo(-len * 0.45, -5, -len, 7); ctx.quadraticCurveTo(-len * 0.45, 8, 0, 5); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    };
+    flipper(14, 2, 0.35 + Math.sin(b.ph - 0.6) * 0.6, 40, "#2F4A40");              // far front flipper
+    ctx.fillStyle = "#3A5A4E";                                                       // rear flippers
+    ctx.save(); ctx.translate(-27, 6); ctx.rotate(0.55 + fl * 0.22); ctx.beginPath(); ctx.ellipse(-7, 0, 11, 4, 0, 0, TAU); ctx.fill(); ctx.restore();
+    ctx.fillStyle = "#5C7D70";                                                       // head & neck
+    ctx.beginPath(); ctx.ellipse(34, 0, 11, 7.5, -0.08, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#0A1418"; ctx.beginPath(); ctx.arc(40, -2.5, 1.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#97A784";                                                       // plastron
+    ctx.beginPath(); ctx.ellipse(0, 4, 31, 6.5, 0, 0, Math.PI); ctx.fill();
+    const g = ctx.createLinearGradient(0, -22, 0, 4);                               // carapace
+    g.addColorStop(0, "#56785F"); g.addColorStop(1, "#33503F");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(-33, 4); ctx.bezierCurveTo(-31, -21, 23, -25, 31, 3); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(198,243,107,0.26)"; ctx.lineWidth = 1;                  // scutes
+    ctx.beginPath();
+    ctx.moveTo(-24, -6); ctx.quadraticCurveTo(-2, -20, 22, -6);
+    for (const x of [-14, -2, 10]) { ctx.moveTo(x, -14 + Math.abs(x) * 0.12); ctx.lineTo(x + 3, 2); }
+    ctx.stroke();
+    flipper(17, 1, 0.25 + fl * 0.65, 48, "#5C7D70");                                // near front flipper
+    ctx.restore();
+  }
+
+  function drawManta(b, a) {
+    const S = b.k, f = Math.sin(b.ph);
+    ctx.save(); ctx.translate(b.x, b.y); ctx.scale(b.dir * S, S * 0.6); ctx.globalAlpha = a;
+    const ty = 80 + f * 10, tx = -12 - f * 8;
+    ctx.strokeStyle = "#0A2230"; ctx.lineWidth = 2;                                  // tail
+    ctx.beginPath(); ctx.moveTo(-32, 0); ctx.quadraticCurveTo(-60, Math.sin(b.ph * 1.3) * 5, -96, Math.sin(b.ph * 1.3 + 1) * 4); ctx.stroke();
+    ctx.fillStyle = "#08202B";
+    ctx.beginPath();
+    ctx.moveTo(26, -12);
+    ctx.bezierCurveTo(18, -42, 2, -ty * 0.82, tx, -ty);
+    ctx.bezierCurveTo(-16, -ty * 0.58, -28, -24, -34, -6);
+    ctx.lineTo(-34, 6);
+    ctx.bezierCurveTo(-28, 24, -16, ty * 0.58, tx, ty);
+    ctx.bezierCurveTo(2, ty * 0.82, 18, 42, 26, 12);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(207,227,234,0.14)"; ctx.lineWidth = 1.2; ctx.stroke();
+    for (const s of [-1, 1]) {                                                       // cephalic lobes
+      ctx.beginPath(); ctx.ellipse(31, s * 12, 8, 3.6, s * 0.35, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = "rgba(207,227,234,0.13)";                                        // pale shoulder patches
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(6, s * 24, 13, 7, s * -0.5, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+
+  function drawTuna(p, a) {
+    const ang = Math.atan2(p.vy, p.vx), wag = Math.sin(p.ph) * 0.2;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang); if (Math.cos(ang) < 0) ctx.scale(1, -1); ctx.scale(p.s, p.s);
+    ctx.globalAlpha = a;
+    ctx.save(); ctx.translate(-21, 0); ctx.rotate(wag); ctx.fillStyle = "#1E3B4C";  // lunate tail
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-5, -6, -11, -12); ctx.quadraticCurveTo(-6, -4, -5, 0); ctx.quadraticCurveTo(-6, 4, -11, 12); ctx.quadraticCurveTo(-5, 6, 0, 0); ctx.fill(); ctx.restore();
+    ctx.fillStyle = "#A9BFCB";                                                       // silver body
+    ctx.beginPath(); ctx.moveTo(27, 0); ctx.bezierCurveTo(19, -9.5, -10, -10, -21, -1.5); ctx.lineTo(-23, 0); ctx.lineTo(-21, 1.5); ctx.bezierCurveTo(-10, 9, 19, 8.5, 27, 0); ctx.fill();
+    ctx.fillStyle = "#1E3B4C";                                                       // dark back
+    ctx.beginPath(); ctx.moveTo(26.5, -0.8); ctx.bezierCurveTo(19, -9.5, -10, -10, -21, -1.5); ctx.bezierCurveTo(-8, -3.4, 12, -3, 26.5, -0.8); ctx.fill();
+    ctx.strokeStyle = "rgba(169,191,203,0.5)"; ctx.lineWidth = 0.8;                  // wavy back stripes
+    ctx.beginPath(); for (let x = -12; x <= 6; x += 6) { ctx.moveTo(x, -7); ctx.quadraticCurveTo(x - 2, -5, x - 5, -3.5); } ctx.stroke();
+    ctx.fillStyle = "#1E3B4C";
+    ctx.beginPath(); ctx.moveTo(5, -8.5); ctx.lineTo(-1, -15); ctx.lineTo(-6, -8.5); ctx.fill(); // first dorsal
+    for (let x = -10; x >= -18; x -= 3) { ctx.beginPath(); ctx.moveTo(x, -4.6 - (x + 10) * -0.25); ctx.lineTo(x - 1.4, -6.6 - (x + 10) * -0.25); ctx.lineTo(x - 2, -4 - (x + 10) * -0.25); ctx.fill(); }
+    ctx.fillStyle = "#2B4A5C"; ctx.beginPath(); ctx.moveTo(13, 1); ctx.lineTo(1, 5); ctx.lineTo(10, 3); ctx.fill(); // pectoral
+    ctx.fillStyle = "#16303E"; for (const x of [7, 10.5, 14]) { ctx.beginPath(); ctx.arc(x, 4.2, 0.9, 0, TAU); ctx.fill(); } // spots
+    ctx.fillStyle = "#0A1418"; ctx.beginPath(); ctx.arc(20.5, -1.4, 1.7, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#CFE3EA"; ctx.beginPath(); ctx.arc(21, -1.9, 0.5, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawLantern(l, a) {
+    const s = l.s, ang = l.a;
+    ctx.save(); ctx.translate(l.x, l.y); ctx.rotate(ang); if (Math.cos(ang) < 0) ctx.scale(1, -1); ctx.scale(s, s);
+    ctx.globalAlpha = a * 0.9; ctx.fillStyle = "#1F323C";
+    ctx.beginPath(); ctx.moveTo(7, 0); ctx.bezierCurveTo(5, -3.4, -4, -3, -6.5, -0.6); ctx.lineTo(-10, -2.8); ctx.lineTo(-9, 0); ctx.lineTo(-10, 2.8); ctx.lineTo(-6.5, 0.6); ctx.bezierCurveTo(-4, 3, 5, 3.2, 7, 0); ctx.fill();
+    ctx.fillStyle = "#0A1418"; ctx.beginPath(); ctx.arc(4.6, -0.7, 1.5, 0, TAU); ctx.fill();
+    const glow = 0.55 + 0.45 * Math.sin(l.bl);
+    for (let i = 0; i < 6; i++) {
+      const x = 4 - i * 2, y = 2.1 - Math.abs(i - 2.5) * 0.15;
+      ctx.globalAlpha = a * 0.22 * glow; ctx.fillStyle = "#8FF0E8"; ctx.beginPath(); ctx.arc(x, y, 2.3, 0, TAU); ctx.fill();
+      ctx.globalAlpha = a * (0.6 + 0.4 * glow); ctx.fillStyle = i % 2 ? "#C6F36B" : "#BFFAF4"; ctx.beginPath(); ctx.arc(x, y, 0.65, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const d = depthRatio;
+    const fishA = 1 - d * 0.7, glyphA = 0.25 + d * 0.9, lanternA = clamp((d - 0.5) / 0.32, 0, 1), snowA = 0.12 + d * 0.5;
+    for (const g of glyphs) { ctx.globalAlpha = g.a * glyphA * 0.5; ctx.fillStyle = "#C6F36B"; ctx.font = "500 " + g.sz.toFixed(0) + "px 'JetBrains Mono', monospace"; ctx.fillText(g.g, g.x, g.y); }
+    ctx.fillStyle = "#DCE7EA";
+    for (const p of snow) { ctx.globalAlpha = snowA * (0.4 + p.r * 0.35); ctx.fillRect(p.x + Math.sin(p.w) * 3, p.y, p.r, p.r); }
+    ctx.lineWidth = 1; ctx.strokeStyle = "#CFE3EA";
+    for (const b of bubbles) { ctx.globalAlpha = 0.35 * (1 - d * 0.6); ctx.beginPath(); ctx.arc(b.x + Math.sin(b.w) * 4, b.y, b.r, 0, TAU); ctx.stroke(); }
+    if (big) {
+      const fade = big.kind === "turtle" ? clamp((0.62 - d) / 0.24, 0, 1) : clamp((1 - d) / 0.2, 0, 1);
+      if (fade > 0.01) { if (big.kind === "manta") drawManta(big, 0.82 * fade); else drawTurtle(big, 0.9 * fade); }
+    }
+    for (const j of jellies) drawJelly(j, 1 - d * 0.35);
+    if (lanternA > 0.01) for (const l of lanterns) drawLantern(l, lanternA);
+    for (const p of food) { ctx.globalAlpha = Math.max(0, p.e); ctx.fillStyle = "#C6F36B"; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, TAU); ctx.fill(); }
+    fish.sort((a, b) => a.z - b.z);
+    ctx.strokeStyle = "#C6F36B"; ctx.lineWidth = 0.7;
+    for (const f of fish) drawFish(f, fishA);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    for (const p of tuna) drawTuna(p, 0.92 * (1 - d * 0.35));
+    ctx.globalAlpha = 1;
+  }
+
+  // if the device struggles, thin the school instead of dropping frames
+  function adapt(now) {
+    if (last) ema = ema * 0.95 + Math.min(100, now - last) * 0.05;
+    last = now;
+    if (t % 90 === 0 && ema > 24 && fish.length > 60) { slow++; if (slow > 2) { cap = Math.max(60, Math.round(fish.length * 0.82)); fish.length = cap; slow = 0; } }
+    else if (t % 90 === 0) slow = 0;
+  }
+  function loop(now) { if (!running) return; adapt(now); step(); draw(); raf = requestAnimationFrame(loop); }
+  function stop() { running = false; cancelAnimationFrame(raf); raf = 0; }
+
+  addEventListener("resize", () => { resize(); if (reduce) draw(); });
+  addEventListener("pointermove", e => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
+  addEventListener("pointerleave", () => { mouse.x = mouse.y = -9999; });
+  addEventListener("pointerdown", e => {
+    if (e.target.closest("a, button, summary, input, code, pre")) return;
+    for (let i = 0; i < 6; i++) food.push({ x: e.clientX + rnd(-14, 14), y: e.clientY + rnd(-10, 10), e: 1 });
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); else if (!reduce) { running = true; last = 0; raf = requestAnimationFrame(loop); } });
+
+  resize();
+  if (reduce) {
+    for (let i = 0; i < 160; i++) step();
+    big = { kind: "turtle", dir: 1, x: W * 0.74, y: H * 0.3, base: H * 0.3, ph: 0.8, k: small ? 0.62 : 1 };
+    draw();
+    let pend = false;
+    addEventListener("scroll", () => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; draw(); }); }, { passive: true });
+  } else { for (let i = 0; i < 40; i++) step(); draw(); raf = requestAnimationFrame(loop); }
+})();
+
+/* ---------- boot ---------- */
+(function boot() {
+  let l = "id";
+  try { l = localStorage.getItem("anchoa-lang") || "id"; } catch (e) {}
+  if (location.hash === "#en") l = "en";
+  setLang(l === "en" ? "en" : "id");
+})();
+</script>
+
+</body>
+</html>

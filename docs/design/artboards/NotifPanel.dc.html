@@ -84,13 +84,15 @@ class Component extends DCLogic {
       down: 'M12 4v11M7 10l5 5 5-5M5 20h14',
       voice: 'M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6',
       upd: 'M4 4v6h6M20 12a8 8 0 0 0-14.9-4L4 10M4 12a8 8 0 0 0 14.9 4',
-      done: 'M4 12l5 5L20 6'
+      done: 'M4 12l5 5L20 6',
+      habit: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12.5l2.7 2.7L16.5 9.5'
     };
     const N = [
       { id: 'n1', g: 'Hari ini', icon: I.due, color: '#3987E5', title: 'Kirim laporan project jatuh tempo hari ini', body: 'Tinggal 1 tugas lagi di proyek Laporan project.', source: 'Jadwal', time: '18.00', href: 'Jadwal.dc.html', action: 'Buka Jadwal', unread: true },
       { id: 'n2', g: 'Hari ini', icon: I.bill, color: '#FF8A7A', title: 'Tagihan listrik terlambat 1 hari', body: 'Jatuh tempo 28 Sep. Tandai lunas setelah dibayar.', source: 'Keuangan', time: '08.00', href: 'Keuangan.dc.html', action: 'Buka Keuangan', unread: true },
       { id: 'n3', g: 'Hari ini', icon: I.mail, color: '#C6F36B', title: '3 email baru', body: 'Dimas Pratama: Review desain dashboard Anchoa, dan 2 lainnya.', source: 'Email', time: '10.24', href: 'Email.dc.html', action: 'Buka Email', unread: true },
       { id: 'n4', g: 'Hari ini', icon: I.down, color: '#C6F36B', title: 'Unduhan selesai: proposal-anchoa.pdf', body: '2,3 MB · tersimpan di ~/Unduhan', source: 'Unduhan', time: '21.05', href: 'Berkas.dc.html', action: 'Buka di Berkas', unread: true },
+      { id: 'n8', g: 'Hari ini', icon: I.habit, color: '#C6F36B', title: 'Pengingat habit: Baca 20 menit', body: 'Belum dicentang hari ini. Streak 21 hari.', source: 'Habit', time: '21.00', href: 'Habit.dc.html', action: 'Buka Habit', unread: false },
       { id: 'n5', g: 'Hari ini', icon: I.voice, color: '#9AA3B2', title: 'Rekap pagi sudah dibacakan', body: '3 tenggat, 1 tagihan terlambat, cuaca cerah.', source: 'Asisten', time: '07.00', href: 'Main.dc.html', action: 'Dengar lagi', unread: false },
       { id: 'n6', g: 'Kemarin', icon: I.upd, color: '#9AA3B2', title: 'Pembaruan yt-dlp tersedia', body: 'Perbarui agar unduhan dari situs video tetap berjalan.', source: 'Unduhan', time: '19.30', href: 'Unduhan.dc.html', action: 'Perbarui', unread: false },
       { id: 'n7', g: 'Kemarin', icon: I.done, color: '#9AA3B2', title: 'Tugas “Heatmap kontribusi” selesai', body: 'Progres Anchoa v1 naik ke 42%.', source: 'Proyek', time: '16.12', href: 'Proyek.dc.html', action: 'Lihat', unread: false }

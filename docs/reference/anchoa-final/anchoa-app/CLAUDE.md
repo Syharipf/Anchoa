@@ -1,11 +1,12 @@
 # Anchoa — aplikasi (repo `anchoa-app`)
 
-Dashboard pribadi dengan asisten suara (STT + TTS) dan avatar Live2D. Modul: Dashboard, Catatan (Inbox), Email, Jadwal, Keuangan, Proyek, Berkas, Unduhan, Profil.
+Dashboard pribadi dengan asisten suara (STT + TTS) dan avatar Live2D. Modul: Dashboard, Jurnal, Email, Jadwal, Habit, Keuangan, Proyek, Berkas, Unduhan, Profil.
 Target: **Linux (utama) → Android → Windows**, satu codebase.
 
 Dokumen wajib:
 - `docs/ARCHITECTURE.md` + `docs/arsitektur-anchoa.png` — arsitektur final & pembagian tugas.
 - `docs/design/DESIGN.md`, `docs/design/tokens.css`, `docs/design/screenshots/`, `docs/design/artboards/` — desain.
+- `docs/agent-integration.md` — integrasi agen kode (Fase 11, opsional).
 - `docs/ROADMAP.md` — fase kerja + kriteria selesai. Kerjakan **satu fase pada satu waktu**.
 - Repo pasangan: `../anchoa-supabase` (skema database, RLS, Edge Functions). Jalankan Claude Code dengan `claude --add-dir ../anchoa-supabase` bila tugas menyentuh data.
 
@@ -42,7 +43,7 @@ Sebelum menyatakan tugas selesai: `npm run check`, `cargo clippy …`, dan `carg
 
 | Di mana | Apa |
 |---|---|
-| Supabase (lewat `src/lib/api/`) | login, tugas, proyek, jadwal, keuangan, catatan, notifikasi, pengaturan, cache heatmap; realtime; panggilan asisten ke Edge Function `ai-gateway` |
+| Supabase (lewat `src/lib/api/`) | login, tugas, proyek, jadwal, habit, keuangan, jurnal (terenkripsi), notifikasi, pengaturan, cache heatmap; realtime; panggilan asisten ke Edge Function `ai-gateway` |
 | Rust lokal (`src-tauri/src/commands/`) | Berkas lokal + **klien SFTP** ke laptop (lewat Tailscale), unduhan (yt-dlp/ffmpeg sidecar, torrent opsional), **email IMAP/SMTP**, mikrofon & TTS, penyimpanan rahasia (keyring OS / Android Keystore), cache offline (nanti) |
 | Svelte | tampilan & state; tidak mengakses file/jaringan/proses secara langsung selain Supabase |
 
@@ -77,6 +78,7 @@ src-tauri/
 - Soft delete: isi `deleted_at`, jangan `delete` langsung (kecuali diminta).
 - Langganan Realtime dibuat dan **dibersihkan** di `$effect` (return fungsi unsubscribe).
 - **Cache baca**: fungsi di `src/lib/api/` mengembalikan data cache lebih dulu, lalu data segar dari Supabase; komponen tidak tahu soal cache.
+- **Jurnal**: isi dienkripsi di perangkat sebelum dikirim (`journal_entries.ciphertext`); jangan pernah menulis isi jurnal ke log, notifikasi, atau `ai-gateway` — kecuali pengguna menekan "Minta tanggapan" untuk entri itu.
 - Perubahan skema = kerjakan di `anchoa-supabase` dulu (migrasi + test), lalu `npm run gen:types` di sini.
 
 ## Aturan frontend (Svelte)

@@ -89,25 +89,32 @@ class Component extends DCLogic {
       file: 'M6 3h9l3 3v15H6zM9 11h6M9 15h6',
       mail: 'M3 5h18v14H3zM3 7l9 6 9-6',
       board: 'M3 3h18v18H3zM8 7v7M12 7v4M16 7v10',
+      check: 'M5 12.5l4.5 4.5L19 7.5',
       spark: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6'
     };
     const GROUPS = [
       { title: 'Aksi cepat', items: [
         { label: 'Tambah tugas', sub: 'Jadwal', key: 'T', icon: I.plus, run: true },
         { label: 'Catat transaksi', sub: 'Keuangan', key: 'U', icon: I.plus, run: true },
-        { label: 'Catatan suara', sub: 'Inbox', key: 'N', icon: I.mic, run: true },
+        { label: 'Tulis jurnal (suara)', sub: 'Jurnal', key: 'N', icon: I.mic, run: true },
+        { label: 'Centang habit', sub: 'Habit', key: 'H', icon: I.check, run: true },
         { label: 'Unduh dari clipboard', sub: 'Unduhan', key: 'D', icon: I.down, run: true },
         { label: 'Tulis email', sub: 'Email', key: 'E', icon: I.pen, run: true }
       ] },
       { title: 'Buka halaman', items: [
         { label: 'Dashboard', href: 'Main.dc.html', key: '1', icon: I.go },
-        { label: 'Email', href: 'Email.dc.html', key: '2', icon: I.go },
-        { label: 'Jadwal', href: 'Jadwal.dc.html', key: '3', icon: I.go },
-        { label: 'Keuangan', href: 'Keuangan.dc.html', key: '4', icon: I.go },
-        { label: 'Proyek', href: 'Proyek.dc.html', key: '5', icon: I.go },
-        { label: 'Berkas', href: 'Berkas.dc.html', key: '6', icon: I.go },
-        { label: 'Unduhan', href: 'Unduhan.dc.html', key: '7', icon: I.go },
-        { label: 'Profil', href: 'Profil.dc.html', key: '', icon: I.go }
+        { label: 'Jurnal', href: 'Jurnal.dc.html', key: '2', icon: I.go },
+        { label: 'Email', href: 'Email.dc.html', key: '3', icon: I.go },
+        { label: 'Jadwal', href: 'Jadwal.dc.html', key: '4', icon: I.go },
+        { label: 'Habit', href: 'Habit.dc.html', key: '5', icon: I.go },
+        { label: 'Keuangan', href: 'Keuangan.dc.html', key: '6', icon: I.go },
+        { label: 'Proyek', href: 'Proyek.dc.html', key: '7', icon: I.go },
+        { label: 'Berkas', href: 'Berkas.dc.html', key: '8', icon: I.go },
+        { label: 'Unduhan', href: 'Unduhan.dc.html', key: '9', icon: I.go },
+        { label: 'Profil', href: 'Profil.dc.html', key: '', icon: I.go },
+        { label: 'Pengaturan', href: 'Pengaturan.dc.html', key: '', icon: I.go },
+        { label: 'Ganti model AI', sub: 'Pengaturan', href: 'Pengaturan.dc.html', key: '', icon: I.go },
+        { label: 'Ganti avatar Live2D', sub: 'Pengaturan', href: 'PengaturanAvatar.dc.html', key: '', icon: I.go }
       ] },
       { title: 'Terbaru', items: [
         { label: 'proposal-anchoa.pdf', sub: 'Berkas', href: 'Berkas.dc.html', key: '', icon: I.file },

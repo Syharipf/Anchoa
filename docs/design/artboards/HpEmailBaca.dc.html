@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa HP — Email · baca</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+  <header style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px"><a href="HpEmail.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; flex-shrink: 0; position: relative; border-radius: 12px; border: 0; background: #171A21; color: #C9CED8; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a><div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Kotak masuk</h1><span style="font-size: 12px; color: #9AA3B2">1 dari 3 belum dibaca</span></div></header>
+  <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; line-height: 1.3">Review desain dashboard Anchoa</h2>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 36px; height: 36px; border-radius: 50%; background: #C6F36B; color: #0F1115; display: flex; align-items: center; justify-content: center; font-weight: 600">DP</span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px">Dimas Pratama</span><span style="font-size: 12px; color: #9AA3B2">ke saya · 21.40</span></span>
+    </div>
+    <section aria-labelledby="eb-sum" style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #151C12; border: 1px solid #4E6A26">
+      <span id="eb-sum" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #C6F36B"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"></path></svg>Ringkasan asisten</span>
+      <span style="font-size: 13px; line-height: 1.5; color: #DADDE3">• Dimas suka arah Studio Malam.<br>• Minta kontras teks kecil dinaikkan di kartu Keuangan.<br>• Ingin review ulang sebelum Jumat.</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <button data-press onClick="{{addSched}}" style="min-height: 38px; padding: 0 12px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{schedLabel}}</button>
+        <button data-hover style="min-height: 38px; padding: 0 12px; border-radius: 9px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer">Bacakan</button>
+      </div>
+    </section>
+    <p style="margin: 0; font-size: 15px; line-height: 1.7; color: #DADDE3">Halo Syharipf,<br><br>Aku sudah lihat artboard-nya. Arah Studio Malam enak dilihat, terutama heatmap di Dashboard. Satu catatan: teks kecil abu-abu di kartu Keuangan agak susah dibaca di HP, mungkin bisa dinaikkan kontrasnya.<br><br>Bisa kita review lagi sebelum Jumat?<br><br>Dimas</p>
+  </div>
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 30px; border-top: 1px solid #262B35; background: #0B0D10">
+    <div style="display: flex; gap: 6px; overflow-x: auto">
+      <sc-for list="{{replies}}" as="r" hint-placeholder-count="3"><button data-hover onClick="{{r.pick}}" style="flex-shrink: 0; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer; font-size: 12px">{{r.label}}</button></sc-for>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <label data-field style="flex-grow: 1; min-height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 12px; border: 1px solid #262B35; background: #171A21"><input aria-label="Balasan" placeholder="{{replyPh}}" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 14px"></label>
+      <button aria-label="Dikte balasan" style="width: 44px; height: 44px; border-radius: 50%; border: 0; background: #1D2129; color: #C6F36B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+      <button aria-label="Kirim" style="width: 44px; height: 44px; border-radius: 50%; border: 0; background: #C6F36B; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const R = ['Siap, Kamis bisa?', 'Terima kasih, kubenahi kontrasnya', 'Boleh, aku kirim versi baru besok'];
+    return {
+      replies: R.map((r) => ({ label: r, pick: () => this.setState({ reply: r }) })),
+      replyPh: st.reply ? st.reply : 'Tulis balasan…',
+      addSched: () => this.setState({ sched: true }),
+      schedLabel: st.sched ? 'Masuk Jadwal: Kam 10.00 ✓' : 'Tambahkan ke Jadwal'
+    };
+  }
+}
+</script>
+</body>
+</html>

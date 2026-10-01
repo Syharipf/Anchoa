@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa HP — Cari & perintah</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden; background: #0B0D10">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px">
+    <label data-field style="flex-grow: 1; min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 14px; border: 1px solid #2E3440; background: #171A21"><span style="display: flex; color: #9AA3B2"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-3.5-3.5"></path></svg></span><input aria-label="Cari atau jalankan perintah" placeholder="Cari atau ketik perintah…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 15px"></label>
+    <a href="HpBeranda.dc.html" style="min-height: 44px; display: flex; align-items: center; padding: 0 4px; color: #C6F36B; font-size: 14px; text-decoration: none">Batal</a>
+  </div>
+  <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 12px; gap: 6px">
+    <a href="HpAsisten.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 14px; border-radius: 14px; background: #151C12; border: 1px solid #4E6A26; color: #C6F36B; font-size: 14px; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg><span style="flex-grow: 1">Tahan untuk bicara: “catat makan 35 ribu”</span></a>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+      <span style="margin-top: 10px; font-size: 11px; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">{{g.title}}</span>
+      <sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+        <a href="{{i.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border-radius: 12px; border: 0; background: transparent; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer; text-decoration: none; min-height: 52px; padding: 6px 4px">
+          <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: #1D2129; color: #C9CED8; display: flex; align-items: center; justify-content: center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.icon}}"></path></svg></span>
+          <span style="flex-grow: 1; font-size: 15px">{{i.label}}</span>
+          <span style="font-size: 12px; color: #9AA3B2">{{i.sub}}</span>
+        </a>
+      </sc-for>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const I = { plus: 'M12 5v14M5 12h14', mic: 'M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3', check: 'M5 12.5l4.5 4.5L19 7.5', go: 'M5 12h14M13 6l6 6-6 6', file: 'M6 3h9l3 3v15H6z', mail: 'M3 5h18v14H3zM3 7l9 6 9-6' };
+    const G = [
+      ['Aksi cepat', [['Tambah tugas', 'Jadwal', 'HpJadwal.dc.html', I.plus], ['Catat transaksi', 'Keuangan', 'HpKeuangan.dc.html', I.plus], ['Tulis jurnal', 'Jurnal', 'HpJurnal.dc.html', I.mic], ['Centang habit', 'Habit', 'HpHabit.dc.html', I.check]]],
+      ['Buka', [['Agen kode', 'Proyek', 'HpAgen.dc.html', I.go], ['Email', '3 baru', 'HpEmail.dc.html', I.go], ['Pengaturan AI', 'Pengaturan', 'HpPengaturanAI.dc.html', I.go]]],
+      ['Terbaru', [['pantai-sore.jpg', 'Laptop', 'HpBerkas.dc.html', I.file], ['Review desain dashboard', 'Email', 'HpEmailBaca.dc.html', I.mail]]]
+    ];
+    return { groups: G.map((g) => ({ title: g[0], items: g[1].map((i) => ({ label: i[0], sub: i[1], href: i[2], icon: i[3] })) })) };
+  }
+}
+</script>
+</body>
+</html>

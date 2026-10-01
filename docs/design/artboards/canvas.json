@@ -1,0 +1,524 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Dashboard",
+      "page": "dashboard",
+      "is_interactive": true
+    },
+    "Jurnal.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Jurnal (ide, curhat, catatan)",
+      "page": "jurnal",
+      "is_interactive": true
+    },
+    "Email.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Email",
+      "page": "email",
+      "is_interactive": true
+    },
+    "Jadwal.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Jadwal (kalender & timeline)",
+      "page": "jadwal",
+      "is_interactive": true
+    },
+    "Habit.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Habit tracker",
+      "page": "habit",
+      "is_interactive": true
+    },
+    "Keuangan.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Keuangan",
+      "page": "keuangan",
+      "is_interactive": true
+    },
+    "Proyek.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Proyek · Kanban",
+      "page": "proyek",
+      "is_interactive": true
+    },
+    "Berkas.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Berkas (pengelola file + pratinjau)",
+      "page": "berkas",
+      "is_interactive": true
+    },
+    "Unduhan.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Unduhan (yt-dlp, file, torrent)",
+      "page": "unduhan",
+      "is_interactive": true
+    },
+    "Profil.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Profil",
+      "page": "profil",
+      "is_interactive": true
+    },
+    "NotifPanel.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1208,
+      "h": 800,
+      "title": "Panel notifikasi",
+      "page": "notifikasi",
+      "is_interactive": true
+    },
+    "CommandPalette.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Command palette (Ctrl K)",
+      "page": "palette",
+      "is_interactive": true
+    },
+    "Loading.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Loading saat membuka app",
+      "page": "loading",
+      "is_interactive": true
+    },
+    "Palet.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 2280,
+      "title": "Panduan gaya",
+      "page": "panduan"
+    },
+    "Pengaturan.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Pengaturan · Asisten & AI (pilih & tes model)",
+      "page": "pengaturan",
+      "is_interactive": true
+    },
+    "PengaturanAvatar.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Pengaturan · Avatar Live2D (ganti model)",
+      "page": "pengaturan",
+      "is_interactive": true
+    },
+    "PengaturanSinkron.dc.html": {
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Pengaturan · Sinkron & data",
+      "page": "pengaturan",
+      "is_interactive": true
+    },
+    "Login.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Masuk",
+      "page": "masuk",
+      "is_interactive": true
+    },
+    "Onboarding.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Penyiapan pertama (5 langkah)",
+      "page": "masuk",
+      "is_interactive": true
+    },
+    "State.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1760,
+      "title": "State kosong, offline, error",
+      "page": "state"
+    },
+    "ProyekAgen.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Proyek · Agen kode (aktivitas, izin, kirim perintah)",
+      "page": "proyek",
+      "is_interactive": true
+    },
+    "ProyekAgenHubungkan.dc.html": {
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "Proyek · Hubungkan agen (MCP)",
+      "page": "proyek",
+      "is_interactive": true
+    },
+    "HpMasuk.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Masuk",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpBeranda.dc.html": {
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Beranda (dok: Cari · Menu · Mic)",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpAsisten.dc.html": {
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Asisten (suara)",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpCari.dc.html": {
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Cari & perintah",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpNotif.dc.html": {
+      "x": 2350,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Notifikasi",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpJurnal.dc.html": {
+      "x": 2820,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Jurnal",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpHabit.dc.html": {
+      "x": 3290,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Habit",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpJadwal.dc.html": {
+      "x": 3760,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Jadwal",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpKeuangan.dc.html": {
+      "x": 4230,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Keuangan",
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpProyek.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Proyek (Kanban)",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpAgen.dc.html": {
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Agen kode (izin dari HP)",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpEmail.dc.html": {
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Email",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpEmailBaca.dc.html": {
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Email (baca + ringkasan)",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpBerkas.dc.html": {
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · File laptop",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpUnduhan.dc.html": {
+      "x": 2350,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Unduhan",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpPengaturan.dc.html": {
+      "x": 2820,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Pengaturan",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpPengaturanAI.dc.html": {
+      "x": 3290,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Pengaturan AI (tes kunci)",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpProfil.dc.html": {
+      "x": 3760,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "HP · Profil",
+      "page": "hp-modul",
+      "is_interactive": true,
+      "radius": 32
+    },
+    "HpBerandaRoda.dc.html": {
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "hp",
+      "is_interactive": true,
+      "radius": 32,
+      "x": 940,
+      "title": "HP · Roda menu terbuka (geser kiri/kanan)"
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-30T00:05:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas",
+    "page": "dashboard"
+  },
+  "notes": {},
+  "order": [
+    "Main.dc.html",
+    "Jurnal.dc.html",
+    "Email.dc.html",
+    "Jadwal.dc.html",
+    "Habit.dc.html",
+    "Keuangan.dc.html",
+    "Proyek.dc.html",
+    "ProyekAgen.dc.html",
+    "ProyekAgenHubungkan.dc.html",
+    "Berkas.dc.html",
+    "Unduhan.dc.html",
+    "Profil.dc.html",
+    "Pengaturan.dc.html",
+    "PengaturanAvatar.dc.html",
+    "PengaturanSinkron.dc.html",
+    "NotifPanel.dc.html",
+    "CommandPalette.dc.html",
+    "Login.dc.html",
+    "Onboarding.dc.html",
+    "Loading.dc.html",
+    "HpMasuk.dc.html",
+    "HpBeranda.dc.html",
+    "HpBerandaRoda.dc.html",
+    "HpAsisten.dc.html",
+    "HpCari.dc.html",
+    "HpNotif.dc.html",
+    "HpJurnal.dc.html",
+    "HpHabit.dc.html",
+    "HpJadwal.dc.html",
+    "HpKeuangan.dc.html",
+    "HpProyek.dc.html",
+    "HpAgen.dc.html",
+    "HpEmail.dc.html",
+    "HpEmailBaca.dc.html",
+    "HpBerkas.dc.html",
+    "HpUnduhan.dc.html",
+    "HpPengaturan.dc.html",
+    "HpPengaturanAI.dc.html",
+    "HpProfil.dc.html",
+    "State.dc.html",
+    "Palet.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "dashboard",
+      "name": "Dashboard"
+    },
+    {
+      "id": "jurnal",
+      "name": "Jurnal"
+    },
+    {
+      "id": "email",
+      "name": "Email"
+    },
+    {
+      "id": "jadwal",
+      "name": "Jadwal"
+    },
+    {
+      "id": "habit",
+      "name": "Habit"
+    },
+    {
+      "id": "keuangan",
+      "name": "Keuangan"
+    },
+    {
+      "id": "proyek",
+      "name": "Proyek"
+    },
+    {
+      "id": "berkas",
+      "name": "Berkas"
+    },
+    {
+      "id": "unduhan",
+      "name": "Unduhan"
+    },
+    {
+      "id": "profil",
+      "name": "Profil"
+    },
+    {
+      "id": "pengaturan",
+      "name": "Pengaturan"
+    },
+    {
+      "id": "notifikasi",
+      "name": "Panel notifikasi"
+    },
+    {
+      "id": "palette",
+      "name": "Command palette"
+    },
+    {
+      "id": "masuk",
+      "name": "Masuk & onboarding"
+    },
+    {
+      "id": "loading",
+      "name": "Loading"
+    },
+    {
+      "id": "hp",
+      "name": "HP · Utama"
+    },
+    {
+      "id": "hp-modul",
+      "name": "HP · Modul"
+    },
+    {
+      "id": "state",
+      "name": "State kosong/offline/error"
+    },
+    {
+      "id": "panduan",
+      "name": "Panduan gaya"
+    }
+  ],
+  "title": "Anchoa UI/UX Direction"
+}

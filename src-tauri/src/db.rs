@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 
 use crate::error::AppError;
 
@@ -43,7 +43,16 @@ impl Db {
 }
 
 pub fn open(path: &Path) -> Result<Connection, AppError> {
-    let mut conn = Connection::open(path)?;
+    open_with_flags(path, OpenFlags::default())
+}
+
+/// Opens the app database for the CLI without ever creating a missing file.
+pub fn open_existing(path: &Path) -> Result<Connection, AppError> {
+    open_with_flags(path, OpenFlags::default() & !OpenFlags::SQLITE_OPEN_CREATE)
+}
+
+fn open_with_flags(path: &Path, flags: OpenFlags) -> Result<Connection, AppError> {
+    let mut conn = Connection::open_with_flags(path, flags)?;
     configure(&conn)?;
     migrate(&mut conn, MIGRATIONS, Some(path))?;
     Ok(conn)
@@ -105,6 +114,14 @@ mod tests {
 
     fn version(conn: &Connection) -> i64 {
         conn.pragma_query_value(None, "user_version", |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn open_existing_refuses_to_create_a_missing_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        assert!(open_existing(&path).is_err());
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
     }
 
     #[test]

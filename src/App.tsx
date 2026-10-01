@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage, type DbStatus } from "./api";
+import { api, errorMessage, type DbStatus, type NotifyPrefs } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
@@ -10,6 +10,7 @@ import { HabitsPage } from "./habits/HabitsPage";
 import { JournalPage } from "./journal/JournalPage";
 import { NotesPage } from "./notes/NotesPage";
 import { ItemPage } from "./item/ItemPage";
+import { ProfilePage } from "./profile/ProfilePage";
 import { ProjectsPage } from "./projects/ProjectsPage";
 import { SchedulePage } from "./schedule/SchedulePage";
 import { NotifPanel } from "./notifications/NotifPanel";
@@ -40,6 +41,7 @@ export function App() {
   const [captures, setCaptures] = useState(0);
   const [fileClipboard, setFileClipboard] = useState<FileClipboard | null>(null);
   const [contributionsVersion, setContributionsVersion] = useState(0);
+  const [notifyPrefs, setNotifyPrefs] = useState<NotifyPrefs | undefined>(undefined);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const onSectionChange = useCallback((section: SettingsSection) => {
@@ -50,6 +52,9 @@ export function App() {
     });
   }, []);
   const onReveal = useCallback((path: string) => setStack([{ name: "berkas", path }]), []);
+  const reloadPrefs = useCallback(() => {
+    api.getNotifyPrefs().then(setNotifyPrefs).catch(() => {});
+  }, []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
   const page = stack[stack.length - 1];
@@ -61,6 +66,10 @@ export function App() {
       if (s.backupError) toast(`Backup harian gagal: ${s.backupError}`, "error");
     });
   }, [toast]);
+
+  useEffect(() => {
+    if (ready) reloadPrefs();
+  }, [ready, reloadPrefs]);
 
   // The bell, the panel, the palette and the dashboard show data that other pages change: refresh on every page change.
   useEffect(() => {
@@ -123,7 +132,12 @@ export function App() {
           setOverlay(null);
           go(name);
         }}
-        reminders={reminderCount(data?.today ?? [], data?.finance ?? null, data?.habitReminders ?? [])}
+        reminders={reminderCount(
+          data?.today ?? [],
+          data?.finance ?? null,
+          data?.habitReminders ?? [],
+          notifyPrefs,
+        )}
         notificationsOpen={overlay === "notifications"}
         onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
       />
@@ -166,6 +180,16 @@ export function App() {
           <DownloadsPage onReveal={onReveal} />
         )}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}
+        {page.name === "profil" && (
+          <ProfilePage
+            prefs={notifyPrefs}
+            onPrefsChanged={() => {
+              reloadPrefs();
+              reload();
+            }}
+            onOpenSettings={openSettings}
+          />
+        )}
         {page.name === "settings" && (
           <Settings
             initialSection={page.section}
@@ -201,6 +225,7 @@ export function App() {
           today={data?.today ?? []}
           finance={data?.finance ?? null}
           habitReminders={data?.habitReminders ?? []}
+          prefs={notifyPrefs}
           onClose={() => setOverlay(null)}
           onOpenItem={openItem}
           onOpenFinance={() => go("keuangan")}

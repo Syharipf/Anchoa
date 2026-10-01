@@ -1,4 +1,4 @@
-import type { BillView, DayTask, FinanceSummary, HabitReminder } from "../api";
+import type { BillView, DayTask, FinanceSummary, HabitReminder, NotifyPrefs } from "../api";
 import { shortDate } from "../format";
 import { formatRupiah } from "../money";
 
@@ -27,6 +27,13 @@ function limitReminder(finance: FinanceSummary | null): Reminder[] {
   return [{ kind: "budget", id: "budget", percent, over: budget.level === "over" }];
 }
 
+const DEFAULT_PREFS: NotifyPrefs = {
+  task: true,
+  bill: true,
+  budget: true,
+  habit: true,
+};
+
 /**
  * Notification panel content until modules store their own notifications (spec UI lanjutan U6,
  * Fase 2 §5): open tasks and bills that are late or due today, then the monthly limit.
@@ -35,21 +42,29 @@ export function reminders(
   today: DayTask[],
   finance: FinanceSummary | null,
   habitReminders: HabitReminder[] = [],
+  prefs?: NotifyPrefs,
 ): ReminderGroup[] {
-  const open = today.filter((t) => t.completedAt === null);
-  const bills = finance?.dueBills ?? [];
+  const p = prefs ?? DEFAULT_PREFS;
+  const open = p.task ? today.filter((t) => t.completedAt === null) : [];
+  const bills = p.bill ? (finance?.dueBills ?? []) : [];
+  const habits = p.habit ? habitReminders : [];
+  const budgets = p.budget ? limitReminder(finance) : [];
+
   const groups: ReminderGroup[] = [
     {
       title: "Terlambat",
-      items: [...open.filter((t) => t.overdue).map(fromTask), ...bills.filter((b) => b.status === "overdue").map(fromBill)],
+      items: [
+        ...open.filter((t) => t.overdue).map(fromTask),
+        ...bills.filter((b) => b.status === "overdue").map(fromBill),
+      ],
     },
     {
       title: "Hari ini",
       items: [
         ...open.filter((t) => !t.overdue).map(fromTask),
         ...bills.filter((b) => b.status === "dueToday").map(fromBill),
-        ...habitReminders.map(fromHabit),
-        ...limitReminder(finance),
+        ...habits.map(fromHabit),
+        ...budgets,
       ],
     },
   ];
@@ -60,8 +75,9 @@ export function reminderCount(
   today: DayTask[],
   finance: FinanceSummary | null,
   habitReminders: HabitReminder[] = [],
+  prefs?: NotifyPrefs,
 ): number {
-  return reminders(today, finance, habitReminders).reduce((n, g) => n + g.items.length, 0);
+  return reminders(today, finance, habitReminders, prefs).reduce((n, g) => n + g.items.length, 0);
 }
 
 /** Title and detail line of one reminder card. */

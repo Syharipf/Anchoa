@@ -5,6 +5,7 @@ import { App } from "./App";
 import { ItemPage } from "./item/ItemPage";
 import { NotesPage } from "./notes/NotesPage";
 import { CommandPalette } from "./palette/CommandPalette";
+import { ProfilePage } from "./profile/ProfilePage";
 import { Settings } from "./settings/Settings";
 import type { SettingsSection } from "./settings/view";
 import { Sidebar } from "./shell/Sidebar";
@@ -74,3 +75,49 @@ describe("App settings navigation", () => {
     },
   );
 });
+
+describe("App profile navigation", () => {
+  let harness: ReturnType<typeof hookHarness<ReactNode>>;
+  let prefsSpy: ReturnType<typeof spyOn<typeof api, "getNotifyPrefs">>;
+  afterEach(() => {
+    harness?.dispose();
+    prefsSpy?.mockRestore();
+  });
+
+  it("navigates to profil and renders ProfilePage without ComingSoon", async () => {
+    const dbSpy = spyOn(api, "dbStatus").mockResolvedValue({ path: "/db", error: null, backupError: null });
+    const dashSpy = spyOn(api, "getDashboard").mockResolvedValue({
+      today: [],
+      upcoming: [],
+      recent: [],
+      inboxCount: 0,
+      finance: { hasAccounts: false, balance: 0, expense: 0, budget: null, dueBills: [] },
+      projects: [],
+      habitReminders: [],
+      downloads: { speed: 0, items: [] },
+    });
+    prefsSpy = spyOn(api, "getNotifyPrefs").mockResolvedValue({
+      task: true,
+      bill: false,
+      budget: true,
+      habit: true,
+    });
+    harness = hookHarness(App, { 0: { path: "/db", error: null } });
+    const render = () => harness.render(false);
+    const sidebar = () => elements(render()).find((element) => element.type === Sidebar)!;
+    (sidebar().props.onSelect as (name: string) => void)("profil");
+    await harness.settle();
+
+    const profile = elements(render()).find((element) => element.type === ProfilePage);
+    expect(profile).toBeDefined();
+    expect(profile?.props.prefs).toEqual({
+      task: true,
+      bill: false,
+      budget: true,
+      habit: true,
+    });
+    dbSpy.mockRestore();
+    dashSpy.mockRestore();
+  });
+});
+

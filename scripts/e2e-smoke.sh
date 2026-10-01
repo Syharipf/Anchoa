@@ -571,7 +571,7 @@ check_journal() {
   sleep 1
   shot 15-journal
 
-  [[ "$(sql "SELECT body FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note'")" = "Membangun aplikasi open-source untuk produktivitas." ]] \
+  sql_becomes "SELECT body FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note'" "Membangun aplikasi open-source untuk produktivitas." \
     || fail "journal body not saved"
   [[ "$(sql "SELECT mood FROM journal_entries WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note')")" = "4" ]] \
     || fail "journal mood not saved"
@@ -897,6 +897,24 @@ check_settings() {
   stop_app
 }
 
+check_profile() {
+  fresh
+  start_app
+  click 36 706                 # nav: Profil
+  sleep 1
+  shot 21-profile
+  click 286 363                # Ubah profil
+  xdotool key ctrl+a
+  xdotool type --delay 20 'Teri E2E'
+  click 255 352                # Simpan
+  sleep 0.5
+  sql_becomes "SELECT value FROM settings WHERE key = 'profile.name'" 'Teri E2E' || fail "profile name not saved"
+  click 1212 224               # sakelar Tugas
+  sql_becomes "SELECT value FROM settings WHERE key = 'notify.task'" 0 || fail "task notifications not switched off"
+  shot 21-profile-edited
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -925,4 +943,5 @@ check_downloads
 check_notes
 check_agent
 check_settings
+check_profile
 echo "PASS. Screenshots in $WORK"

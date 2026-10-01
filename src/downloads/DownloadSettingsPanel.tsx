@@ -186,11 +186,7 @@ export function DownloadSettingsPanel({
           className="flex flex-wrap gap-1 rounded-lg border border-line bg-canvas p-0.5"
         >
           {LIMIT_OPTIONS.map((opt) => {
-            const active =
-              opt.value === 0
-                ? settings.limit === 0
-                : settings.limit === opt.value ||
-                  Math.round(settings.limit / 1048576) === Math.round(opt.value / 1048576);
+            const active = settings.limit === opt.value;
             return (
               <button
                 key={opt.label}
@@ -198,7 +194,7 @@ export function DownloadSettingsPanel({
                 onClick={() => handleLimitChange(opt.value)}
                 disabled={saving}
                 aria-pressed={active}
-                className={`min-h-6 flex-1 rounded-md px-2 font-mono text-[11px] transition-colors ${
+                className={`min-h-6 flex-1 whitespace-nowrap rounded-md px-1 font-mono text-[11px] transition-colors ${
                   active
                     ? "bg-surface-2 font-medium text-ink"
                     : "text-muted hover:text-ink"

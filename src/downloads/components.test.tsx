@@ -10,7 +10,7 @@ describe("Unduhan components", () => {
   describe("AddDownload", () => {
     it("renders input, detection badge, examples, and download button", () => {
       const html = renderToStaticMarkup(<AddDownload onAdded={() => {}} />);
-      expect(html).toContain("Tempel tautan video, audio, file, atau magnet…");
+      expect(html).toContain("Tempel tautan video, audio, atau file…");
       expect(html).toContain("Menunggu tautan");
       expect(html).toContain("Contoh:");
       expect(html).toContain("Video");

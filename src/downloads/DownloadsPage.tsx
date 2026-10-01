@@ -165,7 +165,7 @@ export function DownloadsPage({
             >
               <path d="M12 5v14M6 13l6 6 6-6" />
             </svg>
-            ↓ {formatSpeed(speed)}
+            {formatSpeed(speed)}
           </span>
           <span className="text-muted">{activeCount} aktif</span>
         </div>

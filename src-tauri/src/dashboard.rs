@@ -163,12 +163,9 @@ pub fn downloads_summary(
             row.total_bytes = l.total.map(|t| t as i64).or(row.total_bytes);
         }
 
-        let progress = match (row.status, row.total_bytes) {
-            (DownloadStatus::Done, _) => 100,
-            (DownloadStatus::Queued | DownloadStatus::Failed, _) => 0,
-            (_, Some(total)) if total > 0 => {
-                let pct = (row.done_bytes as f64 / total as f64 * 100.0).round() as u32;
-                pct.min(100)
+        let progress = match row.total_bytes {
+            Some(total) if total > 0 && row.status != DownloadStatus::Queued => {
+                ((row.done_bytes as f64 / total as f64 * 100.0).round() as u32).min(100)
             }
             _ => 0,
         };
@@ -193,7 +190,7 @@ pub fn downloads_summary(
         _ => 3,
     });
 
-    let speed = live.values().filter_map(|l| l.speed).sum();
+    let speed = active_items.iter().filter_map(|i| i.speed).sum();
     let items = active_items.into_iter().take(2).collect();
 
     Ok(DownloadsSummary { speed, items })

@@ -547,16 +547,17 @@ pub fn downloads_list(
         })
         .collect();
 
-    let speed = items.iter().filter_map(|i| i.speed).sum();
-    let active = items
-        .iter()
-        .filter(|i| {
+    // A paused worker can linger in the live map for a moment: count running rows only.
+    let running = || {
+        items.iter().filter(|i| {
             matches!(
                 i.row.status,
                 downloads::DownloadStatus::Running | downloads::DownloadStatus::Processing
             )
         })
-        .count();
+    };
+    let speed = running().filter_map(|i| i.speed).sum();
+    let active = running().count();
 
     Ok(DownloadsPayload {
         items,

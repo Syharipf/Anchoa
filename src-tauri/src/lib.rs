@@ -132,6 +132,11 @@ pub fn run() {
             commands::download_settings,
             commands::save_download_settings,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                app.state::<downloader::Downloader>().stop_all();
+            }
+        });
 }

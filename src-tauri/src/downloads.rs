@@ -546,19 +546,12 @@ pub fn parse_line(line: &str) -> Option<YtEvent> {
         .or_else(|| trimmed.strip_prefix("download:PROGRESS "))
     {
         let parts: Vec<&str> = rest.split('/').collect();
-        if parts.is_empty() {
-            return None;
-        }
-        let done = parts[0].parse::<u64>().unwrap_or(0);
-        let total = parts
-            .get(1)
-            .and_then(|s| if *s == "NA" || s.is_empty() { None } else { s.parse::<u64>().ok() });
-        let speed = parts
-            .get(2)
-            .and_then(|s| if *s == "NA" || s.is_empty() { None } else { s.parse::<f64>().ok() });
-        let eta = parts
-            .get(3)
-            .and_then(|s| if *s == "NA" || s.is_empty() { None } else { s.parse::<u64>().ok() });
+        // Estimated totals come as floats ("1234.0"); "NA" does not parse and becomes None.
+        let num = |i: usize| parts.get(i).and_then(|s| s.parse::<f64>().ok());
+        let done = num(0).unwrap_or(0.0) as u64;
+        let total = num(1).map(|v| v as u64);
+        let speed = num(2);
+        let eta = num(3).map(|v| v as u64);
         return Some(YtEvent::Progress {
             done,
             total,
@@ -947,6 +940,17 @@ mod tests {
                 total: None,
                 speed: None,
                 eta: None,
+            })
+        );
+
+        let estimated = parse_line("PROGRESS 2048/4096.5/NA/3");
+        assert_eq!(
+            estimated,
+            Some(YtEvent::Progress {
+                done: 2048,
+                total: Some(4096),
+                speed: None,
+                eta: Some(3),
             })
         );
 

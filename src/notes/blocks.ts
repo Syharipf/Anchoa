@@ -38,17 +38,20 @@ export function splitBlocks(body: string): Block[] {
   }
   const lines = body.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
-  let inCodeFence = false;
+  // Length of the open fence's backtick run; 0 outside a fence. A fence closes
+  // only on a line of at least as many backticks and nothing else (CommonMark).
+  let fence = 0;
   let currentLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const isFence = line.trimStart().startsWith("```");
+    const ticks = /^\s{0,3}(`{3,})/.exec(line)?.[1].length ?? 0;
+    const isFence = ticks > 0;
 
-    if (inCodeFence) {
+    if (fence > 0) {
       currentLines.push(line);
-      if (isFence) {
-        inCodeFence = false;
+      if (ticks >= fence && /^\s*`+\s*$/.test(line)) {
+        fence = 0;
         blocks.push({ id: nextId(), text: currentLines.join("\n") });
         currentLines = [];
       }
@@ -57,7 +60,7 @@ export function splitBlocks(body: string): Block[] {
         blocks.push({ id: nextId(), text: currentLines.join("\n") });
         currentLines = [];
       }
-      inCodeFence = true;
+      fence = ticks;
       currentLines.push(line);
     } else if (line.trim() === "") {
       if (currentLines.length > 0) {
@@ -283,16 +286,14 @@ export function toggleTodo(text: string, line: number): string {
   if (line >= lines.length) {
     return text;
   }
-  const targetLine = lines[line];
-  if (/\[ \]/.test(targetLine)) {
-    lines[line] = targetLine.replace(/\[ \]/, "[x]");
-    return lines.join("\n");
+  // Only the checkbox at the start of the line, never a "[ ]" inside the task's text.
+  const match = /^(\s*(?:[-*+]\s+)?)\[([ xX])\]/.exec(lines[line]);
+  if (!match) {
+    return text;
   }
-  if (/\[[xX]\]/.test(targetLine)) {
-    lines[line] = targetLine.replace(/\[[xX]\]/, "[ ]");
-    return lines.join("\n");
-  }
-  return text;
+  const mark = match[2] === " " ? "x" : " ";
+  lines[line] = `${match[1]}[${mark}]${lines[line].slice(match[0].length)}`;
+  return lines.join("\n");
 }
 
 /**

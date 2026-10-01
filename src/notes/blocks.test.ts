@@ -22,7 +22,22 @@ describe("blocks model", () => {
     resetBlockIdCounterForTests(1);
   });
 
-  describe("splitBlocks and joinBlocks", () => {
+  describe("review fixes", () => {
+  it("keeps a four-backtick fence whole when it contains three backticks", () => {
+    const body = "````\n```\n\ncode\n````\n\nafter";
+    const blocks = splitBlocks(body);
+    expect(blocks.map((b) => b.text)).toEqual(["````\n```\n\ncode\n````", "after"]);
+    expect(joinBlocks(blocks)).toBe(body);
+  });
+
+  it("toggles only the checkbox, not brackets inside the task", () => {
+    expect(toggleTodo("- [x] explain [ ] syntax", 0)).toBe("- [ ] explain [ ] syntax");
+    expect(toggleTodo("- [ ] explain [x] syntax", 0)).toBe("- [x] explain [x] syntax");
+    expect(toggleTodo("plain [ ] text", 0)).toBe("plain [ ] text");
+  });
+});
+
+describe("splitBlocks and joinBlocks", () => {
     it("returns empty array for empty or whitespace-only bodies", () => {
       expect(splitBlocks("")).toEqual([]);
       expect(splitBlocks("   ")).toEqual([]);

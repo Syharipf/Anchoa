@@ -153,7 +153,9 @@ export function BlockEditor(
       b.id === activeBlockId ? { ...b, text: newText } : b,
     );
     setBlocks(newBlocks);
-    pendingCaret.current = newText.length;
+    // Inside a code block the caret goes before the closing fence.
+    const closing = option.kind === "code" ? newText.lastIndexOf("\n```") : -1;
+    pendingCaret.current = closing >= 0 ? closing : newText.length;
     props.onChange(joinBlocks(newBlocks));
     setDismissedSlashQuery(null);
   }
@@ -173,13 +175,15 @@ export function BlockEditor(
     setDismissedLinkQuery(null);
   }
 
-  async function handleSelectCreateLink(query: string) {
+  // The link goes in first and the page is created in the background, so nothing
+  // typed meanwhile is overwritten by a stale copy of the blocks.
+  function handleSelectCreateLink(query: string) {
     if (activeBlockId === null) return;
     const currentBlock = blocks.find((b) => b.id === activeBlockId);
     if (!currentBlock) return;
     const trimmed = query.trim();
     if (trimmed) {
-      await props.onCreatePage(trimmed);
+      void props.onCreatePage(trimmed);
     }
     const caret = textareaRef.current?.selectionStart ?? currentBlock.text.length;
     const res = insertLink(currentBlock.text, caret, trimmed);
@@ -226,7 +230,7 @@ export function BlockEditor(
         if (linkSelectedIndex < matchingTitles.length) {
           handleSelectExistingLink(matchingTitles[linkSelectedIndex]);
         } else {
-          void handleSelectCreateLink(lq!);
+          handleSelectCreateLink(lq!);
         }
         return;
       }
@@ -418,7 +422,7 @@ export function BlockEditor(
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => void handleSelectCreateLink(lq!)}
+                    onClick={() => handleSelectCreateLink(lq!)}
                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
                       matchingTitles.length > 0
                         ? "border-t border-line/50 mt-1"
@@ -449,6 +453,8 @@ export function BlockEditor(
               pendingCaret.current = block.text.length;
             }}
             onKeyDown={(e) => {
+              // Keys on a link or checkbox inside the preview keep their own meaning.
+              if (e.target !== e.currentTarget) return;
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 setActiveBlockId(block.id);

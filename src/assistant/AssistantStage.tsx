@@ -114,7 +114,7 @@ export function AssistantStage({
         </span>
 
         <div className="absolute right-3 bottom-3 left-3 flex flex-col gap-1.5 rounded-[14px] border border-line bg-sidebar/90 px-3.5 py-3">
-          {ollamaOffline ? (
+          {ollamaOffline && !thinking ? (
             <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />
           ) : listening ? (
             <>
@@ -158,6 +158,20 @@ export function AssistantStage({
           )}
         </div>
       </div>
+
+      {assistant.error && (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+          <span className="flex-1">{assistant.error}</span>
+          <button
+            type="button"
+            aria-label="Tutup pesan kesalahan"
+            onClick={assistant.clearError}
+            className="cursor-pointer font-semibold hover:underline"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
 
       {assistant.pendingProposals.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -283,8 +297,9 @@ export function AssistantStage({
               listening ? "Berhenti mendengarkan" : "Ketuk untuk bicara"
             }
             aria-pressed={listening}
+            disabled={thinking}
             onClick={() => assistant.setMode(listening ? "idle" : "listening")}
-            className={`${ROUND} relative h-16 w-16 text-canvas ${
+            className={`${ROUND} relative h-16 w-16 text-canvas disabled:opacity-50 disabled:cursor-not-allowed ${
               listening
                 ? "bg-danger"
                 : "bg-accent ring-4 ring-accent/20"

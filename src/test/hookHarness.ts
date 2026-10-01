@@ -11,9 +11,11 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
   const effects: Effect[] = [];
   let cursor = 0;
   let dirty = true;
+  let disposed = false;
   let output: T;
   let pendingEffects: (() => void)[] = [];
   const timers = new Map<number, () => void>();
+  const intervals = new Map<number, { run: () => void; delay: number | undefined }>();
   let timerId = 0;
   const listeners = new Map<string, Set<() => void>>();
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -25,10 +27,16 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
     return timerId;
   }) as unknown as typeof setTimeout;
   const clearTimer = ((id: number) => timers.delete(id)) as unknown as typeof clearTimeout;
+  const setRepeatingTimer = ((run: () => void, delay?: number) => {
+    intervals.set(++timerId, { run, delay });
+    return timerId;
+  }) as unknown as typeof setInterval;
+  const clearRepeatingTimer = ((id: number) => intervals.delete(id)) as unknown as typeof clearInterval;
   globalThis.setTimeout = setTimer;
   globalThis.clearTimeout = clearTimer;
   Object.defineProperty(globalThis, "window", { configurable: true, value: {
     setTimeout: setTimer, clearTimeout: clearTimer,
+    setInterval: setRepeatingTimer, clearInterval: clearRepeatingTimer,
     addEventListener: (name: string, run: () => void) => {
       if (!listeners.has(name)) listeners.set(name, new Set());
       listeners.get(name)!.add(run);
@@ -103,9 +111,15 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
       const runs = [...timers.values()];
       timers.clear();
       runs.forEach((run) => run());
+      [...intervals.values()].forEach(({ run }) => run());
     },
+    intervalDelays() { return [...intervals.values()].map(({ delay }) => delay); },
+    focus() { listeners.get("focus")?.forEach((run) => run()); },
     blur() { listeners.get("blur")?.forEach((run) => run()); },
     dispose() {
+      if (disposed) return;
+      disposed = true;
+      effects.forEach((effect) => effect.cleanup?.());
       spies.forEach((spy) => spy.mockRestore());
       globalThis.setTimeout = previousSetTimeout;
       globalThis.clearTimeout = previousClearTimeout;

@@ -13,6 +13,8 @@ export function ProposalCard({ proposal, onDecide }: Readonly<ProposalCardProps>
     setBusy(true);
     try {
       await onDecide(proposal.id, approve);
+    } catch {
+      // useAssistant keeps the proposal and displays the error for retrying.
     } finally {
       setBusy(false);
     }

@@ -846,7 +846,9 @@ check_agent() {
   click 1203 104               # + Proyek
   sleep 0.5
   xdotool type --delay 20 'Agen E2E'
+  sleep 0.5
   click 821 255                # sakelar Proyek agen
+  sleep 0.5                    # the agent fields slide in
   click 640 334                # Folder repo
   xdotool type --delay 10 "$repo"
   click 640 432                # Perintah agen

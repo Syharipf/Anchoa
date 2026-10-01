@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { api, type AiStatus, type AssistantEvent } from "../api";
@@ -8,6 +8,10 @@ import { AssistantMini } from "./AssistantMini";
 describe("AssistantMini", () => {
   const spies: ReturnType<typeof spyOn>[] = [];
   let harness: ReturnType<typeof hookHarness<ReactNode>> | null = null;
+
+  beforeEach(() => {
+    spies.push(spyOn(api, "assistantPending").mockResolvedValue([]));
+  });
 
   afterEach(() => {
     spies.forEach((s) => s.mockRestore());
@@ -82,9 +86,9 @@ describe("AssistantMini", () => {
     }
   });
 
-  it("handles typing mode, sending, streaming, and stopping in mini popup", async () => {
+  it.each([true, false])("keeps streaming controls available in Mini (Ollama available: %s)", async (available) => {
     const onlineStatus: AiStatus = {
-      available: true,
+      available,
       models: ["qwen2.5:3b"],
       error: null,
     };
@@ -150,6 +154,15 @@ describe("AssistantMini", () => {
     expect(markup).toContain("Mencatat...");
     expect(markup).toContain("Hentikan");
 
+    const microphone = elements(harness.render()).find((el) => el.props["aria-label"] === "Ketuk untuk bicara")!;
+    expect(microphone.props.disabled).toBe(true);
+    (microphone.props.onClick as () => void)();
+    (kirimBtn!.props.onClick as () => void)();
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(renderToStaticMarkup(harness.render())).toContain("Sedang berpikir…");
+    (typingBtn!.props.onClick as () => void)();
+    expect(renderToStaticMarkup(harness.render())).toContain("Hentikan");
+
     // Click Hentikan
     const hentikanBtn = elements(harness.render()).find(
       (el) => el.props["aria-label"] === "Hentikan",
@@ -157,5 +170,42 @@ describe("AssistantMini", () => {
     expect(hentikanBtn).toBeDefined();
     await (hentikanBtn!.props.onClick as () => Promise<void>)();
     expect(stopSpy).toHaveBeenCalled();
+  });
+
+  it("shows send failures in a dismissible danger alert", async () => {
+    spies.push(spyOn(api, "aiStatus").mockResolvedValue({ available: true, models: [], error: null }));
+    spies.push(spyOn(api, "assistantSend").mockRejectedValue(new Error("Balasan gagal")));
+    harness = hookHarness<ReactNode>(() => AssistantMini({ hint: "Petunjuk", onOpenFull: () => {} }));
+    harness.render();
+    await harness.settle();
+    const button = (label: string) => elements(harness!.render()).find((el) => el.props["aria-label"] === label)!;
+    (button("Buka asisten").props.onClick as () => void)();
+    (button("Ketik pesan").props.onClick as () => void)();
+    const input = elements(harness.render()).find((el) => el.type === "input")!;
+    (input.props.onChange as (e: unknown) => void)({ target: { value: "Halo" } });
+    (button("Kirim").props.onClick as () => void)();
+    await harness.settle();
+
+    const alert = elements(harness.render()).find((el) => el.props.role === "alert")!;
+    expect(alert).toBeDefined();
+    expect(alert.props.className).toContain("text-danger");
+    expect(renderToStaticMarkup(alert)).toContain("Balasan gagal");
+    (button("Tutup pesan kesalahan").props.onClick as () => void)();
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Balasan gagal");
+  });
+
+  it("hides the offline card after an offline polling check finds Ollama available", async () => {
+    spies.push(spyOn(api, "aiStatus")
+      .mockResolvedValueOnce({ available: false, models: [], error: "Offline" })
+      .mockResolvedValue({ available: true, models: [], error: null }));
+    harness = hookHarness<ReactNode>(() => AssistantMini({ hint: "Petunjuk", onOpenFull: () => {} }));
+    harness.render();
+    await harness.settle();
+    const trigger = elements(harness.render()).find((el) => el.props["aria-label"] === "Buka asisten")!;
+    (trigger.props.onClick as () => void)();
+    expect(renderToStaticMarkup(harness.render())).toContain("Ollama belum berjalan");
+    harness.runTimers();
+    await harness.settle();
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Ollama belum berjalan");
   });
 });

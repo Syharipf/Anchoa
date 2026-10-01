@@ -78,6 +78,7 @@ pub fn run() {
             assistant::assistant_send,
             assistant::assistant_stop,
             assistant::assistant_decide,
+            assistant::assistant_pending,
             assistant::assistant_reset,
             assistant::ai_status,
             assistant::ai_roles,

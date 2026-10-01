@@ -1,14 +1,18 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { api, type AiStatus, type AssistantEvent, type AssistantProposal } from "../api";
-import { elements, hookHarness } from "../test/hookHarness";
+import { deferred, elements, hookHarness } from "../test/hookHarness";
 import { AssistantStage } from "./AssistantStage";
 import { ProposalCard } from "./ProposalCard";
 
 describe("AssistantStage", () => {
   const spies: ReturnType<typeof spyOn>[] = [];
   let harness: ReturnType<typeof hookHarness<ReactNode>> | null = null;
+
+  beforeEach(() => {
+    spies.push(spyOn(api, "assistantPending").mockResolvedValue([]));
+  });
 
   afterEach(() => {
     spies.forEach((s) => s.mockRestore());
@@ -106,9 +110,9 @@ describe("AssistantStage", () => {
     expect(changed).toBe(false);
   });
 
-  it("handles typing and sending to assistantSend with streaming caption and Hentikan button", async () => {
+  it.each([true, false])("keeps streaming controls available (Ollama available: %s)", async (available) => {
     const onlineStatus: AiStatus = {
-      available: true,
+      available,
       models: ["qwen2.5:3b"],
       error: null,
     };
@@ -159,10 +163,73 @@ describe("AssistantStage", () => {
     expect(markup).toContain("Halo dari asisten");
     expect(markup).toContain("Hentikan");
 
+    const microphone = elements(harness.render()).find((el) => el.props["aria-label"] === "Ketuk untuk bicara")!;
+    expect(microphone.props.disabled).toBe(true);
+    (microphone.props.onClick as () => void)();
+    (kirimBtn!.props.onClick as () => void)();
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(renderToStaticMarkup(harness.render())).toContain("Sedang berpikir…");
+
+    // Hentikan remains available even after hiding the typing input.
+    (typingBtn!.props.onClick as () => void)();
+    expect(renderToStaticMarkup(harness.render())).toContain("Hentikan");
+
     // Click Hentikan
     const hentikanBtn = elements(harness.render()).find((el) => el.props["aria-label"] === "Hentikan");
     expect(hentikanBtn).toBeDefined();
     await (hentikanBtn!.props.onClick as () => Promise<void>)();
     expect(stopSpy).toHaveBeenCalled();
+  });
+
+  it("reenables proposal buttons after a failed decision so the user can retry or reject", async () => {
+    const decision = deferred<null>();
+    const decideSpy = spyOn(api, "assistantDecide").mockReturnValueOnce(decision.promise).mockResolvedValue(null);
+    spies.push(decideSpy);
+    harness = hookHarness<ReactNode>(() => ProposalCard({
+      proposal: { id: "proposal", name: "create_task", args: {}, summary: "Buat tugas" },
+      onDecide: api.assistantDecide,
+    }));
+    const buttons = () => elements(harness!.render()).filter((el) => el.type === "button");
+    const approving = (buttons().find((el) => el.props.children === "Setujui")!.props.onClick as () => Promise<void>)();
+    expect(buttons().every((el) => el.props.disabled === true)).toBe(true);
+    decision.reject(new Error("Gagal menyimpan"));
+    await approving;
+    expect(buttons().every((el) => el.props.disabled === false)).toBe(true);
+    await (buttons().find((el) => el.props.children === "Tolak")!.props.onClick as () => Promise<void>)();
+    expect(decideSpy).toHaveBeenLastCalledWith("proposal", false);
+  });
+
+  it("shows send failures in a dismissible danger alert", async () => {
+    spies.push(spyOn(api, "aiStatus").mockResolvedValue({ available: true, models: [], error: null }));
+    spies.push(spyOn(api, "assistantSend").mockRejectedValue(new Error("Balasan gagal")));
+    harness = hookHarness<ReactNode>(() => AssistantStage({}));
+    harness.render();
+    await harness.settle();
+    const button = (label: string) => elements(harness!.render()).find((el) => el.props["aria-label"] === label)!;
+    (button("Ketik pesan").props.onClick as () => void)();
+    const input = elements(harness.render()).find((el) => el.type === "input")!;
+    (input.props.onChange as (e: unknown) => void)({ target: { value: "Halo" } });
+    (button("Kirim").props.onClick as () => void)();
+    await harness.settle();
+
+    const alert = elements(harness.render()).find((el) => el.props.role === "alert")!;
+    expect(alert).toBeDefined();
+    expect(alert.props.className).toContain("text-danger");
+    expect(renderToStaticMarkup(alert)).toContain("Balasan gagal");
+    (button("Tutup pesan kesalahan").props.onClick as () => void)();
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Balasan gagal");
+  });
+
+  it("hides the offline card when a focus check finds Ollama available", async () => {
+    spies.push(spyOn(api, "aiStatus")
+      .mockResolvedValueOnce({ available: false, models: [], error: "Offline" })
+      .mockResolvedValue({ available: true, models: [], error: null }));
+    harness = hookHarness<ReactNode>(() => AssistantStage({}));
+    harness.render();
+    await harness.settle();
+    expect(renderToStaticMarkup(harness.render())).toContain("Ollama belum berjalan");
+    harness.focus();
+    await harness.settle();
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Ollama belum berjalan");
   });
 });

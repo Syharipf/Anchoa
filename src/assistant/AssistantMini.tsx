@@ -197,7 +197,7 @@ export function AssistantMini({
         </button>
       </div>
 
-      {ollamaOffline ? (
+      {ollamaOffline && !thinking ? (
         <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />
       ) : listening ? (
         <p className="m-0 text-sm leading-snug text-ink">
@@ -226,6 +226,20 @@ export function AssistantMini({
         </p>
       ) : (
         <p className="m-0 text-sm leading-snug text-ink">{hint}</p>
+      )}
+
+      {assistant.error && (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+          <span className="flex-1">{assistant.error}</span>
+          <button
+            type="button"
+            aria-label="Tutup pesan kesalahan"
+            onClick={assistant.clearError}
+            className="cursor-pointer font-semibold hover:underline"
+          >
+            Tutup
+          </button>
+        </div>
       )}
 
       {assistant.pendingProposals.length > 0 && (
@@ -322,7 +336,8 @@ export function AssistantMini({
             listening ? "Berhenti mendengarkan" : "Ketuk untuk bicara"
           }
           aria-pressed={listening}
-          className={`${ROUND} h-11 w-11 text-canvas ${
+          disabled={thinking}
+          className={`${ROUND} h-11 w-11 text-canvas disabled:opacity-50 disabled:cursor-not-allowed ${
             listening ? "bg-danger" : "bg-accent"
           }`}
         >

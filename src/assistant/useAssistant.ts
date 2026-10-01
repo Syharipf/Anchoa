@@ -26,8 +26,9 @@ export type AssistantAction =
   | { type: "proposal"; data: AssistantProposal; sendId: number }
   | { type: "done"; data: AssistantMessage; sendId: number }
   | { type: "error"; error: string; sendId: number }
-  | { type: "decide"; proposalId: string }
-  | { type: "decided"; summary: string; approved: boolean }
+  | { type: "pending"; data: AssistantProposal[]; sendId: number }
+  | { type: "failure"; error: string; sendId: number }
+  | { type: "decided"; proposalId: string; summary: string; approved: boolean }
   | { type: "set_mode"; mode: AssistantMode }
   | { type: "stop" }
   | { type: "clear_error" }
@@ -53,6 +54,7 @@ export function assistantReducer(
         mode: "thinking",
         currentSendId: action.sendId,
         streamingCaption: "",
+        pendingProposals: [],
         error: null,
         messages: [...state.messages, { role: "user", content: action.text }],
       };
@@ -88,10 +90,14 @@ export function assistantReducer(
         mode: "idle",
         error: action.error,
       };
-    case "decide":
+    case "pending":
+      if (action.sendId !== state.currentSendId) return state;
+      return { ...state, pendingProposals: action.data };
+    case "failure":
+      if (action.sendId !== state.currentSendId) return state;
       return {
         ...state,
-        pendingProposals: state.pendingProposals.filter((p) => p.id !== action.proposalId),
+        error: action.error,
       };
     case "decided": {
       // The model is not asked again after a decision, so the caption confirms what happened.
@@ -99,6 +105,8 @@ export function assistantReducer(
       return {
         ...state,
         streamingCaption: note,
+        pendingProposals: state.pendingProposals.filter((p) => p.id !== action.proposalId),
+        error: null,
         messages: [...state.messages, { role: "assistant", content: note }],
       };
     }
@@ -138,14 +146,17 @@ export function useAssistant(options?: UseAssistantOptions) {
     setState((prev) => assistantReducer(prev, action));
   }, []);
   const sendIdRef = useRef(0);
+  const sendingRef = useRef(false);
   const proposalsRef = useRef(state.pendingProposals);
   proposalsRef.current = state.pendingProposals;
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const statusCheckIdRef = useRef(0);
 
   const checkStatus = useCallback(async () => {
+    const checkId = ++statusCheckIdRef.current;
     try {
       const status = await api.aiStatus();
-      setAiStatus(status);
+      if (checkId === statusCheckIdRef.current) setAiStatus(status);
       return status;
     } catch (e) {
       const fallback: AiStatus = {
@@ -153,19 +164,43 @@ export function useAssistant(options?: UseAssistantOptions) {
         models: [],
         error: errorMessage(e),
       };
-      setAiStatus(fallback);
+      if (checkId === statusCheckIdRef.current) setAiStatus(fallback);
       return fallback;
     }
   }, []);
 
   useEffect(() => {
-    checkStatus();
+    void checkStatus();
+    const onFocus = () => { void checkStatus(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [checkStatus]);
+
+  useEffect(() => {
+    if (aiStatus?.available !== false) return;
+    const timer = window.setInterval(() => { void checkStatus(); }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [aiStatus?.available, checkStatus]);
+
+  useEffect(() => {
+    let mounted = true;
+    const sendId = sendIdRef.current;
+    api.assistantPending().then(
+      (data) => {
+        if (mounted) dispatch({ type: "pending", data, sendId });
+      },
+      (e) => {
+        if (mounted) dispatch({ type: "failure", error: errorMessage(e), sendId });
+      },
+    );
+    return () => { mounted = false; };
+  }, [dispatch]);
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed || sendingRef.current) return;
+      sendingRef.current = true;
       const sendId = ++sendIdRef.current;
       dispatch({ type: "send", text: trimmed, sendId });
 
@@ -186,9 +221,12 @@ export function useAssistant(options?: UseAssistantOptions) {
               break;
           }
         });
+        void checkStatus();
       } catch (e) {
         dispatch({ type: "error", error: errorMessage(e), sendId });
-        checkStatus();
+        void checkStatus();
+      } finally {
+        sendingRef.current = false;
       }
     },
     [checkStatus],
@@ -207,25 +245,29 @@ export function useAssistant(options?: UseAssistantOptions) {
   const decide = useCallback(
     async (id: string, approve: boolean): Promise<AssistantDecision> => {
       const summary = proposalsRef.current.find((p) => p.id === id)?.summary ?? "Usulan";
-      dispatch({ type: "decide", proposalId: id });
+      const sendId = sendIdRef.current;
+      let result: AssistantDecision;
       try {
-        const result = await api.assistantDecide(id, approve);
-        dispatch({ type: "decided", summary, approved: approve });
-        if (approve) {
-          options?.onChanged?.();
-        }
-        return result;
+        result = await api.assistantDecide(id, approve);
       } catch (e) {
-        dispatch({ type: "error", error: errorMessage(e), sendId: sendIdRef.current });
+        dispatch({ type: "failure", error: errorMessage(e), sendId });
         throw e;
       }
+      dispatch({ type: "decided", proposalId: id, summary, approved: approve });
+      if (approve) options?.onChanged?.();
+      return result;
     },
     [options],
   );
 
   const setMode = useCallback((mode: AssistantMode) => {
+    if (sendingRef.current) return;
     dispatch({ type: "set_mode", mode });
   }, []);
+
+  const clearError = useCallback(() => {
+    dispatch({ type: "clear_error" });
+  }, [dispatch]);
 
   const reset = useCallback(async () => {
     sendIdRef.current++;
@@ -245,6 +287,7 @@ export function useAssistant(options?: UseAssistantOptions) {
     stop,
     decide,
     setMode,
+    clearError,
     reset,
   };
 }

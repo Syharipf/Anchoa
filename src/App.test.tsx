@@ -2,10 +2,18 @@ import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { api } from "./api";
 import { App } from "./App";
+import { AssistantMini } from "./assistant/AssistantMini";
+import { DownloadsPage } from "./downloads/DownloadsPage";
+import { FilesPage } from "./files/FilesPage";
+import { FinancePage } from "./finance/FinancePage";
+import { HabitsPage } from "./habits/HabitsPage";
 import { ItemPage } from "./item/ItemPage";
+import { JournalPage } from "./journal/JournalPage";
 import { NotesPage } from "./notes/NotesPage";
 import { CommandPalette } from "./palette/CommandPalette";
 import { ProfilePage } from "./profile/ProfilePage";
+import { ProjectsPage } from "./projects/ProjectsPage";
+import { SchedulePage } from "./schedule/SchedulePage";
 import { Settings } from "./settings/Settings";
 import type { SettingsSection } from "./settings/view";
 import { Sidebar } from "./shell/Sidebar";
@@ -121,3 +129,41 @@ describe("App profile navigation", () => {
   });
 });
 
+describe("App assistant approvals", () => {
+  let harness: ReturnType<typeof hookHarness<ReactNode>>;
+  let dashboardSpy: ReturnType<typeof spyOn<typeof api, "getDashboard">>;
+  afterEach(() => {
+    harness?.dispose();
+    dashboardSpy?.mockRestore();
+  });
+
+  it.each([
+    { name: "proyek", component: ProjectsPage },
+    { name: "jadwal", component: SchedulePage },
+    { name: "habit", component: HabitsPage },
+    { name: "jurnal", component: JournalPage },
+    { name: "keuangan", component: FinancePage },
+    { name: "catatan", component: NotesPage },
+    { name: "item", component: ItemPage },
+    { name: "profil", component: ProfilePage },
+    { name: "settings", component: Settings },
+    { name: "berkas", component: FilesPage },
+    { name: "unduhan", component: DownloadsPage },
+  ])("refreshes the dashboard and the currently shown $name page after a Mini approval", ({ name, component }) => {
+    dashboardSpy = spyOn(api, "getDashboard").mockReturnValue(new Promise(() => {}));
+    harness = hookHarness(App, { 0: { path: "/db", error: null }, 1: [{ name, id: "item-1" }] });
+    const render = () => harness.render(false);
+    const currentPage = () => elements(render()).find((el) => el.type === component)!;
+    const mini = () => elements(render()).find((el) => el.type === AssistantMini)!;
+    const previousPageKey = currentPage().key;
+    const previousMiniKey = mini().key;
+
+    (mini().props.onChanged as () => void)();
+    expect(dashboardSpy).toHaveBeenCalledTimes(1);
+    expect(currentPage().key).not.toBe(previousPageKey);
+    expect(mini().key).toBe(previousMiniKey);
+    if (name === "item" || name === "catatan") {
+      expect(currentPage().props.id ?? currentPage().props.initialId).toBe("item-1");
+    }
+  });
+});

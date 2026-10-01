@@ -16,6 +16,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/007_journal.sql"),
     include_str!("../migrations/008_downloads.sql"),
     include_str!("../migrations/009_notes.sql"),
+    include_str!("../migrations/010_activities.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`

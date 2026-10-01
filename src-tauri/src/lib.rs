@@ -1,3 +1,4 @@
+pub mod activities;
 mod backup;
 mod bills;
 mod commands;

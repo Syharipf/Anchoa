@@ -391,6 +391,7 @@ pub fn project_board(
         match card.status {
             TaskStatus::Plan => plan.push(card),
             TaskStatus::Doing => doing.push(card),
+            TaskStatus::Test | TaskStatus::Review => doing.push(card),
             TaskStatus::Done => done.push(card),
         }
     }
@@ -439,6 +440,55 @@ mod tests {
     use crate::finance::testing::{jakarta, ms, now};
     use crate::items::{ItemPatch, update};
     use crate::tasks::{NewTask, create_task, update_task};
+
+    #[test]
+    fn board_has_test_and_review_columns() {
+        let conn = open_in_memory();
+        let input: ProjectInput = serde_json::from_value(serde_json::json!({
+            "name": "Agen", "kind": "app", "description": "", "agent": true,
+            "agentCommand": "claude -p test"
+        })).unwrap();
+        let project = save_project(&conn, &input, now(), &jakarta()).unwrap();
+        for status in ["test", "review", "done"] {
+            let task: NewTask = serde_json::from_value(serde_json::json!({
+                "title": status, "projectId": project.summary.id, "status": status
+            })).unwrap();
+            create_task(&conn, &task, now(), &jakarta()).unwrap();
+        }
+        let board = project_board(&conn, Some(&project.summary.id), now(), &jakarta()).unwrap();
+        let json = serde_json::to_value(&board).unwrap();
+        assert_eq!(json["project"]["agent"], true);
+        assert_eq!(json["project"]["agentCommand"], "claude -p test");
+        assert_eq!(json["columns"]["test"][0]["status"], "test");
+        assert_eq!(json["columns"]["review"][0]["status"], "review");
+        assert_eq!((board.project.as_ref().unwrap().summary.done, board.project.as_ref().unwrap().summary.total), (1, 3));
+
+        // Disabling agent mode keeps all open tasks visible in the ordinary board.
+        let input: ProjectInput = serde_json::from_value(serde_json::json!({
+            "id": project.summary.id, "name": "Agen", "kind": "app", "description": "", "agent": false
+        })).unwrap();
+        save_project(&conn, &input, now(), &jakarta()).unwrap();
+        let board = project_board(&conn, Some(&project.summary.id), now(), &jakarta()).unwrap();
+        let json = serde_json::to_value(&board).unwrap();
+        assert_eq!(json["columns"]["test"], serde_json::json!([]));
+        assert_eq!(json["columns"]["review"], serde_json::json!([]));
+        assert_eq!(board.columns.doing.len(), 2);
+        let loose = serde_json::to_value(project_board(&conn, None, now(), &jakarta()).unwrap()).unwrap();
+        assert_eq!(loose["columns"]["test"], serde_json::json!([]));
+        assert_eq!(loose["columns"]["review"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn agent_dir_must_be_under_home() {
+        let conn = open_in_memory();
+        let dir = tempfile::tempdir_in(".").unwrap();
+        let input: ProjectInput = serde_json::from_value(serde_json::json!({
+            "name": "Agen", "kind": "app", "description": "", "agent": true,
+            "agentDir": dir.path().canonicalize().unwrap()
+        })).unwrap();
+        assert!(matches!(save_project(&conn, &input, now(), &jakarta()), Err(AppError::Invalid(_))));
+        assert!(projects_overview(&conn, now(), &jakarta()).unwrap().projects.is_empty());
+    }
 
     #[test]
     fn project_input_is_validated() {

@@ -1,4 +1,5 @@
 pub mod activities;
+mod assistant;
 mod agent_runner;
 mod backup;
 mod bills;
@@ -70,9 +71,17 @@ pub fn run() {
             app.manage(db);
             app.manage(downloader::Downloader::default());
             app.manage(agent_runner::AgentRunner::default());
+            app.manage(assistant::AssistantState::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            assistant::assistant_send,
+            assistant::assistant_stop,
+            assistant::assistant_decide,
+            assistant::assistant_reset,
+            assistant::ai_status,
+            assistant::ai_roles,
+            assistant::set_ai_role,
             commands::db_status,
             commands::capture_note,
             commands::open_item,

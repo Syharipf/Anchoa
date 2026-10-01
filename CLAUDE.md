@@ -82,10 +82,10 @@ Do not start implementing a phase until the user approves moving from planning t
 - Review: Codex (Codex CLI, ChatGPT login), read-only, on every PR:
 
   ```bash
-  codex exec -s read-only -C "$PWD" -o ../review.txt "You are reviewing a pull request. Run git diff origin/main...HEAD to see it, and open changed files for context. Project rules are in CLAUDE.md; the spec is <spec path>, and this PR is <PR>. Do not edit files. Report real bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
+  codex exec -s read-only -C "$PWD" -o ../review.txt < /dev/null "You are reviewing a pull request. Run git diff origin/main...HEAD to see it, and open changed files for context. Project rules are in CLAUDE.md; the spec is <spec path>, and this PR is <PR>. Do not edit files. Report real bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
   ```
 
-  `codex review --base` does not accept custom instructions, so use `codex exec`. Check every finding before fixing it: reviewers also report false positives.
+  `codex review --base` does not accept custom instructions, so use `codex exec`. Keep `< /dev/null`: without a terminal, `codex exec` otherwise waits for more input on stdin. Check every finding before fixing it: reviewers also report false positives.
 - Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when Codex fails (auth, quota, timeout, or no output after a retry). Use the `implementer` agent (Sonnet, `.claude/agents/implementer.md`) when a task fails twice through `agy-multi`, and Opus only when it also fails twice with Sonnet.
 
 ## GUI testing

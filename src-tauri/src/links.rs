@@ -318,6 +318,36 @@ pub fn backlinks(conn: &Connection, id: &str) -> Result<Vec<ItemSummary>, AppErr
     )
 }
 
+/// Menjalankan `refresh` ulang untuk setiap item tidak terhapus yang isinya memuat `[[judul`
+/// (`LIKE`, tanpa membedakan huruf besar dan kecil). Dengan begitu backlink muncul begitu
+/// halaman tujuannya dibuat.
+pub fn refresh_mentions(conn: &Connection, title: &str) -> Result<(), AppError> {
+    let clean = title.trim();
+    if clean.is_empty() {
+        return Ok(());
+    }
+
+    let pattern1 = format!("%[[{}%", clean);
+    let pattern2 = format!("%[[ %{}%", clean);
+    let mut stmt = conn.prepare(
+        "SELECT id, body FROM items WHERE deleted_at IS NULL AND (body LIKE ?1 OR body LIKE ?2)",
+    )?;
+    let rows = stmt.query_map([&pattern1, &pattern2], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    let mut items = Vec::new();
+    for r in rows {
+        items.push(r?);
+    }
+
+    for (from_id, body) in items {
+        refresh(conn, &from_id, &body)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -484,5 +514,33 @@ Inline: `[[Lama]]` tidak diubah.
         let links4 = backlinks(&conn, "target").unwrap();
         assert_eq!(links4.len(), 1);
         assert_eq!(links4[0].id, note_id);
+    }
+
+    #[test]
+    fn refresh_mentions_finds_and_updates_referencing_items() {
+        let conn = crate::db::open_in_memory();
+
+        // 1. Note mentioning [[Halaman Rencana]] before it exists
+        let note_id = crate::items::insert(&conn, "note", "Catatan Lama", "Membahas [[Halaman Rencana]].", 100).unwrap();
+        refresh(&conn, &note_id, "Membahas [[Halaman Rencana]].").unwrap();
+
+        // Target page doesn't exist yet, so no links
+        let target_id = "page_rencana";
+        let links = backlinks(&conn, target_id).unwrap();
+        assert!(links.is_empty());
+
+        // 2. Now insert the page
+        conn.execute(
+            "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES (?1, 'page', 'Halaman Rencana', '', 200, 200)",
+            params![target_id],
+        ).unwrap();
+
+        // 3. Call refresh_mentions
+        refresh_mentions(&conn, "Halaman Rencana").unwrap();
+
+        // Now the note appears in backlinks!
+        let links_after = backlinks(&conn, target_id).unwrap();
+        assert_eq!(links_after.len(), 1);
+        assert_eq!(links_after[0].id, note_id);
     }
 }

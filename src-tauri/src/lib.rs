@@ -14,6 +14,7 @@ mod habits;
 mod items;
 pub mod journal;
 pub mod links;
+pub mod notes;
 mod overview;
 mod projects;
 mod schedule;

@@ -83,6 +83,26 @@ Exit 0 kalau berhasil, dan 2 dengan pesan JSON `{"error": …}` kalau gagal.
 - **Kotak "Minta agen"** di atas kanban, dengan tombol Kirim dan Hentikan (A7, A8). Ada indikator "Agen berjalan…" beserta tautan "Lihat log".
 - **Tanpa proyek agen:** halaman Proyek tetap seperti sekarang.
 
+### 5a. Mengikuti artboard ProyekAgen (tambahan 2026-10-01 20:30)
+
+Paket desain baru (PR #91) membawa artboard `docs/design/artboards/ProyekAgen.dc.html` dan `ProyekAgenHubungkan.dc.html`. Keduanya dirancang untuk MCP lewat Supabase. Anchoa memakai CLI lokal, jadi tampilannya diterjemahkan ke model di spec ini.
+
+- **Tab** di header proyek agen: **Kanban** (kanban 5 kolom dan panel Utas di atas) dan **Agen kode**.
+- **Tab Agen kode:**
+  - **Bilah status** di atas: "Agen sedang bekerja · n mnt" dengan tombol Hentikan, atau "Agen tidak berjalan".
+  - **Aktivitas agen:** semua aktivitas proyek, terbaru dulu (`activities::for_project`, command baru `project_activities`).
+    - Filter: Semua, Rencana & tugas (`request`, `plan`, `implement`, `merge`, status), Tes (`test`, `review`).
+    - Kartu peristiwa: ikon per peran, judul, waktu, dan isi Markdown. Tautan "Lihat di Kanban" membuka Utas tugasnya.
+  - **Kirim ke agen:** kotak "Minta agen" pindah ke sini.
+    - Ada tombol cepat: "Jalankan tes", "Perbaiki tes yang gagal", "Lanjutkan tugas berikutnya", "Ringkas progres hari ini".
+    - Catatan di bawah kotak menyebut perintah agen dan folder proyek. Kalau perintah belum diisi, catatannya: "Tanpa perintah agen, permintaan menunggu di Rencana sampai agen mengambilnya lewat `anchoa agent inbox`."
+  - **Agen terhubung:** aktor berbeda dari aktivitas proyek (kecuali Kamu dan Anchoa), dengan inisial dan waktu aktif terakhir.
+  - **Tombol "Hubungkan agen"** membuka dialog langkah demi langkah, menggantikan pembuatan token MCP:
+    1. isi perintah agen dan folder di pengaturan proyek;
+    2. contoh blok yang ditempel ke `CLAUDE.md` / `AGENTS.md`, berisi perintah `anchoa agent log|plan|task status` dengan `$ANCHOA_CLI` dan `$ANCHOA_TASK`;
+    3. id proyek beserta tombol salin.
+- **Ditunda** (butuh server MCP dan Agent SDK, di luar spec ini): izin per perintah (Izinkan sekali / Tolak), mode Rencana saja / Kerjakan, sesi, antrean, token agen, dan notifikasi HP.
+
 ## 6. Integrasi alur kerja
 
 Setelah fitur ini ada, `CLAUDE.md` mendapat bagian "Melapor ke Anchoa":

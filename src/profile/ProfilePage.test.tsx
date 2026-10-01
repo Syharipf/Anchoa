@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { api, type GithubStatus, type NotifyPrefs, type Profile } from "../api";
+import { PinDialog } from "../security/PinDialog";
 import { elements, hookHarness } from "../test/hookHarness";
 import { ProfilePage } from "./ProfilePage";
 
@@ -33,6 +34,9 @@ describe("ProfilePage", () => {
   let githubStatusSpy: ReturnType<typeof spyOn<typeof api, "githubStatus">>;
   let setProfileNameSpy: ReturnType<typeof spyOn<typeof api, "setProfileName">>;
   let setNotifyPrefsSpy: ReturnType<typeof spyOn<typeof api, "setNotifyPrefs">>;
+  let securityStatusSpy: ReturnType<typeof spyOn<typeof api, "securityStatus">> | undefined;
+  let setPinSpy: ReturnType<typeof spyOn<typeof api, "setPin">> | undefined;
+  let disablePinSpy: ReturnType<typeof spyOn<typeof api, "disablePin">> | undefined;
 
   afterEach(() => {
     harness?.dispose();
@@ -40,6 +44,9 @@ describe("ProfilePage", () => {
     githubStatusSpy?.mockRestore();
     setProfileNameSpy?.mockRestore();
     setNotifyPrefsSpy?.mockRestore();
+    securityStatusSpy?.mockRestore();
+    setPinSpy?.mockRestore();
+    disablePinSpy?.mockRestore();
   });
 
   it("renders profile card with name, initials, since date, and 4 stats", async () => {
@@ -187,5 +194,125 @@ describe("ProfilePage", () => {
     expect(headings).toContain("Asisten suara");
     expect(headings).toContain("Akun terhubung");
     expect(headings).toContain("Notifikasi");
+  });
+
+  it("handles enabling PIN flow via switch and Buat PIN dialog", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
+    setPinSpy = spyOn(api, "setPin").mockResolvedValue(undefined);
+
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+
+    const pinSwitch = () =>
+      elements(harness.render()).find(
+        (el) =>
+          el.type === "button" &&
+          el.props.role === "switch" &&
+          el.props["aria-labelledby"] === "lbl-security-pin",
+      )!;
+    expect(pinSwitch().props["aria-checked"]).toBe(false);
+
+    (pinSwitch().props.onClick as () => void)();
+    await harness.settle();
+
+    const dialog = () => elements(harness.render()).find((el) => el.type === PinDialog);
+    expect(dialog()).toBeDefined();
+    expect(dialog()?.props.mode).toBe("create");
+
+    // Simulate successful PIN creation from dialog
+    (dialog()!.props.onSuccess as () => void)();
+    await harness.settle();
+
+    expect(dialog()).toBeUndefined();
+    expect(pinSwitch().props["aria-checked"]).toBe(true);
+
+    const changeBtn = elements(harness.render()).find(
+      (el) => el.type === "button" && el.props.children === "Ganti PIN",
+    );
+    expect(changeBtn).toBeDefined();
+  });
+
+  it("handles changing PIN flow via Ganti PIN button and dialog", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, locked: false });
+
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+
+    const changeBtn = () =>
+      elements(harness.render()).find(
+        (el) => el.type === "button" && el.props.children === "Ganti PIN",
+      )!;
+    expect(changeBtn()).toBeDefined();
+
+    (changeBtn().props.onClick as () => void)();
+    await harness.settle();
+
+    const dialog = () => elements(harness.render()).find((el) => el.type === PinDialog);
+    expect(dialog()).toBeDefined();
+    expect(dialog()?.props.mode).toBe("change");
+
+    // Close or succeed
+    (dialog()!.props.onSuccess as () => void)();
+    await harness.settle();
+
+    expect(dialog()).toBeUndefined();
+  });
+
+  it("handles disabling PIN flow via switch and Matikan PIN dialog", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, locked: false });
+
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+
+    const pinSwitch = () =>
+      elements(harness.render()).find(
+        (el) =>
+          el.type === "button" &&
+          el.props.role === "switch" &&
+          el.props["aria-labelledby"] === "lbl-security-pin",
+      )!;
+    expect(pinSwitch().props["aria-checked"]).toBe(true);
+
+    (pinSwitch().props.onClick as () => void)();
+    await harness.settle();
+
+    const dialog = () => elements(harness.render()).find((el) => el.type === PinDialog);
+    expect(dialog()).toBeDefined();
+    expect(dialog()?.props.mode).toBe("disable");
+
+    // Simulate success
+    (dialog()!.props.onSuccess as () => void)();
+    await harness.settle();
+
+    expect(dialog()).toBeUndefined();
+    expect(pinSwitch().props["aria-checked"]).toBe(false);
+
+    const changeBtn = elements(harness.render()).find(
+      (el) => el.type === "button" && el.props.children === "Ganti PIN",
+    );
+    expect(changeBtn).toBeUndefined();
+  });
+
+  it("renders 'Enkripsi data lokal' still marked Menyusul", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
+
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+
+    const textNodes = elements(harness.render())
+      .map((el) => el.props.children)
+      .flat();
+
+    expect(textNodes).toContain("Enkripsi data lokal");
+    expect(textNodes).toContain("Keuangan, email, dan catatan");
+    expect(textNodes).toContain("Menyusul");
   });
 });

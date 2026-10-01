@@ -5,8 +5,11 @@ import {
   type GithubStatus,
   type NotifyPrefs,
   type Profile,
+  type SecurityStatus,
 } from "../api";
 import { School } from "../assistant/School";
+import { PinDialog } from "../security/PinDialog";
+import type { PinFormMode } from "../security/PinFields";
 import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { FIELD, H1, H2, PANEL } from "../shell/ui";
@@ -40,6 +43,12 @@ export function ProfilePage({
   const [isEditing, setIsEditing] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [security, setSecurity] = useState<SecurityStatus | null>(null);
+  const [pinDialog, setPinDialog] = useState<PinFormMode | null>(null);
+
+  useEffect(() => {
+    api.securityStatus().then(setSecurity).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (initialPrefs) {
@@ -207,22 +216,69 @@ export function ProfilePage({
             </div>
           </section>
 
-          <section aria-labelledby="section-security" className={`${PANEL} flex flex-col gap-2.5`}>
-            <div className="flex items-center justify-between">
-              <h2 id="section-security" className={H2}>
-                Keamanan
-              </h2>
-              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
+          <section aria-labelledby="section-security" className={`${PANEL} flex flex-col gap-3`}>
+            <h2 id="section-security" className={H2}>
+              Keamanan
+            </h2>
+
+            <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+              <div className="flex min-w-0 flex-col">
+                <span id="lbl-security-pin" className="text-sm text-ink">
+                  Kunci dengan PIN saat aplikasi dibuka
+                </span>
+                <span className="text-xs text-muted">
+                  Memerlukan PIN saat membuka aplikasi
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={security?.pinEnabled ?? false}
+                aria-labelledby="lbl-security-pin"
+                onClick={() => {
+                  if (security?.pinEnabled) {
+                    setPinDialog("disable");
+                  } else {
+                    setPinDialog("create");
+                  }
+                }}
+                className={`flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                  security?.pinEnabled ? "bg-accent" : "bg-disabled"
+                }`}
+              >
+                <span
+                  className={`h-[18px] w-[18px] rounded-full transition-transform ${
+                    security?.pinEnabled ? "translate-x-[18px] bg-canvas" : "translate-x-0 bg-muted"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {security?.pinEnabled && (
+              <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
+                <div className="flex min-w-0 flex-col">
+                  <span className="text-sm text-ink">PIN aktif</span>
+                  <span className="text-xs text-muted">Ganti PIN keamanan saat ini</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPinDialog("change")}
+                  className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+                >
+                  Ganti PIN
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
+              <div className="flex min-w-0 flex-col">
+                <span className="text-sm text-ink">Enkripsi data lokal</span>
+                <span className="text-xs text-muted">Keuangan, email, dan catatan</span>
+              </div>
+              <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
                 Menyusul
               </span>
             </div>
-            <p className="m-0 text-xs leading-relaxed text-muted">
-              Fitur keamanan akan hadir di fase berikutnya:
-            </p>
-            <ul className="m-0 list-disc space-y-1 pl-4 text-xs text-muted">
-              <li>Kunci dengan PIN saat aplikasi dibuka</li>
-              <li>Enkripsi data lokal untuk keuangan, email, dan catatan</li>
-            </ul>
           </section>
         </div>
 
@@ -363,6 +419,29 @@ export function ProfilePage({
           </section>
         </div>
       </div>
+      {pinDialog && (
+        <PinDialog
+          mode={pinDialog}
+          onClose={() => setPinDialog(null)}
+          onSuccess={() => {
+            const finishedMode = pinDialog;
+            setPinDialog(null);
+            if (finishedMode === "create") {
+              setSecurity((prev) =>
+                prev ? { ...prev, pinEnabled: true } : { pinEnabled: true, locked: false },
+              );
+              toast("Kunci PIN berhasil diaktifkan", "info");
+            } else if (finishedMode === "disable") {
+              setSecurity((prev) =>
+                prev ? { ...prev, pinEnabled: false } : { pinEnabled: false, locked: false },
+              );
+              toast("Kunci PIN dinonaktifkan", "info");
+            } else if (finishedMode === "change") {
+              toast("PIN berhasil diubah", "info");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

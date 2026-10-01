@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { api } from "./api";
 import { App } from "./App";
 import { AssistantMini } from "./assistant/AssistantMini";
+import { LockScreen } from "./security/LockScreen";
 import { DownloadsPage } from "./downloads/DownloadsPage";
 import { FilesPage } from "./files/FilesPage";
 import { FinancePage } from "./finance/FinancePage";
@@ -30,7 +31,7 @@ describe("App note navigation", () => {
       createdAt: 1, updatedAt: 1, openedAt: null,
     });
     // Start with a ready database and the palette open; no dashboard effects are needed.
-    harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette" });
+    harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, locked: false } });
     const render = () => harness.render(false);
     const palette = () => elements(render()).find((element) => element.type === CommandPalette)!;
     const note = () => elements(render()).find((element) => element.type === NotesPage)!;
@@ -62,7 +63,7 @@ describe("App settings navigation", () => {
         id: "task", type: "task", title: "Task", body: "", parentId: null, dueAt: null,
         createdAt: 1, updatedAt: 1, openedAt: null,
       });
-      harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette" });
+      harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, locked: false } });
       const render = () => harness.render(false);
       const palette = () => elements(render()).find((element) => element.type === CommandPalette)!;
       const settings = () => elements(render()).find((element) => element.type === Settings)!;
@@ -93,6 +94,7 @@ describe("App profile navigation", () => {
   });
 
   it("navigates to profil and renders ProfilePage without ComingSoon", async () => {
+    const secSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
     const dbSpy = spyOn(api, "dbStatus").mockResolvedValue({ path: "/db", error: null, backupError: null });
     const dashSpy = spyOn(api, "getDashboard").mockResolvedValue({
       today: [],
@@ -110,7 +112,7 @@ describe("App profile navigation", () => {
       budget: true,
       habit: true,
     });
-    harness = hookHarness(App, { 0: { path: "/db", error: null } });
+    harness = hookHarness(App, { 0: { path: "/db", error: null }, 8: { pinEnabled: false, locked: false } });
     const render = () => harness.render(false);
     const sidebar = () => elements(render()).find((element) => element.type === Sidebar)!;
     (sidebar().props.onSelect as (name: string) => void)("profil");
@@ -124,6 +126,7 @@ describe("App profile navigation", () => {
       budget: true,
       habit: true,
     });
+    secSpy.mockRestore();
     dbSpy.mockRestore();
     dashSpy.mockRestore();
   });
@@ -151,7 +154,11 @@ describe("App assistant approvals", () => {
     { name: "unduhan", component: DownloadsPage },
   ])("refreshes the dashboard and the currently shown $name page after a Mini approval", ({ name, component }) => {
     dashboardSpy = spyOn(api, "getDashboard").mockReturnValue(new Promise(() => {}));
-    harness = hookHarness(App, { 0: { path: "/db", error: null }, 1: [{ name, id: "item-1" }] });
+    harness = hookHarness(App, {
+      0: { path: "/db", error: null },
+      1: [{ name, id: "item-1" }],
+      8: { pinEnabled: false, locked: false },
+    });
     const render = () => harness.render(false);
     const currentPage = () => elements(render()).find((el) => el.type === component)!;
     const mini = () => elements(render()).find((el) => el.type === AssistantMini)!;
@@ -165,5 +172,58 @@ describe("App assistant approvals", () => {
     if (name === "item" || name === "catatan") {
       expect(currentPage().props.id ?? currentPage().props.initialId).toBe("item-1");
     }
+  });
+});
+
+describe("App PIN lock", () => {
+  let harness: ReturnType<typeof hookHarness<ReactNode>>;
+  let securitySpy: ReturnType<typeof spyOn<typeof api, "securityStatus">>;
+  let dashboardSpy: ReturnType<typeof spyOn<typeof api, "getDashboard">>;
+
+  afterEach(() => {
+    harness?.dispose();
+    securitySpy?.mockRestore();
+    dashboardSpy?.mockRestore();
+  });
+
+  it("renders only the lock screen while locked and does not load dashboard data", () => {
+    dashboardSpy = spyOn(api, "getDashboard").mockReturnValue(new Promise(() => {}));
+    harness = hookHarness(App, {
+      0: { path: "/db", error: null },
+      8: { pinEnabled: true, locked: true },
+    });
+    const render = () => harness.render(false);
+
+    const lock = elements(render()).find((el) => el.type === LockScreen);
+    expect(lock).toBeDefined();
+
+    const sidebar = elements(render()).find((el) => el.type === Sidebar);
+    expect(sidebar).toBeUndefined();
+
+    expect(dashboardSpy).not.toHaveBeenCalled();
+  });
+
+  it("loads the app normally after unlocking from the lock screen", async () => {
+    const dbSpy = spyOn(api, "dbStatus").mockResolvedValue({ path: "/db", error: null, backupError: null });
+    securitySpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, locked: true });
+    dashboardSpy = spyOn(api, "getDashboard").mockReturnValue(new Promise(() => {}));
+    harness = hookHarness(App, {
+      0: { path: "/db", error: null },
+    });
+    await harness.settle();
+
+    const render = () => harness.render(false);
+    const lock = elements(render()).find((el) => el.type === LockScreen)!;
+    expect(lock).toBeDefined();
+
+    (lock.props.onUnlocked as () => void)();
+    await Promise.resolve();
+
+    const lockAfter = elements(render()).find((el) => el.type === LockScreen);
+    expect(lockAfter).toBeUndefined();
+
+    const sidebar = elements(render()).find((el) => el.type === Sidebar);
+    expect(sidebar).toBeDefined();
+    dbSpy.mockRestore();
   });
 });

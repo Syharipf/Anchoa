@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage, type DbStatus, type NotifyPrefs } from "./api";
+import { api, errorMessage, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
+import { LockScreen } from "./security/LockScreen";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
 import { FilesPage, type FileClipboard } from "./files/FilesPage";
@@ -43,6 +44,7 @@ export function App() {
   const [contributionsVersion, setContributionsVersion] = useState(0);
   const [notifyPrefs, setNotifyPrefs] = useState<NotifyPrefs | undefined>(undefined);
   const [assistantDataVersion, setAssistantDataVersion] = useState(0);
+  const [security, setSecurity] = useState<SecurityStatus | null>(null);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const onSectionChange = useCallback((section: SettingsSection) => {
@@ -63,12 +65,16 @@ export function App() {
     setAssistantDataVersion((version) => version + 1);
   }, [reload]);
   const page = stack[stack.length - 1];
-  const ready = status !== null && status.error === null;
+  const locked = security?.locked ?? true;
+  const ready = status !== null && status.error === null && !locked;
 
   useEffect(() => {
     api.dbStatus().then((s) => {
       setStatus(s);
       if (s.backupError) toast(`Backup harian gagal: ${s.backupError}`, "error");
+    });
+    api.securityStatus().then(setSecurity).catch(() => {
+      setSecurity({ pinEnabled: true, locked: true });
     });
   }, [toast]);
 
@@ -126,6 +132,18 @@ export function App() {
 
   if (!status) return null;
   if (status.error) return <ErrorScreen path={status.path} message={status.error} />;
+  if (security === null) return null;
+  if (security.locked) {
+    return (
+      <LockScreen
+        onUnlocked={() => {
+          setSecurity((prev) =>
+            prev ? { ...prev, locked: false } : { pinEnabled: true, locked: false },
+          );
+        }}
+      />
+    );
+  }
   const info = page.name === "item" ? null : pageInfo(page.name);
   const data = dashboard.data;
 

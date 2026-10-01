@@ -1,3 +1,5 @@
+import type { AiStatus } from "../api";
+
 // Settings navigation definitions, section status calculation, and static metadata.
 
 export type SettingsSection =
@@ -50,6 +52,8 @@ export const SETTINGS_SECTIONS: readonly SectionItem[] = [
 export interface StatusContext {
   readonly githubConnected?: boolean;
   readonly version?: string;
+  readonly aiStatus?: AiStatus | null;
+  readonly aiChatModel?: string;
 }
 
 /** Computes the small status line below each section's title. */
@@ -58,7 +62,14 @@ export function sectionStatus(
   context?: StatusContext,
 ): string {
   switch (id) {
-    case "ai":
+    case "ai": {
+      if (!context?.aiStatus || !context.aiStatus.available) {
+        return "Ollama mati";
+      }
+      const model =
+        context.aiChatModel ?? context.aiStatus.models[0] ?? "qwen2.5:3b";
+      return `Ollama · ${model}`;
+    }
     case "avatar":
     case "suara":
       return "Menyusul";

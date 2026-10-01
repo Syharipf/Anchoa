@@ -203,9 +203,17 @@ export function App() {
         <Aside
           contributionsVersion={contributionsVersion}
           onOpenSettings={() => openSettings("integrations")}
+          onOpenAiSettings={() => openSettings("ai")}
+          onChanged={reload}
         />
       ) : (
-        <AssistantMini key={page.name === "item" ? page.id : page.name} hint={assistantHint(info)} onOpenFull={() => go("dashboard")} />
+        <AssistantMini
+          key={page.name === "item" ? page.id : page.name}
+          hint={assistantHint(info)}
+          onOpenFull={() => go("dashboard")}
+          onOpenAiSettings={() => openSettings("ai")}
+          onChanged={reload}
+        />
       )}
       {overlay === "palette" && (
         <CommandPalette

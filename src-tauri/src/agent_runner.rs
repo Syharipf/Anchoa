@@ -14,11 +14,13 @@ use tauri::{AppHandle, Manager};
 use crate::activities::{self, Kind, NewActivity, Role};
 use crate::db::Db;
 use crate::error::AppError;
+use crate::items;
 use crate::projects::{self, ProjectDetail};
 use crate::tasks::{self, NewTask, TaskCard};
 use crate::time;
 
 const LOG_LIMIT: usize = 64 * 1024;
+const REQUEST_ENV_LIMIT: usize = 100 * 1024;
 
 #[derive(Default)]
 pub struct AgentRunner {
@@ -172,25 +174,25 @@ fn command_config(project: &ProjectDetail) -> Result<(&str, PathBuf), AppError> 
     Ok((command, PathBuf::from(dir)))
 }
 
+/// Kills the process group led by `pid` (the shell started with `process_group(0)`).
+#[cfg(unix)]
+fn kill_group(pid: u32) -> bool {
+    Command::new("sh")
+        .args(["-c", "kill -KILL -- -\"$1\"", "anchoa-stop", &pid.to_string()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
 fn stop_child(child: &mut Child) -> Result<(), AppError> {
     if child.try_wait()?.is_some() {
         return Ok(());
     }
     // Kill the shell's process group, including the agent it launched.
     #[cfg(unix)]
-    if Command::new("sh")
-        .args([
-            "-c",
-            "kill -KILL -- -\"$1\"",
-            "anchoa-stop",
-            &child.id().to_string(),
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
-    {
+    if kill_group(child.id()) {
         return Ok(());
     }
     child.kill()?;
@@ -213,7 +215,16 @@ fn wait_for_child(
             child.try_wait()
         };
         match status {
-            Ok(Some(status)) => break Ok(status),
+            Ok(Some(status)) => {
+                // Background jobs the shell left behind would outlive Stop and A8's one-run limit.
+                #[cfg(unix)]
+                if let Ok(map) = inner.lock()
+                    && let Some(child) = map.get(&project_id)
+                {
+                    kill_group(child.id());
+                }
+                break Ok(status);
+            }
             Ok(None) => std::thread::sleep(Duration::from_millis(50)),
             Err(error) => {
                 if let Ok(mut map) = inner.lock()
@@ -294,6 +305,12 @@ pub fn create_request(
         .is_some_and(|command| !command.trim().is_empty());
     if should_start {
         command_config(&project)?;
+        // Linux rejects a single environment string over 128 KiB (E2BIG) when ANCHOA_REQUEST is set.
+        if text.len() > REQUEST_ENV_LIMIT {
+            return Err(AppError::Invalid(
+                "Permintaan untuk perintah agen maksimal 100 KB".into(),
+            ));
+        }
     }
     let title: String = text
         .trim()
@@ -313,7 +330,7 @@ pub fn create_request(
         now,
         tz,
     )?;
-    activities::add(
+    let request = activities::add(
         conn,
         &NewActivity {
             task_id: Some(task.id.clone()),
@@ -325,7 +342,12 @@ pub fn create_request(
             body: text.into(),
         },
         now,
-    )?;
+    );
+    // create_task commits its own transaction, so undo it if the request cannot be recorded.
+    if let Err(error) = request {
+        items::soft_delete(conn, &task.id, now)?;
+        return Err(error);
+    }
     Ok((task, should_start))
 }
 
@@ -557,6 +579,55 @@ mod tests {
         assert_eq!(first.runner.running(), expected);
         first.runner.stop_all();
         first.wait();
+    }
+
+    #[test]
+    fn background_jobs_die_when_the_shell_exits() {
+        let fixture = Fixture::new("sleep 30 & echo $! > bg.pid");
+        fixture.start("Kerjakan").unwrap();
+        fixture.wait();
+        let pid = std::fs::read_to_string(fixture.dir.path().join("bg.pid")).unwrap();
+        let alive = || {
+            Command::new("kill")
+                .args(["-0", pid.trim()])
+                .stderr(Stdio::null())
+                .status()
+                .unwrap()
+                .success()
+        };
+        until(|| !alive());
+    }
+
+    #[test]
+    fn requests_too_large_for_the_environment_are_refused_before_saving() {
+        let fixture = Fixture::new("true");
+        let conn = fixture.db.conn().unwrap();
+        let text = "x".repeat(REQUEST_ENV_LIMIT + 1);
+        assert!(create_request(&conn, &fixture.project_id, &text, 2000, &TimeZone::UTC).is_err());
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn failed_request_activity_removes_the_new_task() {
+        let fixture = Fixture::new("");
+        let conn = fixture.db.conn().unwrap();
+        conn.execute_batch(
+            "CREATE TRIGGER reject_activity BEFORE INSERT ON activities
+             BEGIN SELECT RAISE(ABORT, 'failed'); END;",
+        )
+        .unwrap();
+        assert!(create_request(&conn, &fixture.project_id, "Halo", 2000, &TimeZone::UTC).is_err());
+        let live: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM items WHERE type = 'task' AND deleted_at IS NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(live, 1);
     }
 
     #[test]

@@ -4,6 +4,7 @@ mod commands;
 mod dashboard;
 mod db;
 mod error;
+pub mod files;
 mod finance;
 mod github;
 mod gpu;

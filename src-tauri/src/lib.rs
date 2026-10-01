@@ -3,6 +3,7 @@ mod bills;
 mod commands;
 mod dashboard;
 mod db;
+pub mod downloads;
 mod error;
 pub mod files;
 mod finance;

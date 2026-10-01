@@ -14,6 +14,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/005_projects.sql"),
     include_str!("../migrations/006_habits.sql"),
     include_str!("../migrations/007_journal.sql"),
+    include_str!("../migrations/008_downloads.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -269,6 +270,33 @@ mod tests {
         for sql in [
             "SELECT item_id, kind, mood, tags, task_id FROM journal_entries",
             "SELECT auto_journal FROM habits",
+        ] {
+            conn.prepare(sql).unwrap();
+        }
+    }
+
+    #[test]
+    fn version_7_database_upgrades_to_downloads_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..7], Some(&path)).unwrap();
+        conn.execute(
+            "INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('n1', 'note', 'lama', 1, 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v7")).unwrap();
+        assert_eq!(version(&backup), 7);
+
+        for sql in [
+            "SELECT item_id, url, kind, options, status, total_bytes, done_bytes, file_path, error, finished_at FROM downloads",
+            "SELECT key, value FROM settings",
         ] {
             conn.prepare(sql).unwrap();
         }

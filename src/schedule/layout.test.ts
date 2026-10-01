@@ -8,6 +8,7 @@ import {
   isBillDone,
   monthGrid,
   navSelectedDate,
+  projectSpan,
   timelineGroups,
   timelineLabel,
   timelineWindow,
@@ -232,6 +233,73 @@ describe("schedule layout", () => {
     // Item di luar jendela (setelah jendela)
     const itemAfter = { startDate: "2026-11-16", dueDate: "2026-11-25" };
     expect(barFor(itemAfter, win)).toBeNull();
+  });
+
+  it("projectSpan: rentang proyek di dalam jendela (inside the window)", () => {
+    const win = { from: "2026-09-21", to: "2026-11-15" };
+    // Earliest task start: 2026-09-25, deadline: 2026-10-05
+    // sIdx = diffDays("2026-09-21", "2026-09-25") = 4 -> left = 4 * 16 = 64
+    // eIdx = diffDays("2026-09-21", "2026-10-05") = 14 -> width = (14 - 4 + 1) * 16 = 176
+    const group = {
+      deadline: "2026-10-05",
+      items: [
+        makeItem({ id: "1", startDate: "2026-09-25", dueDate: "2026-09-28" }),
+        makeItem({ id: "2", dueDate: "2026-10-02" }),
+      ],
+    };
+    expect(projectSpan(group, win)).toEqual({ left: 64, width: 176 });
+  });
+
+  it("projectSpan: terpotong di kedua batas jendela (clipped at both edges)", () => {
+    const win = { from: "2026-09-21", to: "2026-11-15" };
+    // Earliest task start: 2026-09-01 (before window.from), deadline: 2026-11-30 (after window.to)
+    // 56 days (indices 0 to 55) -> left = 0, width = 56 * 16 = 896
+    const group = {
+      deadline: "2026-11-30",
+      items: [
+        makeItem({ id: "1", startDate: "2026-09-01", dueDate: "2026-09-10" }),
+      ],
+    };
+    expect(projectSpan(group, win)).toEqual({ left: 0, width: 56 * 16 });
+  });
+
+  it("projectSpan: seluruh rentang di luar jendela menghasilkan null (entirely outside -> null)", () => {
+    const win = { from: "2026-09-21", to: "2026-11-15" };
+
+    // Entirely before window (deadline before window.from)
+    const groupBefore = {
+      deadline: "2026-09-15",
+      items: [
+        makeItem({ id: "1", startDate: "2026-09-01", dueDate: "2026-09-10" }),
+      ],
+    };
+    expect(projectSpan(groupBefore, win)).toBeNull();
+
+    // Entirely after window (earliest start after window.to)
+    const groupAfter = {
+      deadline: "2026-11-30",
+      items: [
+        makeItem({ id: "2", startDate: "2026-11-20", dueDate: "2026-11-25" }),
+      ],
+    };
+    expect(projectSpan(groupAfter, win)).toBeNull();
+  });
+
+  it("projectSpan: tanpa deadline atau tanpa item menghasilkan null (no deadline -> null)", () => {
+    const win = { from: "2026-09-21", to: "2026-11-15" };
+
+    const groupNoDeadline = {
+      items: [
+        makeItem({ id: "1", startDate: "2026-09-25", dueDate: "2026-09-28" }),
+      ],
+    };
+    expect(projectSpan(groupNoDeadline, win)).toBeNull();
+
+    const groupEmptyItems = {
+      deadline: "2026-10-05",
+      items: [],
+    };
+    expect(projectSpan(groupEmptyItems, win)).toBeNull();
   });
 
   it("urutan grup sesuai spec §4: proyek bertenggat, proyek lain, Pribadi, Tagihan", () => {

@@ -3,11 +3,11 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use argon2::{
-    password_hash::{
-        rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString,
-    },
     Argon2,
+    password_hash::{
+        PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString,
+        rand_core::{OsRng, RngCore},
+    },
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,9 @@ impl SecurityState {
         *guard = locked;
     }
 
-    pub fn check_cooldown(&self) -> Result<(), AppError> {
+    fn authenticate_pin(&self, pin: &str, hash: &str, wrong_pin: &str) -> Result<(), AppError> {
+        // Holding this mutex reserves the attempt until verification and counting finish.
+        // Waiting callers must recheck the cooldown before they can run Argon2.
         let mut guard = self.failures.lock().unwrap_or_else(|p| p.into_inner());
         let (count, cooldown_until) = &mut *guard;
         if let Some(until) = *cooldown_until {
@@ -64,21 +66,19 @@ impl SecurityState {
             *cooldown_until = None;
             *count = 0;
         }
-        Ok(())
-    }
+        if verify_pin(pin, hash)? {
+            *guard = (0, None);
+            return Ok(());
+        }
 
-    pub fn record_failure(&self) -> Result<(), AppError> {
-        let mut guard = self.failures.lock().unwrap_or_else(|p| p.into_inner());
-        let (count, cooldown_until) = &mut *guard;
         *count += 1;
         if *count >= MAX_FAILURES {
             *cooldown_until = Some(Instant::now() + Duration::from_secs(COOLDOWN_SECS));
-            *count = 0;
-            Err(AppError::Invalid(
-                "PIN salah. Terlalu banyak percobaan, coba lagi dalam 30 detik.".into(),
-            ))
+            Err(AppError::Invalid(format!(
+                "{wrong_pin}. Terlalu banyak percobaan, coba lagi dalam {COOLDOWN_SECS} detik."
+            )))
         } else {
-            Err(AppError::Invalid("PIN salah".into()))
+            Err(AppError::Invalid(wrong_pin.into()))
         }
     }
 
@@ -121,7 +121,11 @@ pub fn validate_pin(pin: &str) -> Result<(), AppError> {
 /// Hash a PIN using Argon2id with a random salt.
 pub fn hash_pin(pin: &str) -> Result<String, AppError> {
     validate_pin(pin)?;
-    let salt = SaltString::generate(&mut OsRng);
+    let mut salt_bytes = [0u8; Salt::RECOMMENDED_LENGTH];
+    OsRng
+        .try_fill_bytes(&mut salt_bytes)
+        .map_err(|e| AppError::Other(format!("Gagal membuat salt PIN: {e}")))?;
+    let salt = SaltString::encode_b64(&salt_bytes).map_err(|e| AppError::Other(e.to_string()))?;
     let argon2 = Argon2::default();
     let hash = argon2
         .hash_password(pin.as_bytes(), &salt)
@@ -131,6 +135,7 @@ pub fn hash_pin(pin: &str) -> Result<String, AppError> {
 
 /// Verify a raw PIN against a stored Argon2id PHC string.
 pub fn verify_pin(pin: &str, phc_hash: &str) -> Result<bool, AppError> {
+    validate_pin(pin)?;
     let parsed_hash = match PasswordHash::new(phc_hash) {
         Ok(h) => h,
         Err(_) => return Ok(false),
@@ -169,7 +174,10 @@ pub fn delete_pin_hash(conn: &Connection) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn get_security_status(state: &SecurityState, conn: &Connection) -> Result<SecurityStatus, AppError> {
+pub fn get_security_status(
+    state: &SecurityState,
+    conn: &Connection,
+) -> Result<SecurityStatus, AppError> {
     Ok(SecurityStatus {
         pin_enabled: has_pin(conn)?,
         locked: state.is_locked(),
@@ -177,10 +185,10 @@ pub fn get_security_status(state: &SecurityState, conn: &Connection) -> Result<S
 }
 
 pub fn unlock_inner(state: &SecurityState, conn: &Connection, pin: &str) -> Result<(), AppError> {
+    validate_pin(pin)?;
     if !state.is_locked() {
         return Ok(());
     }
-    state.check_cooldown()?;
     let stored_hash = get_pin_hash(conn)?;
     match stored_hash {
         None => {
@@ -189,13 +197,9 @@ pub fn unlock_inner(state: &SecurityState, conn: &Connection, pin: &str) -> Resu
             Ok(())
         }
         Some(hash) => {
-            if verify_pin(pin, &hash)? {
-                state.set_locked(false);
-                state.reset_failures();
-                Ok(())
-            } else {
-                state.record_failure()
-            }
+            state.authenticate_pin(pin, &hash, "PIN salah")?;
+            state.set_locked(false);
+            Ok(())
         }
     }
 }
@@ -207,16 +211,16 @@ pub fn set_pin_inner(
     new: &str,
 ) -> Result<(), AppError> {
     validate_pin(new)?;
+    if let Some(old_pin) = old {
+        validate_pin(old_pin)?;
+    }
     let current_hash = get_pin_hash(conn)?;
     if let Some(hash) = current_hash {
         let old_pin = old.ok_or_else(|| AppError::Invalid("PIN lama diperlukan".into()))?;
-        if !verify_pin(old_pin, &hash)? {
-            return Err(AppError::Invalid("PIN lama salah".into()));
-        }
+        state.authenticate_pin(old_pin, &hash, "PIN lama salah")?;
     }
     let new_hash = hash_pin(new)?;
     save_pin_hash(conn, &new_hash)?;
-    state.reset_failures();
     Ok(())
 }
 
@@ -225,15 +229,11 @@ pub fn disable_pin_inner(
     conn: &Connection,
     pin: &str,
 ) -> Result<(), AppError> {
-    let current_hash = get_pin_hash(conn)?;
-    if let Some(hash) = current_hash {
-        if !verify_pin(pin, &hash)? {
-            return Err(AppError::Invalid("PIN salah".into()));
-        }
-        delete_pin_hash(conn)?;
-    }
+    validate_pin(pin)?;
+    let hash = get_pin_hash(conn)?.ok_or_else(|| AppError::Invalid("PIN belum diatur".into()))?;
+    state.authenticate_pin(pin, &hash, "PIN salah")?;
+    delete_pin_hash(conn)?;
     state.set_locked(false);
-    state.reset_failures();
     Ok(())
 }
 
@@ -297,13 +297,27 @@ mod tests {
         assert!(verify_pin("1234", &hash).unwrap());
         assert!(!verify_pin("1235", &hash).unwrap());
         assert!(!verify_pin("0000", &hash).unwrap());
-        assert!(!verify_pin("", &hash).unwrap());
-        assert!(!verify_pin("invalid", &hash).unwrap());
+        assert!(matches!(verify_pin("", &hash), Err(AppError::Invalid(_))));
+        assert!(matches!(
+            verify_pin("invalid", &hash),
+            Err(AppError::Invalid(_))
+        ));
     }
 
     #[test]
     fn invalid_pins_are_rejected() {
-        for invalid in ["", "1", "12", "123", "123456789", "123a", "abcd", "12 34", "12.34", "1234567890"] {
+        for invalid in [
+            "",
+            "1",
+            "12",
+            "123",
+            "123456789",
+            "123a",
+            "abcd",
+            "12 34",
+            "12.34",
+            "1234567890",
+        ] {
             assert!(
                 matches!(validate_pin(invalid), Err(AppError::Invalid(_))),
                 "expected {invalid} to be rejected"
@@ -315,7 +329,199 @@ mod tests {
         }
 
         for valid in ["1234", "0000", "12345", "123456", "1234567", "12345678"] {
-            assert!(validate_pin(valid).is_ok(), "expected {valid} to be accepted");
+            assert!(
+                validate_pin(valid).is_ok(),
+                "expected {valid} to be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn every_entry_point_rejects_invalid_pins_before_authentication() {
+        let conn = db::open_in_memory();
+        let state = SecurityState::new(true);
+        let hash = hash_pin("1234").unwrap();
+        save_pin_hash(&conn, &hash).unwrap();
+
+        for invalid in ["", "123", "123456789", "12a4", "１２３４"] {
+            for result in [
+                verify_pin(invalid, &hash).map(|_| ()),
+                unlock_inner(&state, &conn, invalid),
+                set_pin_inner(&state, &conn, Some(invalid), "5678"),
+                set_pin_inner(&state, &conn, Some("0000"), invalid),
+                disable_pin_inner(&state, &conn, invalid),
+            ] {
+                assert!(matches!(result, Err(AppError::Invalid(ref message))
+                    if message == "PIN harus 4–8 digit angka"));
+            }
+            assert!(state.is_locked());
+            assert_eq!(*state.failures.lock().unwrap(), (0, None));
+            assert_eq!(get_pin_hash(&conn).unwrap().as_deref(), Some(hash.as_str()));
+        }
+
+        state.set_locked(false);
+        assert!(matches!(
+            unlock_inner(&state, &conn, ""),
+            Err(AppError::Invalid(_))
+        ));
+        delete_pin_hash(&conn).unwrap();
+        assert!(matches!(
+            set_pin_inner(&state, &conn, Some(""), "1234"),
+            Err(AppError::Invalid(_))
+        ));
+        assert!(!has_pin(&conn).unwrap());
+    }
+
+    #[test]
+    fn disable_without_a_pin_preserves_lock_and_failures() {
+        let conn = db::open_in_memory();
+        let state = SecurityState::new(true);
+        *state.failures.lock().unwrap() = (2, None);
+
+        assert!(matches!(
+            disable_pin_inner(&state, &conn, "1234"),
+            Err(AppError::Invalid(_))
+        ));
+        assert!(state.is_locked());
+        assert_eq!(*state.failures.lock().unwrap(), (2, None));
+    }
+
+    #[test]
+    fn changing_and_disabling_share_the_unlock_cooldown() {
+        let conn = db::open_in_memory();
+        let hash = hash_pin("1234").unwrap();
+        save_pin_hash(&conn, &hash).unwrap();
+
+        for changing in [true, false] {
+            let state = SecurityState::new(true);
+            for attempt in 1..=MAX_FAILURES {
+                let result = if changing {
+                    set_pin_inner(&state, &conn, Some("0000"), "5678")
+                } else {
+                    disable_pin_inner(&state, &conn, "0000")
+                };
+                assert!(matches!(result, Err(AppError::Invalid(_))));
+                assert_eq!(
+                    state.cooldown_remaining().is_some(),
+                    attempt == MAX_FAILURES
+                );
+            }
+
+            let before = *state.failures.lock().unwrap();
+            for result in [
+                unlock_inner(&state, &conn, "1234"),
+                set_pin_inner(&state, &conn, Some("1234"), "5678"),
+                disable_pin_inner(&state, &conn, "1234"),
+            ] {
+                assert!(matches!(result, Err(AppError::Invalid(ref message))
+                    if message.contains("Terlalu banyak percobaan")));
+            }
+            assert_eq!(*state.failures.lock().unwrap(), before);
+            assert_eq!(get_pin_hash(&conn).unwrap().as_deref(), Some(hash.as_str()));
+            assert!(state.is_locked());
+        }
+    }
+
+    #[test]
+    fn successes_reset_shared_failures_and_expired_cooldowns() {
+        let conn = db::open_in_memory();
+        let state = SecurityState::new(true);
+        save_pin_hash(&conn, &hash_pin("1234").unwrap()).unwrap();
+
+        unlock_inner(&state, &conn, "0000").unwrap_err();
+        set_pin_inner(&state, &conn, Some("0000"), "5678").unwrap_err();
+        disable_pin_inner(&state, &conn, "0000").unwrap_err();
+        assert_eq!(state.failures.lock().unwrap().0, 3);
+
+        set_pin_inner(&state, &conn, Some("1234"), "5678").unwrap();
+        assert_eq!(*state.failures.lock().unwrap(), (0, None));
+        assert!(verify_pin("5678", &get_pin_hash(&conn).unwrap().unwrap()).unwrap());
+
+        *state.failures.lock().unwrap() =
+            (MAX_FAILURES, Some(Instant::now() - Duration::from_secs(1)));
+        disable_pin_inner(&state, &conn, "0000").unwrap_err();
+        assert_eq!(*state.failures.lock().unwrap(), (1, None));
+        disable_pin_inner(&state, &conn, "5678").unwrap();
+        assert_eq!(*state.failures.lock().unwrap(), (0, None));
+        assert!(!has_pin(&conn).unwrap());
+        assert!(!state.is_locked());
+    }
+
+    #[test]
+    fn concurrent_attempts_stop_after_five_failures() {
+        use std::sync::Barrier;
+
+        const ATTEMPTS: usize = 12;
+        let hash = hash_pin("1234").unwrap();
+        let state = SecurityState::new(true);
+        let barrier = Barrier::new(ATTEMPTS);
+        let errors = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..ATTEMPTS)
+                .map(|attempt| {
+                    let hash = &hash;
+                    let state = &state;
+                    let barrier = &barrier;
+                    scope.spawn(move || {
+                        // Each thread has its own DB connection so the attempt mutex is tested.
+                        let conn = db::open_in_memory();
+                        save_pin_hash(&conn, hash).unwrap();
+                        barrier.wait();
+                        match attempt % 3 {
+                            0 => unlock_inner(state, &conn, "0000"),
+                            1 => set_pin_inner(state, &conn, Some("0000"), "5678"),
+                            _ => disable_pin_inner(state, &conn, "0000"),
+                        }
+                        .unwrap_err()
+                        .to_string()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .collect::<Vec<_>>()
+        });
+
+        assert_eq!(
+            errors
+                .iter()
+                .filter(|message| message.starts_with("PIN "))
+                .count(),
+            MAX_FAILURES as usize
+        );
+        assert_eq!(
+            errors
+                .iter()
+                .filter(|message| message.starts_with("Terlalu banyak percobaan"))
+                .count(),
+            ATTEMPTS - MAX_FAILURES as usize
+        );
+        assert!(state.cooldown_remaining().is_some());
+        assert!(state.is_locked());
+    }
+
+    #[test]
+    fn cooldown_rejects_before_password_verification() {
+        let conn = db::open_in_memory();
+        let state = SecurityState::new(true);
+        // This parses as PHC but the unsupported algorithm makes verification fail with Other.
+        let hash = hash_pin("1234")
+            .unwrap()
+            .replace("$argon2id$", "$unsupported$");
+        assert!(matches!(verify_pin("1234", &hash), Err(AppError::Other(_))));
+        save_pin_hash(&conn, &hash).unwrap();
+        *state.failures.lock().unwrap() = (
+            MAX_FAILURES,
+            Some(Instant::now() + Duration::from_secs(COOLDOWN_SECS)),
+        );
+
+        for result in [
+            unlock_inner(&state, &conn, "1234"),
+            set_pin_inner(&state, &conn, Some("1234"), "5678"),
+            disable_pin_inner(&state, &conn, "1234"),
+        ] {
+            assert!(matches!(result, Err(AppError::Invalid(ref message))
+                if message.starts_with("Terlalu banyak percobaan")));
         }
     }
 
@@ -330,7 +536,9 @@ mod tests {
 
         // When PIN is enabled, missing old PIN fails.
         let err_missing = set_pin_inner(&state, &conn, None, "5678").unwrap_err();
-        assert!(matches!(err_missing, AppError::Invalid(ref msg) if msg.contains("PIN lama diperlukan")));
+        assert!(
+            matches!(err_missing, AppError::Invalid(ref msg) if msg.contains("PIN lama diperlukan"))
+        );
 
         // Wrong old PIN fails.
         let err_wrong = set_pin_inner(&state, &conn, Some("0000"), "5678").unwrap_err();

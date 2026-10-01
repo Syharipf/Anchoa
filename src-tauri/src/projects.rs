@@ -73,6 +73,9 @@ pub struct ProjectDetail {
     pub summary: ProjectSummary,
     pub description: String,
     pub repo_url: Option<String>,
+    pub agent: bool,
+    pub agent_command: Option<String>,
+    pub agent_dir: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -84,6 +87,10 @@ pub struct ProjectInput {
     pub deadline_at: Option<i64>,
     pub repo_url: Option<String>,
     pub description: String,
+    #[serde(default)]
+    pub agent: bool,
+    pub agent_command: Option<String>,
+    pub agent_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -107,6 +114,8 @@ pub struct Overview {
 pub struct Columns {
     pub plan: Vec<TaskCard>,
     pub doing: Vec<TaskCard>,
+    pub test: Vec<TaskCard>,
+    pub review: Vec<TaskCard>,
     pub done: Vec<TaskCard>,
 }
 
@@ -135,6 +144,25 @@ fn validate_repo_url(url: &str) -> bool {
         && parts[1].chars().all(valid_char)
 }
 
+fn validate_agent_dir(dir: Option<&str>) -> Result<Option<String>, AppError> {
+    let Some(dir) = dir.map(str::trim).filter(|dir| !dir.is_empty()) else {
+        return Ok(None);
+    };
+    let invalid_dir = || invalid("Folder agen harus ada dan berada di bawah home");
+    #[cfg(not(windows))]
+    let home_path = std::env::var_os("HOME");
+    #[cfg(windows)]
+    let home_path = std::env::var_os("USERPROFILE");
+    let home = std::path::PathBuf::from(home_path.ok_or_else(invalid_dir)?)
+        .canonicalize().map_err(|_| invalid_dir())?;
+    let path = std::path::Path::new(dir).canonicalize().map_err(|_| invalid_dir())?;
+    if !path.is_dir() || !path.starts_with(&home) {
+        return Err(invalid_dir());
+    }
+    let path = path.to_str().ok_or_else(invalid_dir)?;
+    Ok(Some(path.into()))
+}
+
 struct RawProject {
     id: String,
     name: String,
@@ -144,6 +172,9 @@ struct RawProject {
     repo_url: Option<String>,
     done: i64,
     total: i64,
+    agent: bool,
+    agent_command: Option<String>,
+    agent_dir: Option<String>,
 }
 
 const PROJECT_SELECT: &str = "
@@ -153,7 +184,8 @@ const PROJECT_SELECT: &str = "
               AND tt.project_id = i.id AND tt.status = 'done') AS done,
            (SELECT COUNT(*) FROM items ti JOIN tasks tt ON tt.item_id = ti.id
             WHERE ti.deleted_at IS NULL AND ti.type = 'task' AND ti.parent_id IS NULL
-              AND tt.project_id = i.id) AS total
+              AND tt.project_id = i.id) AS total,
+           p.agent, p.agent_command, p.agent_dir
     FROM projects p
     JOIN items i ON i.id = p.item_id
     WHERE i.deleted_at IS NULL";
@@ -168,6 +200,9 @@ fn raw_from_row(r: &rusqlite::Row) -> rusqlite::Result<RawProject> {
         repo_url: r.get(5)?,
         done: r.get(6)?,
         total: r.get(7)?,
+        agent: r.get(8)?,
+        agent_command: r.get(9)?,
+        agent_dir: r.get(10)?,
     })
 }
 
@@ -209,6 +244,9 @@ fn build_detail(raw: RawProject, now: i64, tz: &TimeZone) -> Result<ProjectDetai
         summary,
         description,
         repo_url,
+        agent: raw.agent,
+        agent_command: raw.agent_command,
+        agent_dir: raw.agent_dir,
     })
 }
 
@@ -265,13 +303,16 @@ pub fn save_project(
         None => None,
     };
 
+    let agent_dir = validate_agent_dir(input.agent_dir.as_deref())?;
+    let agent_command = input.agent_command.as_deref().map(str::trim).filter(|command| !command.is_empty());
     let tx = conn.unchecked_transaction()?;
     let id = match &input.id {
         None => {
             let id = items::insert(&tx, "project", name, &input.description, now)?;
             tx.execute(
-                "INSERT INTO projects (item_id, kind, deadline_at, repo_url) VALUES (?1, ?2, ?3, ?4)",
-                params![id, input.kind, input.deadline_at, repo_url],
+                "INSERT INTO projects (item_id, kind, deadline_at, repo_url, agent, agent_command, agent_dir)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![id, input.kind, input.deadline_at, repo_url, input.agent, agent_command, agent_dir],
             )?;
             id
         }
@@ -289,8 +330,9 @@ pub fn save_project(
                 params![id, name, input.description, now],
             )?;
             tx.execute(
-                "UPDATE projects SET kind = ?2, deadline_at = ?3, repo_url = ?4 WHERE item_id = ?1",
-                params![id, input.kind, input.deadline_at, repo_url],
+                "UPDATE projects SET kind = ?2, deadline_at = ?3, repo_url = ?4,
+                 agent = ?5, agent_command = ?6, agent_dir = ?7 WHERE item_id = ?1",
+                params![id, input.kind, input.deadline_at, repo_url, input.agent, agent_command, agent_dir],
             )?;
             id.clone()
         }
@@ -385,12 +427,17 @@ pub fn project_board(
     let cards = tasks::card_query(conn, clause, rusqlite::params_from_iter(params), now, tz)?;
     let mut plan = Vec::new();
     let mut doing = Vec::new();
+    let mut test = Vec::new();
+    let mut review = Vec::new();
     let mut done = Vec::new();
+    let agent = project.as_ref().is_some_and(|project| project.agent);
 
     for card in cards {
         match card.status {
             TaskStatus::Plan => plan.push(card),
             TaskStatus::Doing => doing.push(card),
+            TaskStatus::Test if agent => test.push(card),
+            TaskStatus::Review if agent => review.push(card),
             TaskStatus::Test | TaskStatus::Review => doing.push(card),
             TaskStatus::Done => done.push(card),
         }
@@ -398,7 +445,7 @@ pub fn project_board(
 
     Ok(Board {
         project,
-        columns: Columns { plan, doing, done },
+        columns: Columns { plan, doing, test, review, done },
     })
 }
 
@@ -481,13 +528,54 @@ mod tests {
     #[test]
     fn agent_dir_must_be_under_home() {
         let conn = open_in_memory();
-        let dir = tempfile::tempdir_in(".").unwrap();
+        let dir = tempfile::tempdir().unwrap();
         let input: ProjectInput = serde_json::from_value(serde_json::json!({
             "name": "Agen", "kind": "app", "description": "", "agent": true,
             "agentDir": dir.path().canonicalize().unwrap()
         })).unwrap();
         assert!(matches!(save_project(&conn, &input, now(), &jakarta()), Err(AppError::Invalid(_))));
         assert!(projects_overview(&conn, now(), &jakarta()).unwrap().projects.is_empty());
+    }
+
+    #[test]
+    fn agent_fields_round_trip_and_directory_is_canonical() {
+        let conn = open_in_memory();
+        let dir = tempfile::tempdir_in(".").unwrap();
+        let input: ProjectInput = serde_json::from_value(serde_json::json!({
+            "name": "Agen", "kind": "app", "description": "", "agent": true,
+            "agentCommand": "claude -p test", "agentDir": dir.path().join(".")
+        })).unwrap();
+        let saved = save_project(&conn, &input, now(), &jakarta()).unwrap();
+        let json = serde_json::to_value(&saved).unwrap();
+        assert_eq!(json["agentDir"], dir.path().canonicalize().unwrap().to_str().unwrap());
+        assert_eq!(json["agent"], true);
+        assert_eq!(json["agentCommand"], "claude -p test");
+
+        let update: ProjectInput = serde_json::from_value(serde_json::json!({
+            "id": saved.summary.id, "name": "Agen", "kind": "app", "description": "",
+            "agent": false, "agentCommand": "", "agentDir": ""
+        })).unwrap();
+        let saved = save_project(&conn, &update, now() + 1, &jakarta()).unwrap();
+        let json = serde_json::to_value(&saved).unwrap();
+        assert_eq!(json["agent"], false);
+        assert!(json["agentCommand"].is_null());
+        assert!(json["agentDir"].is_null());
+    }
+
+    #[test]
+    fn agent_dir_rejects_files_missing_paths_and_symlinks_outside_home() {
+        let conn = open_in_memory();
+        let dir = tempfile::tempdir_in(".").unwrap();
+        let file = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(outside.path(), dir.path().join("escape")).unwrap();
+        for path in [file.path().to_path_buf(), dir.path().join("missing"), dir.path().join("escape")] {
+            let input: ProjectInput = serde_json::from_value(serde_json::json!({
+                "name": "Agen", "kind": "app", "description": "", "agent": true, "agentDir": path
+            })).unwrap();
+            assert!(matches!(save_project(&conn, &input, now(), &jakarta()), Err(AppError::Invalid(_))));
+        }
     }
 
     #[test]

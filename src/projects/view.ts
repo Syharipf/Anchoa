@@ -25,13 +25,13 @@ export function deadlineLabel(deadlineAt: number | null, deadlineDays: number | 
 
 export function nextStatus(status: TaskStatus): TaskStatus {
   if (status === "plan") return "doing";
-  if (status === "doing") return "done";
+  if (status !== "done") return "done";
   return "plan";
 }
 
 export function moveLabel(status: TaskStatus): string {
   if (status === "plan") return "Pindah ke Dikerjakan";
-  if (status === "doing") return "Pindah ke Selesai";
+  if (status !== "done") return "Pindah ke Selesai";
   return "Kembalikan ke Rencana";
 }
 
@@ -47,4 +47,3 @@ export function toggleTaskStatus(status: TaskStatus): TaskStatus {
 export function parentLabel(parentTitle: string | null | undefined): string {
   return parentTitle ? `↑ ${parentTitle}` : "↑ Induk";
 }
-

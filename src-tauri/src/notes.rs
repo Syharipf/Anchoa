@@ -90,20 +90,31 @@ pub fn create(
     title: &str,
     now: i64,
 ) -> Result<PageNode, AppError> {
+    let tx = conn.unchecked_transaction()?;
+    let page = create_in_transaction(&tx, parent_id, title, now)?;
+    tx.commit()?;
+    Ok(page)
+}
+
+/// Creates a page within a transaction owned by a compound operation.
+pub(crate) fn create_in_transaction(
+    conn: &Connection,
+    parent_id: Option<&str>,
+    title: &str,
+    now: i64,
+) -> Result<PageNode, AppError> {
     let clean_title = sanitize_title(title)?;
     validate_parent(conn, parent_id)?;
 
     let id = uuid::Uuid::now_v7().to_string();
-    let tx = conn.unchecked_transaction()?;
 
-    tx.execute(
+    conn.execute(
         "INSERT INTO items (id, type, title, body, parent_id, created_at, updated_at)
          VALUES (?1, 'page', ?2, '', ?3, ?4, ?4)",
         params![id, clean_title, parent_id, now],
     )?;
 
-    links::refresh_mentions(&tx, &clean_title)?;
-    tx.commit()?;
+    links::refresh_mentions(conn, &clean_title)?;
 
     Ok(PageNode {
         id,

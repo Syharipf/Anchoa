@@ -44,6 +44,9 @@ export function ProjectForm({
         deadlineAt,
         repoUrl: repo,
         description: description.trim(),
+        agent: edit?.agent ?? false,
+        agentCommand: edit?.agentCommand,
+        agentDir: edit?.agentDir,
       });
       onSaved(saved.id);
     });

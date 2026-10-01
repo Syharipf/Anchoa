@@ -278,9 +278,10 @@ pub fn update_task(
     let (parent_id, _) = task_row.ok_or(AppError::NotFound)?;
 
     let tx = conn.unchecked_transaction()?;
-
-    if let Some(status) = patch.status {
-        apply_status(&tx, id, status, now)?;
+    let unassigning = matches!(patch.project_id, Some(None));
+    // Keep the original project on the status activity when this patch makes the task loose.
+    if let Some(status) = patch.status.filter(|_| unassigning) {
+        crate::activities::set_status_in_transaction(&tx, id, status, "Kamu", now)?;
     }
 
     if let Some(maybe_proj) = &patch.project_id {
@@ -305,6 +306,10 @@ pub fn update_task(
             params![id, new_proj],
         )?;
         tx.execute("UPDATE items SET updated_at = ?2 WHERE id = ?1", params![id, now])?;
+    }
+
+    if let Some(status) = patch.status.filter(|_| !unassigning) {
+        crate::activities::set_status_in_transaction(&tx, id, status, "Kamu", now)?;
     }
 
     if let Some(maybe_start) = patch.start_at {
@@ -419,6 +424,49 @@ mod tests {
             assert_eq!(serde_json::to_value(detail.card.status).unwrap(), status);
             assert_eq!(items::get(&conn, &task.id).unwrap().completed_at, None);
         }
+    }
+
+    #[test]
+    fn ui_status_and_other_fields_roll_back_if_activity_fails() {
+        let conn = open_in_memory();
+        let p = make_project(&conn, "Agen");
+        let task = create_task(&conn, &NewTask {
+            title: "Tugas".into(), project_id: Some(p), ..Default::default()
+        }, now(), &jakarta()).unwrap();
+        conn.execute_batch("CREATE TRIGGER reject_activity BEFORE INSERT ON activities BEGIN SELECT RAISE(ABORT, 'failed'); END;").unwrap();
+        let patch = TaskPatch { status: Some(TaskStatus::Done), tag: Some(Some("UI".into())), ..Default::default() };
+        assert!(update_task(&conn, &task.id, &patch, now() + 1, &jakarta()).is_err());
+        assert_eq!(get_task(&conn, &task.id, now(), &jakarta()).unwrap().card, task);
+        assert_eq!(items::get(&conn, &task.id).unwrap().completed_at, None);
+    }
+
+    #[test]
+    fn moving_a_loose_task_to_a_project_and_changing_status_records_history() {
+        let conn = open_in_memory();
+        let p = make_project(&conn, "Agen");
+        let task = create_task(&conn, &NewTask { title: "Tugas".into(), ..Default::default() }, now(), &jakarta()).unwrap();
+        let patch = TaskPatch { status: Some(TaskStatus::Test), project_id: Some(Some(p.clone())), ..Default::default() };
+        update_task(&conn, &task.id, &patch, now() + 1, &jakarta()).unwrap();
+        let rows = crate::activities::for_task(&conn, &task.id).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].project_id, p);
+        assert_eq!(rows[0].actor, "Kamu");
+    }
+
+    #[test]
+    fn unassigning_a_task_while_changing_status_keeps_its_history() {
+        let conn = open_in_memory();
+        let p = make_project(&conn, "Agen");
+        let task = create_task(&conn, &NewTask {
+            title: "Tugas".into(), project_id: Some(p.clone()), ..Default::default()
+        }, now(), &jakarta()).unwrap();
+        let patch = TaskPatch { status: Some(TaskStatus::Review), project_id: Some(None), ..Default::default() };
+        let detail = update_task(&conn, &task.id, &patch, now() + 1, &jakarta()).unwrap();
+        assert_eq!(detail.card.project_id, None);
+        assert_eq!(detail.card.status, TaskStatus::Review);
+        let rows = crate::activities::for_task(&conn, &task.id).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].project_id, p);
     }
 
     #[test]

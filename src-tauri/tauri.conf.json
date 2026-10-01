@@ -20,8 +20,16 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'",
-      "devCsp": null
+      "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; media-src 'self' asset: http://asset.localhost; frame-src asset: http://asset.localhost; style-src 'self' 'unsafe-inline'",
+      "devCsp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": ["$HOME/**", "/run/media/**"],
+          "deny": ["$HOME/.ssh/**", "$HOME/.gnupg/**"],
+          "requireLiteralLeadingDot": false
+        }
+      }
     }
   },
   "bundle": {

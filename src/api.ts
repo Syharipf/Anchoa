@@ -1,5 +1,5 @@
 // The only module that talks to the Rust backend.
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 
 export interface Item {
   id: string;
@@ -483,6 +483,65 @@ export interface ScheduleRange {
   to: string;
 }
 
+export type FileKind = "folder" | "image" | "video" | "pdf" | "text" | "other";
+export type PasteMode = "copy" | "move";
+export type OnConflict = "replace" | "skip" | "rename";
+
+export interface Place {
+  name: string;
+  path: string;
+  icon: string;
+}
+
+export interface FilePlaces {
+  places: Place[];
+  devices: Place[];
+}
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  kind: FileKind;
+  size: number;
+  modified: number;
+  hidden: boolean;
+}
+
+export interface Crumb {
+  name: string;
+  path: string;
+}
+
+export interface Listing {
+  path: string;
+  parent: string | null;
+  crumbs: Crumb[];
+  entries: FileEntry[];
+}
+
+export interface PasteRequest {
+  sources: string[];
+  dest: string;
+  mode: PasteMode;
+  onConflict?: OnConflict;
+}
+
+export interface FileFailure {
+  path: string;
+  error: string;
+}
+
+export interface OpReport {
+  done: string[];
+  failed: FileFailure[];
+  conflicts: string[];
+}
+
+export interface TextPreview {
+  text: string;
+  truncated: boolean;
+}
+
 export const api = {
   dbStatus: () => invoke<DbStatus>("db_status"),
   openFolder: (kind: FolderKind) => invoke<void>("open_folder", { kind }),
@@ -544,7 +603,22 @@ export const api = {
   entryToTask: (id: string) => invoke<Entry>("entry_to_task", { id }),
   journalSide: () => invoke<Side>("journal_side"),
   dataPaths: () => invoke<DataPaths>("data_paths"),
+  filePlaces: () => invoke<FilePlaces>("file_places"),
+  listDir: (path: string, hidden: boolean) =>
+    invoke<Listing>("list_dir", { path, hidden }),
+  readText: (path: string) => invoke<TextPreview>("read_text", { path }),
+  pasteItems: (req: PasteRequest) =>
+    invoke<OpReport>("paste_items", { req }),
+  trashItems: (paths: string[]) =>
+    invoke<OpReport>("trash_items", { paths }),
+  openFile: (path: string) => invoke<void>("open_file", { path }),
+  assetUrl: (path: string) => assetUrl(path),
 };
+
+/** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */
+export function assetUrl(path: string): string {
+  return convertFileSrc(path);
+}
 
 /** Backend errors arrive as `{ code, message }`. */
 export function errorMessage(error: unknown): string {

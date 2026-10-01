@@ -108,6 +108,12 @@ pub fn run() {
             commands::journal_side,
             commands::data_paths,
             commands::open_folder,
+            commands::file_places,
+            commands::list_dir,
+            commands::read_text,
+            commands::paste_items,
+            commands::trash_items,
+            commands::open_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

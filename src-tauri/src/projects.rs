@@ -144,7 +144,7 @@ fn validate_repo_url(url: &str) -> bool {
         && parts[1].chars().all(valid_char)
 }
 
-fn validate_agent_dir(dir: Option<&str>) -> Result<Option<String>, AppError> {
+pub(crate) fn validate_agent_dir(dir: Option<&str>) -> Result<Option<String>, AppError> {
     let Some(dir) = dir.map(str::trim).filter(|dir| !dir.is_empty()) else {
         return Ok(None);
     };

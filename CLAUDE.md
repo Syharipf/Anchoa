@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Fase 6 Berkas built; Fase 7 Unduhan is next. The old Fase 4 note features (page tree, block editor, wikilinks, FTS5) wait for the user to choose where they live.
+Status: Fase 7 Unduhan built; next phases wait for the user. The old Fase 4 note features (page tree, block editor, wikilinks, FTS5) wait for the user to choose where they live.
 
 ## Commands
 
@@ -83,6 +83,7 @@ Do not start implementing a phase until the user approves moving from planning t
   ```
 
   Put `--model` before `-p`, because `-p` takes the next argument as the prompt. Headless `agy` ignores stdin, so give it the diff as a file inside the repo. It denies any tool call that needs a permission prompt (shell commands outside its allow-list, URLs, files outside the repo), and one denial ends the run with `jetski: no output produced`. The rules at the start of the prompt prevent that; if it still happens, run it once more. Check every finding before fixing it: Gemini also reports false positives.
+- `agy-multi` (`~/.local/bin/agy-multi`) wraps `agy` with the same arguments. On a quota error it repeats the run with the next Google account. When a Gemini model is out of quota on every account, it repeats the run with `claude-opus-4-6-thinking` (Claude Opus 4.6 in Antigravity), again account by account. Use it in place of `agy` for implementation and review.
 - Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when `agy` fails (not installed, auth, quota, timeout, or no output after a retry). Use the `implementer` agent (Sonnet, `.claude/agents/implementer.md`) when a task fails twice with Gemini, and Opus only when it also fails twice with Sonnet.
 
 ## GUI testing

@@ -24,7 +24,7 @@ import { Sidebar } from "./shell/Sidebar";
 import { TopBar } from "./shell/TopBar";
 import { useToast } from "./shell/toast";
 
-/** A new `intent` number remounts Keuangan with the transaction form open (palette "Catat transaksi"). */
+/** `intent` remounts Catatan on navigation or opens Keuangan's transaction form. */
 type Page = { name: PageId; intent?: number; path?: string; id?: string } | { name: "item"; id: string };
 /** Only one overlay is open at a time. */
 type Overlay = "palette" | "notifications" | null;
@@ -78,13 +78,14 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const go = (name: PageId) => setStack([{ name }]);
+  const go = (name: PageId) => setStack([{ name, intent: name === "catatan" ? ++intents.current : undefined }]);
   const openItem = useCallback(
     (id: string) => {
       api.openItem(id).then(
         (item) => {
           if (item.type === "page") {
-            setStack((s) => [...s, { name: "catatan", id }]);
+            const intent = ++intents.current;
+            setStack((s) => [...s, { name: "catatan", id, intent }]);
           } else {
             setStack((s) => [...s, { name: "item", id }]);
           }
@@ -120,7 +121,7 @@ export function App() {
         {page.name === "jurnal" && <JournalPage key={captures} onOpenItem={openItem} onChanged={reload} />}
         {page.name === "catatan" && (
           <NotesPage
-            key={page.id ?? ""}
+            key={page.intent ?? 0}
             initialId={page.id}
             onOpenItem={openItem}
             onReveal={onReveal}

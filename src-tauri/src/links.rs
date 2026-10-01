@@ -337,7 +337,7 @@ pub fn refresh(conn: &Connection, from_id: &str, body: &str) -> Result<(), AppEr
 }
 
 /// Item yang menautkan id, tidak terhapus, updated_at terbaru dulu, dengan cuplikan
-/// baris pertama yang memuat [[judul (tanpa membedakan huruf besar/kecil), maksimal 120 karakter.
+/// baris pertama dengan tautan yang judulnya sama (tanpa membedakan huruf besar/kecil), maksimal 120 karakter.
 pub fn backlinks(conn: &Connection, id: &str) -> Result<Vec<Backlink>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT i.id, i.type, i.title, i.due_at,
@@ -351,10 +351,13 @@ pub fn backlinks(conn: &Connection, id: &str) -> Result<Vec<Backlink>, AppError>
     let rows = stmt.query_map([id], |row| {
         let body: String = row.get(5)?;
         let title: String = row.get(6)?;
-        let needle = format!("[[{}", title.to_lowercase());
         let excerpt = body
             .lines()
-            .find(|line| line.to_lowercase().contains(&needle))
+            .find(|line| {
+                parse(line)
+                    .iter()
+                    .any(|link| link.eq_ignore_ascii_case(title.trim()))
+            })
             .map(|line| line.trim().chars().take(120).collect())
             .unwrap_or_default();
         Ok(Backlink {
@@ -657,7 +660,29 @@ Inline: `[[Lama]]` tidak diubah.
 
         let backlinks = backlinks(&conn, &target.id).unwrap();
         assert_eq!(backlinks.len(), 1);
-        assert_eq!(backlinks[0].excerpt, "");
+        assert_eq!(backlinks[0].excerpt, body);
+
+        // A stored backlink without a parsed mention has no excerpt.
+        conn.execute(
+            "UPDATE items SET body = 'Tanpa tautan.' WHERE id = ?1",
+            [&source],
+        )
+        .unwrap();
+        assert_eq!(super::backlinks(&conn, &target.id).unwrap()[0].excerpt, "");
+    }
+
+    #[test]
+    fn backlinks_excerpt_skips_prefix_matches_and_inline_code() {
+        let conn = crate::db::open_in_memory();
+        let target = crate::notes::create(&conn, None, "Target", 100).unwrap();
+        let body = "Mirip [[Target Extra]].\nKode `[[Target]]`.\n  Benar [[ tArGeT |alias]].  \n[[Target]] lagi.";
+        let source = crate::items::insert(&conn, "note", "Penaut", body, 200).unwrap();
+        refresh(&conn, &source, body).unwrap();
+
+        assert_eq!(
+            backlinks(&conn, &target.id).unwrap()[0].excerpt,
+            "Benar [[ tArGeT |alias]]."
+        );
     }
 
     #[test]

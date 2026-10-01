@@ -34,7 +34,7 @@ export function CommandPalette({
   const toast = useToast();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
+  const [searchResults, setSearchResults] = useState<{ query: string; hits: SearchHit[] }>({ query: "", hits: [] });
   const searchRequestId = useRef(0);
   const saving = useRef(false);
   const input = useRef<HTMLInputElement>(null);
@@ -43,7 +43,7 @@ export function CommandPalette({
     const text = query.trim();
     if (!text) {
       searchRequestId.current += 1;
-      setSearchHits([]);
+      setSearchResults({ query: text, hits: [] });
       return;
     }
 
@@ -52,21 +52,24 @@ export function CommandPalette({
       try {
         const hits = await api.searchItems(text, false, 8);
         if (searchRequestId.current === reqId) {
-          setSearchHits(hits);
+          setSearchResults({ query: text, hits });
         }
       } catch {
         if (searchRequestId.current === reqId) {
-          setSearchHits([]);
+          setSearchResults({ query: text, hits: [] });
         }
       }
     }, 150);
 
     return () => {
       clearTimeout(timer);
+      searchRequestId.current += 1;
     };
   }, [query]);
 
-  const groups = useMemo(() => paletteResults(query, recent, searchHits), [query, recent, searchHits]);
+  const groups = useMemo(() => paletteResults(
+    query, recent, searchResults.query === query.trim() ? searchResults.hits : [],
+  ), [query, recent, searchResults]);
   const flat = groups.flatMap((g) => g.options);
   const current = Math.min(active, flat.length - 1);
 

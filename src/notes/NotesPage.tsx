@@ -36,6 +36,12 @@ interface LoadedPage {
   readonly title: string;
   readonly body: string;
   readonly updatedAt: number;
+  readonly editorRevision: number;
+}
+
+interface PendingEdit {
+  readonly pageId: string;
+  readonly body: string;
 }
 
 export function NotesPage({
@@ -74,7 +80,8 @@ export function NotesPage({
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
 
   // Autosave refs
-  const pendingBody = useRef<string | null>(null);
+  const pendingBodies = useRef(new Map<string, PendingEdit>());
+  const saveInFlight = useRef<Promise<boolean> | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   const activeIdRef = useRef<string | null>(activePageId);
   activeIdRef.current = activePageId;
@@ -120,18 +127,39 @@ export function NotesPage({
   // Flush pending body changes
   const flush = useCallback(async () => {
     window.clearTimeout(saveTimer.current);
-    const bodyToSave = pendingBody.current;
-    const idToSave = activeIdRef.current;
-    if (bodyToSave === null || !idToSave) return;
-    pendingBody.current = null;
+    if (saveInFlight.current) return saveInFlight.current;
+    const saving = (async () => {
+      while (pendingBodies.current.size > 0) {
+        const edit = pendingBodies.current.values().next().value!;
+        try {
+          await api.savePageBody(edit.pageId, edit.body);
+        } catch (e) {
+          // Keep this edit (or its newer replacement) available for the next flush.
+          toast(errorMessage(e), "error");
+          return false;
+        }
+        if (pendingBodies.current.get(edit.pageId) === edit) {
+          pendingBodies.current.delete(edit.pageId);
+        }
+        const treeNodes = await loadTree();
+        const savedNode = treeNodes.find((node) => node.id === edit.pageId);
+        setLoadedPage((prev) => prev?.id === edit.pageId ? {
+          ...prev,
+          body: edit.body,
+          updatedAt: savedNode?.updatedAt ?? prev.updatedAt,
+        } : prev);
+        if (activeIdRef.current === edit.pageId) await loadBacklinks(edit.pageId);
+        onChanged?.();
+      }
+      return true;
+    })();
+    saveInFlight.current = saving;
     try {
-      await api.savePageBody(idToSave, bodyToSave);
-      await loadBacklinks(idToSave);
-      onChanged?.();
-    } catch (e) {
-      toast(errorMessage(e), "error");
+      return await saving;
+    } finally {
+      saveInFlight.current = null;
     }
-  }, [toast, loadBacklinks, onChanged]);
+  }, [toast, loadTree, loadBacklinks, onChanged]);
 
   // Flush on unmount and window blur
   useEffect(() => {
@@ -149,7 +177,7 @@ export function NotesPage({
   const handleSelectPage = useCallback(
     async (id: string | null) => {
       if (id === activePageId) return;
-      await flush();
+      if (!(await flush())) return;
       setActivePageId(id);
     },
     [activePageId, flush],
@@ -175,6 +203,7 @@ export function NotesPage({
           title: item.title,
           body: item.body,
           updatedAt: item.updatedAt,
+          editorRevision: 0,
         });
         setTitleDraft(item.title);
         setIsBodyLoading(false);
@@ -195,8 +224,8 @@ export function NotesPage({
 
   // Autosave body changes with 600ms debounce
   const handleBodyChange = useCallback(
-    (newBody: string) => {
-      pendingBody.current = newBody;
+    (pageId: string, newBody: string) => {
+      pendingBodies.current.set(pageId, { pageId, body: newBody });
       window.clearTimeout(saveTimer.current);
       saveTimer.current = window.setTimeout(() => {
         void flush();
@@ -205,29 +234,41 @@ export function NotesPage({
     [flush],
   );
 
+  async function reloadActivePage() {
+    const id = activeIdRef.current;
+    if (!id) return;
+    const item = await api.openItem(id);
+    if (activeIdRef.current !== id) return;
+    setLoadedPage((prev) => prev?.id === id ? {
+      id: item.id,
+      title: item.title,
+      body: item.body,
+      updatedAt: item.updatedAt,
+      editorRevision: prev.editorRevision + (prev.body === item.body ? 0 : 1),
+    } : prev);
+    setTitleDraft(item.title);
+    await loadBacklinks(id);
+  }
+
+  async function renamePage(id: string, title: string) {
+    try {
+      if (!(await flush())) return;
+      await api.renamePage(id, title);
+      await reloadActivePage();
+      await loadTree();
+      onChanged?.();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
   // Rename active page
   async function handleRenameActivePage(newTitle: string) {
     if (!activePageId) return;
     const trimmed = newTitle.trim();
     const finalTitle = trimmed || "Tanpa judul";
     if (loadedPage && finalTitle === loadedPage.title) return;
-    try {
-      const updated = await api.renamePage(activePageId, finalTitle);
-      setLoadedPage((prev) =>
-        prev
-          ? {
-              ...prev,
-              title: updated.title,
-              updatedAt: updated.updatedAt,
-            }
-          : null,
-      );
-      setTitleDraft(updated.title);
-      await loadTree();
-      onChanged?.();
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    }
+    await renamePage(activePageId, finalTitle);
   }
 
   // Rename from PageTree
@@ -235,30 +276,12 @@ export function NotesPage({
     setRenamingNodeId(null);
     const trimmed = newTitle.trim();
     const finalTitle = trimmed || "Tanpa judul";
-    try {
-      const updated = await api.renamePage(id, finalTitle);
-      if (activePageId === id) {
-        setLoadedPage((prev) =>
-          prev
-            ? {
-                ...prev,
-                title: updated.title,
-                updatedAt: updated.updatedAt,
-              }
-            : null,
-        );
-        setTitleDraft(updated.title);
-      }
-      await loadTree();
-      onChanged?.();
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    }
+    await renamePage(id, finalTitle);
   }
 
   // Create page
   async function handleCreatePage(parentId: string | null, customTitle?: string) {
-    await flush();
+    if (!(await flush())) return;
     try {
       const created = await api.createPage(parentId, customTitle ?? "");
       await loadTree();
@@ -272,7 +295,7 @@ export function NotesPage({
   // Wikilink open
   const handleOpenLink = useCallback(
     async (title: string) => {
-      await flush();
+      if (!(await flush())) return;
       try {
         const target = await api.resolveLink(title);
         if (target) {
@@ -316,6 +339,7 @@ export function NotesPage({
     setIsDeleting(true);
     try {
       const descendants = descendantIds(nodes, deletingPage.id);
+      if (!(await flush())) return;
       await api.deletePage(deletingPage.id);
       if (activePageId === deletingPage.id || (activePageId && descendants.has(activePageId))) {
         await handleSelectPage(null);
@@ -361,6 +385,7 @@ export function NotesPage({
   // Export markdown
   async function handleExport() {
     try {
+      if (!(await flush())) return;
       const exportPath = await api.exportPages();
       toast(
         `Diekspor ke ${exportPath}`,
@@ -620,8 +645,9 @@ export function NotesPage({
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        void handleRenameActivePage(titleDraft);
-                        blockEditorRef.current?.focusFirstBlock();
+                        void handleRenameActivePage(titleDraft).then(() => {
+                          blockEditorRef.current?.focusFirstBlock();
+                        });
                       }
                     }}
                     placeholder="Tanpa judul"
@@ -636,14 +662,14 @@ export function NotesPage({
                 </div>
 
                 {/* Editor Blok */}
-                <div className="min-h-0 flex-1">
+                <div className="min-h-0 flex-1" onBlur={() => void flush()}>
                   <BlockEditor
-                    key={loadedPage.id}
+                    key={`${loadedPage.id}:${loadedPage.editorRevision}`}
                     ref={blockEditorRef}
                     pageId={loadedPage.id}
                     body={loadedPage.body}
                     titles={titles}
-                    onChange={handleBodyChange}
+                    onChange={(body) => handleBodyChange(loadedPage.id, body)}
                     onOpenLink={(title) => void handleOpenLink(title)}
                     onOpenUrl={handleOpenUrl}
                     onCreatePage={handleCreatePageFromEditor}

@@ -125,13 +125,6 @@ export function FilesPage({
     setAnchor(null);
   }, [currentPath]);
 
-  // Navigate to initialPath if provided or updated
-  useEffect(() => {
-    if (initialPath) {
-      history.go(initialPath);
-    }
-  }, [initialPath, history.go]);
-
   // Load places once on mount and initialize Home directory via functional update
   useEffect(() => {
     let active = true;
@@ -143,7 +136,7 @@ export function FilesPage({
         const home =
           res.places.find((p) => p.icon === "home")?.path ?? res.places[0]?.path;
         if (home) {
-          history.go((prev) => prev || initialPath || home);
+          history.go((prev) => prev || home);
         }
       },
       (e) => {
@@ -153,7 +146,7 @@ export function FilesPage({
     return () => {
       active = false;
     };
-  }, [history.go, initialPath, toast]);
+  }, [history.go, toast]);
 
   // Load listing when currentPath, showHidden or reloadToken changes
   useEffect(() => {

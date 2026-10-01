@@ -56,6 +56,14 @@ export function App() {
     if (ready) reload();
   }, [ready, stack, reload]);
 
+  // The Unduhan card shows live progress: refresh every second while it lists downloads.
+  const downloading = page.name === "dashboard" && (dashboard.data?.downloads.items.length ?? 0) > 0;
+  useEffect(() => {
+    if (!downloading) return;
+    const timer = setInterval(reload, 1000);
+    return () => clearInterval(timer);
+  }, [downloading, reload]);
+
   // Ctrl+K (Ctrl+N as an alias) opens the command palette over the current page.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

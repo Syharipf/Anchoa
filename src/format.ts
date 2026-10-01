@@ -65,3 +65,14 @@ export function upcomingLabel(date: string): { weekday: string; day: number } {
   const weekday = new Date(year, month - 1, day).toLocaleDateString("id-ID", { weekday: "short" });
   return { weekday, day };
 }
+
+const BYTE_FMT = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
+
+/** Formats byte sizes using Indonesian conventions: "0 B", "1023 B", "1,5 KB", "12,3 MB". */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${BYTE_FMT.format(bytes / 1024)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${BYTE_FMT.format(bytes / (1024 * 1024))} MB`;
+  return `${BYTE_FMT.format(bytes / (1024 * 1024 * 1024))} GB`;
+}
+

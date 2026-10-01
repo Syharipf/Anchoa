@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Proyek × Agen built (spec `2026-10-01-anchoa-agen-proyek-design.md`): agent projects with a 5-column kanban, task threads, the Agen kode tab, the agent runner, and the `anchoa agent` CLI. Next phases wait for the user.
+Status: Pengaturan rebuilt around a section nav (spec `2026-10-01-anchoa-pengaturan-design.md`): local data overview, integrations, and About with an update check. Proyek × Agen is built (spec `2026-10-01-anchoa-agen-proyek-design.md`). Next phases wait for the user.
 
 ## Commands
 

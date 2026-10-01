@@ -317,7 +317,8 @@ check_backup() {
   start_app
   ls "$APPDATA"/backups/anchoa-*.db >/dev/null 2>&1 || fail "no daily backup at startup"
   click 36 760          # nav: Pengaturan
-  click 186 247         # Backup sekarang
+  click 413 274         # Backup sekarang (Sinkron & data)
+  sleep 1
   shot 6-settings
   [[ "$(ls "$APPDATA"/backups/anchoa-*.db | wc -l)" -eq 2 ]] || fail "manual backup was not created"
   stop_app
@@ -881,6 +882,21 @@ check_agent() {
   stop_app
 }
 
+check_settings() {
+  fresh
+  start_app
+  click 36 760                 # nav: Pengaturan (opens Sinkron & data; check_backup covers its buttons)
+  sleep 1
+  shot 20-settings-data
+  click 170 400                # Tentang
+  sleep 1
+  shot 20-settings-about
+  click 170 163                # Asisten & AI (menyusul)
+  sleep 1
+  shot 20-settings-ai
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -908,4 +924,5 @@ check_files
 check_downloads
 check_notes
 check_agent
+check_settings
 echo "PASS. Screenshots in $WORK"

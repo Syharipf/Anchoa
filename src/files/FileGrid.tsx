@@ -39,6 +39,7 @@ export function FileGrid({
           <button
             key={entry.path}
             type="button"
+            data-file-entry
             onClick={(e) => onSelect(index, e)}
             onDoubleClick={() => onOpen(entry)}
             aria-pressed={isSelected}

@@ -61,16 +61,47 @@ export function formatSize(bytes: number): string {
 /** Calculates total bytes of selected entries (folders count as 0 bytes). */
 export function totalSize(
   entries: readonly FileEntry[],
-  selected: readonly number[],
+  selected?: readonly number[],
 ): number {
   let total = 0;
-  for (const idx of selected) {
-    const entry = entries[idx];
-    if (entry && entry.kind !== "folder") {
-      total += entry.size;
+  if (selected !== undefined) {
+    for (const idx of selected) {
+      const entry = entries[idx];
+      if (entry && entry.kind !== "folder") {
+        total += entry.size;
+      }
+    }
+  } else {
+    for (const entry of entries) {
+      if (entry && entry.kind !== "folder") {
+        total += entry.size;
+      }
     }
   }
   return total;
+}
+
+export interface ReportLike {
+  readonly done: readonly unknown[];
+  readonly failed: readonly { readonly path: string; readonly error: string }[];
+}
+
+/** Formats user toast messages for batch file operations (paste, trash). */
+export function reportToasts(
+  report: ReportLike,
+  doneVerb: string,
+): { ok?: string; error?: string } {
+  const result: { ok?: string; error?: string } = {};
+  if (report.done.length > 0) {
+    result.ok = `${report.done.length} item ${doneVerb}`;
+  }
+  if (report.failed.length > 0) {
+    const errs = report.failed
+      .map((f) => `${f.path}: ${f.error}`)
+      .join(", ");
+    result.error = `Gagal: ${errs}`;
+  }
+  return result;
 }
 
 export const KIND_LABELS: Record<FileKind, string> = {

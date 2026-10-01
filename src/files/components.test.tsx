@@ -163,6 +163,7 @@ describe("file manager components", () => {
         />,
       );
       expect(html).toContain('loading="lazy"');
+      expect(html).toContain("data-file-entry");
       expect(html).toContain("foto.png");
       expect(html).toContain("berkas.pdf");
     });
@@ -180,6 +181,7 @@ describe("file manager components", () => {
       expect(html).toContain("Ukuran");
       expect(html).toContain("Jenis");
       expect(html).toContain("Diubah");
+      expect(html).toContain("data-file-entry");
       expect(html).toContain("foto.png");
       expect(html).toContain("PDF");
     });
@@ -199,6 +201,7 @@ describe("file manager components", () => {
       );
       expect(html).toContain("3 item");
       expect(html).toContain("12,4 MB");
+      expect(html).toContain("· 12,4 MB");
       expect(html).toContain("Salin");
       expect(html).toContain("Pindahkan");
       expect(html).toContain("Hapus");
@@ -275,6 +278,7 @@ describe("file manager components", () => {
         />,
       );
       expect(html).toContain("<video");
+      expect(html).toContain('aria-label="Video demo.mp4"');
       expect(html).toContain('preload="metadata"');
       expect(html).toContain("controls");
       expect(html).not.toContain("autoplay");

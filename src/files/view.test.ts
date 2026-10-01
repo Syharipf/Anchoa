@@ -4,6 +4,7 @@ import {
   formatSize,
   KIND_ICONS,
   KIND_LABELS,
+  reportToasts,
   select,
   totalSize,
   type SelectionState,
@@ -109,6 +110,62 @@ describe("file manager view rules", () => {
 
     it("returns 0 for empty selection", () => {
       expect(totalSize(entries, [])).toBe(0);
+    });
+
+    it("sums non-folder entries when called with entry array directly", () => {
+      expect(totalSize([entries[1], entries[2]])).toBe(1048576 + 2048);
+      expect(totalSize([entries[0], entries[3]])).toBe(0);
+      expect(totalSize([])).toBe(0);
+    });
+  });
+
+  describe("reportToasts", () => {
+    it("returns ok message when done items are present", () => {
+      const res = reportToasts({ done: ["/a", "/b"], failed: [] }, "disalin");
+      expect(res.ok).toBe("2 item disalin");
+      expect(res.error).toBeUndefined();
+    });
+
+    it("returns error message when failed items are present", () => {
+      const res = reportToasts(
+        { done: [], failed: [{ path: "/a", error: "Permission denied" }] },
+        "disalin",
+      );
+      expect(res.ok).toBeUndefined();
+      expect(res.error).toBe("Gagal: /a: Permission denied");
+    });
+
+    it("formats multiple failures separated by comma", () => {
+      const res = reportToasts(
+        {
+          done: [],
+          failed: [
+            { path: "/a", error: "Permission denied" },
+            { path: "/b", error: "Disk full" },
+          ],
+        },
+        "dipindahkan",
+      );
+      expect(res.ok).toBeUndefined();
+      expect(res.error).toBe("Gagal: /a: Permission denied, /b: Disk full");
+    });
+
+    it("returns both ok and error when both done and failed are present", () => {
+      const res = reportToasts(
+        {
+          done: ["/ok1"],
+          failed: [{ path: "/fail1", error: "Error" }],
+        },
+        "dipindahkan ke Tong Sampah",
+      );
+      expect(res.ok).toBe("1 item dipindahkan ke Tong Sampah");
+      expect(res.error).toBe("Gagal: /fail1: Error");
+    });
+
+    it("returns empty object when done and failed are empty", () => {
+      const res = reportToasts({ done: [], failed: [] }, "disalin");
+      expect(res.ok).toBeUndefined();
+      expect(res.error).toBeUndefined();
     });
   });
 

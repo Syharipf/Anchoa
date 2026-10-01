@@ -22,7 +22,9 @@ import { FileList } from "./FileList";
 import { FilesToolbar } from "./FilesToolbar";
 import { PlacesSidebar } from "./PlacesSidebar";
 import { PreviewPanel } from "./PreviewPanel";
-import { select, totalSize } from "./view";
+import { useFilesKeyboard } from "./useFilesKeyboard";
+import { useHistory } from "./useHistory";
+import { reportToasts, select, totalSize } from "./view";
 
 export interface FileClipboard {
   readonly mode: "copy" | "move";
@@ -45,6 +47,44 @@ function setShowHiddenStored(val: boolean) {
   }
 }
 
+function TrashConfirmDialog({
+  count,
+  onConfirm,
+  onCancel,
+}: Readonly<{
+  count: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}>) {
+  return (
+    <Dialog
+      title={`Pindahkan ${count} item ke Tong Sampah?`}
+      onClose={onCancel}
+    >
+      <p className="m-0 text-sm text-muted">
+        Item akan dipindahkan ke folder Tong Sampah dan dapat dipulihkan
+        nanti jika diperlukan.
+      </p>
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className={SECONDARY}
+        >
+          Batal
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="min-h-10 rounded-full border border-danger px-4 text-[13px] font-semibold text-danger transition-colors hover:bg-danger-row"
+        >
+          Hapus
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
 export function FilesPage({
   clipboard,
   onSetClipboard,
@@ -55,38 +95,35 @@ export function FilesPage({
   const toast = useToast();
   const [places, setPlaces] = useState<Place[]>([]);
   const [devices, setDevices] = useState<Place[]>([]);
-  const [currentPath, setCurrentPath] = useState("");
   const [listing, setListing] = useState<Listing | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [showHidden, setShowHidden] = useState(getInitialShowHidden);
-
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [conflictCount, setConflictCount] = useState<number | null>(null);
 
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < history.length - 1;
-  const canGoUp = listing?.parent !== null && listing?.parent !== undefined;
+  const history = useHistory();
+  const currentPath = history.current;
+  const canGoUp = Boolean(listing?.parent);
 
-  const loadDir = useCallback(
-    async (path: string, hidden: boolean) => {
-      try {
-        const res = await api.listDir(path, hidden);
-        setListing(res);
-        setSelected([]);
-        setAnchor(null);
-      } catch (e) {
-        toast(errorMessage(e), "error");
-      }
-    },
-    [toast],
-  );
+  const reload = useCallback(() => setReloadToken((t) => t + 1), []);
 
-  // Load places and initialize Home directory
+  const selectedEntries = selected
+    .map((i) => listing?.entries[i])
+    .filter((e): e is FileEntry => Boolean(e));
+
+  const singleEntry = selectedEntries.length === 1 ? selectedEntries[0] : null;
+
+  // Clear selection and anchor when path changes
+  useEffect(() => {
+    setSelected([]);
+    setAnchor(null);
+  }, [currentPath]);
+
+  // Load places once on mount and initialize Home directory via functional update
   useEffect(() => {
     let active = true;
     api.filePlaces().then(
@@ -96,10 +133,8 @@ export function FilesPage({
         setDevices(res.devices);
         const home =
           res.places.find((p) => p.icon === "home")?.path ?? res.places[0]?.path;
-        if (home && !currentPath) {
-          setCurrentPath(home);
-          setHistory([home]);
-          setHistoryIndex(0);
+        if (home) {
+          history.go((prev) => prev || home);
         }
       },
       (e) => {
@@ -109,59 +144,34 @@ export function FilesPage({
     return () => {
       active = false;
     };
-  }, [currentPath, toast]);
+  }, [history.go, toast]);
 
-  // Load listing when currentPath or showHidden changes
+  // Load listing when currentPath, showHidden or reloadToken changes
   useEffect(() => {
-    if (currentPath) {
-      void loadDir(currentPath, showHidden);
-    }
-  }, [currentPath, showHidden, loadDir]);
-
-  const navigateTo = useCallback(
-    (newPath: string) => {
-      setHistory((prev) => {
-        const next = prev.slice(0, historyIndex + 1);
-        next.push(newPath);
-        return next;
-      });
-      setHistoryIndex((prev) => prev + 1);
-      setCurrentPath(newPath);
-    },
-    [historyIndex],
-  );
-
-  const goBack = useCallback(() => {
-    if (historyIndex > 0) {
-      const prevIndex = historyIndex - 1;
-      setHistoryIndex(prevIndex);
-      setCurrentPath(history[prevIndex]);
-    }
-  }, [historyIndex, history]);
-
-  const goForward = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const nextIndex = historyIndex + 1;
-      setHistoryIndex(nextIndex);
-      setCurrentPath(history[nextIndex]);
-    }
-  }, [historyIndex, history]);
-
-  const goUp = useCallback(() => {
-    if (listing?.parent) {
-      navigateTo(listing.parent);
-    }
-  }, [listing?.parent, navigateTo]);
+    if (!currentPath) return;
+    let active = true;
+    api.listDir(currentPath, showHidden).then(
+      (res) => {
+        if (active) setListing(res);
+      },
+      (e) => {
+        if (active) toast(errorMessage(e), "error");
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [currentPath, showHidden, reloadToken, toast]);
 
   const handleOpen = useCallback(
     (entry: FileEntry) => {
       if (entry.kind === "folder") {
-        navigateTo(entry.path);
+        history.go(entry.path);
       } else {
         api.openFile(entry.path).catch((err) => toast(errorMessage(err), "error"));
       }
     },
-    [navigateTo, toast],
+    [history.go, toast],
   );
 
   const handleSelect = useCallback(
@@ -183,136 +193,75 @@ export function FilesPage({
   }, []);
 
   const handleCopy = useCallback(() => {
-    if (!listing) return;
-    const paths = selected.map((i) => listing.entries[i].path);
+    const paths = selectedEntries.map((e) => e.path);
+    if (paths.length === 0) return;
     onSetClipboard({ mode: "copy", paths });
     toast(`${paths.length} item disalin ke papan klip`);
-  }, [listing, selected, onSetClipboard, toast]);
+  }, [selectedEntries, onSetClipboard, toast]);
 
   const handleMove = useCallback(() => {
-    if (!listing) return;
-    const paths = selected.map((i) => listing.entries[i].path);
+    const paths = selectedEntries.map((e) => e.path);
+    if (paths.length === 0) return;
     onSetClipboard({ mode: "move", paths });
     toast(`${paths.length} item ditandai untuk dipindahkan`);
-  }, [listing, selected, onSetClipboard, toast]);
+  }, [selectedEntries, onSetClipboard, toast]);
 
-  const handlePaste = useCallback(async () => {
-    if (!clipboard || !currentPath) return;
-    try {
-      const report = await api.pasteItems({
-        sources: [...clipboard.paths],
-        dest: currentPath,
-        mode: clipboard.mode,
-      });
-      if (report.conflicts.length > 0) {
-        setConflictCount(report.conflicts.length);
-        return;
+  const paste = useCallback(
+    async (onConflict?: OnConflict) => {
+      if (onConflict !== undefined) {
+        setConflictCount(null);
       }
-      if (report.done.length > 0) {
-        toast(
-          `${report.done.length} item ${
-            clipboard.mode === "copy" ? "disalin" : "dipindahkan"
-          }`,
-        );
-      }
-      if (report.failed.length > 0) {
-        const errs = report.failed
-          .map((f) => `${f.path}: ${f.error}`)
-          .join(", ");
-        toast(`Gagal: ${errs}`, "error");
-      }
-      if (clipboard.mode === "move") {
-        onSetClipboard(null);
-      }
-      void loadDir(currentPath, showHidden);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    }
-  }, [clipboard, currentPath, onSetClipboard, loadDir, showHidden, toast]);
-
-  const handleResolveConflict = useCallback(
-    async (choice: OnConflict) => {
-      setConflictCount(null);
       if (!clipboard || !currentPath) return;
       try {
         const report = await api.pasteItems({
           sources: [...clipboard.paths],
           dest: currentPath,
           mode: clipboard.mode,
-          onConflict: choice,
+          onConflict,
         });
-        if (report.done.length > 0) {
-          toast(
-            `${report.done.length} item ${
-              clipboard.mode === "copy" ? "disalin" : "dipindahkan"
-            }`,
-          );
+        if (!onConflict && report.conflicts.length > 0) {
+          setConflictCount(report.conflicts.length);
+          return;
         }
-        if (report.failed.length > 0) {
-          const errs = report.failed
-            .map((f) => `${f.path}: ${f.error}`)
-            .join(", ");
-          toast(`Gagal: ${errs}`, "error");
-        }
+        const verb = clipboard.mode === "copy" ? "disalin" : "dipindahkan";
+        const { ok, error } = reportToasts(report, verb);
+        if (ok) toast(ok);
+        if (error) toast(error, "error");
         if (clipboard.mode === "move") {
           onSetClipboard(null);
         }
-        void loadDir(currentPath, showHidden);
+        reload();
       } catch (e) {
         toast(errorMessage(e), "error");
       }
     },
-    [clipboard, currentPath, onSetClipboard, loadDir, showHidden, toast],
+    [clipboard, currentPath, onSetClipboard, reload, toast],
   );
 
   const handleTrashConfirm = useCallback(async () => {
     setConfirmTrash(false);
-    if (!listing) return;
-    const paths = selected.map((i) => listing.entries[i].path);
+    const paths = selectedEntries.map((e) => e.path);
+    if (paths.length === 0) return;
     try {
       const report = await api.trashItems(paths);
-      if (report.done.length > 0) {
-        toast(`${report.done.length} item dipindahkan ke Tong Sampah`);
-      }
-      if (report.failed.length > 0) {
-        const errs = report.failed
-          .map((f) => `${f.path}: ${f.error}`)
-          .join(", ");
-        toast(`Gagal menghapus: ${errs}`, "error");
-      }
+      const { ok, error } = reportToasts(report, "dipindahkan ke Tong Sampah");
+      if (ok) toast(ok);
+      if (error) toast(error, "error");
       setSelected([]);
       setAnchor(null);
-      void loadDir(currentPath, showHidden);
+      reload();
     } catch (e) {
       toast(errorMessage(e), "error");
     }
-  }, [listing, selected, currentPath, showHidden, loadDir, toast]);
+  }, [selectedEntries, reload, toast]);
 
-  // Backspace goes up, Enter opens selected entry
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName.toLowerCase();
-      if (tag === "input" || tag === "textarea") {
-        return;
-      }
-      if (e.key === "Backspace" && listing?.parent) {
-        e.preventDefault();
-        navigateTo(listing.parent);
-      } else if (e.key === "Enter" && selected.length === 1 && listing) {
-        const entry = listing.entries[selected[0]];
-        if (entry) {
-          e.preventDefault();
-          handleOpen(entry);
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [listing, selected, navigateTo, handleOpen]);
-
-  const singleEntry =
-    selected.length === 1 && listing ? listing.entries[selected[0]] : null;
+  useFilesKeyboard({
+    isDialogOpen: confirmTrash || conflictCount !== null,
+    parentPath: listing?.parent,
+    selectedEntry: singleEntry,
+    onGoParent: history.go,
+    onOpenEntry: handleOpen,
+  });
 
   return (
     <div className="flex h-full flex-col gap-3.5">
@@ -321,20 +270,20 @@ export function FilesPage({
       </div>
 
       <FilesToolbar
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
+        canGoBack={history.canBack}
+        canGoForward={history.canForward}
         canGoUp={canGoUp}
-        onGoBack={goBack}
-        onGoForward={goForward}
-        onGoUp={goUp}
+        onGoBack={history.back}
+        onGoForward={history.forward}
+        onGoUp={() => listing?.parent && history.go(listing.parent)}
         crumbs={listing?.crumbs ?? []}
-        onNavigate={navigateTo}
+        onNavigate={history.go}
         view={view}
         onToggleView={setView}
         showHidden={showHidden}
         onToggleHidden={handleToggleHidden}
         clipboardCount={clipboard?.paths.length ?? 0}
-        onPaste={handlePaste}
+        onPaste={() => void paste()}
         onClearClipboard={() => onSetClipboard(null)}
       />
 
@@ -345,9 +294,9 @@ export function FilesPage({
           currentPath={currentPath}
           onSelectPlace={(path) => {
             if (path === currentPath) {
-              void loadDir(path, showHidden);
+              reload();
             } else {
-              navigateTo(path);
+              history.go(path);
             }
           }}
         />
@@ -372,10 +321,10 @@ export function FilesPage({
             />
           )}
 
-          {selected.length > 0 && listing && (
+          {selectedEntries.length > 0 && (
             <ActionBar
-              selectedCount={selected.length}
-              totalSizeBytes={totalSize(listing.entries, selected)}
+              selectedCount={selectedEntries.length}
+              totalSizeBytes={totalSize(selectedEntries)}
               onCopy={handleCopy}
               onMove={handleMove}
               onTrash={() => setConfirmTrash(true)}
@@ -402,37 +351,17 @@ export function FilesPage({
       {conflictCount !== null && (
         <ConflictDialog
           conflictCount={conflictCount}
-          onResolve={handleResolveConflict}
+          onResolve={paste}
           onCancel={() => setConflictCount(null)}
         />
       )}
 
       {confirmTrash && (
-        <Dialog
-          title={`Pindahkan ${selected.length} item ke Tong Sampah?`}
-          onClose={() => setConfirmTrash(false)}
-        >
-          <p className="m-0 text-sm text-muted">
-            Item akan dipindahkan ke folder Tong Sampah dan dapat dipulihkan
-            nanti jika diperlukan.
-          </p>
-          <div className="mt-2 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setConfirmTrash(false)}
-              className={SECONDARY}
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              onClick={handleTrashConfirm}
-              className="min-h-10 rounded-full border border-danger px-4 text-[13px] font-semibold text-danger transition-colors hover:bg-danger-row"
-            >
-              Hapus
-            </button>
-          </div>
-        </Dialog>
+        <TrashConfirmDialog
+          count={selectedEntries.length}
+          onConfirm={handleTrashConfirm}
+          onCancel={() => setConfirmTrash(false)}
+        />
       )}
     </div>
   );

@@ -15,26 +15,29 @@ const PLACE_ICONS: Record<string, string> = {
   folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
 };
 
-export function PlacesSidebar({
-  places,
-  devices,
+interface SectionData {
+  readonly title: string;
+  readonly items: readonly Place[];
+}
+
+function PlacesSection({
+  title,
+  items,
   currentPath,
   onSelectPlace,
 }: Readonly<{
-  places: readonly Place[];
-  devices: readonly Place[];
+  title: string;
+  items: readonly Place[];
   currentPath: string;
   onSelectPlace: (path: string) => void;
 }>) {
+  if (items.length === 0) return null;
   return (
-    <aside
-      aria-label="Tempat"
-      className="flex w-[200px] shrink-0 flex-col gap-0.5 overflow-y-auto"
-    >
+    <div className="flex flex-col gap-0.5">
       <span className="px-2.5 pt-1 pb-1.5 text-[11px] uppercase tracking-[0.08em] text-muted">
-        Tempat
+        {title}
       </span>
-      {places.map((p) => {
+      {items.map((p) => {
         const active = currentPath === p.path;
         return (
           <button
@@ -65,45 +68,40 @@ export function PlacesSidebar({
           </button>
         );
       })}
+    </div>
+  );
+}
 
-      {devices.length > 0 && (
-        <>
-          <span className="px-2.5 pt-4 pb-1.5 text-[11px] uppercase tracking-[0.08em] text-muted">
-            Perangkat
-          </span>
-          {devices.map((d) => {
-            const active = currentPath === d.path;
-            return (
-              <button
-                key={d.path}
-                type="button"
-                onClick={() => onSelectPlace(d.path)}
-                aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ${
-                  active
-                    ? "bg-surface-2 font-semibold text-ink"
-                    : "text-[#c9ced8] hover:bg-surface-2"
-                }`}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={active ? "#c6f36b" : "currentColor"}
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d={PLACE_ICONS.drive} />
-                </svg>
-                <span className="truncate">{d.name}</span>
-              </button>
-            );
-          })}
-        </>
-      )}
+export function PlacesSidebar({
+  places,
+  devices,
+  currentPath,
+  onSelectPlace,
+}: Readonly<{
+  places: readonly Place[];
+  devices: readonly Place[];
+  currentPath: string;
+  onSelectPlace: (path: string) => void;
+}>) {
+  const sections: readonly SectionData[] = [
+    { title: "Tempat", items: places },
+    { title: "Perangkat", items: devices },
+  ];
+
+  return (
+    <aside
+      aria-label="Tempat"
+      className="flex w-[200px] shrink-0 flex-col gap-3 overflow-y-auto"
+    >
+      {sections.map((sec) => (
+        <PlacesSection
+          key={sec.title}
+          title={sec.title}
+          items={sec.items}
+          currentPath={currentPath}
+          onSelectPlace={onSelectPlace}
+        />
+      ))}
     </aside>
   );
 }

@@ -37,6 +37,7 @@ function VideoPreview({ entry }: Readonly<{ entry: FileEntry }>) {
     <video
       controls
       preload="metadata"
+      aria-label={`Video ${entry.name}`}
       src={assetUrl(entry.path)}
       className="h-full w-full object-contain"
     />
@@ -57,6 +58,7 @@ function TextPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
   const [data, setData] = useState<TextPreview | null>(null);
 
   useEffect(() => {
+    setData(null);
     let active = true;
     api.readText(entry.path).then(
       (res) => {
@@ -91,6 +93,7 @@ function FolderPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
   const [listing, setListing] = useState<Listing | null>(null);
 
   useEffect(() => {
+    setListing(null);
     let active = true;
     api.listDir(entry.path, false).then(
       (res) => {

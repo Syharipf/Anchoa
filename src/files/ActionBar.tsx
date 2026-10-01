@@ -21,8 +21,9 @@ export function ActionBar({
       style={{ animation: "anchoa-pop 0.15s ease-out" }}
       className="flex shrink-0 items-center gap-3 border-t border-line bg-surface-2 px-3.5 py-2 pr-[88px] text-xs"
     >
-      <span className="font-semibold text-ink">{selectedCount} item</span>
-      <span className="font-mono text-muted">{formatSize(totalSizeBytes)}</span>
+      <span className="font-semibold text-ink">
+        {selectedCount} item <span className="font-mono font-normal text-muted">· {formatSize(totalSizeBytes)}</span>
+      </span>
       <div className="ml-auto flex items-center gap-1.5">
         <button
           type="button"

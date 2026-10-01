@@ -177,8 +177,9 @@ fn command_config(project: &ProjectDetail) -> Result<(&str, PathBuf), AppError> 
 /// Kills the process group led by `pid` (the shell started with `process_group(0)`).
 #[cfg(unix)]
 fn kill_group(pid: u32) -> bool {
-    Command::new("sh")
-        .args(["-c", "kill -KILL -- -\"$1\"", "anchoa-stop", &pid.to_string()])
+    // External kill, not a shell builtin: dash (Ubuntu's sh) handles `--` and process groups differently.
+    Command::new("kill")
+        .args(["-KILL", "--", &format!("-{pid}")])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())

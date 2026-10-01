@@ -616,6 +616,7 @@ export const api = {
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */
 export function assetUrl(path: string): string {
+  // Component tests render to static markup without the Tauri runtime.
   if (typeof window === "undefined") {
     return `asset://localhost/${encodeURIComponent(path)}`;
   }

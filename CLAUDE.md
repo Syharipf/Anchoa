@@ -67,7 +67,7 @@ On the dev laptop, NVIDIA is the X `PrimaryGPU`, and Intel is also present.
 4. Before opening a PR, run the full check suite and the Xvfb UI check. Put the evidence (test output, screenshots) in the PR body, together with `Closes #N`.
 5. Run the review (see below), verify each finding, and fix the real ones. Then hand the PR to the user.
 6. Merge once every check is green (tests, clippy, E2E, review, CI, SonarCloud); the user approved this on 2026-10-01. Use `gh pr merge --squash --delete-branch`, or the GitHub merge API when the branch is checked out in another worktree.
-7. At the end of a phase, tag the release (`v0.1.0` for Fase 1) and attach the RPM to a GitHub Release.
+7. At the end of a phase, tag the release (`v0.1.0` for Fase 1) and attach the RPM to a GitHub Release. Publishing the release runs `.github/workflows/dnf-repo.yml`, which signs the RPMs of the last 5 releases and publishes the dnf repo on GitHub Pages (`packaging/anchoa.repo`). It needs the `RPM_GPG_PRIVATE_KEY` secret.
 
 Do not start implementing a phase until the user approves moving from planning to code.
 

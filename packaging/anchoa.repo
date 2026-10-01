@@ -1,0 +1,8 @@
+[anchoa]
+name=Anchoa
+baseurl=https://syharipf.github.io/Anchoa/rpm/x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://syharipf.github.io/Anchoa/RPM-GPG-KEY-anchoa
+metadata_expire=6h

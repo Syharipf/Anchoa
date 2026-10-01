@@ -4,11 +4,16 @@ Aplikasi desktop untuk mengelola semuanya di satu tempat (catatan, task, keuanga
 
 ## Instal
 
-Unduh file `.rpm` dari halaman Releases, lalu:
+Tambahkan repo dnf Anchoa sekali, lalu pasang:
 
 ```bash
-sudo dnf install ./Anchoa-0.6.0-1.x86_64.rpm
+sudo dnf config-manager addrepo --from-repofile=https://syharipf.github.io/Anchoa/anchoa.repo
+sudo dnf install Anchoa
 ```
+
+Versi baru datang lewat `sudo dnf upgrade`. Paket dan metadata repo ditandatangani GPG; dnf meminta konfirmasi kunci saat pertama kali.
+
+File `.rpm` juga tetap tersedia di halaman Releases untuk dipasang manual (`sudo dnf install ./Anchoa-<versi>-1.x86_64.rpm`).
 
 ## Data dan backup
 

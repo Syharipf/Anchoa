@@ -14,6 +14,8 @@ pub enum AppError {
     DbUnavailable,
     #[error("Database versi {0} dibuat oleh aplikasi yang lebih baru")]
     DbTooNew(i64),
+    #[error("Anchoa terkunci")]
+    Locked,
     #[error("Kesalahan database: {0}")]
     Db(#[from] rusqlite::Error),
     #[error("Kesalahan file: {0}")]
@@ -35,6 +37,7 @@ impl AppError {
             AppError::AccountInUse => "account_in_use",
             AppError::DbUnavailable => "db_unavailable",
             AppError::DbTooNew(_) => "db_too_new",
+            AppError::Locked => "locked",
             AppError::Db(_) => "db",
             AppError::Io(_) => "io",
             AppError::Time(_) => "time",

@@ -24,11 +24,30 @@ mod overview;
 mod profile;
 mod projects;
 mod schedule;
+pub mod security;
 mod settings;
 mod tasks;
 mod time;
 
 use tauri::Manager;
+
+pub fn wrap_invoke_handler<R: tauri::Runtime>(
+    handler: impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static,
+) -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
+    move |invoke| {
+        let cmd = invoke.message.command();
+        if !security::is_allowed_while_locked(cmd) {
+            let webview = invoke.message.webview();
+            if let Some(sec) = webview.app_handle().try_state::<security::SecurityState>()
+                && sec.is_locked()
+            {
+                invoke.resolver.reject("Anchoa terkunci");
+                return true;
+            }
+        }
+        handler(invoke)
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -52,6 +71,15 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let mut db = db::Db::open_at(data_dir.join("anchoa.db"));
+            let pin_enabled = if db.open_error.is_none() {
+                if let Ok(conn) = db.conn() {
+                    security::has_pin(&conn).unwrap_or(false)
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
             match &db.open_error {
                 Some(e) => log::error!("database open failed: {e}"),
                 None => {
@@ -69,6 +97,7 @@ pub fn run() {
                     }
                 }
             }
+            app.manage(security::SecurityState::new(pin_enabled));
             app.manage(db);
             app.manage(downloader::Downloader::default());
             app.manage(agent_runner::AgentRunner::default());
@@ -76,7 +105,11 @@ pub fn run() {
             app.manage(assistant::voice::VoiceState::new(data_dir));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
+            security::security_status,
+            security::unlock,
+            security::set_pin,
+            security::disable_pin,
             assistant::assistant_send,
             assistant::assistant_stop,
             assistant::assistant_decide,
@@ -188,7 +221,7 @@ pub fn run() {
             commands::search_items,
             commands::export_pages,
             commands::open_link,
-        ])
+        ]))
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

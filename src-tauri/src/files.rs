@@ -188,6 +188,38 @@ pub fn guard_entry(path: &str, roots: &Roots) -> Result<PathBuf, AppError> {
     }
 }
 
+pub fn xdg_dir(home: &Path, user_dirs_text: Option<&str>, key: &str, default_sub: &str) -> PathBuf {
+    if let Some(text) = user_dirs_text {
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            if let Some((k, v)) = trimmed.split_once('=') {
+                if k.trim() != key {
+                    continue;
+                }
+                let mut val = v.trim();
+                if ((val.starts_with('"') && val.ends_with('"'))
+                    || (val.starts_with('\'') && val.ends_with('\'')))
+                    && val.len() >= 2
+                {
+                    val = &val[1..val.len() - 1];
+                }
+                let expanded = if val == "$HOME" {
+                    home.to_path_buf()
+                } else if let Some(rel) = val.strip_prefix("$HOME/") {
+                    home.join(rel)
+                } else {
+                    PathBuf::from(val)
+                };
+                return expanded;
+            }
+        }
+    }
+    home.join(default_sub)
+}
+
 pub fn xdg_places(home: &Path, user_dirs_text: Option<&str>, data_dir: &Path) -> Vec<Place> {
     let mut places = Vec::new();
 
@@ -207,40 +239,8 @@ pub fn xdg_places(home: &Path, user_dirs_text: Option<&str>, data_dir: &Path) ->
         ("XDG_MUSIC_DIR", "Musik", "music", "Music"),
     ];
 
-    let parse_xdg_line = |text: &str, target_key: &str| -> Option<PathBuf> {
-        for line in text.lines() {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                continue;
-            }
-            if let Some((k, v)) = trimmed.split_once('=') {
-                if k.trim() != target_key {
-                    continue;
-                }
-                let mut val = v.trim();
-                if ((val.starts_with('"') && val.ends_with('"'))
-                    || (val.starts_with('\'') && val.ends_with('\'')))
-                    && val.len() >= 2
-                {
-                    val = &val[1..val.len() - 1];
-                }
-                let expanded = if val == "$HOME" {
-                    home.to_path_buf()
-                } else if let Some(rel) = val.strip_prefix("$HOME/") {
-                    home.join(rel)
-                } else {
-                    PathBuf::from(val)
-                };
-                return Some(expanded);
-            }
-        }
-        None
-    };
-
     for (key, name, icon, default_sub) in specs {
-        let dir_path = user_dirs_text
-            .and_then(|text| parse_xdg_line(text, key))
-            .unwrap_or_else(|| home.join(default_sub));
+        let dir_path = xdg_dir(home, user_dirs_text, key, default_sub);
 
         if dir_path.is_dir() {
             places.push(Place {

@@ -22,7 +22,7 @@ use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery,
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
-use crate::{backup, files, time};
+use crate::{backup, downloader, downloads, files, time};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -461,4 +461,309 @@ pub fn open_file(app: AppHandle, path: String) -> Result<(), AppError> {
         .map_err(|e| AppError::Other(e.to_string()))
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadView {
+    #[serde(flatten)]
+    pub row: downloads::DownloadRow,
+    pub speed: Option<f64>,
+    pub eta: Option<u64>,
+}
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadsPayload {
+    pub items: Vec<DownloadView>,
+    pub speed: f64,
+    pub active: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YtDlpEngine {
+    pub version: String,
+    pub stale: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FfmpegEngine {
+    pub version: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnginesInfo {
+    pub ytdlp: Option<YtDlpEngine>,
+    pub ffmpeg: Option<FfmpegEngine>,
+    pub hint: Option<String>,
+}
+
+pub fn is_ytdlp_stale(version: &str) -> bool {
+    let parts: Vec<&str> = version.split('.').collect();
+    if parts.len() < 3 {
+        return false;
+    }
+    let (Ok(year), Ok(month), Ok(day)) = (
+        parts[0].parse::<i16>(),
+        parts[1].parse::<i8>(),
+        parts[2].parse::<i8>(),
+    ) else {
+        return false;
+    };
+    let Ok(ver_date) = jiff::civil::Date::new(year, month, day) else {
+        return false;
+    };
+    let today = jiff::Zoned::now().date();
+    today.since(ver_date).is_ok_and(|span| span.get_days() > 60)
+}
+
+#[tauri::command]
+pub fn downloads_list(
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+) -> Result<DownloadsPayload, AppError> {
+    let rows = downloads::list(&*db.conn()?)?;
+    let live = downloader.live();
+
+    let items: Vec<DownloadView> = rows
+        .into_iter()
+        .map(|mut row| {
+            let l = live.get(&row.id);
+            // Live bytes start at 0 until the first update; keep the stored ones until then.
+            if let Some(l) = l.filter(|l| l.done > 0) {
+                row.done_bytes = l.done as i64;
+                row.total_bytes = l.total.map(|t| t as i64).or(row.total_bytes);
+            }
+            DownloadView {
+                speed: l.and_then(|l| l.speed),
+                eta: l.and_then(|l| l.eta),
+                row,
+            }
+        })
+        .collect();
+
+    let speed = items.iter().filter_map(|i| i.speed).sum();
+    let active = items
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.row.status,
+                downloads::DownloadStatus::Running | downloads::DownloadStatus::Processing
+            )
+        })
+        .count();
+
+    Ok(DownloadsPayload {
+        items,
+        speed,
+        active,
+    })
+}
+
+#[tauri::command]
+pub fn add_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    input: downloads::NewDownload,
+) -> Result<DownloadView, AppError> {
+    let row = downloads::add(&*db.conn()?, &input, time::now_ms())?;
+    let _ = downloader.schedule(&app);
+    Ok(DownloadView {
+        row,
+        speed: None,
+        eta: None,
+    })
+}
+
+#[tauri::command]
+pub fn pause_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    // Paused first: a worker that still finishes in the meantime then ends as Done.
+    downloads::set_status(
+        &*db.conn()?,
+        &id,
+        downloads::DownloadStatus::Paused,
+        None,
+        time::now_ms(),
+    )?;
+    downloader.stop(&id)?;
+    let _ = downloader.schedule(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn resume_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    downloads::set_status(
+        &*db.conn()?,
+        &id,
+        downloads::DownloadStatus::Queued,
+        None,
+        time::now_ms(),
+    )?;
+    downloader.schedule(&app)
+}
+
+#[tauri::command]
+pub fn retry_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    resume_download(app, db, downloader, id)
+}
+
+#[tauri::command]
+pub fn remove_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    let conn = db.conn()?;
+    let row = downloads::get(&conn, &id)?;
+    downloads::remove(&conn, &id, time::now_ms())?;
+    downloader.stop(&id)?;
+    // A running worker removes its own temp folder once it has stopped.
+    if matches!(
+        row.status,
+        downloads::DownloadStatus::Queued
+            | downloads::DownloadStatus::Paused
+            | downloads::DownloadStatus::Failed
+    ) {
+        let dir = downloader::current_settings(&app, &conn)?.dir;
+        let _ = std::fs::remove_dir_all(PathBuf::from(dir).join(".anchoa-part").join(&id));
+    }
+    // schedule() locks the database itself.
+    drop(conn);
+    let _ = downloader.schedule(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_download(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    let conn = db.conn()?;
+    let row = downloads::get(&conn, &id)?;
+    let path = match row.file_path {
+        Some(file) if row.status == downloads::DownloadStatus::Done => file,
+        _ => downloader::current_settings(&app, &conn)?.dir,
+    };
+    drop(conn);
+    app.opener()
+        .open_path(path, None::<&str>)
+        .map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
+pub fn reveal_download(app: AppHandle, db: State<'_, Db>, id: String) -> Result<String, AppError> {
+    let conn = db.conn()?;
+    let row = downloads::get(&conn, &id)?;
+    match row.file_path.as_deref().map(std::path::Path::new).and_then(std::path::Path::parent) {
+        Some(parent) => Ok(parent.to_string_lossy().into_owned()),
+        None => Ok(downloader::current_settings(&app, &conn)?.dir),
+    }
+}
+
+/// Async so that starting yt-dlp and ffmpeg does not block the UI thread.
+#[tauri::command]
+pub async fn download_engines() -> Result<EnginesInfo, AppError> {
+    let ytdlp_out = std::process::Command::new("yt-dlp")
+        .arg("--version")
+        .output()
+        .ok();
+    let ytdlp = ytdlp_out
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if ver.is_empty() {
+                None
+            } else {
+                let stale = is_ytdlp_stale(&ver);
+                Some(YtDlpEngine {
+                    version: ver,
+                    stale,
+                })
+            }
+        });
+
+    let ffmpeg_out = std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .ok();
+    let ffmpeg = ffmpeg_out
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let first_line = String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if first_line.is_empty() {
+                None
+            } else {
+                Some(FfmpegEngine { version: first_line })
+            }
+        });
+
+    let hint = if ytdlp.is_none() || ffmpeg.is_none() {
+        Some("sudo dnf install yt-dlp ffmpeg".to_string())
+    } else if ytdlp.as_ref().is_some_and(|y| y.stale) {
+        Some("Perbarui: sudo dnf upgrade yt-dlp".to_string())
+    } else {
+        None
+    };
+
+    Ok(EnginesInfo {
+        ytdlp,
+        ffmpeg,
+        hint,
+    })
+}
+
+#[tauri::command]
+pub fn download_settings(
+    app: AppHandle,
+    db: State<'_, Db>,
+) -> Result<downloads::DownloadSettings, AppError> {
+    downloader::current_settings(&app, &*db.conn()?)
+}
+
+#[tauri::command]
+pub fn save_download_settings(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    settings: downloads::DownloadSettings,
+) -> Result<downloads::DownloadSettings, AppError> {
+    let home = app.path().home_dir()?;
+    // The guard is dropped at the end of this line: schedule() locks the database itself.
+    let saved = downloads::save_settings(&*db.conn()?, &settings, &home)?;
+    let _ = downloader.schedule(&app);
+    Ok(saved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_ytdlp_stale_identifies_old_and_current_versions() {
+        assert!(is_ytdlp_stale("2020.01.01"));
+        let today = jiff::Zoned::now().date();
+        let current = format!("{}.{:02}.{:02}", today.year(), today.month(), today.day());
+        assert!(!is_ytdlp_stale(&current));
+        assert!(!is_ytdlp_stale("invalid.version"));
+    }
+}

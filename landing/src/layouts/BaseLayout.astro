@@ -1,0 +1,61 @@
+---
+import displayFontUrl from '../assets/fonts/space-grotesk-latin-700-normal.woff2?url';
+import bodyFontUrl from '../assets/fonts/ibm-plex-sans-latin-400-normal.woff2?url';
+import '../styles/global.css';
+import '../styles/accessibility.css';
+import { assetPath, site } from '../config/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const { title = site.title, description = site.description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const socialImage = new URL(assetPath('social-card.png'), Astro.site);
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0C2533" />
+    <meta name="description" content={description} />
+    <meta name="author" content={site.author} />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/svg+xml" href={assetPath('favicon.svg')} />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href={displayFontUrl}
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href={bodyFontUrl}
+      crossorigin
+    />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="id_ID" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={socialImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">
+      Langsung ke konten
+    </a>
+    <slot />
+  </body>
+</html>

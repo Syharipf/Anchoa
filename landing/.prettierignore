@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.astro/
+bun.lock
+Anchoa.md
+playwright-report/
+test-results/
+.remember/
+Ref/
+# Verbatim copy of the reference artboards; keep byte-identical.
+src/components/dashboard.html

@@ -1,0 +1,136 @@
+---
+import { id as copy } from '../content/translations';
+---
+
+<section class="band" id="rekayasa" data-depth="120" aria-labelledby="h-eng">
+  <div class="wrap">
+    <div class="band-head">
+      <div class="depth">
+        −120 m<small data-i18n="zone.epi" set:html={copy['zone.epi']} />
+      </div>
+      <div>
+        <h2 id="h-eng" data-i18n="eng.title" set:html={copy['eng.title']} />
+        <p data-i18n="eng.lead" set:html={copy['eng.lead']} />
+      </div>
+    </div>
+    <div class="eng">
+      <div class="checks">
+        <div class="check reveal">
+          <span class="ok">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </span>
+          <div>
+            <b data-i18n="e1.t" set:html={copy['e1.t']} />
+            <span data-i18n="e1.d" set:html={copy['e1.d']} />
+          </div>
+        </div>
+        <div class="check reveal">
+          <span class="ok">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </span>
+          <div>
+            <b data-i18n="e2.t" set:html={copy['e2.t']} />
+            <span data-i18n="e2.d" set:html={copy['e2.d']} />
+          </div>
+        </div>
+        <div class="check reveal">
+          <span class="ok">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </span>
+          <div>
+            <b data-i18n="e3.t" set:html={copy['e3.t']} />
+            <span data-i18n="e3.d" set:html={copy['e3.d']} />
+          </div>
+        </div>
+        <div class="check reveal">
+          <span class="ok">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </span>
+          <div>
+            <b data-i18n="e4.t" set:html={copy['e4.t']} />
+            <span data-i18n="e4.d" set:html={copy['e4.d']} />
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="code">
+          <div class="code-head">supabase/tests/tasks_rls.test.sql</div>
+          <pre tabindex="0"><span class="k">begin</span>;
+<span class="k">select</span> plan(<span class="n">2</span>);
+
+<span class="c">-- masuk sebagai pengguna B</span>
+<span class="k">set local</span> role authenticated;
+<span class="k">set local</span> request.jwt.claims <span class="k">to</span>
+  <span class="s">'&#123;"sub":"0000…0002"&#125;'</span>;
+
+<span class="k">select</span> is_empty(
+  <span class="s">$$select * from tasks where user_id = '0000…0001'$$</span>,
+  <span class="s">'B tidak bisa melihat tugas A'</span>
+);
+<span class="k">select</span> throws_ok(
+  <span class="s">$$update tasks set title = 'x' where user_id = '0000…0001'$$</span>
+);
+
+<span class="k">select</span> * <span class="k">from</span> finish();
+<span class="k">rollback</span>;</pre>
+        </div>
+        <div class="chips">
+          <span class="chip">supabase db lint</span>
+          <span class="chip">supabase test db</span>
+          <span class="chip">svelte-check</span>
+          <span class="chip">cargo clippy -D warnings</span>
+          <span class="chip">cargo audit</span>
+          <span class="chip">deno test</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

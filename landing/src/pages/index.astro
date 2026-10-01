@@ -1,0 +1,51 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Hero from '../components/Hero.astro';
+import Features from '../components/Features.astro';
+import Architecture from '../components/Architecture.astro';
+import Engineering from '../components/Engineering.astro';
+import Download from '../components/Download.astro';
+import Faq from '../components/Faq.astro';
+import Footer from '../components/Footer.astro';
+import DepthGauge from '../components/DepthGauge.astro';
+import Ocean from '../components/Ocean.astro';
+import DashboardPreview from '../components/DashboardPreview.astro';
+import Author from '../components/Author.astro';
+---
+
+<BaseLayout>
+  <Ocean />
+  <DepthGauge />
+  <button
+    type="button"
+    class="sr-only ocean-pause"
+    data-ocean-toggle
+    aria-label="Jeda animasi laut"
+    aria-pressed="false"
+  >
+    Jeda / aktifkan animasi laut
+  </button>
+  <div class="page">
+    <Header />
+    <main id="main">
+      <div id="top"></div>
+      <Hero />
+      <DashboardPreview />
+      <Features />
+      <Architecture />
+      <Engineering />
+      <Download />
+      <Faq />
+      <Author />
+    </main>
+    <Footer />
+  </div>
+  <p class="sr-only" data-copy-feedback role="status" aria-live="polite"></p>
+  <script>
+    import { initInteractions } from '../scripts/interactions';
+    import { initOcean } from '../scripts/ocean';
+    initInteractions();
+    initOcean();
+  </script>
+</BaseLayout>

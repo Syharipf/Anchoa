@@ -75,9 +75,9 @@ check_nav() {
   start_app
   for y in 202 256 310 364 418 472 526 706; do
     click 36 "$y"
-    shot "3-nav-$y"     # expect: placeholder page (Email, Jadwal, Berkas … Profil); y=310 is Habit; y=364 is Keuangan; y=418 is Proyek
+    shot "3-nav-$y"     # expect: placeholder page (Email, Jadwal, Unduhan … Profil); y=310 is Habit; y=364 is Keuangan; y=418 is Proyek; y=472 is Berkas
   done
-  click 36 148          # Inbox: the mini assistant replaces the side panel
+  click 36 148          # Jurnal: the mini assistant replaces the side panel
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
   click 1226 746        # open the mini assistant
   shot 3-mini-open      # expect: 304px popup, "Siap", keyboard and mic buttons
@@ -124,13 +124,13 @@ check_palette() {
   sleep 0.3
   shot 4-palette-closed     # expect: palette gone, Keuangan still open
   [[ "$(sql "SELECT COUNT(*) FROM items")" = 0 ]] || fail "opening a page must not save a note"
-  click 36 148          # Inbox
+  click 36 148          # Jurnal
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'catatan dari palette'
   xdotool key Return
   sleep 1
-  shot 4-palette-inbox  # expect: the new note listed in the Inbox
+  shot 4-palette-inbox  # expect: the new note listed in the Jurnal
   [[ "$(sql "SELECT COUNT(*) FROM items")" = 1 ]] || fail "palette capture must save exactly one note"
   stop_app
 }
@@ -159,7 +159,7 @@ check_dashboard() {
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas hari ini'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '+1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas besok'"
-  click 36 148          # Inbox, then back to Dashboard so it reloads
+  click 36 148          # Jurnal, then back to Dashboard so it reloads
   click 36 94           # nav: Dashboard
   shot 5-dashboard      # expect: bento, "2 tugas hari ini · 1 terlambat", "tugas besok" in the first upcoming column
   click 137 257         # checkbox of the first task ("tugas terlambat")
@@ -182,7 +182,7 @@ check_notifications() {
   sleep 1
   make_task 'tugas terlambat'
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-2 day', 'utc') AS INTEGER) * 1000"
-  click 36 148          # Inbox reloads the dashboard data behind the bell
+  click 36 148          # Jurnal reloads the dashboard data behind the bell
   shot 7-notif-dot      # expect: coral dot on the bell
   click 36 652
   shot 7-notif-late     # expect: group "Terlambat" with "tugas terlambat"
@@ -556,6 +556,56 @@ check_journal() {
   stop_app
 }
 
+# Runs the app with a throwaway HOME, so the file manager never sees or
+# trashes the real user's files.
+check_files() {
+  fresh
+  local home="$WORK/home"
+  rm -rf "$home" && mkdir -p "$home/Documents" "$home/Pictures" "$home/Downloads"
+  echo "Catatan contoh untuk pratinjau." > "$home/Documents/catatan.txt"
+  echo "Satu berkas lagi." > "$home/Documents/lain.txt"
+  magick -size 64x64 xc:'#C6F36B' "$home/Pictures/contoh.png"
+  magick xc:white "$home/Documents/kecil.pdf"
+  HOME="$home" start_app
+  click 36 472
+  shot 16-files-home         # expect: Tempat sidebar, Documents/Downloads/Pictures folders
+  xdotool mousemove 390 265 click --repeat 2 --delay 80 1; sleep 1
+  click 390 265
+  shot 16-files-preview      # expect: catatan.txt text in the 320px preview panel
+  click 543 265
+  sleep 3
+  shot 16-files-pdf          # expect: WebKit PDF viewer, page 1 of 1
+  click 162 350              # Gambar
+  click 390 265
+  sleep 1
+  shot 16-files-image        # expect: lime thumbnail and image preview
+  click 162 275              # Dokumen
+  click 390 265
+  xdotool keydown ctrl; click 689 265; xdotool keyup ctrl
+  shot 16-files-multi        # expect: no preview, action bar "2 item · 50 B"
+  click 938 752              # Salin
+  click 162 313              # Unduhan
+  click 1161 159             # Tempel 2 item
+  sleep 1
+  shot 16-files-pasted
+  [[ -f "$home/Downloads/catatan.txt" && -f "$home/Downloads/lain.txt" ]] || fail "copied files missing"
+  [[ -f "$home/Documents/catatan.txt" ]] || fail "copy removed the source"
+  click 1161 159             # paste again: both names clash
+  sleep 1
+  shot 16-files-conflict     # expect: Ganti / Lewati / Simpan dengan nama baru
+  click 640 336
+  sleep 1
+  [[ -f "$home/Downloads/catatan (2).txt" ]] || fail "rename on conflict did not create catatan (2).txt"
+  click 390 265              # catatan (2).txt sorts first
+  click 747 752              # Hapus
+  shot 16-files-trash-confirm
+  click 818 239
+  sleep 1
+  [[ ! -e "$home/Downloads/catatan (2).txt" ]] || fail "trashed file still in place"
+  [[ -n "$(find "$WORK" -path '*Trash/files/catatan (2).txt')" ]] || fail "trashed file not in the throwaway Trash"
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -578,6 +628,7 @@ check_projects
 check_schedule
 check_habits
 check_journal
+check_files
 echo "PASS. Screenshots in $WORK"
 
 

@@ -40,12 +40,7 @@ export const PAGES: readonly NavPage[] = [
   { id: "habit", label: "Habit" },
   { id: "keuangan", label: "Keuangan" },
   { id: "proyek", label: "Proyek" },
-  {
-    id: "berkas",
-    label: "Berkas",
-    fase: 6,
-    about: "Pengelola file dengan pratinjau foto, video, PDF, dan teks.",
-  },
+  { id: "berkas", label: "Berkas" },
   {
     id: "unduhan",
     label: "Unduhan",

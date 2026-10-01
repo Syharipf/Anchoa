@@ -4,6 +4,7 @@ mod commands;
 mod dashboard;
 mod db;
 pub mod downloads;
+pub mod downloader;
 mod error;
 pub mod files;
 mod finance;

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorMessage } from "../api";
 import { FIELD, H1, PRIMARY } from "../shell/ui";
 
@@ -11,11 +11,16 @@ export function LockScreen({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = window.setInterval(() => {
-      setCooldown((prev) => (prev > 1 ? prev - 1 : 0));
+      setCooldown((prev) => {
+        if (prev > 1) return prev - 1;
+        inputRef.current?.focus();
+        return 0;
+      });
     }, 1000);
     return () => window.clearInterval(timer);
   }, [cooldown]);
@@ -36,6 +41,8 @@ export function LockScreen({
       if (match) {
         setCooldown(Number.parseInt(match[1], 10));
       }
+      setPin("");
+      inputRef.current?.focus();
     } finally {
       setBusy(false);
     }
@@ -90,6 +97,7 @@ export function LockScreen({
 
           <div className="flex flex-col gap-1.5">
             <input
+              ref={inputRef}
               type="password"
               inputMode="numeric"
               autoFocus

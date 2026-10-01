@@ -59,6 +59,59 @@ describe("LockScreen", () => {
     expect(alert!.props.children).toBe("PIN salah");
   });
 
+  it("clears PIN input and keeps focus after wrong PIN or cooldown error", async () => {
+    unlockSpy = spyOn(api, "unlock").mockRejectedValue({ code: "invalid", message: "PIN salah" });
+    harness = hookHarness(() => LockScreen({ onUnlocked: () => {} }));
+
+    const render = () => harness.render();
+    const input = () => elements(render()).find((el) => el.type === "input" && el.props["aria-label"] === "PIN")!;
+    const form = () => elements(render()).find((el) => el.type === "form")!;
+
+    let focused = 0;
+    const ref = input().props.ref as { current: unknown } | undefined;
+    expect(ref).toBeDefined();
+    ref!.current = { focus: () => { focused += 1; } };
+
+    // 1. Enter wrong PIN
+    (input().props.onChange as (e: unknown) => void)({ target: { value: "1111" } });
+    await harness.settle();
+    expect(input().props.value).toBe("1111");
+
+    // Submit wrong PIN
+    await (form().props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault: () => {} });
+    await harness.settle();
+
+    // PIN should be cleared and focus called
+    expect(input().props.value).toBe("");
+    expect(focused).toBe(1);
+
+    // 2. Cooldown error
+    unlockSpy.mockRejectedValue({
+      code: "invalid",
+      message: "Terlalu banyak percobaan. Coba lagi dalam 30 detik.",
+    });
+
+    (input().props.onChange as (e: unknown) => void)({ target: { value: "2222" } });
+    await harness.settle();
+    expect(input().props.value).toBe("2222");
+
+    await (form().props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault: () => {} });
+    await harness.settle();
+
+    // PIN should be cleared and focus called
+    expect(input().props.value).toBe("");
+    expect(focused).toBe(2);
+    expect(input().props.disabled).toBe(true);
+
+    // When cooldown timer ticks down to 0, focus is called again and input is re-enabled
+    for (let i = 0; i < 30; i++) {
+      harness.runTimers();
+    }
+    await harness.settle();
+    expect(input().props.disabled).toBe(false);
+    expect(focused).toBe(3);
+  });
+
   it("handles cooldown message and counts down remaining seconds", async () => {
     let unlocked = false;
     unlockSpy = spyOn(api, "unlock").mockRejectedValue({

@@ -179,7 +179,7 @@ describe("ProfilePage", () => {
     expect(openedSection).toBe("integrations");
   });
 
-  it("renders upcoming sections for Keamanan and Asisten suara", async () => {
+  it("renders sections for Keamanan and Asisten suara with voice settings info", async () => {
     getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
     githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
 
@@ -194,6 +194,48 @@ describe("ProfilePage", () => {
     expect(headings).toContain("Asisten suara");
     expect(headings).toContain("Akun terhubung");
     expect(headings).toContain("Notifikasi");
+
+    const voiceSection = elements(harness.render()).find(
+      (el) => el.type === "section" && el.props["aria-labelledby"] === "section-voice",
+    )!;
+    expect(voiceSection).toBeDefined();
+
+    const voiceElements = elements(voiceSection);
+    // Menyusul badge should NOT be in Asisten suara
+    const badges = voiceElements.filter((el) => el.props.children === "Menyusul");
+    expect(badges.length).toBe(0);
+
+    const voiceText = voiceElements
+      .map((el) => el.props.children)
+      .flat()
+      .filter((t): t is string => typeof t === "string")
+      .join(" ");
+    expect(voiceText).toContain("Pengaturan > Suara");
+    expect(voiceText).not.toContain("akan hadir di Fase 5");
+  });
+
+  it("navigates to voice settings when Atur suara is clicked", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    let openedSection: string | undefined;
+
+    harness = hookHarness(() =>
+      ProfilePage({
+        prefs: defaultPrefs,
+        onOpenSettings: (sec) => {
+          openedSection = sec;
+        },
+      }),
+    );
+    await harness.settle();
+
+    const aturSuaraBtn = elements(harness.render()).find(
+      (el) => el.type === "button" && el.props.children === "Atur suara",
+    );
+    expect(aturSuaraBtn).toBeDefined();
+    (aturSuaraBtn!.props.onClick as () => void)();
+
+    expect(openedSection).toBe("suara");
   });
 
   it("handles enabling PIN flow via switch and Buat PIN dialog", async () => {

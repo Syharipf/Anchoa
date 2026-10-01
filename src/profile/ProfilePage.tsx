@@ -338,23 +338,19 @@ export function ProfilePage({
           </section>
 
           <section aria-labelledby="section-voice" className={`${PANEL} flex flex-col gap-2.5`}>
-            <div className="flex items-center justify-between">
-              <h2 id="section-voice" className={H2}>
-                Asisten suara
-              </h2>
-              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
-                Menyusul
-              </span>
-            </div>
+            <h2 id="section-voice" className={H2}>
+              Asisten suara
+            </h2>
             <p className="m-0 text-xs leading-relaxed text-muted">
-              Pengaturan asisten suara akan hadir di Fase 5:
+              Pilihan suara, kecepatan bicara, dan model suara diatur di Pengaturan &gt; Suara.
             </p>
-            <ul className="m-0 list-disc space-y-1 pl-4 text-xs text-muted">
-              <li>Pilihan suara (Hangat, Netral, Ceria)</li>
-              <li>Kecepatan bicara yang dapat diatur</li>
-              <li>Kata pemanggil “Hai Anchoa” diproses di perangkat</li>
-              <li>Pemrosesan suara lokal tanpa koneksi internet</li>
-            </ul>
+            <button
+              type="button"
+              onClick={() => onOpenSettings?.("suara")}
+              className="self-start min-h-7 shrink-0 rounded-md border border-disabled px-2.5 text-xs text-ink transition-colors hover:bg-surface-2"
+            >
+              Atur suara
+            </button>
           </section>
         </div>
 

@@ -282,4 +282,15 @@ describe("AssistantStage", () => {
     (linkBtn!.props.onClick as () => void)();
     expect(voiceSettingsOpened).toBe(true);
   });
+
+  it("renders 'Avatar statis' label in the stage header instead of 'Avatar Live2D'", async () => {
+    spies.push(spyOn(api, "aiStatus").mockResolvedValue({ available: true, models: [], error: null }));
+    harness = hookHarness<ReactNode>(() => AssistantStage({}));
+    harness.render();
+    await harness.settle();
+
+    const markup = renderToStaticMarkup(harness.render());
+    expect(markup).toContain("Avatar statis");
+    expect(markup).not.toContain("Avatar Live2D");
+  });
 });

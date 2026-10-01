@@ -381,7 +381,7 @@ pub fn journal_side(db: State<'_, Db>) -> Result<Side, AppError> {
     journal::journal_side(&*db.conn()?, time::now_ms(), &TimeZone::system())
 }
 
-fn current_user_and_roots(app: &AppHandle) -> Result<(String, files::Roots), AppError> {
+fn current_user_and_roots(app: &AppHandle) -> Result<(String, files::Roots, Vec<files::Place>), AppError> {
     let home = app.path().home_dir()?;
     let user = std::env::var("USER").unwrap_or_else(|_| {
         home.file_name()
@@ -389,35 +389,31 @@ fn current_user_and_roots(app: &AppHandle) -> Result<(String, files::Roots), App
             .unwrap_or_else(|| "user".to_string())
     });
     let mounts_text = std::fs::read_to_string("/proc/mounts").unwrap_or_default();
-    let devices = files::parse_mounts(&mounts_text, &user)
-        .into_iter()
-        .map(|p| PathBuf::from(p.path))
-        .collect();
-    let roots = files::Roots::new(home, devices);
-    Ok((user, roots))
+    let devices = files::parse_mounts(&mounts_text, &user);
+    let device_paths = devices.iter().map(|p| PathBuf::from(&p.path)).collect();
+    let roots = files::Roots::new(home, device_paths);
+    Ok((user, roots, devices))
 }
 
 #[tauri::command]
 pub fn file_places(app: AppHandle) -> Result<files::FilePlaces, AppError> {
-    let (user, roots) = current_user_and_roots(&app)?;
+    let (_user, roots, devices) = current_user_and_roots(&app)?;
     let user_dirs_path = roots.home.join(".config").join("user-dirs.dirs");
     let user_dirs_text = std::fs::read_to_string(&user_dirs_path).ok();
     let data_dir = app.path().app_data_dir()?;
     let places = files::xdg_places(&roots.home, user_dirs_text.as_deref(), &data_dir);
-    let mounts_text = std::fs::read_to_string("/proc/mounts").unwrap_or_default();
-    let devices = files::parse_mounts(&mounts_text, &user);
     Ok(files::FilePlaces { places, devices })
 }
 
 #[tauri::command]
 pub fn list_dir(app: AppHandle, path: String, hidden: bool) -> Result<files::Listing, AppError> {
-    let (_user, roots) = current_user_and_roots(&app)?;
+    let (_user, roots, _) = current_user_and_roots(&app)?;
     files::list_dir(&path, hidden, &roots)
 }
 
 #[tauri::command]
 pub fn read_text(app: AppHandle, path: String) -> Result<files::TextPreview, AppError> {
-    let (_user, roots) = current_user_and_roots(&app)?;
+    let (_user, roots, _) = current_user_and_roots(&app)?;
     files::read_text(&path, &roots)
 }
 
@@ -426,7 +422,7 @@ pub async fn paste_items(
     app: AppHandle,
     req: files::PasteRequest,
 ) -> Result<files::OpReport, AppError> {
-    let (_user, roots) = current_user_and_roots(&app)?;
+    let (_user, roots, _) = current_user_and_roots(&app)?;
     tauri::async_runtime::spawn_blocking(move || files::paste(&req, &roots))
         .await
         .map_err(blocking_error)?
@@ -437,7 +433,7 @@ pub async fn trash_items(
     app: AppHandle,
     paths: Vec<String>,
 ) -> Result<files::OpReport, AppError> {
-    let (_user, roots) = current_user_and_roots(&app)?;
+    let (_user, roots, _) = current_user_and_roots(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
         files::trash(&paths, &roots, |p| {
             let status = std::process::Command::new("gio")
@@ -458,7 +454,7 @@ pub async fn trash_items(
 
 #[tauri::command]
 pub fn open_file(app: AppHandle, path: String) -> Result<(), AppError> {
-    let (_user, roots) = current_user_and_roots(&app)?;
+    let (_user, roots, _) = current_user_and_roots(&app)?;
     let canonical = files::guard(&path, &roots)?;
     app.opener()
         .open_path(canonical.to_string_lossy(), None::<&str>)

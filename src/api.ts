@@ -612,7 +612,6 @@ export const api = {
   trashItems: (paths: string[]) =>
     invoke<OpReport>("trash_items", { paths }),
   openFile: (path: string) => invoke<void>("open_file", { path }),
-  assetUrl: (path: string) => assetUrl(path),
 };
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */

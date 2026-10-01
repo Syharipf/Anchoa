@@ -1,5 +1,5 @@
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -141,6 +141,53 @@ pub fn guard(path: &str, roots: &Roots) -> Result<PathBuf, AppError> {
     }
 }
 
+pub fn guard_entry(path: &str, roots: &Roots) -> Result<PathBuf, AppError> {
+    let trimmed = path.trim_end_matches('/');
+    if trimmed.is_empty()
+        || trimmed == "."
+        || trimmed == ".."
+        || trimmed.ends_with("/.")
+        || trimmed.ends_with("/..")
+    {
+        return Err(AppError::Invalid("Nama file tidak valid".into()));
+    }
+
+    let p = Path::new(path);
+    let file_name = match p.file_name() {
+        Some(name) if name != "." && name != ".." && !name.is_empty() => name,
+        _ => return Err(AppError::Invalid("Nama file tidak valid".into())),
+    };
+
+    if fs::symlink_metadata(p).is_ok_and(|m| !m.is_symlink())
+        && let Some(canon) = fs::canonicalize(p)
+            .ok()
+            .filter(|c| *c == roots.home || roots.devices.contains(c))
+    {
+        return Ok(canon);
+    }
+
+    let parent = match p.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => return Err(AppError::Invalid("Nama file tidak valid".into())),
+    };
+
+    let parent_str = match parent.to_str() {
+        Some(s) => s,
+        None => return Err(AppError::Invalid("Nama file tidak valid".into())),
+    };
+
+    let parent_canonical = guard(parent_str, roots)?;
+    let entry = parent_canonical.join(file_name);
+
+    match fs::symlink_metadata(&entry) {
+        Ok(_) => Ok(entry),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            Err(AppError::Invalid("Berkas tidak ditemukan".into()))
+        }
+        Err(e) => Err(AppError::Io(e)),
+    }
+}
+
 pub fn xdg_places(home: &Path, user_dirs_text: Option<&str>, data_dir: &Path) -> Vec<Place> {
     let mut places = Vec::new();
 
@@ -177,14 +224,14 @@ pub fn xdg_places(home: &Path, user_dirs_text: Option<&str>, data_dir: &Path) ->
                 {
                     val = &val[1..val.len() - 1];
                 }
-                    let expanded = if val == "$HOME" {
-                        home.to_path_buf()
-                    } else if let Some(rel) = val.strip_prefix("$HOME/") {
-                        home.join(rel)
-                    } else {
-                        PathBuf::from(val)
-                    };
-                    return Some(expanded);
+                let expanded = if val == "$HOME" {
+                    home.to_path_buf()
+                } else if let Some(rel) = val.strip_prefix("$HOME/") {
+                    home.join(rel)
+                } else {
+                    PathBuf::from(val)
+                };
+                return Some(expanded);
             }
         }
         None
@@ -399,12 +446,10 @@ pub fn read_text(path: &str, roots: &Roots) -> Result<TextPreview, AppError> {
     if canonical.is_dir() {
         return Err(AppError::Invalid("Folder tidak bisa dibaca sebagai teks".into()));
     }
-    let mut file = fs::File::open(&canonical)?;
+    let file = fs::File::open(&canonical)?;
     let len = file.metadata()?.len();
-    let mut buf = vec![0u8; TEXT_PREVIEW_LIMIT];
-    use std::io::Read;
-    let bytes_read = file.read(&mut buf)?;
-    buf.truncate(bytes_read);
+    let mut buf = Vec::new();
+    file.take(TEXT_PREVIEW_LIMIT as u64).read_to_end(&mut buf)?;
     let truncated = len > TEXT_PREVIEW_LIMIT as u64;
     let text = String::from_utf8_lossy(&buf).to_string();
     Ok(TextPreview { text, truncated })
@@ -437,8 +482,25 @@ pub fn unique_name(dest_dir: &Path, name: &str) -> PathBuf {
 }
 
 fn copy_recursive(src: &Path, dst: &Path, overwrite: bool) -> io::Result<()> {
-    if src.is_dir() {
-        if !dst.exists() {
+    let meta = fs::symlink_metadata(src)?;
+    if meta.file_type().is_symlink() {
+        if let Ok(dst_meta) = fs::symlink_metadata(dst) {
+            if !overwrite {
+                return Ok(());
+            }
+            if !dst_meta.is_dir() {
+                fs::remove_file(dst)?;
+            }
+        }
+        let target = fs::read_link(src)?;
+        // ponytail: unix symlinks only, Fase 9 adds Windows
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&target, dst)?;
+        #[cfg(not(unix))]
+        let _ = (&target, dst);
+        Ok(())
+    } else if meta.is_dir() {
+        if fs::symlink_metadata(dst).is_err() {
             fs::create_dir_all(dst)?;
         }
         for entry in fs::read_dir(src)? {
@@ -449,8 +511,13 @@ fn copy_recursive(src: &Path, dst: &Path, overwrite: bool) -> io::Result<()> {
         }
         Ok(())
     } else {
-        if dst.exists() && !overwrite {
-            return Ok(());
+        if let Ok(dst_meta) = fs::symlink_metadata(dst) {
+            if !overwrite {
+                return Ok(());
+            }
+            if !dst_meta.is_dir() {
+                fs::remove_file(dst)?;
+            }
         }
         fs::copy(src, dst)?;
         Ok(())
@@ -475,7 +542,9 @@ fn execute_paste(
             }),
         },
         PasteMode::Move => {
-            let rename_res = if dst.exists() && src.is_dir() && dst.is_dir() {
+            let src_is_dir = fs::symlink_metadata(src).map(|m| m.is_dir()).unwrap_or(false);
+            let dst_is_dir = fs::symlink_metadata(dst).map(|m| m.is_dir()).unwrap_or(false);
+            let rename_res = if dst_is_dir && src_is_dir {
                 Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,
                     "Folder tujuan sudah ada",
@@ -488,7 +557,7 @@ fn execute_paste(
                 Ok(()) => done.push(dst.to_string_lossy().to_string()),
                 Err(_) => match copy_recursive(src, dst, overwrite) {
                     Ok(()) => {
-                        let remove_res = if src.is_dir() {
+                        let remove_res = if src_is_dir {
                             fs::remove_dir_all(src)
                         } else {
                             fs::remove_file(src)
@@ -519,23 +588,31 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
 
     let mut sources = Vec::new();
     for src_str in &req.sources {
-        let src_canonical = guard(src_str, roots)?;
-        if src_canonical.is_dir()
-            && (src_canonical == dest_canonical || dest_canonical.starts_with(&src_canonical))
+        let src_entry = guard_entry(src_str, roots)?;
+        let src_is_dir = fs::symlink_metadata(&src_entry)
+            .map(|m| m.is_dir())
+            .unwrap_or(false);
+        if src_is_dir
+            && (src_entry == dest_canonical || dest_canonical.starts_with(&src_entry))
         {
             return Err(AppError::Invalid(
                 "Folder tidak bisa masuk ke dalam dirinya sendiri".into(),
             ));
         }
-        sources.push((src_str.clone(), src_canonical));
+        sources.push((src_str.clone(), src_entry));
     }
 
     if req.on_conflict.is_none() {
         let mut conflicts = Vec::new();
-        for (_src_str, src_canonical) in &sources {
-            if let Some(file_name) = src_canonical.file_name() {
+        for (_src_str, src_entry) in &sources {
+            if req.mode == PasteMode::Move
+                && (*src_entry == roots.home || roots.devices.contains(src_entry))
+            {
+                continue;
+            }
+            if let Some(file_name) = src_entry.file_name() {
                 let target_path = dest_canonical.join(file_name);
-                if target_path.exists() {
+                if fs::symlink_metadata(&target_path).is_ok() {
                     conflicts.push(file_name.to_string_lossy().to_string());
                 }
             }
@@ -552,8 +629,18 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
     let mut done = Vec::new();
     let mut failed = Vec::new();
 
-    for (src_str, src_canonical) in sources {
-        let file_name = match src_canonical.file_name() {
+    for (src_str, src_entry) in sources {
+        if req.mode == PasteMode::Move
+            && (src_entry == roots.home || roots.devices.contains(&src_entry))
+        {
+            failed.push(Failure {
+                path: src_str,
+                error: "Folder akar tidak bisa dipindah".into(),
+            });
+            continue;
+        }
+
+        let file_name = match src_entry.file_name() {
             Some(n) => n.to_string_lossy().to_string(),
             None => {
                 failed.push(Failure {
@@ -565,7 +652,7 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
         };
 
         let target_path = dest_canonical.join(&file_name);
-        let same_folder = src_canonical == target_path;
+        let same_folder = src_entry == target_path;
 
         if same_folder {
             match req.mode {
@@ -578,7 +665,7 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
                     }
                     Some(OnConflict::Rename) => {
                         let actual_target = unique_name(&dest_canonical, &file_name);
-                        match copy_recursive(&src_canonical, &actual_target, false) {
+                        match copy_recursive(&src_entry, &actual_target, false) {
                             Ok(()) => done.push(actual_target.to_string_lossy().to_string()),
                             Err(e) => failed.push(Failure {
                                 path: src_str,
@@ -592,7 +679,7 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
             continue;
         }
 
-        let target_exists = target_path.exists();
+        let target_exists = fs::symlink_metadata(&target_path).is_ok();
         if target_exists {
             match req.on_conflict {
                 Some(OnConflict::Skip) => {}
@@ -600,7 +687,7 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
                     let actual_target = unique_name(&dest_canonical, &file_name);
                     execute_paste(
                         &src_str,
-                        &src_canonical,
+                        &src_entry,
                         &actual_target,
                         req.mode,
                         false,
@@ -609,8 +696,12 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
                     );
                 }
                 Some(OnConflict::Replace) => {
-                    let src_is_dir = src_canonical.is_dir();
-                    let dst_is_dir = target_path.is_dir();
+                    let src_is_dir = fs::symlink_metadata(&src_entry)
+                        .map(|m| m.is_dir())
+                        .unwrap_or(false);
+                    let dst_is_dir = fs::symlink_metadata(&target_path)
+                        .map(|m| m.is_dir())
+                        .unwrap_or(false);
                     if src_is_dir != dst_is_dir {
                         failed.push(Failure {
                             path: src_str,
@@ -620,7 +711,7 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
                     }
                     execute_paste(
                         &src_str,
-                        &src_canonical,
+                        &src_entry,
                         &target_path,
                         req.mode,
                         true,
@@ -633,7 +724,7 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
         } else {
             execute_paste(
                 &src_str,
-                &src_canonical,
+                &src_entry,
                 &target_path,
                 req.mode,
                 false,
@@ -659,7 +750,7 @@ pub fn trash(
     let mut failed = Vec::new();
 
     for path_str in paths {
-        let canonical = match guard(path_str, roots) {
+        let canonical = match guard_entry(path_str, roots) {
             Ok(p) => p,
             Err(e) => {
                 failed.push(Failure {
@@ -1065,4 +1156,188 @@ XDG_MUSIC_DIR="$HOME/NonExistentMusic"
         assert_eq!(rep_root.failed.len(), 1);
         assert_eq!(rep_root.failed[0].error, "Folder akar tidak bisa dihapus");
     }
+
+    #[test]
+    #[cfg(unix)]
+    fn trashing_symlink_passes_link_path_not_target() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let target = home.path().join("target.txt");
+        fs::write(&target, "content").unwrap();
+        let link = home.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let recorded = Mutex::new(Vec::new());
+        let runner = |p: &Path| {
+            recorded.lock().unwrap().push(p.to_path_buf());
+            Ok(())
+        };
+
+        let rep = trash(&[link.to_str().unwrap().to_string()], &roots, runner).unwrap();
+        assert_eq!(rep.done, vec![link.to_string_lossy().to_string()]);
+        let recorded = recorded.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0], link);
+        assert_ne!(recorded[0], target);
+        assert!(target.exists());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn moving_symlink_moves_link_and_leaves_target() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let target = home.path().join("target.txt");
+        fs::write(&target, "hello").unwrap();
+        let link = home.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let dest = home.path().join("dest");
+        fs::create_dir(&dest).unwrap();
+
+        let req = PasteRequest {
+            sources: vec![link.to_str().unwrap().to_string()],
+            dest: dest.to_str().unwrap().to_string(),
+            mode: PasteMode::Move,
+            on_conflict: None,
+        };
+
+        let rep = paste(&req, &roots).unwrap();
+        let dest_link = dest.join("link.txt");
+        assert_eq!(rep.done, vec![dest_link.to_string_lossy().to_string()]);
+        assert!(!link.exists());
+        assert!(fs::symlink_metadata(&dest_link).unwrap().file_type().is_symlink());
+        assert!(target.exists());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "hello");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn symlink_inside_roots_pointing_outside_can_be_trashed() {
+        let home = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+
+        let outside_file = outside.path().join("outside.txt");
+        fs::write(&outside_file, "secret").unwrap();
+        let link = home.path().join("link_to_outside.txt");
+        std::os::unix::fs::symlink(&outside_file, &link).unwrap();
+
+        let recorded = Mutex::new(Vec::new());
+        let runner = |p: &Path| {
+            recorded.lock().unwrap().push(p.to_path_buf());
+            Ok(())
+        };
+
+        let rep = trash(&[link.to_str().unwrap().to_string()], &roots, runner).unwrap();
+        assert_eq!(rep.done, vec![link.to_string_lossy().to_string()]);
+        assert!(rep.failed.is_empty());
+        let recorded = recorded.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0], link);
+        assert!(outside_file.exists());
+    }
+
+    #[test]
+    fn move_refuses_roots_but_copy_allows() {
+        let home = tempdir().unwrap();
+        let device = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![device.path().to_path_buf()]);
+
+        let dest = device.path().join("backup");
+        fs::create_dir(&dest).unwrap();
+
+        // 1. Move home -> refused with "Folder akar tidak bisa dipindah"
+        let move_home_req = PasteRequest {
+            sources: vec![home.path().to_str().unwrap().to_string()],
+            dest: dest.to_str().unwrap().to_string(),
+            mode: PasteMode::Move,
+            on_conflict: None,
+        };
+        let rep_move_home = paste(&move_home_req, &roots).unwrap();
+        assert_eq!(rep_move_home.failed.len(), 1);
+        assert_eq!(rep_move_home.failed[0].path, home.path().to_str().unwrap());
+        assert_eq!(rep_move_home.failed[0].error, "Folder akar tidak bisa dipindah");
+        assert!(rep_move_home.done.is_empty());
+
+        // 2. Move device root -> refused with "Folder akar tidak bisa dipindah"
+        let home_dest = home.path().join("from_device");
+        fs::create_dir(&home_dest).unwrap();
+        let move_device_req = PasteRequest {
+            sources: vec![device.path().to_str().unwrap().to_string()],
+            dest: home_dest.to_str().unwrap().to_string(),
+            mode: PasteMode::Move,
+            on_conflict: None,
+        };
+        let rep_move_device = paste(&move_device_req, &roots).unwrap();
+        assert_eq!(rep_move_device.failed.len(), 1);
+        assert_eq!(rep_move_device.failed[0].path, device.path().to_str().unwrap());
+        assert_eq!(rep_move_device.failed[0].error, "Folder akar tidak bisa dipindah");
+        assert!(rep_move_device.done.is_empty());
+
+        // 3. Copy home -> allowed
+        let copy_home_req = PasteRequest {
+            sources: vec![home.path().to_str().unwrap().to_string()],
+            dest: dest.to_str().unwrap().to_string(),
+            mode: PasteMode::Copy,
+            on_conflict: None,
+        };
+        let rep_copy = paste(&copy_home_req, &roots).unwrap();
+        assert_eq!(rep_copy.done.len(), 1);
+        assert!(rep_copy.failed.is_empty());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn copy_folder_with_symlink_loop_finishes_and_recreates_link() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+
+        let src_folder = home.path().join("loop_dir");
+        fs::create_dir(&src_folder).unwrap();
+        fs::write(src_folder.join("file.txt"), "data").unwrap();
+        let loop_link = src_folder.join("parent_loop");
+        std::os::unix::fs::symlink(&src_folder, &loop_link).unwrap();
+
+        let dest = home.path().join("dest");
+        fs::create_dir(&dest).unwrap();
+
+        let req = PasteRequest {
+            sources: vec![src_folder.to_str().unwrap().to_string()],
+            dest: dest.to_str().unwrap().to_string(),
+            mode: PasteMode::Copy,
+            on_conflict: None,
+        };
+
+        let rep = paste(&req, &roots).unwrap();
+        let copied_folder = dest.join("loop_dir");
+        assert_eq!(rep.done, vec![copied_folder.to_string_lossy().to_string()]);
+        let copied_link = copied_folder.join("parent_loop");
+        assert!(fs::symlink_metadata(&copied_link).unwrap().file_type().is_symlink());
+        assert_eq!(fs::read_link(&copied_link).unwrap(), src_folder);
+    }
+
+    #[test]
+    fn guard_entry_validates_path_and_rejects_missing_or_dot() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+
+        let file = home.path().join("test.txt");
+        fs::write(&file, "abc").unwrap();
+        assert_eq!(
+            guard_entry(file.to_str().unwrap(), &roots).unwrap(),
+            file.canonicalize().unwrap()
+        );
+
+        let missing = home.path().join("missing.txt");
+        let res_missing = guard_entry(missing.to_str().unwrap(), &roots);
+        assert!(matches!(res_missing, Err(AppError::Invalid(msg)) if msg == "Berkas tidak ditemukan"));
+
+        assert!(matches!(guard_entry("", &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
+        assert!(matches!(guard_entry(".", &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
+        assert!(matches!(guard_entry("..", &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
+        assert!(matches!(guard_entry(home.path().join(".").to_str().unwrap(), &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
+        assert!(matches!(guard_entry(home.path().join("..").to_str().unwrap(), &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
+    }
 }
+

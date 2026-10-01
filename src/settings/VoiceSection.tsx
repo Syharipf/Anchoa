@@ -429,7 +429,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                           : `${v.language} · kualitas ${v.quality}`}
                       </span>
                     </div>
-                    {isActive ? (
+                    {isActive && v.installed ? (
                       <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-semibold text-accent">
                         Suara aktif
                       </span>

@@ -172,6 +172,22 @@ describe("VoiceSection", () => {
     expect(changed).toBe(true);
   });
 
+  it("offers Pasang for the active voice when it is not installed yet", async () => {
+    const fresh: VoiceStatus = {
+      ...baseVoiceStatus,
+      voices: baseVoiceStatus.voices.map((v) => (v.id === "id_ID-news_tts-medium" ? { ...v, installed: false } : v)),
+    };
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(fresh));
+    harness = hookHarness<ReactNode>(() => VoiceSection({ onChanged: () => {} }));
+    harness.render();
+    await harness.settle();
+    const install = elements(harness.render()).find(
+      (el) => el.props["aria-label"] === "Pasang suara Indonesia · News",
+    );
+    expect(install).toBeDefined();
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Suara aktif");
+  });
+
   it("updates sliders and saves params via setVoice", async () => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
     const setVoiceSpy = spyOn(api, "setVoice").mockResolvedValue({

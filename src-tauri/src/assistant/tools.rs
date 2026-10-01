@@ -166,19 +166,11 @@ pub fn run_read(
         }
         "search_items" => {
             let args: SearchArgs = decode(name, args)?;
-            let hits = search::search(
+            encode(search::search_for_chat(
                 conn,
                 &args.query,
-                false,
                 args.limit.unwrap_or(50).clamp(1, 100),
-            )?;
-            // All notes, including legacy notes without journal_entries, belong
-            // to the journal. Filter before serializing a single snippet.
-            encode(
-                hits.into_iter()
-                    .filter(|hit| hit.item.kind != "note")
-                    .collect::<Vec<_>>(),
-            )
+            )?)
         }
         "list_tasks" => {
             let args: ListArgs = decode(name, args)?;
@@ -425,6 +417,128 @@ mod tests {
         let serialized = result.to_string();
         assert!(!serialized.contains("rahasia"));
         assert!(serialized.contains("publik"));
+    }
+
+    #[test]
+    fn search_never_returns_content_copied_from_journal_to_task() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let entry = journal::create_entry(
+            &conn,
+            journal::EntryKind::Idea,
+            Some("Teri ide"),
+            now(),
+            &tz,
+        )
+        .unwrap();
+        items::update(
+            &conn,
+            &entry.id,
+            &items::ItemPatch {
+                body: Some("RAHASIAJURNAL teri pribadi".into()),
+                ..Default::default()
+            },
+            now(),
+        )
+        .unwrap();
+        let converted = journal::entry_to_task(&conn, &entry.id, now(), &tz).unwrap();
+        let task_id = converted.task_id.unwrap();
+        assert!(
+            items::get(&conn, &task_id)
+                .unwrap()
+                .body
+                .contains("RAHASIAJURNAL")
+        );
+        let public = tasks::create_task(
+            &conn,
+            &tasks::NewTask {
+                title: "Teri publik".into(),
+                ..Default::default()
+            },
+            now(),
+            &tz,
+        )
+        .unwrap();
+
+        // Deleting the source journal must not make its copied text public.
+        for deleted in [false, true] {
+            if deleted {
+                items::soft_delete(&conn, &entry.id, now()).unwrap();
+            }
+            for query in ["teri", "RAHASIAJURNAL"] {
+                let result =
+                    run_read(&conn, "search_items", &json!({"query":query}), now(), &tz).unwrap();
+                let serialized = result.to_string();
+                assert!(!serialized.contains("RAHASIAJURNAL"), "{serialized}");
+                assert!(!serialized.contains(&task_id), "{serialized}");
+                if query == "teri" {
+                    assert_eq!(result.as_array().unwrap().len(), 1);
+                    assert_eq!(result[0]["id"], public.id);
+                } else {
+                    assert_eq!(result, json!([]));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn search_excludes_journal_matches_before_limiting_public_results() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let limit = 2;
+        for index in 0..=limit {
+            let entry = journal::create_entry(
+                &conn,
+                journal::EntryKind::Idea,
+                Some(&format!("Teri rahasia {index}")),
+                now(),
+                &tz,
+            )
+            .unwrap();
+            journal::entry_to_task(&conn, &entry.id, now(), &tz).unwrap();
+            items::capture_note(&conn, &format!("Teri catatan lama {index}"), now()).unwrap();
+        }
+        let public = tasks::create_task(
+            &conn,
+            &tasks::NewTask {
+                title: "Tugas publik".into(),
+                ..Default::default()
+            },
+            now(),
+            &tz,
+        )
+        .unwrap();
+        items::update(
+            &conn,
+            &public.id,
+            &items::ItemPatch {
+                body: Some("Beli teri untuk makan".into()),
+                ..Default::default()
+            },
+            now(),
+        )
+        .unwrap();
+        let page = items::insert(&conn, "page", "Halaman publik", "Resep teri", now()).unwrap();
+        // Journal title matches rank above the public body matches.
+        let unfiltered = search::search(&conn, "teri", false, limit).unwrap();
+        assert!(
+            unfiltered
+                .iter()
+                .all(|hit| hit.item.id != public.id && hit.item.id != page)
+        );
+
+        let result = run_read(
+            &conn,
+            "search_items",
+            &json!({"query":"teri","limit":limit}),
+            now(),
+            &tz,
+        )
+        .unwrap();
+        let hits = result.as_array().unwrap();
+        assert_eq!(hits.len(), limit);
+        assert!(hits.iter().any(|hit| hit["id"] == public.id));
+        assert!(hits.iter().any(|hit| hit["id"] == page));
     }
 
     #[test]

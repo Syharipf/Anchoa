@@ -180,20 +180,42 @@ impl AssistantState {
                             return Err(cancelled());
                         }
                         state.history = request.messages.into_iter().skip(1).collect();
-                        for (proposal, call_id) in pending {
+                    }
+                    let delivery = (|| {
+                        for (proposal, call_id) in &pending {
+                            self.emit(
+                                epoch,
+                                AssistantEvent::Proposal(proposal.clone()),
+                                &mut on_event,
+                            )?;
+                            let mut state = self.lock()?;
+                            if state.generation != epoch {
+                                return Err(cancelled());
+                            }
+                            // A stop after delivery still leaves a visible proposal
+                            // for the user to approve or reject.
                             state
                                 .pending
-                                .insert(proposal.id.clone(), (proposal, call_id));
+                                .insert(proposal.id.clone(), (proposal.clone(), call_id.clone()));
                         }
+                        self.emit(epoch, AssistantEvent::Done(message.clone()), &mut on_event)
+                    })();
+                    if let Err(error) = delivery {
+                        let mut state = self.lock()?;
+                        if state.generation == epoch {
+                            // Resolve undisclosed tool calls so the next request
+                            // has neither hidden proposals nor unanswered calls.
+                            for (proposal, call_id) in pending {
+                                if !state.pending.contains_key(&proposal.id) {
+                                    state.history.push(tool_message(
+                                        &call_id,
+                                        json!({"ok":false,"error":error.to_string()}),
+                                    ));
+                                }
+                            }
+                        }
+                        return Err(error);
                     }
-                    for proposal in &proposals {
-                        self.emit(
-                            epoch,
-                            AssistantEvent::Proposal(proposal.clone()),
-                            &mut on_event,
-                        )?;
-                    }
-                    self.emit(epoch, AssistantEvent::Done(message.clone()), &mut on_event)?;
                     return Ok(AssistantReply { message, proposals });
                 }
             }
@@ -536,6 +558,151 @@ mod tests {
             },
         });
         message
+    }
+
+    #[test]
+    fn failed_proposal_delivery_allows_a_later_send_without_reset() {
+        let (_dir, db) = db();
+        let state = AssistantState::default();
+        let mut attempts = 0;
+        let error = state
+            .send_with(
+                &db,
+                "Buat tugas",
+                now(),
+                &jakarta(),
+                |event| {
+                    if matches!(event, AssistantEvent::Proposal(_)) {
+                        attempts += 1;
+                        return Err(AppError::Other("Channel tertutup".into()));
+                    }
+                    Ok(())
+                },
+                |_, _, _| {
+                    let mut message = tool_call("write-1", "create_task", json!({"title":"Satu"}));
+                    message.tool_calls.extend(
+                        tool_call("write-2", "create_task", json!({"title":"Dua"})).tool_calls,
+                    );
+                    Ok(message)
+                },
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("Channel tertutup"));
+        assert_eq!(attempts, 1);
+        assert!(state.lock().unwrap().pending.is_empty());
+        assert!(!state.lock().unwrap().running);
+        state
+            .send_with(
+                &db,
+                "Lanjut",
+                now(),
+                &jakarta(),
+                |_| Ok(()),
+                |request, _, _| {
+                    for id in ["write-1", "write-2"] {
+                        let result = request
+                            .messages
+                            .iter()
+                            .find(|message| message.tool_call_id.as_deref() == Some(id))
+                            .unwrap();
+                        assert_eq!(
+                            serde_json::from_str::<Value>(&result.content).unwrap()["ok"],
+                            false
+                        );
+                    }
+                    Ok(ChatMessage::text("assistant", "Lanjut"))
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            db.conn()
+                .unwrap()
+                .query_row("SELECT COUNT(*) FROM tasks", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn interrupted_proposal_delivery_keeps_only_emitted_proposals() {
+        for cancel in [false, true] {
+            let (_dir, db) = db();
+            let state = AssistantState::default();
+            let mut emitted = Vec::new();
+            let mut done = false;
+            let error = state
+                .send_with(
+                    &db,
+                    "Buat tugas",
+                    now(),
+                    &jakarta(),
+                    |event| {
+                        match event {
+                            AssistantEvent::Proposal(proposal) => {
+                                if !emitted.is_empty() {
+                                    return Err(AppError::Other("Channel tertutup".into()));
+                                }
+                                emitted.push(proposal);
+                                if cancel {
+                                    state.stop();
+                                }
+                            }
+                            AssistantEvent::Done(_) => done = true,
+                            _ => {}
+                        }
+                        Ok(())
+                    },
+                    |_, _, _| {
+                        let mut message =
+                            tool_call("write-1", "create_task", json!({"title":"Satu"}));
+                        message.tool_calls.extend(
+                            tool_call("write-2", "create_task", json!({"title":"Dua"})).tool_calls,
+                        );
+                        Ok(message)
+                    },
+                )
+                .unwrap_err();
+            assert!(error.to_string().contains(if cancel {
+                "dihentikan"
+            } else {
+                "Channel tertutup"
+            }));
+            assert!(!done);
+            assert_eq!(emitted.len(), 1);
+            let conversation = state.lock().unwrap();
+            assert_eq!(conversation.pending.len(), 1);
+            assert!(conversation.pending.contains_key(&emitted[0].id));
+            assert!(!conversation.running);
+            drop(conversation);
+            assert!(
+                state
+                    .decide(&db, &emitted[0].id, false, now(), &jakarta())
+                    .unwrap()
+                    .is_none()
+            );
+            state
+                .send_with(
+                    &db,
+                    "Lanjut",
+                    now(),
+                    &jakarta(),
+                    |_| Ok(()),
+                    |request, _, _| {
+                        for id in ["write-1", "write-2"] {
+                            assert_eq!(
+                                request
+                                    .messages
+                                    .iter()
+                                    .filter(|message| message.tool_call_id.as_deref() == Some(id))
+                                    .count(),
+                                1
+                            );
+                        }
+                        Ok(ChatMessage::text("assistant", "Lanjut"))
+                    },
+                )
+                .unwrap();
+        }
     }
 
     #[test]

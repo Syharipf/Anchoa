@@ -41,6 +41,39 @@ pub fn search(
     pages_only: bool,
     limit: usize,
 ) -> Result<Vec<SearchHit>, AppError> {
+    search_filtered(
+        conn,
+        text,
+        if pages_only {
+            "AND i.type = 'page'"
+        } else {
+            ""
+        },
+        limit,
+    )
+}
+
+/// Chat must never read journals, including their copies made by entry_to_task.
+pub(crate) fn search_for_chat(
+    conn: &Connection,
+    text: &str,
+    limit: usize,
+) -> Result<Vec<SearchHit>, AppError> {
+    search_filtered(
+        conn,
+        text,
+        "AND i.type != 'note'
+         AND NOT EXISTS (SELECT 1 FROM journal_entries j WHERE j.task_id = i.id)",
+        limit,
+    )
+}
+
+fn search_filtered(
+    conn: &Connection,
+    text: &str,
+    filter: &str,
+    limit: usize,
+) -> Result<Vec<SearchHit>, AppError> {
     if limit == 0 {
         return Ok(Vec::new());
     }
@@ -61,10 +94,9 @@ pub fn search(
          JOIN items i ON i.id = items_fts.item_id
          WHERE items_fts MATCH ?1
            AND i.deleted_at IS NULL
-           {type_filter}
+           {filter}
          ORDER BY bm25(items_fts, 0.0, 5.0, 1.0)
-         LIMIT ?2",
-        type_filter = if pages_only { "AND i.type = 'page'" } else { "" }
+         LIMIT ?2"
     );
 
     let mut stmt = conn.prepare(&sql)?;

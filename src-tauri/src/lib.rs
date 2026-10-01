@@ -84,6 +84,7 @@ pub fn run() {
             commands::agent_request,
             commands::agent_stop,
             commands::agent_running,
+            commands::agent_last_actors,
             commands::task_activities,
             commands::add_activity,
             commands::agent_log,

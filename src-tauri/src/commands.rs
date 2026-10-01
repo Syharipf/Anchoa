@@ -1,4 +1,5 @@
 //! Thin Tauri glue: every function here only resolves state and delegates.
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use jiff::tz::TimeZone;
@@ -136,6 +137,24 @@ pub fn agent_stop(runner: State<'_, AgentRunner>, project_id: String) -> Result<
 #[tauri::command]
 pub fn agent_running(runner: State<'_, AgentRunner>) -> Vec<String> {
     runner.running()
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastActor {
+    pub actor: String,
+    pub role: activities::Role,
+}
+
+#[tauri::command]
+pub fn agent_last_actors(
+    db: State<'_, Db>,
+    project_id: String,
+) -> Result<HashMap<String, LastActor>, AppError> {
+    Ok(activities::last_for_tasks(&*db.conn()?, &project_id)?
+        .into_iter()
+        .map(|(task_id, (actor, role))| (task_id, LastActor { actor, role }))
+        .collect())
 }
 
 #[tauri::command]
@@ -915,6 +934,37 @@ pub fn open_link(app: AppHandle, url: String) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn last_actors_serialize_as_a_task_keyed_object() {
+        let actors = HashMap::from([
+            (
+                "first-task".to_string(),
+                LastActor {
+                    actor: "Sol".into(),
+                    role: activities::Role::Implement,
+                },
+            ),
+            (
+                "done-task".to_string(),
+                LastActor {
+                    actor: "Kamu".into(),
+                    role: activities::Role::Merge,
+                },
+            ),
+        ]);
+        assert_eq!(
+            serde_json::to_value(actors).unwrap(),
+            serde_json::json!({
+                "first-task": { "actor": "Sol", "role": "implement" },
+                "done-task": { "actor": "Kamu", "role": "merge" },
+            }),
+        );
+        assert_eq!(
+            serde_json::to_value(HashMap::<String, LastActor>::new()).unwrap(),
+            serde_json::json!({}),
+        );
+    }
 
     #[test]
     fn is_ytdlp_stale_identifies_old_and_current_versions() {

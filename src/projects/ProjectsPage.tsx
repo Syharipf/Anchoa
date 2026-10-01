@@ -17,7 +17,7 @@ import { ProjectHeader } from "./ProjectHeader";
 import { ProjectList } from "./ProjectList";
 import { UpcomingList } from "./UpcomingList";
 import { useProjectBoard } from "./useProjectBoard";
-import { boardColumns, lastActivity, nextStatus } from "./view";
+import { boardColumns, nextStatus } from "./view";
 
 export function ProjectsPage({
   onOpenItem,
@@ -34,13 +34,17 @@ export function ProjectsPage({
   const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
   const selectedProject = useRef(selectedId);
   selectedProject.current = selectedId;
-  const { board, activities, running } = useProjectBoard(selectedId, version);
+  const openTaskId = panel && panel.projectId === selectedId && !panel.log ? panel.taskId : null;
+  const { board, lastActors, activities, running } = useProjectBoard(selectedId, version, openTaskId);
   const agentProject = board?.project?.agent ? board.project : null;
   const cards = board ? Object.values(board.columns).flat() : [];
   const panelTask = agentProject && panel?.projectId === agentProject.id
     ? cards.find((card) => card.id === panel.taskId) : undefined;
-  const latestRequest = lastActivity(Object.values(activities).flat().filter((activity) => activity.role === "request"));
-  const logTaskId = latestRequest?.taskId ?? panelTask?.id ?? null;
+  // UUIDv7 task IDs sort by creation, so the log shortcut needs no thread history reads.
+  const latestTask = cards.filter((card) => lastActors[card.id]).reduce<TaskCard | null>(
+    (latest, card) => !latest || card.id > latest.id ? card : latest, null,
+  );
+  const logTaskId = latestTask?.id ?? panelTask?.id ?? null;
 
   useEffect(() => {
     let active = true;
@@ -201,12 +205,12 @@ export function ProjectsPage({
                 key={selectedId ?? "loose"}
                 columns={board.columns}
                 agent={agentProject !== null}
-                activities={activities}
+                lastActors={lastActors}
                 onOpenItem={handleOpenCard}
                 onMoveCard={handleMoveCard}
                 onCreateTask={handleCreateTask}
               />
-              {panelTask && <AgentThread key={panelTask.id} task={panelTask} activities={activities[panelTask.id]}
+              {panelTask && <AgentThread key={panelTask.id} task={panelTask} activities={activities}
                 showLog={panel?.log} onChanged={handleAgentChanged} onClose={() => setPanel(null)} onOpenItem={onOpenItem} />}
             </div>
           ) : (

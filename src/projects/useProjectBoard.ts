@@ -1,18 +1,29 @@
 import { useEffect, useState } from "react";
-import { api, errorMessage, type Activity, type Board } from "../api";
+import { api, errorMessage, type Activity, type Board, type LastActor } from "../api";
 import { useToast } from "../shell/toast";
 
 type BoardState = Readonly<{
   selectedId: string | null;
   board: Board;
-  activities: Readonly<Record<string, readonly Activity[]>>;
+  lastActors: Readonly<Record<string, LastActor>>;
   running: boolean;
 }>;
 
-/** The board and its threads share one polling cycle, including card attribution. */
-export function useProjectBoard(selectedId: string | null | undefined, version: number) {
+type ThreadState = Readonly<{
+  selectedId: string;
+  taskId: string;
+  activities: readonly Activity[];
+}>;
+
+/** Poll compact card attribution; only the open thread loads full activity bodies. */
+export function useProjectBoard(
+  selectedId: string | null | undefined,
+  version: number,
+  openTaskId: string | null = null,
+) {
   const toast = useToast();
   const [state, setState] = useState<BoardState | null>(null);
+  const [thread, setThread] = useState<ThreadState | null>(null);
 
   useEffect(() => {
     if (selectedId === undefined) return;
@@ -30,39 +41,31 @@ export function useProjectBoard(selectedId: string | null | undefined, version: 
         setState((previous) => ({
           selectedId: selectedId ?? null,
           board,
-          activities: agent && previous && previous.selectedId === selectedId ? previous.activities : {},
+          lastActors: agent && previous && previous.selectedId === selectedId ? previous.lastActors : {},
           running: agent && previous && previous.selectedId === selectedId ? previous.running : false,
         }));
-        if (!agent) {
+        if (!board.project?.agent) {
           clearInterval(timer);
           timer = undefined;
           return;
         }
         timer ??= setInterval(() => void refresh(), 3000);
 
-        // Existing task activity queries also supply the newest actor on each card.
-        const cards = Object.values(board.columns).flat();
-        const [[running], threads] = await Promise.all([
-          Promise.allSettled([api.agentRunning()]),
-          Promise.allSettled(cards.map((card) => api.taskActivities(card.id))),
+        const [actors, running] = await Promise.allSettled([
+          api.agentLastActors(board.project.id),
+          api.agentRunning(),
         ]);
         if (!current(request)) return;
         setState((previous) => {
           if (!previous || previous.selectedId !== selectedId) return previous;
-          const activities: Record<string, readonly Activity[]> = {};
-          threads.forEach((result, index) => {
-            const id = cards[index].id;
-            activities[id] = result.status === "fulfilled"
-              ? result.value
-              : previous.activities[id] ?? [];
-          });
           return {
-            ...previous, activities,
+            ...previous,
+            lastActors: actors.status === "fulfilled" ? actors.value : previous.lastActors,
             running: running.status === "fulfilled"
               ? running.value.includes(selectedId ?? "") : previous.running,
           };
         });
-        const failure = [running, ...threads].find((result) => result.status === "rejected");
+        const failure = [actors, running].find((result) => result.status === "rejected");
         if (failure?.status === "rejected") toast(errorMessage(failure.reason), "error");
       } catch (error) {
         if (current(request)) toast(errorMessage(error), "error");
@@ -78,9 +81,39 @@ export function useProjectBoard(selectedId: string | null | undefined, version: 
   }, [selectedId, version, toast]);
 
   const visible = state?.selectedId === selectedId ? state : null;
+  const taskId = visible?.board.project?.agent && openTaskId &&
+    Object.values(visible.board.columns).flat().some((card) => card.id === openTaskId)
+    ? openTaskId : null;
+
+  useEffect(() => {
+    if (!taskId || !selectedId) {
+      setThread(null);
+      return;
+    }
+    let active = true;
+    let requests = 0;
+    const refresh = async () => {
+      const request = ++requests;
+      try {
+        const activities = await api.taskActivities(taskId);
+        if (active && request === requests) setThread({ selectedId, taskId, activities });
+      } catch (error) {
+        if (active && request === requests) toast(errorMessage(error), "error");
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => void refresh(), 3000);
+    return () => {
+      active = false;
+      requests++;
+      clearInterval(timer);
+    };
+  }, [selectedId, taskId, version, toast]);
+
   return {
     board: visible?.board ?? null,
-    activities: visible?.activities ?? {},
+    lastActors: visible?.lastActors ?? {},
+    activities: taskId && thread && thread.selectedId === selectedId && thread.taskId === taskId ? thread.activities : undefined,
     running: visible?.running ?? false,
   };
 }

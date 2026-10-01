@@ -36,7 +36,7 @@ describe("agent project components", () => {
 
   it("keeps ordinary kanban markup to three columns and omits activity attribution", () => {
     const html = renderToStaticMarkup(<Kanban columns={{ plan: [task], doing: [], test: [], review: [], done: [] }}
-      activities={{ [task.id]: [activity] }} onOpenItem={() => {}} onMoveCard={() => {}} onCreateTask={async () => {}} />);
+      lastActors={{ [task.id]: activity }} onOpenItem={() => {}} onMoveCard={() => {}} onCreateTask={async () => {}} />);
     expect(html.match(/<section/g)?.length).toBe(3);
     expect(html).not.toContain("Claude Code");
   });
@@ -44,7 +44,7 @@ describe("agent project components", () => {
   it("shows attribution on unfinished and completed agent cards", () => {
     const done = { ...task, id: "done", status: "done" as const };
     const html = renderToStaticMarkup(<Kanban agent columns={{ plan: [task], doing: [], test: [], review: [], done: [done] }}
-      activities={{ [task.id]: [activity], [done.id]: [activity] }} onOpenItem={() => {}} onMoveCard={() => {}} onCreateTask={async () => {}} />);
+      lastActors={{ [task.id]: activity, [done.id]: activity }} onOpenItem={() => {}} onMoveCard={() => {}} onCreateTask={async () => {}} />);
     expect(html.match(/<section/g)?.length).toBe(5);
     expect(html.match(/Claude Code · implement<\/span>/g)?.length).toBe(2);
   });

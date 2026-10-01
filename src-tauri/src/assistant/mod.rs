@@ -95,9 +95,11 @@ impl AssistantState {
                 if state.running {
                     return Err(AppError::Invalid("Asisten masih menjawab".into()));
                 }
-                if !state.pending.is_empty() {
-                    return Err(AppError::Invalid(
-                        "Setujui atau tolak usulan tertunda terlebih dahulu".into(),
+                let pending = std::mem::take(&mut state.pending);
+                for (_, call_id) in pending.into_values() {
+                    state.history.push(tool_message(
+                        &call_id,
+                        json!({"ok":false,"reason":"diabaikan, user mengirim pesan baru"}),
                     ));
                 }
                 state.running = true;
@@ -283,6 +285,17 @@ impl AssistantState {
         Ok(item)
     }
 
+    fn pending(&self) -> Result<Vec<Proposal>, AppError> {
+        let mut proposals: Vec<_> = self
+            .lock()?
+            .pending
+            .values()
+            .map(|(proposal, _)| proposal.clone())
+            .collect();
+        proposals.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(proposals)
+    }
+
     fn stop(&self) {
         self.cancel.store(true, Ordering::Relaxed);
     }
@@ -349,6 +362,11 @@ pub fn assistant_decide(
     approve: bool,
 ) -> Result<Option<Value>, AppError> {
     state.decide(&db, &id, approve, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn assistant_pending(state: State<'_, AssistantState>) -> Result<Vec<Proposal>, AppError> {
+    state.pending()
 }
 
 #[tauri::command]
@@ -561,6 +579,108 @@ mod tests {
     }
 
     #[test]
+    fn pending_proposals_survive_panel_remount_and_can_still_be_decided() {
+        let (_dir, db) = db();
+        let state = AssistantState::default();
+        let reply = state
+            .send_with(
+                &db,
+                "Buat tugas",
+                now(),
+                &jakarta(),
+                |_| Ok(()),
+                |_, _, _| {
+                    Ok(tool_call(
+                        "write",
+                        "create_task",
+                        json!({"title":"Beli teri"}),
+                    ))
+                },
+            )
+            .unwrap();
+        for _ in 0..2 {
+            let pending = state.pending().unwrap();
+            assert_eq!(pending.len(), 1);
+            assert_eq!(pending[0].id, reply.proposals[0].id);
+            assert_eq!(pending[0].summary, reply.proposals[0].summary);
+            assert_eq!(pending[0].name, "create_task");
+            assert_eq!(pending[0].args, json!({"title":"Beli teri"}));
+        }
+        assert_eq!(
+            db.conn()
+                .unwrap()
+                .query_row("SELECT COUNT(*) FROM tasks", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        let restored = state.pending().unwrap().remove(0);
+        state
+            .decide(&db, &restored.id, true, now(), &jakarta())
+            .unwrap();
+        assert!(state.pending().unwrap().is_empty());
+    }
+
+    #[test]
+    fn new_send_dismisses_all_pending_proposals_and_resolves_their_tool_calls() {
+        let (_dir, db) = db();
+        let state = AssistantState::default();
+        let reply = state
+            .send_with(
+                &db,
+                "Buat dua tugas",
+                now(),
+                &jakarta(),
+                |_| Ok(()),
+                |_, _, _| {
+                    let mut message = tool_call("write-1", "create_task", json!({"title":"Satu"}));
+                    message.tool_calls.extend(
+                        tool_call("write-2", "create_task", json!({"title":"Dua"})).tool_calls,
+                    );
+                    Ok(message)
+                },
+            )
+            .unwrap();
+        assert_eq!(state.pending().unwrap().len(), 2);
+        let before = db.conn().unwrap().total_changes();
+        state
+            .send_with(
+                &db,
+                "Pesan baru",
+                now(),
+                &jakarta(),
+                |_| Ok(()),
+                |request, _, _| {
+                    assert!(state.pending()?.is_empty());
+                    for id in ["write-1", "write-2"] {
+                        let results: Vec<_> = request
+                            .messages
+                            .iter()
+                            .filter(|message| message.tool_call_id.as_deref() == Some(id))
+                            .collect();
+                        assert_eq!(results.len(), 1);
+                        assert_eq!(results[0].role, "tool");
+                        assert_eq!(
+                            serde_json::from_str::<Value>(&results[0].content).unwrap(),
+                            json!({"ok":false,"reason":"diabaikan, user mengirim pesan baru"})
+                        );
+                    }
+                    assert_eq!(request.messages.last().unwrap().content, "Pesan baru");
+                    Ok(ChatMessage::text("assistant", "Lanjut"))
+                },
+            )
+            .unwrap();
+        assert!(state.pending().unwrap().is_empty());
+        assert_eq!(db.conn().unwrap().total_changes(), before);
+        for proposal in reply.proposals {
+            assert!(
+                state
+                    .decide(&db, &proposal.id, true, now(), &jakarta())
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
     fn failed_proposal_delivery_allows_a_later_send_without_reset() {
         let (_dir, db) = db();
         let state = AssistantState::default();
@@ -756,18 +876,6 @@ mod tests {
             ]
         ));
         let id = &reply.proposals[0].id;
-        assert!(
-            state
-                .send_with(
-                    &db,
-                    "Pesan baru",
-                    now(),
-                    &jakarta(),
-                    |_| Ok(()),
-                    |_, _, _| panic!("pending proposals must block HTTP")
-                )
-                .is_err()
-        );
         let item = state
             .decide(&db, id, true, now(), &jakarta())
             .unwrap()

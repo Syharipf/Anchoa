@@ -146,6 +146,15 @@ describe("Settings layout", () => {
     expect(html).toContain("Lisensi pihak ketiga");
     expect(html).toContain("sudo dnf upgrade anchoa");
   });
+
+  it("renders AiSection when initialSection is ai", () => {
+    const html = renderToStaticMarkup(
+      <Settings initialSection="ai" onSectionChange={() => {}} onGithubChanged={() => {}} />,
+    );
+    expect(html).toContain("Ollama (Lokal)");
+    expect(html).toContain("Model per tugas");
+    expect(html).toContain("Privasi AI");
+  });
 });
 
 describe("Settings interactions", () => {

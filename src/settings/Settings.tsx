@@ -1,8 +1,9 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { useEffect, useState } from "react";
-import { api, type GithubStatus } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import { api, type AiRoles, type AiStatus, type GithubStatus } from "../api";
 import { H1 } from "../shell/ui";
 import { AboutSection } from "./AboutSection";
+import { AiSection } from "./AiSection";
 import { ComingSection } from "./ComingSection";
 import { DataSection } from "./DataSection";
 import { IntegrationsSection } from "./IntegrationsSection";
@@ -25,11 +26,21 @@ export function Settings({
   );
   const [version, setVersion] = useState("");
   const [ghStatus, setGhStatus] = useState<GithubStatus | null>(null);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiRoles, setAiRoles] = useState<AiRoles | null>(null);
+
+  const loadAi = useCallback(() => {
+    api.aiStatus().then(setAiStatus, () =>
+      setAiStatus({ available: false, models: [], error: "Gagal terhubung" }),
+    );
+    api.aiRoles().then(setAiRoles, () => setAiRoles(null));
+  }, []);
 
   useEffect(() => {
     getVersion().then(setVersion, () => setVersion(""));
     api.githubStatus().then(setGhStatus, () => setGhStatus(null));
-  }, []);
+    loadAi();
+  }, [loadAi]);
 
   useEffect(() => {
     setSection(normalizeSection(initialSection));
@@ -61,11 +72,14 @@ export function Settings({
           statusContext={{
             githubConnected: ghStatus?.connected ?? false,
             version,
+            aiStatus,
+            aiChatModel: aiRoles?.chat.model,
           }}
         />
 
         <div className="min-w-0">
-          {(section === "ai" || section === "avatar" || section === "suara") && (
+          {section === "ai" && <AiSection onChanged={loadAi} />}
+          {(section === "avatar" || section === "suara") && (
             <ComingSection section={section} />
           )}
           {section === "data" && <DataSection />}

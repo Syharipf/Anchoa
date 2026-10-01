@@ -42,6 +42,7 @@ export function App() {
   const [fileClipboard, setFileClipboard] = useState<FileClipboard | null>(null);
   const [contributionsVersion, setContributionsVersion] = useState(0);
   const [notifyPrefs, setNotifyPrefs] = useState<NotifyPrefs | undefined>(undefined);
+  const [assistantDataVersion, setAssistantDataVersion] = useState(0);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const onSectionChange = useCallback((section: SettingsSection) => {
@@ -57,6 +58,10 @@ export function App() {
   }, []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
+  const onAssistantChanged = useCallback(() => {
+    reload();
+    setAssistantDataVersion((version) => version + 1);
+  }, [reload]);
   const page = stack[stack.length - 1];
   const ready = status !== null && status.error === null;
 
@@ -144,25 +149,26 @@ export function App() {
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
-        {page.name === "jurnal" && <JournalPage key={captures} onOpenItem={openItem} onChanged={reload} />}
+        {page.name === "jurnal" && <JournalPage key={`${captures}:${assistantDataVersion}`} onOpenItem={openItem} onChanged={reload} />}
         {page.name === "catatan" && (
           <NotesPage
-            key={page.intent ?? 0}
+            key={`${page.intent ?? 0}:${assistantDataVersion}`}
             initialId={page.id}
             onOpenItem={openItem}
             onReveal={onReveal}
             onChanged={reload}
           />
         )}
-        {page.name === "habit" && <HabitsPage onChanged={reload} />}
+        {page.name === "habit" && <HabitsPage key={assistantDataVersion} onChanged={reload} />}
         {page.name === "keuangan" && (
-          <FinancePage key={page.intent ?? 0} newTransaction={page.intent !== undefined} onChanged={reload} />
+          <FinancePage key={`${page.intent ?? 0}:${assistantDataVersion}`} newTransaction={page.intent !== undefined} onChanged={reload} />
         )}
         {page.name === "proyek" && (
-          <ProjectsPage onOpenItem={openItem} onChanged={reload} />
+          <ProjectsPage key={assistantDataVersion} onOpenItem={openItem} onChanged={reload} />
         )}
         {page.name === "jadwal" && (
           <SchedulePage
+            key={assistantDataVersion}
             onOpenItem={openItem}
             onOpenFinance={() => go("keuangan")}
             onChanged={reload}
@@ -170,18 +176,19 @@ export function App() {
         )}
         {page.name === "berkas" && (
           <FilesPage
-            key={page.path ?? ""}
+            key={`${page.path ?? ""}:${assistantDataVersion}`}
             initialPath={page.path}
             clipboard={fileClipboard}
             onSetClipboard={setFileClipboard}
           />
         )}
         {page.name === "unduhan" && (
-          <DownloadsPage onReveal={onReveal} />
+          <DownloadsPage key={assistantDataVersion} onReveal={onReveal} />
         )}
-        {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}
+        {page.name === "item" && <ItemPage key={`${page.id}:${assistantDataVersion}`} id={page.id} onBack={back} onOpenItem={openItem} />}
         {page.name === "profil" && (
           <ProfilePage
+            key={assistantDataVersion}
             prefs={notifyPrefs}
             onPrefsChanged={() => {
               reloadPrefs();
@@ -192,6 +199,7 @@ export function App() {
         )}
         {page.name === "settings" && (
           <Settings
+            key={assistantDataVersion}
             initialSection={page.section}
             onSectionChange={onSectionChange}
             onGithubChanged={onGithubChanged}
@@ -203,9 +211,17 @@ export function App() {
         <Aside
           contributionsVersion={contributionsVersion}
           onOpenSettings={() => openSettings("integrations")}
+          onOpenAiSettings={() => openSettings("ai")}
+          onChanged={onAssistantChanged}
         />
       ) : (
-        <AssistantMini key={page.name === "item" ? page.id : page.name} hint={assistantHint(info)} onOpenFull={() => go("dashboard")} />
+        <AssistantMini
+          key={page.name === "item" ? page.id : page.name}
+          hint={assistantHint(info)}
+          onOpenFull={() => go("dashboard")}
+          onOpenAiSettings={() => openSettings("ai")}
+          onChanged={onAssistantChanged}
+        />
       )}
       {overlay === "palette" && (
         <CommandPalette

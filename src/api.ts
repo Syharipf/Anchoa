@@ -787,6 +787,7 @@ export const api = {
   },
   assistantStop: () => invoke<void>("assistant_stop"),
   assistantDecide: (id: string, approve: boolean) => invoke<AssistantDecision>("assistant_decide", { id, approve }),
+  assistantPending: () => invoke<AssistantProposal[]>("assistant_pending"),
   assistantReset: () => invoke<void>("assistant_reset"),
   aiStatus: () => invoke<AiStatus>("ai_status"),
   aiRoles: () => invoke<AiRoles>("ai_roles"),

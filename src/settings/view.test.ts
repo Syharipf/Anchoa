@@ -32,8 +32,27 @@ describe("settings sections metadata", () => {
 });
 
 describe("sectionStatus", () => {
-  it("returns 'Menyusul' for ai, avatar, and suara", () => {
-    expect(sectionStatus("ai")).toBe("Menyusul");
+  it("returns 'Ollama · <model>' or 'Ollama mati' for ai", () => {
+    expect(sectionStatus("ai")).toBe("Ollama mati");
+    expect(
+      sectionStatus("ai", {
+        aiStatus: { available: false, models: [], error: "Koneksi ditolak" },
+      }),
+    ).toBe("Ollama mati");
+    expect(
+      sectionStatus("ai", {
+        aiStatus: { available: true, models: ["llama3.1:8b"], error: null },
+      }),
+    ).toBe("Ollama · llama3.1:8b");
+    expect(
+      sectionStatus("ai", {
+        aiStatus: { available: true, models: ["llama3.1:8b"], error: null },
+        aiChatModel: "qwen2.5:3b",
+      }),
+    ).toBe("Ollama · qwen2.5:3b");
+  });
+
+  it("returns 'Menyusul' for avatar and suara", () => {
     expect(sectionStatus("avatar")).toBe("Menyusul");
     expect(sectionStatus("suara")).toBe("Menyusul");
   });

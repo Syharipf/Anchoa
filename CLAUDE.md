@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Profil built (spec `2026-10-01-anchoa-profil-design.md`): profile card, notification switches per reminder kind, and connected accounts. Pengaturan and Proyek × Agen are built. Fase 5 (assistant) and Fase 8 (email) choices are decided; see the Fase 5 spec once written.
+Status: Fase 5 assistant in progress (spec `2026-10-01-anchoa-fase5-asisten-design.md`): the local brain (Ollama via an OpenAI-compatible client, scoped roles, approval-gated tools) and chat UI are built; voice (whisper.cpp, Piper) is next. Profil, Pengaturan and Proyek × Agen are built.
 
 ## Commands
 

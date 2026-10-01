@@ -267,6 +267,31 @@ export interface Board {
 
 export type TaskStatus = "plan" | "doing" | "test" | "review" | "done";
 
+export type ActivityRole = "request" | "plan" | "implement" | "test" | "review" | "merge" | "note";
+export type ActivityKind = "message" | "status" | "result" | "link";
+
+export interface Activity {
+  id: string;
+  taskId: string | null;
+  projectId: string;
+  actor: string;
+  role: ActivityRole;
+  kind: ActivityKind;
+  title: string;
+  body: string;
+  createdAt: number;
+}
+
+export interface NewActivity {
+  taskId?: string | null;
+  projectId: string;
+  actor: string;
+  role: ActivityRole;
+  kind: ActivityKind;
+  title: string;
+  body: string;
+}
+
 export interface TaskCard {
   id: string;
   title: string;
@@ -663,6 +688,12 @@ export const api = {
   saveProject: (input: ProjectInput) => invoke<ProjectDetail>("save_project", { input }),
   deleteProject: (id: string) => invoke<void>("delete_project", { id }),
   openRepo: (id: string) => invoke<void>("open_repo", { id }),
+  agentRequest: (projectId: string, text: string) => invoke<TaskCard>("agent_request", { projectId, text }),
+  agentStop: (projectId: string) => invoke<void>("agent_stop", { projectId }),
+  agentRunning: () => invoke<string[]>("agent_running"),
+  taskActivities: (taskId: string) => invoke<Activity[]>("task_activities", { taskId }),
+  addActivity: (input: NewActivity) => invoke<Activity>("add_activity", { input }),
+  agentLog: (taskId: string) => invoke<string>("agent_log", { taskId }),
   createTask: (input: NewTask) => invoke<TaskCard>("create_task", { input }),
   getTask: (id: string) => invoke<TaskDetail>("get_task", { id }),
   updateTask: (id: string, patch: TaskPatch) => invoke<TaskDetail>("update_task", { id, patch }),

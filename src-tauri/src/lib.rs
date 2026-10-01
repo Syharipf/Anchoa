@@ -1,4 +1,5 @@
 pub mod activities;
+mod agent_runner;
 mod backup;
 mod bills;
 pub mod cli;
@@ -66,6 +67,7 @@ pub fn run() {
             }
             app.manage(db);
             app.manage(downloader::Downloader::default());
+            app.manage(agent_runner::AgentRunner::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -79,6 +81,12 @@ pub fn run() {
             commands::save_project,
             commands::delete_project,
             commands::open_repo,
+            commands::agent_request,
+            commands::agent_stop,
+            commands::agent_running,
+            commands::task_activities,
+            commands::add_activity,
+            commands::agent_log,
             commands::create_task,
             commands::get_task,
             commands::update_task,
@@ -155,6 +163,7 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 app.state::<downloader::Downloader>().stop_all();
+                app.state::<agent_runner::AgentRunner>().stop_all();
             }
         });
 }

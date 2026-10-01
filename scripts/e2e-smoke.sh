@@ -26,6 +26,14 @@ sleep 1
 fail() { echo "FAIL: $*"; exit 1; }
 shot() { import -window root "$WORK/$1.png"; }
 sql() { sqlite3 "$DB" "$1"; }
+# Waits up to 5 s for query $1 to return $2 (autosave may lag on a busy machine).
+sql_becomes() {
+  for _ in $(seq 1 25); do
+    [[ "$(sql "$1")" = "$2" ]] && return 0
+    sleep 0.2
+  done
+  return 1
+}
 click() { xdotool mousemove "$1" "$2" click 1; sleep 0.7; }
 make_task() {
   local title="$1"
@@ -729,7 +737,7 @@ check_notes() {
   expected_body=$'Catatan rencana dari e2e.\n\n- [ ] Tulis ide\n- [ ] Tinjau rencana'
   rencana_id=$(sql "SELECT id FROM items WHERE type = 'page' AND title = 'Rencana' AND deleted_at IS NULL")
   [[ -n "$rencana_id" ]] || fail "Rencana page not created"
-  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+  sql_becomes "SELECT body FROM items WHERE id = '$rencana_id'" "$expected_body" \
     || fail "notes paragraph and task list not saved as Markdown"
   shot 18-notes-written
 

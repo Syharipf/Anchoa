@@ -1,5 +1,5 @@
 // The only module that talks to the Rust backend.
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 
 export interface Item {
   id: string;
@@ -728,7 +728,70 @@ export interface DownloadSettings {
   limit: number;
 }
 
+export type AiRole = "chat" | "journal" | "recap";
+
+export interface RoleConfig {
+  provider: "ollama";
+  model: string;
+}
+
+export type AiRoles = Record<AiRole, RoleConfig>;
+
+export interface AiStatus {
+  available: boolean;
+  models: string[];
+  error: string | null;
+}
+
+export interface AssistantToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+
+/** OpenAI message shape; the optional fields keep their wire names. */
+export interface AssistantMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  tool_calls?: AssistantToolCall[];
+  tool_call_id?: string;
+}
+
+export type AssistantWriteTool = "create_task" | "complete_task" | "add_transaction" | "add_journal_entry" | "check_habit";
+
+export interface AssistantProposal {
+  id: string;
+  summary: string;
+  name: AssistantWriteTool;
+  args: Record<string, unknown>;
+}
+
+export type AssistantEvent =
+  | { type: "delta"; data: string }
+  | { type: "proposal"; data: AssistantProposal }
+  | { type: "done"; data: AssistantMessage }
+  | { type: "error"; data: string };
+
+export interface AssistantReply {
+  message: AssistantMessage;
+  proposals: AssistantProposal[];
+}
+
+export type AssistantDecision = TaskCard | TaskDetail | TransactionView | Entry | HabitRow | null;
+
 export const api = {
+  assistantSend: (text: string, onEvent: (event: AssistantEvent) => void) => {
+    const channel = new Channel<AssistantEvent>();
+    channel.onmessage = onEvent;
+    return invoke<AssistantReply>("assistant_send", { text, onEvent: channel });
+  },
+  assistantStop: () => invoke<void>("assistant_stop"),
+  assistantDecide: (id: string, approve: boolean) => invoke<AssistantDecision>("assistant_decide", { id, approve }),
+  assistantReset: () => invoke<void>("assistant_reset"),
+  aiStatus: () => invoke<AiStatus>("ai_status"),
+  aiRoles: () => invoke<AiRoles>("ai_roles"),
+  setAiRole: (role: AiRole, provider: RoleConfig["provider"], model: string) =>
+    invoke<RoleConfig>("set_ai_role", { role, provider, model }),
   dbStatus: () => invoke<DbStatus>("db_status"),
   openFolder: (kind: FolderKind) => invoke<void>("open_folder", { kind }),
   captureNote: (text: string) => invoke<Item>("capture_note", { text }),

@@ -177,6 +177,19 @@ pub fn create_task(
     now: i64,
     tz: &TimeZone,
 ) -> Result<TaskCard, AppError> {
+    let tx = conn.unchecked_transaction()?;
+    let result = create_task_in_transaction(&tx, input, now, tz)?;
+    tx.commit()?;
+    Ok(result)
+}
+
+/// Shared creation rules for compound operations that own their transaction.
+pub(crate) fn create_task_in_transaction(
+    conn: &Connection,
+    input: &NewTask,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<TaskCard, AppError> {
     let title = input.title.trim();
     if title.is_empty() {
         return Err(invalid("Judul tugas tidak boleh kosong"));
@@ -208,17 +221,15 @@ pub fn create_task(
         }
     };
 
-    let tx = conn.unchecked_transaction()?;
-    let id = items::insert(&tx, "task", title, "", now)?;
+    let id = items::insert(conn, "task", title, "", now)?;
     if let Some(pid) = &parent_id {
-        tx.execute("UPDATE items SET parent_id = ?2 WHERE id = ?1", params![id, pid])?;
+        conn.execute("UPDATE items SET parent_id = ?2 WHERE id = ?1", params![id, pid])?;
     }
-    tx.execute(
+    conn.execute(
         "INSERT INTO tasks (item_id, status, project_id) VALUES (?1, ?2, ?3)",
         params![id, TaskStatus::Plan, effective_project_id],
     )?;
-    apply_status(&tx, &id, input.status, now)?;
-    tx.commit()?;
+    apply_status(conn, &id, input.status, now)?;
 
     card_query(conn, "i.id = ?1", [&id], now, tz)?
         .into_iter()

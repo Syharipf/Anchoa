@@ -465,24 +465,29 @@ describe("blocks model", () => {
       expect(mergeBlockWithPrevious(blocks, index)).toBeNull();
     });
 
-    it("deletes empty block and moves caret to end of previous block", () => {
-      const blocks = [createBlock("Paragraf pertama"), createBlock("")];
+    it.each([
+      [
+        "deletes empty block and moves caret to end of previous block",
+        "Paragraf pertama",
+        "",
+        "Paragraf pertama",
+        "Paragraf pertama".length,
+      ],
+      [
+        "merges non-empty block into previous block at join point",
+        "Halo ",
+        "Dunia",
+        "Halo Dunia",
+        "Halo ".length,
+      ],
+    ])("%s", (_title, first, second, expectedText, expectedCaret) => {
+      const blocks = [createBlock(first), createBlock(second)];
       const res = mergeBlockWithPrevious(blocks, 1);
       expect(res).not.toBeNull();
       expect(res?.blocks).toHaveLength(1);
-      expect(res?.blocks[0].text).toBe("Paragraf pertama");
+      expect(res?.blocks[0].text).toBe(expectedText);
       expect(res?.activeId).toBe(blocks[0].id);
-      expect(res?.caret).toBe("Paragraf pertama".length);
-    });
-
-    it("merges non-empty block into previous block at join point", () => {
-      const blocks = [createBlock("Halo "), createBlock("Dunia")];
-      const res = mergeBlockWithPrevious(blocks, 1);
-      expect(res).not.toBeNull();
-      expect(res?.blocks).toHaveLength(1);
-      expect(res?.blocks[0].text).toBe("Halo Dunia");
-      expect(res?.activeId).toBe(blocks[0].id);
-      expect(res?.caret).toBe("Halo ".length);
+      expect(res?.caret).toBe(expectedCaret);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { BlockPreview, inlineTokens } from "./markdown";
+import { BlockPreview, inlineTokens, type InlineToken } from "./markdown";
 
 describe("markdown", () => {
   describe("inlineTokens", () => {
@@ -8,43 +8,48 @@ describe("markdown", () => {
       expect(inlineTokens("")).toEqual([]);
     });
 
-    it("parses bold text", () => {
-      expect(inlineTokens("**tebal**")).toEqual([
-        { type: "bold", value: "tebal" },
-      ]);
-    });
-
-    it("parses italic text with asterisk and underscore", () => {
-      expect(inlineTokens("*miring*")).toEqual([
-        { type: "italic", value: "miring" },
-      ]);
-      expect(inlineTokens("_miring_")).toEqual([
-        { type: "italic", value: "miring" },
-      ]);
-    });
-
-    it("parses inline code without interpreting inner markdown", () => {
-      expect(inlineTokens("`kode`")).toEqual([
-        { type: "code", value: "kode" },
-      ]);
-      expect(inlineTokens("`**b** [[x]]`")).toEqual([
-        { type: "code", value: "**b** [[x]]" },
-      ]);
-    });
-
-    it("parses markdown links", () => {
-      expect(inlineTokens("[Anchoa](https://anchoa.app)")).toEqual([
-        { type: "link", text: "Anchoa", href: "https://anchoa.app" },
-      ]);
-    });
-
-    it("parses wikilinks with and without alias", () => {
-      expect(inlineTokens("[[Catatan]]")).toEqual([
-        { type: "wikilink", title: "Catatan" },
-      ]);
-      expect(inlineTokens("[[Catatan|alias]]")).toEqual([
-        { type: "wikilink", title: "Catatan", alias: "alias" },
-      ]);
+    it.each([
+      [
+        "parses bold text",
+        [["**tebal**", [{ type: "bold", value: "tebal" }]]],
+      ],
+      [
+        "parses italic text with asterisk and underscore",
+        [
+          ["*miring*", [{ type: "italic", value: "miring" }]],
+          ["_miring_", [{ type: "italic", value: "miring" }]],
+        ],
+      ],
+      [
+        "parses inline code without interpreting inner markdown",
+        [
+          ["`kode`", [{ type: "code", value: "kode" }]],
+          ["`**b** [[x]]`", [{ type: "code", value: "**b** [[x]]" }]],
+        ],
+      ],
+      [
+        "parses markdown links",
+        [
+          [
+            "[Anchoa](https://anchoa.app)",
+            [{ type: "link", text: "Anchoa", href: "https://anchoa.app" }],
+          ],
+        ],
+      ],
+      [
+        "parses wikilinks with and without alias",
+        [
+          ["[[Catatan]]", [{ type: "wikilink", title: "Catatan" }]],
+          [
+            "[[Catatan|alias]]",
+            [{ type: "wikilink", title: "Catatan", alias: "alias" }],
+          ],
+        ],
+      ],
+    ] satisfies [string, [string, InlineToken[]][]][])("%s", (_name, cases) => {
+      for (const [input, expected] of cases) {
+        expect(inlineTokens(input)).toEqual(expected);
+      }
     });
 
     it.each([

@@ -208,6 +208,36 @@ export function barFor(
   };
 }
 
+/**
+ * Calculates project span bar between earliest task start and deadline (16px per day) clipped to window.
+ * Returns null if there is no deadline, no items, or if the span is entirely outside the window.
+ */
+export function projectSpan(
+  group: { deadline?: string; items: readonly { startDate?: string; dueDate: string }[] },
+  window: { from: string; to: string },
+): { left: number; width: number } | null {
+  if (!group.deadline || group.items.length === 0) {
+    return null;
+  }
+  const minTaskStart = group.items.reduce((acc, it) => {
+    const s = it.startDate ?? it.dueDate;
+    return s < acc ? s : acc;
+  }, group.items[0].startDate ?? group.items[0].dueDate);
+  const rawSpanStart = minTaskStart <= group.deadline ? minTaskStart : group.deadline;
+  const rawSpanEnd = group.deadline;
+  if (rawSpanEnd < window.from || rawSpanStart > window.to) {
+    return null;
+  }
+  const clipStart = rawSpanStart < window.from ? window.from : rawSpanStart;
+  const clipEnd = rawSpanEnd > window.to ? window.to : rawSpanEnd;
+  const sIdx = diffDays(window.from, clipStart);
+  const eIdx = diffDays(window.from, clipEnd);
+  return {
+    left: sIdx * 16,
+    width: (eIdx - sIdx + 1) * 16,
+  };
+}
+
 export interface TimelineGroup {
   id: string;
   name: string;

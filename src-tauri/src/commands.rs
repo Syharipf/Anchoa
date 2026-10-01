@@ -22,7 +22,7 @@ use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery,
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
-use crate::{backup, downloader, downloads, files, time};
+use crate::{backup, downloader, downloads, files, links, notes, search, time};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -759,6 +759,108 @@ pub fn save_download_settings(
     Ok(saved)
 }
 
+#[tauri::command]
+pub fn pages_tree(db: State<'_, Db>) -> Result<Vec<notes::PageNode>, AppError> {
+    notes::tree(&*db.conn()?)
+}
+
+#[tauri::command]
+pub fn create_page(
+    db: State<'_, Db>,
+    parent_id: Option<String>,
+    title: String,
+) -> Result<notes::PageNode, AppError> {
+    notes::create(&*db.conn()?, parent_id.as_deref(), &title, time::now_ms())
+}
+
+#[tauri::command]
+pub fn rename_page(
+    db: State<'_, Db>,
+    id: String,
+    title: String,
+) -> Result<notes::PageNode, AppError> {
+    notes::rename(&*db.conn()?, &id, &title, time::now_ms())
+}
+
+#[tauri::command]
+pub fn move_page(
+    db: State<'_, Db>,
+    id: String,
+    parent_id: Option<String>,
+) -> Result<notes::PageNode, AppError> {
+    notes::move_page(&*db.conn()?, &id, parent_id.as_deref(), time::now_ms())
+}
+
+#[tauri::command]
+pub fn save_page_body(
+    db: State<'_, Db>,
+    id: String,
+    body: String,
+) -> Result<(), AppError> {
+    notes::save_body(&*db.conn()?, &id, &body, time::now_ms())
+}
+
+#[tauri::command]
+pub fn delete_page(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    notes::delete(&*db.conn()?, &id, time::now_ms())
+}
+
+#[tauri::command]
+pub fn pages_trash(db: State<'_, Db>) -> Result<Vec<notes::TrashEntry>, AppError> {
+    notes::trash(&*db.conn()?)
+}
+
+#[tauri::command]
+pub fn restore_page(db: State<'_, Db>, id: String) -> Result<notes::PageNode, AppError> {
+    notes::restore(&*db.conn()?, &id, time::now_ms())
+}
+
+#[tauri::command]
+pub fn page_backlinks(db: State<'_, Db>, id: String) -> Result<Vec<ItemSummary>, AppError> {
+    links::backlinks(&*db.conn()?, &id)
+}
+
+#[tauri::command]
+pub fn resolve_link(db: State<'_, Db>, title: String) -> Result<Option<ItemSummary>, AppError> {
+    links::resolve(&*db.conn()?, &title)
+}
+
+#[tauri::command]
+pub fn search_items(
+    db: State<'_, Db>,
+    text: String,
+    pages_only: bool,
+    limit: u32,
+) -> Result<Vec<search::SearchHit>, AppError> {
+    search::search(&*db.conn()?, &text, pages_only, limit as usize)
+}
+
+#[tauri::command]
+pub fn export_pages(app: AppHandle, db: State<'_, Db>) -> Result<String, AppError> {
+    let home = app.path().home_dir()?;
+    let user_dirs = std::fs::read_to_string(home.join(".config/user-dirs.dirs")).ok();
+    let root = files::xdg_dir(&home, user_dirs.as_deref(), "XDG_DOCUMENTS_DIR", "Documents");
+    let path = notes::export(&*db.conn()?, &root)?;
+    Ok(path.display().to_string())
+}
+
+pub fn check_link(url: &str) -> Result<(), AppError> {
+    let lower = url.trim().to_ascii_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") {
+        Ok(())
+    } else {
+        Err(AppError::Invalid("Tautan harus dimulai dengan http:// atau https://".into()))
+    }
+}
+
+#[tauri::command]
+pub fn open_link(app: AppHandle, url: String) -> Result<(), AppError> {
+    check_link(&url)?;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| AppError::Other(e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -770,5 +872,17 @@ mod tests {
         let current = format!("{}.{:02}.{:02}", today.year(), today.month(), today.day());
         assert!(!is_ytdlp_stale(&current));
         assert!(!is_ytdlp_stale("invalid.version"));
+    }
+
+    #[test]
+    fn open_link_rejects_file_and_javascript() {
+        assert!(check_link("http://example.com").is_ok());
+        assert!(check_link("https://example.com/notes").is_ok());
+        assert!(check_link("HTTP://EXAMPLE.COM").is_ok());
+        assert!(check_link("file:///etc/passwd").is_err());
+        assert!(check_link("javascript:alert(1)").is_err());
+        assert!(check_link("ftp://example.com").is_err());
+        assert!(check_link("data:text/html,bad").is_err());
+        assert!(check_link("").is_err());
     }
 }

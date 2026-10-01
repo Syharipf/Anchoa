@@ -15,6 +15,7 @@ mod items;
 pub mod journal;
 pub mod links;
 pub mod notes;
+pub mod search;
 mod overview;
 mod projects;
 mod schedule;
@@ -133,6 +134,19 @@ pub fn run() {
             commands::download_engines,
             commands::download_settings,
             commands::save_download_settings,
+            commands::pages_tree,
+            commands::create_page,
+            commands::rename_page,
+            commands::move_page,
+            commands::save_page_body,
+            commands::delete_page,
+            commands::pages_trash,
+            commands::restore_page,
+            commands::page_backlinks,
+            commands::resolve_link,
+            commands::search_items,
+            commands::export_pages,
+            commands::open_link,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

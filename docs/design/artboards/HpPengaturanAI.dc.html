@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa HP — Pengaturan · AI</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+  <header style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px"><a href="HpPengaturan.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; flex-shrink: 0; position: relative; border-radius: 12px; border: 0; background: #171A21; color: #C9CED8; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a><div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Asisten & AI</h1><span style="font-size: 12px; color: #9AA3B2">Penyedia, kunci, model</span></div></header>
+  <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <div role="radiogroup" aria-label="Penyedia AI" style="display: flex; flex-direction: column; padding: 4px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+      <sc-for list="{{provs}}" as="p" hint-placeholder-count="5">
+        <button role="radio" aria-checked="{{p.checked}}" onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border-radius: 12px; border: 0; background: transparent; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer; text-decoration: none; border-top: 1px solid {{p.line}}; border-radius: 0">
+          <span style="width: 22px; height: 22px; flex-shrink: 0; box-sizing: border-box; border-radius: 50%; border: 2px solid {{p.ring}}; display: flex; align-items: center; justify-content: center"><span style="width: 10px; height: 10px; border-radius: 50%; background: {{p.dotFill}}"></span></span>
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px">{{p.name}}</span><span style="font-size: 12px; color: #9AA3B2">{{p.sub}}</span></span>
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: {{p.dot}}"></span>
+        </button>
+      </sc-for>
+    </div>
+    <section aria-labelledby="pa-key" style="display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+      <span id="pa-key" style="font-size: 13px; color: #9AA3B2">{{keyLabel}}</span>
+      <span style="min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; background: #0F1115; border: 1px solid #262B35; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #C9CED8; overflow: hidden">{{keyMasked}}</span>
+      <div style="display: flex; gap: 8px"><button data-press onClick="{{test}}" style="flex: 1 1 0; min-height: 44px; border-radius: 12px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">{{testLabel}}</button><button data-hover style="flex: 1 1 0; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer; min-height: 44px; border-radius: 12px">Ganti kunci</button></div>
+      <div role="status" aria-live="polite" style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px; background: {{res.bg}}; border: 1px solid {{res.border}}"><span style="font-size: 13px; line-height: 1.45; color: {{res.color}}">{{res.text}}</span></div>
+      <span style="font-size: 11px; line-height: 1.5; color: #9AA3B2">Kunci disimpan di Supabase Vault. HP ini hanya melihat 4 karakter terakhir.</span>
+    </section>
+    <section aria-labelledby="pa-route" style="display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+      <h2 id="pa-route" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 6px">Model per tugas</h2>
+      <sc-for list="{{routes}}" as="r" hint-placeholder-count="3">
+        <button data-hover onClick="{{r.next}}" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border-radius: 12px; border: 0; background: transparent; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer; text-decoration: none; border-top: 1px solid {{r.line}}; border-radius: 0; padding: 8px 0">
+          <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px">{{r.task}}</span><span style="font-size: 12px; color: {{r.tagColor}}">{{r.model}}</span></span>
+          <span style="font-size: 12px; color: #9AA3B2">ganti</span>
+        </button>
+      </sc-for>
+    </section>
+    <section style="padding: 12px 14px; background: #171A21; border: 1px solid #262B35; border-radius: 14px"><div style="display: flex; align-items: center; gap: 12px"><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span id="pa-local" style="font-size: 13px">Jurnal hanya ke model lokal</span><span style="font-size: 11px; line-height: 1.4; color: #9AA3B2">Tanggapan jurnal memakai Ollama di laptop</span></span><button role="switch" aria-checked="{{swLocal.on}}" aria-labelledby="pa-local" onClick="{{swLocal.toggle}}" style="width: 50px; height: 30px; flex-shrink: 0; padding: 3px; border-radius: 999px; border: 0; background: {{swLocal.track}}; cursor: pointer; display: flex; align-items: center"><span data-knob style="width: 24px; height: 24px; border-radius: 50%; background: {{swLocal.knob}}; transform: translateX({{swLocal.shift}}px)"></span></button></div></section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const sw = (key, def) => {
+      const on = st[key] === undefined ? def : st[key];
+      return { on: on ? 'true' : 'false', track: on ? '#C6F36B' : '#3A4150', knob: on ? '#0F1115' : '#9AA3B2', shift: on ? 20 : 0,
+        toggle: () => { const p = {}; p[key] = !on; this.setState(p); } };
+    };
+    const seg = (key, def, opts) => {
+      const cur = st[key] === undefined ? def : st[key];
+      return opts.map((o) => ({ label: o[1], pressed: cur === o[0] ? 'true' : 'false', bg: cur === o[0] ? '#2A303B' : 'transparent',
+        color: cur === o[0] ? '#E7E9EE' : '#9AA3B2', pick: () => { const p = {}; p[key] = o[0]; this.setState(p); } }));
+    };
+    const segVal = (key, def) => (st[key] === undefined ? def : st[key]);
+
+    const P = [['anthropic', 'Anthropic', 'Kunci sendiri · terhubung', 'sk-ant-•••••••••••3f9a', ['Claude Haiku', 'Claude Sonnet', 'Claude Opus'], 'ok'], ['openai', 'OpenAI', 'Kuota habis', 'sk-•••••••••••••8c21', ['GPT mini', 'GPT'], 'quota'], ['google', 'Google Gemini', 'Belum ada kunci', '', ['Gemini Flash', 'Gemini Pro'], 'none'], ['openrouter', 'OpenRouter', 'Belum ada kunci', '', ['Pilih dari katalog'], 'none'], ['ollama', 'Ollama di laptop', 'Lewat Tailscale · tanpa kunci', 'http://anchoa-laptop:11434', ['llama3.1:8b', 'qwen2.5:7b'], 'ok']];
+    const pid = st.p || 'anthropic';
+    const p = P.find((x) => x[0] === pid);
+    const t = st.t || {};
+    const state = st.testing ? 'testing' : (t[pid] || p[5]);
+    const RES = { ok: ['Kunci valid · model tersedia · 412 ms', '#C6F36B', '#151C12', '#4E6A26'], quota: ['Kuota habis (429). Isi saldo atau pakai penyedia lain.', '#E5B547', '#1E1A10', '#5C4A1C'], none: ['Belum ada kunci. Tempel kunci lalu tes.', '#9AA3B2', '#12151B', '#262B35'], testing: ['Menguji koneksi…', '#C9CED8', '#12151B', '#262B35'] };
+    const r = RES[state];
+    const rc = st.rc || {};
+    const local = segVal('swLocal', true);
+    const TASK = [['intent', 'Perintah suara', 0], ['sum', 'Ringkasan email', 1], ['journal', 'Tanggapan jurnal', -1]];
+    return {
+      provs: P.map((x, i) => ({ name: x[1], sub: x[2], checked: pid === x[0] ? 'true' : 'false', ring: pid === x[0] ? '#C6F36B' : '#3A4150', dotFill: pid === x[0] ? '#C6F36B' : 'transparent', dot: x[5] === 'ok' ? '#C6F36B' : (x[5] === 'quota' ? '#E5B547' : 'transparent'), line: i === 0 ? 'transparent' : '#262B35', pick: () => this.setState({ p: x[0] }) })),
+      keyLabel: pid === 'ollama' ? 'Alamat server' : 'Kunci API ' + p[1],
+      keyMasked: p[3] || '—',
+      test: () => { if (st.testing) return; this.setState({ testing: true }); setTimeout(() => { const x = Object.assign({}, this.state.t || {}); x[pid] = p[3] ? p[5] : 'none'; this.setState({ testing: false, t: x }); }, 900); },
+      testLabel: st.testing ? 'Menguji…' : 'Tes koneksi',
+      res: { text: r[0], color: r[1], bg: r[2], border: r[3] },
+      routes: TASK.map((k, i) => { const useLocal = k[2] === -1 && local; const list = useLocal ? P[4][4] : p[4]; const idx = (rc[k[0]] === undefined ? Math.max(0, k[2]) : rc[k[0]]) % list.length; return { task: k[1], model: list[idx] + (useLocal ? ' · lokal' : ''), tagColor: useLocal ? '#C6F36B' : '#9AA3B2', line: i === 0 ? 'transparent' : '#262B35', next: () => { const x = Object.assign({}, rc); x[k[0]] = idx + 1; this.setState({ rc: x }); } }; }),
+      swLocal: sw('swLocal', true)
+    };
+  }
+}
+</script>
+</body>
+</html>

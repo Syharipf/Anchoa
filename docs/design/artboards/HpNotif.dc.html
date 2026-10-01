@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa HP — Notifikasi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+  <header style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px"><a href="HpBeranda.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; flex-shrink: 0; position: relative; border-radius: 12px; border: 0; background: #171A21; color: #C9CED8; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a><div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Notifikasi</h1><span style="font-size: 12px; color: #9AA3B2">4 belum dibaca</span></div><button style="min-height: 44px; padding: 0 6px; border: 0; background: transparent; color: #C6F36B; font: inherit; font-size: 13px; cursor: pointer">Baca semua</button></header>
+  <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+    <div role="group" aria-label="Tampilan" style="display: flex; gap: 4px; padding: 4px; background: #12151B; border-radius: 12px"><sc-for list="{{tabs}}" as="t" hint-placeholder-count="2"><button onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="flex: 1 1 0; min-height: 38px; border: 0; border-radius: 9px; background: {{t.bg}}; color: {{t.color}}; font: inherit; font-size: 13px; cursor: pointer">{{t.label}}</button></sc-for></div>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+      <span style="margin-top: 4px; font-size: 11px; color: #9AA3B2; text-transform: uppercase; letter-spacing: 0.08em">{{g.label}}</span>
+      <sc-for list="{{g.items}}" as="n" hint-placeholder-count="3">
+        <a href="{{n.href}}" style="display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: {{n.bg}}; border: 1px solid {{n.border}}; color: #E7E9EE; text-decoration: none">
+          <span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: #1D2129; color: {{n.ic}}; display: flex; align-items: center; justify-content: center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="display: flex; gap: 8px"><span style="flex-grow: 1; font-size: 14px; font-weight: {{n.weight}}; line-height: 1.35">{{n.title}}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">{{n.time}}</span></span><span style="font-size: 12px; line-height: 1.4; color: #9AA3B2">{{n.body}}</span></span>
+        </a>
+      </sc-for>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const tabsOf = (key, def, opts) => {
+      const cur = st[key] === undefined ? def : st[key];
+      return opts.map((o) => ({ label: o[1], pressed: cur === o[0] ? 'true' : 'false', bg: cur === o[0] ? '#2A303B' : 'transparent', color: cur === o[0] ? '#E7E9EE' : '#9AA3B2', pick: () => { const p = {}; p[key] = o[0]; this.setState(p); } }));
+    };
+
+    const I = { due: 'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4', bill: 'M13 2L4 14h7l-1 8 9-12h-7z', mail: 'M3 5h18v14H3zM3 7l9 6 9-6', agent: 'M5 11h14v10H5zM8 11V8a4 4 0 0 1 8 0v3', habit: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12.5l2.7 2.7L16.5 9.5', down: 'M12 4v11M7 10l5 5 5-5M5 20h14' };
+    const N = [['Hari ini', I.agent, '#E5B547', 'Agen kode minta izin', 'npm install chart.js@4 · Anchoa v1', '22.41', true, 'HpAgen.dc.html'], ['Hari ini', I.due, '#3987E5', 'Kirim laporan project jatuh tempo', 'Hari ini 18.00 · Laporan project', '18.00', true, 'HpJadwal.dc.html'], ['Hari ini', I.bill, '#FF8A7A', 'Tagihan listrik terlambat 1 hari', 'Rp 312.000 · tandai lunas setelah bayar', '08.00', true, 'HpKeuangan.dc.html'], ['Hari ini', I.mail, '#C6F36B', '3 email baru', 'Dimas Pratama dan 2 lainnya', '10.24', true, 'HpEmail.dc.html'], ['Hari ini', I.habit, '#C6F36B', 'Pengingat: Baca 20 menit', 'Streak 21 hari', '21.00', false, 'HpHabit.dc.html'], ['Kemarin', I.down, '#9AA3B2', 'Unduhan selesai: proposal-anchoa.pdf', 'Download/Anchoa', '21.05', false, 'HpUnduhan.dc.html']];
+    const tab = st.tab || 'all';
+    const groups = [];
+    N.filter((n) => tab === 'all' || n[6]).forEach((n) => {
+      let g = groups.find((x) => x.label === n[0]); if (!g) { g = { label: n[0], items: [] }; groups.push(g); }
+      g.items.push({ icon: n[1], ic: n[2], title: n[3], body: n[4], time: n[5], weight: n[6] ? '600' : '400', bg: n[6] ? '#171A21' : 'transparent', border: n[6] ? '#262B35' : 'transparent', href: n[7] });
+    });
+    return { tabs: tabsOf('tab', 'all', [['all', 'Semua'], ['unread', 'Belum dibaca 4']]), groups: groups };
+  }
+}
+</script>
+</body>
+</html>

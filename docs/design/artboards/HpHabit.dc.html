@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa HP — Habit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+  <header style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px"><div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 600; letter-spacing: -0.01em">Habit</h1><span style="font-size: 12px; color: #9AA3B2">Selasa, 29 September</span></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #C6F36B">{{count}}/5</span></header>
+  <div style="flex-grow: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 120px; display: flex; flex-direction: column; gap: 8px">
+    <div aria-hidden="true" style="display: flex; gap: 4px; margin-bottom: 6px">
+      <sc-for list="{{segs}}" as="s" hint-placeholder-count="5"><span style="flex-grow: 1; height: 6px; border-radius: 3px; background: {{s.bg}}"></span></sc-for>
+    </div>
+    <sc-for list="{{rows}}" as="h" hint-placeholder-count="5">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+        <button data-press role="checkbox" aria-checked="{{h.checked}}" aria-label="{{h.aria}}" onClick="{{h.toggle}}" style="width: 48px; height: 48px; flex-shrink: 0; box-sizing: border-box; border-radius: 50%; border: 2px solid {{h.ring}}; background: {{h.fill}}; color: #0F1115; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><span style="display: flex; opacity: {{h.tick}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></button>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 15px; font-weight: 500; color: {{h.nameColor}}">{{h.name}}</span>
+          <span role="img" aria-label="{{h.weekLabel}}" style="display: flex; gap: 4px">
+            <sc-for list="{{h.week}}" as="w" hint-placeholder-count="7"><span style="width: 12px; height: 12px; box-sizing: border-box; border-radius: 3px; background: {{w.bg}}; border: 1px {{w.style}} {{w.border}}"></span></sc-for>
+          </span>
+        </div>
+        <span style="display: flex; align-items: center; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 14px; color: {{h.streakColor}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5c.8 3.2 5 5.3 5 10a5 5 0 0 1-10 0c0-2.3 1.1-3.9 2.4-5 .1 1.7.9 2.8 2.1 3.2-.6-3 .1-5.9.5-8.2z"></path></svg>{{h.streak}}</span>
+      </div>
+    </sc-for>
+    <p style="margin: 8px 4px 0; display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: #9AA3B2"><span style="display: flex; color: #C6F36B; margin-top: 1px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></span>Bisa juga lewat suara: “Anchoa, aku sudah baca.”</p>
+  </div>
+  <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 136px; z-index: 2; background: linear-gradient(180deg, rgba(15,17,21,0) 0%, rgba(15,17,21,0.94) 42%, #0F1115 60%); pointer-events: none"></div>
+  <button aria-label="Tutup roda menu" tabindex="-1" onClick="{{wheel.toggle}}" style="position: absolute; top: 0; left: 0; width: 390px; height: 844px; z-index: 3; margin: 0; padding: 0; border: 0; background: rgba(5,7,10,0.76); opacity: {{wheel.scrimOp}}; pointer-events: {{wheel.scrimPe}}; transition: opacity 0.25s; cursor: default"></button>
+  <nav aria-label="Menu utama" style="position: absolute; left: 0; right: 0; bottom: 0; height: 300px; z-index: 4; pointer-events: none">
+    <div onPointerDown="{{wheel.down}}" onPointerMove="{{wheel.move}}" onPointerUp="{{wheel.up}}" onPointerCancel="{{wheel.up}}" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; touch-action: none; pointer-events: {{wheel.ringPe}}">
+      <div aria-hidden="true" style="position: absolute; left: 37px; top: 78px; width: 316px; height: 316px; border-radius: 50%; box-sizing: border-box; background: #0B0D10; border: 1px solid #262B35; opacity: {{wheel.ringOp}}; transform: scale({{wheel.ringScale}}); transition: transform 0.4s cubic-bezier(.2,.8,.2,1), opacity 0.25s"></div>
+      <svg aria-hidden="true" width="224" height="224" viewBox="-112 -112 224 224" style="position: absolute; left: 83px; top: 124px; overflow: visible; opacity: {{wheel.ringOp}}; transition: opacity 0.25s"><circle r="112" fill="none" stroke="#2E3440" stroke-dasharray="2 9"></circle></svg>
+      <div aria-hidden="true" style="position: absolute; left: 195px; top: 236px; width: 0; height: 0; transform: rotate({{wheel.fishDeg}}deg) scale({{wheel.fishScale}}); transition: {{wheel.fishTrans}}">
+        <svg data-anim width="180" height="180" viewBox="-90 -90 180 180" style="position: absolute; left: -90px; top: -90px; color: #C6F36B; fill: currentColor; overflow: visible; animation: anchoa-school 16s linear infinite"><g transform="rotate(0.0) translate(0 -75) rotate(-8) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(17.4) translate(0 -65) rotate(3) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(34.7) translate(0 -77) rotate(-3) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(52.1) translate(0 -67) rotate(8) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(69.5) translate(0 -75) rotate(2) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(86.8) translate(0 -65) rotate(-4) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(98.2) translate(0 -77) rotate(7) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(115.5) translate(0 -67) rotate(1) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(132.9) translate(0 -75) rotate(-5) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(150.3) translate(0 -65) rotate(6) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(167.6) translate(0 -77) rotate(0) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(185.0) translate(0 -67) rotate(-6) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(196.4) translate(0 -75) rotate(5) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(213.7) translate(0 -65) rotate(-1) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(231.1) translate(0 -77) rotate(-7) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(248.5) translate(0 -67) rotate(4) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(265.8) translate(0 -75) rotate(-2) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g><g transform="rotate(283.2) translate(0 -65) rotate(-8) scale(0.90)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.55"></path></g><g transform="rotate(294.5) translate(0 -77) rotate(3) scale(1.20)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.65"></path></g><g transform="rotate(311.9) translate(0 -67) rotate(-3) scale(1.00)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.75"></path></g><g transform="rotate(329.3) translate(0 -75) rotate(8) scale(0.80)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.35"></path></g><g transform="rotate(346.6) translate(0 -65) rotate(2) scale(1.10)"><path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" fill-opacity="0.45"></path></g></svg>
+      </div>
+      <div aria-hidden="{{wheel.ringHidden}}" style="position: absolute; left: 195px; top: 236px; width: 0; height: 0; opacity: {{wheel.ringOp}}; transform: rotate({{wheel.deg}}deg) scale({{wheel.ringScale}}); transition: {{wheel.trans}}">
+        <sc-for list="{{wheel.items}}" as="w" hint-placeholder-count="11">
+          <button onClick="{{w.pick}}" aria-label="{{w.label}}" aria-current="{{w.current}}" tabindex="{{w.tab}}" style="position: absolute; left: {{w.x}}px; top: {{w.y}}px; width: 52px; height: 52px; margin: -26px 0 0 -26px; padding: 0; border-radius: 50%; border: 1px solid {{w.border}}; background: {{w.bg}}; color: {{w.color}}; opacity: {{w.op}}; transform: rotate({{w.counter}}deg) scale({{w.scale}}); transition: {{w.trans}}; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{w.icon}}"></path></svg></button>
+        </sc-for>
+      </div>
+      <span aria-live="polite" style="position: absolute; left: 0; right: 0; top: 170px; text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 600; color: #E7E9EE; text-shadow: 0 0 4px #0B0D10, 0 0 8px #0B0D10, 0 0 12px #0B0D10; opacity: {{wheel.ringOp}}; transition: opacity 0.2s; pointer-events: none">{{wheel.label}}</span>
+      <sc-if value="{{wheel.other}}" hint-placeholder-val="{{ false }}">
+        <a href="{{wheel.href}}" style="position: absolute; left: 50%; top: 54px; transform: translateX(-50%); min-height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 16px; border-radius: 999px; background: #C6F36B; color: #0F1115; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; box-shadow: 0 8px 20px #00000080">Buka {{wheel.label}} ›</a>
+      </sc-if>
+      <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 274px; text-align: center; font-size: 11px; color: #5B6475; opacity: {{wheel.ringOp}}; transition: opacity 0.2s; pointer-events: none">geser kiri / kanan</span>
+    </div>
+    <a href="HpCari.dc.html" aria-label="Cari atau jalankan perintah" tabindex="{{wheel.sideTab}}" style="position: absolute; top: 210px; width: 52px; height: 52px; border-radius: 50%; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: opacity 0.2s; left: 40px; background: #171A21; color: #C9CED8; opacity: {{wheel.sideOp}}; pointer-events: {{wheel.sidePe}}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4"></path></svg></a>
+    <a href="HpAsisten.dc.html" aria-label="Bicara ke asisten" tabindex="{{wheel.sideTab}}" style="position: absolute; top: 210px; width: 52px; height: 52px; border-radius: 50%; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: opacity 0.2s; left: 298px; background: #C6F36B; color: #0F1115; opacity: {{wheel.sideOp}}; pointer-events: {{wheel.sidePe}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></a>
+    <button onClick="{{wheel.prev}}" aria-label="Putar ke kiri" tabindex="{{wheel.arrowTab}}" style="position: absolute; top: 238px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #2E3440; padding: 0; background: #171A21; color: #E7E9EE; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: {{wheel.arrowOp}}; pointer-events: {{wheel.arrowPe}}; transition: opacity 0.2s; left: 22px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+    <button onClick="{{wheel.next}}" aria-label="Putar ke kanan" tabindex="{{wheel.arrowTab}}" style="position: absolute; top: 238px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #2E3440; padding: 0; background: #171A21; color: #E7E9EE; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: {{wheel.arrowOp}}; pointer-events: {{wheel.arrowPe}}; transition: opacity 0.2s; left: 324px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    <button onClick="{{wheel.toggle}}" aria-label="{{wheel.hubLabel}}" aria-expanded="{{wheel.expanded}}" style="position: absolute; left: 165px; top: 206px; width: 60px; height: 60px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid {{wheel.hubBorder}}; padding: 0; background: {{wheel.hubBg}}; color: {{wheel.hubColor}}; display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer; box-shadow: 0 0 0 5px #0F1115, 0 10px 24px #00000080; transition: background-color 0.2s, border-color 0.2s"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{wheel.hubIcon}}"></path></svg></button>
+    <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 270px; text-align: center; font-size: 11px; font-weight: 500; color: #C6F36B; text-shadow: 0 0 4px #0F1115, 0 0 8px #0F1115; opacity: {{wheel.sideOp}}; transition: opacity 0.2s; pointer-events: none">{{wheel.homeLabel}}</span>
+  </nav>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const WHEEL = [
+      ['beranda', 'Beranda', 'HpBeranda.dc.html', 'M3 11l9-7 9 7v9H3zM9 20v-6h6v6'],
+      ['jurnal', 'Jurnal', 'HpJurnal.dc.html', 'M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2zM6 17a2 2 0 0 1 2-2h11'],
+      ['habit', 'Habit', 'HpHabit.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12.5l2.7 2.7L16.5 9.5'],
+      ['jadwal', 'Jadwal', 'HpJadwal.dc.html', 'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4'],
+      ['keuangan', 'Keuangan', 'HpKeuangan.dc.html', 'M3 6h18v13H3zM16 12.5h2M3 10h18'],
+      ['proyek', 'Proyek', 'HpProyek.dc.html', 'M3 3h18v18H3zM8 7v7M12 7v4M16 7v10'],
+      ['agen', 'Agen kode', 'HpAgen.dc.html', 'M4 17l6-6-6-6M12 19h8'],
+      ['email', 'Email', 'HpEmail.dc.html', 'M3 5h18v14H3zM3 7l9 6 9-6'],
+      ['berkas', 'Berkas', 'HpBerkas.dc.html', 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+      ['unduhan', 'Unduhan', 'HpUnduhan.dc.html', 'M12 4v11M7 10l5 5 5-5M5 20h14'],
+      ['pengaturan', 'Pengaturan', 'HpPengaturan.dc.html', 'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4']
+    ];
+    const wheelOf = (s) => {
+      const N = WHEEL.length, step = 360 / N, home = 2, R = 112, ease = 'cubic-bezier(.2,.8,.2,1)';
+      const open = s.wopen === undefined ? false : !!s.wopen, drag = !!s.wdrag;
+      const rot = s.wrot === undefined ? -home * step : s.wrot;
+      const norm = (d) => { let x = ((d % 360) + 360) % 360; return x > 180 ? x - 360 : x; };
+      const snap = (r) => Math.round(r / step) * step;
+      const at = Math.round(norm(-rot) / step + N) % N;
+      const turn = (d) => this.setState({ wrot: snap(rot) + d * step });
+      return {
+        expanded: open ? 'true' : 'false',
+        toggle: () => this.setState(open ? { wopen: false, wrot: -home * step, wdrag: false } : { wopen: true }),
+        hubLabel: open ? 'Tutup roda menu' : 'Menu: ' + WHEEL[home][1] + '. Buka roda menu',
+        hubIcon: open ? 'M6 6l12 12M18 6L6 18' : WHEEL[home][3],
+        hubBg: open ? '#1D2129' : '#171A21', hubColor: open ? '#E7E9EE' : '#C6F36B', hubBorder: open ? '#3A4150' : '#4E6A26',
+        homeLabel: WHEEL[home][1],
+        sideOp: open ? 0 : 1, sidePe: open ? 'none' : 'auto', sideTab: open ? '-1' : '0',
+        arrowOp: open ? 1 : 0, arrowPe: open ? 'auto' : 'none', arrowTab: open ? '0' : '-1',
+        scrimOp: open ? 1 : 0, scrimPe: open ? 'auto' : 'none',
+        ringOp: open ? 1 : 0, ringPe: open ? 'auto' : 'none', ringScale: open ? 1 : 0.3, ringHidden: open ? 'false' : 'true',
+        deg: rot, trans: drag ? 'opacity 0.25s' : 'transform 0.45s ' + ease + ', opacity 0.25s',
+        fishDeg: rot * 1.6, fishScale: open ? 1 : 0.58, fishTrans: drag ? 'none' : 'transform 0.7s ' + ease,
+        label: WHEEL[at][1], href: WHEEL[at][2], other: open && at !== home,
+        prev: () => turn(1), next: () => turn(-1),
+        down: (e) => { if (!open || !e) return; this._wd = { x: e.clientX, r: rot, id: e.pointerId, moved: false }; },
+        move: (e) => {
+          const d = this._wd; if (!d || !e) return;
+          const dx = e.clientX - d.x;
+          if (!d.moved) { if (Math.abs(dx) < 6) return; d.moved = true; try { e.currentTarget.setPointerCapture(d.id); } catch (err) {} }
+          this.setState({ wrot: d.r + dx * 0.6, wdrag: true });
+        },
+        up: () => { const d = this._wd; this._wd = null; if (d && d.moved) this.setState({ wrot: snap((this.state || {}).wrot || 0), wdrag: false }); },
+        items: WHEEL.map((w, i) => {
+          const th = i * step * Math.PI / 180, e = norm(i * step + rot), vis = open && Math.abs(e) <= 72, on = i === at;
+          return {
+            label: w[1], icon: w[3], x: Math.round(R * Math.sin(th)), y: Math.round(-R * Math.cos(th)), counter: -rot,
+            op: vis ? (on ? 1 : 0.8) : 0, tab: vis ? '0' : '-1', scale: on ? 1.12 : 0.92,
+            current: i === home ? 'page' : 'false',
+            trans: drag ? 'opacity 0.3s' : 'transform 0.45s ' + ease + ', opacity 0.3s, background-color 0.3s',
+            bg: on ? '#C6F36B' : '#171A21', color: on ? '#0F1115' : (i === home ? '#C6F36B' : '#C9CED8'), border: on ? '#C6F36B' : (i === home ? '#4E6A26' : '#2E3440'),
+            pick: () => { this.setState({ wrot: rot + norm(-i * step - rot) }); }
+          };
+        })
+      };
+    };
+    const H = [['Olahraga pagi', 12, true, '1111011'], ['Latihan coding 1 jam', 8, true, '11100' + '11'], ['Tulis jurnal', 0, true, '1101001'], ['Baca 20 menit', 21, false, '111111t'], ['Tidur sebelum 23.00', 3, false, '110111t']];
+    const done = st.done || {};
+    const rows = H.map((h, i) => {
+      const d = done[i] === undefined ? h[2] : done[i];
+      const s = h[1] + (d ? 1 : 0);
+      const pat = h[3].split('').map((c, j) => (j === 6 ? (d ? '1' : 't') : c));
+      return {
+        name: h[0], checked: d ? 'true' : 'false', aria: 'Tandai ' + h[0] + (d ? ' belum selesai' : ' selesai'),
+        ring: d ? '#C6F36B' : '#3A4150', fill: d ? '#C6F36B' : 'transparent', tick: d ? '1' : '0', nameColor: d ? '#9AA3B2' : '#E7E9EE',
+        toggle: () => { const x = Object.assign({}, done); x[i] = !d; this.setState({ done: x }); },
+        streak: s, streakColor: s > 0 ? '#C6F36B' : '#5B6475',
+        weekLabel: '7 hari terakhir',
+        week: pat.map((c) => (c === '1' ? { bg: '#C6F36B', border: '#C6F36B', style: 'solid' } : (c === 't' ? { bg: 'transparent', border: '#C6F36B', style: 'solid' } : { bg: '#262B35', border: '#262B35', style: 'solid' })))
+      };
+    });
+    const n = rows.filter((r) => r.checked === 'true').length;
+    return { wheel: wheelOf(st), rows: rows, segs: rows.map((r) => ({ bg: r.checked === 'true' ? '#C6F36B' : '#262B35' })), count: n };
+  }
+}
+</script>
+</body>
+</html>

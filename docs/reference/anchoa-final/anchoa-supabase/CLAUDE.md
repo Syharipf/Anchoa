@@ -84,7 +84,7 @@ set local request.jwt.claims to '{"sub": "00000000-0000-0000-0000-000000000001"}
 - Deno + TypeScript, `verify_jwt = true` di `config.toml` (kecuali fungsi yang hanya dipanggil cron — lindungi dengan secret header).
 - Akses DB atas nama pengguna memakai klien dengan **JWT pengguna** (RLS tetap berlaku). **Service role** hanya bila benar-benar perlu, tidak pernah dikembalikan ke klien.
 - Validasi input (mis. zod), batasi ukuran body, rate limit per pengguna, timeout ke layanan luar.
-- Rahasia (API key AI, token GitHub, FCM) hanya lewat `supabase secrets set` / `supabase/functions/.env` lokal (tidak di-commit). Jangan pernah di-log.
+- Rahasia server (token GitHub, FCM) hanya lewat `supabase secrets set` / `supabase/functions/.env` lokal (tidak di-commit). **Kunci API AI milik pengguna** disimpan di Supabase Vault lewat `ai-config`; tidak ada endpoint yang mengembalikan kunci utuh. Jangan pernah di-log.
 - CORS: izinkan origin aplikasi Tauri & dev lokal saja (`tauri://localhost`, `http://tauri.localhost`, `http://localhost:1420`), bukan `*`.
 - `ai-gateway` punya antarmuka provider yang bisa ditukar (⚑ provider AI dipilih pengguna).
 

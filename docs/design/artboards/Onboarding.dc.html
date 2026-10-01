@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Penyiapan pertama</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-row]{transition:background-color .15s}[data-row]:hover{background-color:#161A21!important}
+[data-tile]{transition:background-color .15s,border-color .15s}[data-tile][aria-pressed="false"]:hover{background-color:#171A21!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-bar]{transition:width .3s ease}
+[data-knob]{transition:transform .2s ease}
+@keyframes anchoa-school{to{transform:rotate(360deg)}}
+@keyframes anchoa-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes anchoa-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-slide{from{transform:translateX(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; display: flex; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+  <aside aria-label="Langkah penyiapan" style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 32px 24px; box-sizing: border-box; background: #0B0D10; border-right: 1px solid #262B35">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 22px">
+      <div role="img" aria-label="Logo Anchoa" style="width: 36px; height: 36px; border-radius: 10px; border: 1px dashed #3A4150; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #9AA3B2">Logo</div>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">Selamat datang, Syharipf</span>
+    </div>
+    <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+        <li>
+          <button onClick="{{s.go}}" aria-current="{{s.current}}" style="width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 10px; border-radius: 10px; border: 0; background: {{s.bg}}; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer">
+            <span style="width: 26px; height: 26px; flex-shrink: 0; box-sizing: border-box; border-radius: 50%; border: 1.5px solid {{s.ring}}; background: {{s.fill}}; color: {{s.numColor}}; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 12px">{{s.mark}}</span>
+            <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; color: {{s.color}}">{{s.label}}</span><span style="font-size: 12px; color: #9AA3B2">{{s.sub}}</span></span>
+          </button>
+        </li>
+      </sc-for>
+    </ol>
+    <a href="Main.dc.html" style="margin-top: auto; font-size: 13px; color: #9AA3B2; text-decoration: none">Lewati semua, atur nanti di Pengaturan</a>
+  </aside>
+
+  <main style="flex-grow: 1; display: flex; flex-direction: column; padding: 40px 56px 32px; box-sizing: border-box; min-width: 0">
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3B2">{{stepCount}}</span>
+    <h1 style="margin: 6px 0 4px; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 600">{{title}}</h1>
+    <p style="margin: 0 0 22px; max-width: 620px; font-size: 14px; line-height: 1.55; color: #9AA3B2">{{lead}}</p>
+
+    <div style="flex-grow: 1; min-height: 0">
+      <sc-if value="{{s1}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 14px; max-width: 700px">
+          <div role="group" aria-label="Pilih penyedia AI" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+            <sc-for list="{{provs}}" as="p" hint-placeholder-count="4">
+              <button onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="min-height: 76px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 12px; border-radius: 12px; border: 1px solid {{p.border}}; background: {{p.bg}}; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer"><span style="font-size: 14px; font-weight: 500">{{p.name}}</span><span style="font-size: 12px; line-height: 1.35; color: #9AA3B2">{{p.sub}}</span></button>
+            </sc-for>
+          </div>
+          <sc-if value="{{needKey}}" hint-placeholder-val="{{ true }}">
+            <label style="display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 13px; color: #C9CED8">{{keyLabel}}</span>
+              <span style="display: flex; gap: 8px">
+                <span data-field style="flex-grow: 1; height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 10px; background: #171A21; border: 1px solid #262B35"><span style="display: flex; color: #9AA3B2"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 7a4 4 0 1 0-3.9 5L4 19v2h3v-2h2v-2h2l1.1-1.1A4 4 0 0 0 15 7zM16 7h.01"></path></svg></span><input type="password" placeholder="{{keyPh}}" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px"></span>
+                <button data-press onClick="{{testKey}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 42px">{{testLabel}}</button>
+              </span>
+            </label>
+          </sc-if>
+          <div role="status" aria-live="polite" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; background: {{kr.bg}}; border: 1px solid {{kr.border}}">
+            <span style="display: flex; margin-top: 1px; color: {{kr.color}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{kr.icon}}"></path></svg></span>
+            <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: {{kr.color}}">{{kr.title}}</span><span style="font-size: 12px; line-height: 1.45; color: #9AA3B2">{{kr.sub}}</span></span>
+          </div>
+          <span style="display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.5; color: #9AA3B2"><span style="display: flex; margin-top: 2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11h14v10H5zM8 11V8a4 4 0 0 1 8 0v3"></path></svg></span>Kunci dikirim sekali ke server (Supabase Vault) dan tidak pernah disimpan di aplikasi. Bisa diganti kapan saja di Pengaturan › Asisten & AI.</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s2}}" hint-placeholder-val="{{ false }}">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 760px">
+          <section style="display: flex; flex-direction: column; gap: 12px; padding: 18px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+            <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Mikrofon</h2>
+            <sc-if value="{{micAsk}}" hint-placeholder-val="{{ true }}">
+              <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #9AA3B2">Dipakai hanya saat kamu menekan tombol mikrofon atau mengucapkan kata pemanggil.</p>
+              <button data-press onClick="{{allowMic}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; align-self: flex-start"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>Izinkan mikrofon</button>
+            </sc-if>
+            <sc-if value="{{micOk}}" hint-placeholder-val="{{ false }}">
+              <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #C6F36B"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Mikrofon diizinkan</span>
+              <span style="font-size: 13px; color: #C9CED8">Coba ucapkan “Hai Anchoa”.</span>
+              <div aria-hidden="true" style="display: flex; align-items: flex-end; gap: 3px; height: 28px">
+                <sc-for list="{{meter}}" as="b" hint-placeholder-count="20"><span style="flex-grow: 1; height: {{b.h}}px; border-radius: 2px; background: {{b.c}}"></span></sc-for>
+              </div>
+              <span style="font-size: 12px; color: #9AA3B2">Terdengar: “hai anchoa” · STT di perangkat</span>
+            </sc-if>
+          </section>
+          <section style="display: flex; flex-direction: column; gap: 12px; padding: 18px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+            <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Suara asisten</h2>
+            <div role="group" aria-label="Suara asisten" style="display: flex; gap: 4px; padding: 3px; background: #12151B; border-radius: 9px"><sc-for list="{{voices}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" aria-pressed="{{o.pressed}}" style="flex-grow: 1; min-height: 30px; padding: 0 10px; border: 0; border-radius: 7px; background: {{o.bg}}; color: {{o.color}}; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap">{{o.label}}</button></sc-for></div>
+            <button data-hover onClick="{{sample}}" aria-pressed="{{samplePressed}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; border: 1px solid #4E6A26; background: transparent; color: #C6F36B; font: inherit; font-size: 13px; cursor: pointer; align-self: flex-start"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"></path></svg>{{sampleLabel}}</button>
+            <span style="font-size: 12px; line-height: 1.5; color: #9AA3B2">Bahasa: Indonesia. Kecepatan bisa diubah nanti.</span>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s3}}" hint-placeholder-val="{{ false }}">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; max-width: 820px">
+          <div role="group" aria-label="Pilih avatar" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-content: start">
+            <sc-for list="{{avatars}}" as="m" hint-placeholder-count="3">
+              <button onClick="{{m.pick}}" aria-pressed="{{m.pressed}}" style="display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; border: 1px {{m.bstyle}} {{m.border}}; background: {{m.bg}}; color: #E7E9EE; font: inherit; text-align: left; cursor: pointer">
+                <span style="height: 120px; border-radius: 8px; background: #12151B; display: flex; align-items: flex-end; justify-content: center; overflow: hidden"><svg width="72" height="88" viewBox="0 0 150 180" fill="none" stroke="{{m.stroke}}" stroke-width="5" aria-hidden="true"><circle cx="75" cy="62" r="34" fill="#232833"></circle><path d="M40 180c0-40 16-70 35-70s35 30 35 70" fill="#232833"></path></svg></span>
+                <span style="font-size: 13px; font-weight: 500">{{m.name}}</span><span style="font-size: 11px; color: #9AA3B2">{{m.sub}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <section style="display: flex; flex-direction: column; gap: 12px; padding: 18px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+            <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Uji performa</h2>
+            <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9AA3B2">Menjalankan avatar 5 detik untuk memilih mode yang pas di perangkat ini.</p>
+            <button data-press onClick="{{perf}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; align-self: flex-start">{{perfLabel}}</button>
+            <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: #12151B"><span style="font-family: 'JetBrains Mono', monospace; font-size: 16px; color: {{perfColor}}">{{perfValue}}</span><span style="font-size: 12px; color: #9AA3B2">{{perfNote}}</span></div>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s4}}" hint-placeholder-val="{{ false }}">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; max-width: 820px">
+          <section style="display: flex; flex-direction: column; gap: 4px; padding: 18px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+            <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 8px">Supaya HP bisa membuka file di laptop</h2>
+            <sc-for list="{{lsteps}}" as="l" hint-placeholder-count="4">
+              <div style="display: flex; align-items: flex-start; gap: 12px; padding: 9px 0; border-top: 1px solid {{l.line}}">
+                <span style="width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: {{l.bg}}; color: {{l.color}}; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px">{{l.mark}}</span>
+                <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">{{l.label}}</span><span style="font-size: 12px; line-height: 1.45; color: #9AA3B2">{{l.sub}}</span></span>
+              </div>
+            </sc-for>
+          </section>
+          <section style="display: flex; flex-direction: column; gap: 12px; padding: 18px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+            <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600">Hubungkan</h2>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #C9CED8">anchoa-laptop · 100.88.12.4</span>
+            <button data-press onClick="{{connect}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; align-self: flex-start">{{connectLabel}}</button>
+            <span aria-live="polite" style="font-size: 12px; line-height: 1.45; color: {{connectColor}}">{{connectNote}}</span>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s5}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 4px; max-width: 560px; padding: 18px; background: #171A21; border: 1px solid #262B35; border-radius: 14px">
+          <sc-for list="{{summary}}" as="r" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid {{r.line}}">
+              <span style="width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: {{r.bg}}; color: {{r.color}}; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span>
+              <span style="flex-grow: 1; font-size: 13px">{{r.label}}</span>
+              <span style="font-size: 12px; color: #9AA3B2">{{r.value}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; padding-top: 18px; border-top: 1px solid #262B35">
+      <sc-if value="{{canBack}}" hint-placeholder-val="{{ false }}"><button data-hover onClick="{{back}}" style="min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; border: 1px solid #3A4150; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px; cursor: pointer; min-height: 42px; padding: 0 16px">Kembali</button></sc-if>
+      <sc-if value="{{canSkip}}" hint-placeholder-val="{{ true }}"><button data-hover onClick="{{next}}" style="min-height: 42px; padding: 0 12px; border: 0; background: transparent; color: #9AA3B2; font: inherit; font-size: 14px; cursor: pointer">{{skipLabel}}</button></sc-if>
+      <sc-if value="{{notLast}}" hint-placeholder-val="{{ true }}"><button data-press onClick="{{next}}" style="margin-left: auto; min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9px; border: 0; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 42px; padding: 0 20px; font-size: 14px">Lanjut</button></sc-if>
+      <sc-if value="{{isLast}}" hint-placeholder-val="{{ false }}"><a href="Main.dc.html" style="margin-left: auto; min-height: 42px; display: flex; align-items: center; padding: 0 20px; border-radius: 9px; background: #C6F36B; color: #0F1115; font-size: 14px; font-weight: 600; text-decoration: none">Buka Dashboard</a></sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const sw = (key, def) => {
+      const on = st[key] === undefined ? def : st[key];
+      return { on: on ? 'true' : 'false', track: on ? '#C6F36B' : '#3A4150', knob: on ? '#0F1115' : '#9AA3B2', shift: on ? 18 : 0,
+        toggle: () => { const p = {}; p[key] = !on; this.setState(p); } };
+    };
+    const seg = (key, def, opts) => {
+      const cur = st[key] === undefined ? def : st[key];
+      return opts.map((o) => ({ label: o[1], pressed: cur === o[0] ? 'true' : 'false', bg: cur === o[0] ? '#2A303B' : 'transparent',
+        color: cur === o[0] ? '#E7E9EE' : '#9AA3B2', pick: () => { const p = {}; p[key] = o[0]; this.setState(p); } }));
+    };
+    const segVal = (key, def) => (st[key] === undefined ? def : st[key]);
+
+    const step = st.step || 1;
+    const go = (n) => this.setState({ step: Math.max(1, Math.min(5, n)) });
+    const I = { check: 'M5 12.5l4.5 4.5L19 7.5', info: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v6M12 7.5h.01', sync: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', skip: 'M5 12h14' };
+    const STEPS = [
+      ['Asisten AI', 'Penyedia & kunci API'],
+      ['Suara & mikrofon', 'Izin dan suara asisten'],
+      ['Avatar', 'Model Live2D & performa'],
+      ['Laptop', 'Opsional · akses file dari HP'],
+      ['Selesai', 'Ringkasan']
+    ];
+    const TITLES = ['Pilih otak asistenmu', 'Biar asisten bisa mendengar dan bicara', 'Pilih avatar', 'Hubungkan laptop (opsional)', 'Semua siap'];
+    const LEADS = [
+      'Asisten memakai model AI untuk memahami perintah suara dan meringkas. Kamu bisa memakai kunci API sendiri, atau model lokal di laptop lewat Ollama.',
+      'Anchoa dibuat untuk suara. Izinkan mikrofon dan pilih suara yang enak didengar.',
+      'Avatar Live2D tampil di Dashboard. Kalau perangkat ini berat, Anchoa memakai gambar statis.',
+      'File tetap di laptop. HP membukanya lewat jaringan pribadi Tailscale dan SFTP, tanpa diunggah ke cloud.',
+      'Pengaturan ini bisa diubah kapan saja di Pengaturan.'
+    ];
+    // step 1
+    const PV = [['anthropic', 'Anthropic', 'Kunci API sendiri'], ['openai', 'OpenAI', 'Kunci API sendiri'], ['ollama', 'Ollama lokal', 'Di laptop · tanpa kunci'], ['later', 'Nanti saja', 'Asisten terbatas']];
+    const pv = st.pv || 'anthropic';
+    const kt = st.kt || 'idle';
+    const KR = {
+      idle: { title: 'Belum diuji', sub: 'Tempel kunci lalu tekan Tes. Kami mengirim satu permintaan kecil untuk memastikan kunci dan modelnya bisa dipakai.', icon: I.info, color: '#9AA3B2', bg: '#12151B', border: '#262B35' },
+      testing: { title: 'Menguji…', sub: 'Menghubungi penyedia lewat ai-gateway.', icon: I.sync, color: '#C9CED8', bg: '#12151B', border: '#262B35' },
+      ok: { title: 'Kunci valid · 3 model tersedia', sub: 'Model cepat untuk perintah suara, model seimbang untuk ringkasan. Bisa diatur di Pengaturan.', icon: I.check, color: '#C6F36B', bg: '#151C12', border: '#4E6A26' },
+      later: { title: 'Asisten berjalan terbatas', sub: 'Perintah dasar (buka halaman, tambah tugas) tetap jalan di perangkat. Ringkasan dan tanggapan butuh model AI.', icon: I.info, color: '#9AA3B2', bg: '#12151B', border: '#262B35' },
+      ollama: { title: 'Ollama terdeteksi di laptop', sub: 'llama3.1:8b siap. Lebih privat, tapi lebih lambat dari model cloud.', icon: I.check, color: '#C6F36B', bg: '#151C12', border: '#4E6A26' }
+    };
+    const krKey = pv === 'later' ? 'later' : (pv === 'ollama' ? 'ollama' : kt);
+    // step 2
+    const mic = !!st.mic;
+    const meter = [];
+    for (let i = 0; i < 20; i++) { const h = 4 + Math.round(22 * Math.abs(Math.sin(i * 1.3) * Math.cos(i * 0.45))); meter.push({ h: h, c: h > 20 ? '#E5B547' : '#C6F36B' }); }
+    const smp = !!st.smp;
+    // step 3
+    const av = st.av || 'anchoa';
+    const AV = [['anchoa', 'Anchoa', 'Bawaan · milikmu', '#C6F36B'], ['hiyori', 'Hiyori', 'Contoh SDK · uji saja', '#9AA3B2'], ['statis', 'Gambar statis', 'Paling ringan', '#5B6475']];
+    const perf = st.perf || 'idle';
+    // step 4
+    const cn = st.cn || 'idle';
+    const LS = [
+      ['Pasang Tailscale di laptop dan HP', 'Masuk dengan akun yang sama. Gratis untuk pemakaian pribadi.', true],
+      ['Jalankan skrip penyiapan di laptop', 'Membuat pengguna anchoa-sftp, folder /srv/anchoa, dan mengunci sshd ke tailscale0.', true],
+      ['Salin kunci publik HP ke laptop', 'Login hanya dengan kunci, tanpa kata sandi.', cn === 'ok'],
+      ['Tes koneksi', 'Memastikan HP bisa membaca folder di laptop.', cn === 'ok']
+    ];
+    const summary = [
+      ['Asisten AI', pv === 'later' ? 'Nanti' : (pv === 'ollama' ? 'Ollama lokal' : (kt === 'ok' ? PV.find((p) => p[0] === pv)[1] + ' · terhubung' : 'Belum diuji')), pv !== 'later' && (pv === 'ollama' || kt === 'ok')],
+      ['Mikrofon', mic ? 'Diizinkan' : 'Belum diizinkan', mic],
+      ['Avatar', AV.find((a) => a[0] === av)[1] + (perf === 'done' ? ' · 58 fps' : ''), true],
+      ['Laptop', cn === 'ok' ? 'Terhubung lewat Tailscale' : 'Dilewati', cn === 'ok']
+    ];
+    return {
+      steps: STEPS.map((s, i) => {
+        const n = i + 1, cur = n === step, done = n < step;
+        return { label: s[0], sub: s[1], mark: done ? '✓' : String(n), current: cur ? 'step' : 'false',
+          bg: cur ? '#171A21' : 'transparent', ring: cur || done ? '#C6F36B' : '#3A4150', fill: done ? '#C6F36B' : 'transparent',
+          numColor: done ? '#0F1115' : (cur ? '#C6F36B' : '#9AA3B2'), color: cur || done ? '#E7E9EE' : '#9AA3B2', go: () => go(n) };
+      }),
+      stepCount: 'Langkah ' + step + ' dari 5',
+      title: TITLES[step - 1], lead: LEADS[step - 1],
+      s1: step === 1, s2: step === 2, s3: step === 3, s4: step === 4, s5: step === 5,
+      provs: PV.map((p) => ({ name: p[1], sub: p[2], pressed: pv === p[0] ? 'true' : 'false', bg: pv === p[0] ? '#1D2129' : 'transparent', border: pv === p[0] ? '#4E6A26' : '#262B35', pick: () => this.setState({ pv: p[0], kt: 'idle' }) })),
+      needKey: pv === 'anthropic' || pv === 'openai',
+      keyLabel: 'Kunci API ' + (pv === 'openai' ? 'OpenAI' : 'Anthropic'),
+      keyPh: pv === 'openai' ? 'sk-…' : 'sk-ant-…',
+      testKey: () => { if (kt === 'testing') return; this.setState({ kt: 'testing' }); setTimeout(() => this.setState({ kt: 'ok' }), 900); },
+      testLabel: kt === 'testing' ? 'Menguji…' : 'Tes',
+      kr: KR[krKey],
+      micAsk: !mic, micOk: mic, allowMic: () => this.setState({ mic: true }), meter: meter,
+      voices: seg('voice', 'hangat', [['hangat', 'Hangat'], ['netral', 'Netral'], ['ceria', 'Ceria']]),
+      sample: () => this.setState({ smp: !smp }), samplePressed: smp ? 'true' : 'false', sampleLabel: smp ? 'Memutar…' : 'Dengar contoh',
+      avatars: AV.map((a) => ({ name: a[1], sub: a[2], stroke: a[3], pressed: av === a[0] ? 'true' : 'false', bg: av === a[0] ? '#1D2129' : 'transparent', border: av === a[0] ? '#4E6A26' : '#262B35', bstyle: 'solid', pick: () => this.setState({ av: a[0] }) })),
+      perf: () => { this.setState({ perf: 'run' }); setTimeout(() => this.setState({ perf: 'done' }), 1000); },
+      perfLabel: perf === 'run' ? 'Mengukur…' : (perf === 'done' ? 'Ukur ulang' : 'Mulai uji'),
+      perfValue: perf === 'done' ? '58 fps · CPU 6%' : (perf === 'run' ? '…' : '– fps'),
+      perfColor: perf === 'done' ? '#C6F36B' : '#9AA3B2',
+      perfNote: perf === 'done' ? 'Lancar. Live2D penuh dipakai; berhenti otomatis saat asisten diam.' : 'Belum diukur',
+      lsteps: LS.map((l, i) => ({ label: l[0], sub: l[1], mark: l[2] ? '✓' : String(i + 1), bg: l[2] ? '#C6F36B' : '#1D2129', color: l[2] ? '#0F1115' : '#9AA3B2', line: i === 0 ? 'transparent' : '#262B35' })),
+      connect: () => { this.setState({ cn: 'run' }); setTimeout(() => this.setState({ cn: 'ok' }), 900); },
+      connectLabel: cn === 'run' ? 'Menghubungkan…' : (cn === 'ok' ? 'Terhubung ✓' : 'Hubungkan'),
+      connectNote: cn === 'ok' ? 'Berhasil · 24 ms · folder Dokumen, Foto, Unduhan terlihat.' : 'Laptop harus menyala dan sudah masuk Tailscale.',
+      connectColor: cn === 'ok' ? '#C6F36B' : '#9AA3B2',
+      summary: summary.map((r, i) => ({ label: r[0], value: r[1], icon: r[2] ? I.check : I.skip, bg: r[2] ? '#C6F36B' : '#1D2129', color: r[2] ? '#0F1115' : '#9AA3B2', line: i === 0 ? 'transparent' : '#262B35' })),
+      canBack: step > 1, back: () => go(step - 1), next: () => go(step + 1),
+      canSkip: step === 1 || step === 4, skipLabel: step === 4 ? 'Lewati langkah ini' : 'Atur nanti',
+      notLast: step < 5, isLast: step === 5
+    };
+  }
+}
+</script>
+</body>
+</html>

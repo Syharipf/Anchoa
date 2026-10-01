@@ -114,6 +114,7 @@ pub fn export(conn, root: &Path) -> Result<PathBuf, AppError>                 //
 - Judul dipangkas, kosong menjadi "Tanpa judul", dan lebih dari 200 karakter berarti `AppError::Invalid`.
 - Induk harus halaman yang tidak terhapus. Kalau bukan, kembalikan `Invalid("Induk harus halaman")`.
 - `rename` dengan judul yang sama tidak menulis apa pun.
+- Tautan ke halaman yang belum ada tidak disimpan di `links` (C7). Karena itu `create`, `rename`, dan `restore` memanggil `links::refresh_mentions(conn, title)`, fungsi baru di `links.rs`. Fungsi ini menjalankan `refresh` ulang untuk setiap item tidak terhapus yang isinya memuat `[[judul` (`LIKE`, tanpa membedakan huruf besar dan kecil). Dengan begitu backlink muncul begitu halaman tujuannya dibuat.
 - `updated_at` hanya berubah oleh judul, isi, atau induk.
 - Fungsi yang menerima `id` halaman terhapus atau bukan halaman mengembalikan `NotFound`.
 - `delete` memakai `WITH RECURSIVE` untuk mengambil subpohon.
@@ -134,6 +135,7 @@ pub fn export(conn, root: &Path) -> Result<PathBuf, AppError>                 //
 - `restore_to_root_when_parent_still_deleted`;
 - `trash_lists_only_deletion_roots`;
 - `save_body_refreshes_links`;
+- `creating_a_page_links_earlier_mentions`: item yang sudah berisi `[[Ide baru]]` muncul di backlink halaman "Ide baru" begitu halaman itu dibuat;
 - `export_writes_folder_notes_and_unique_names`: tempdir; judul `../x` dan dua judul "A" menghasilkan `A.md` dan `A (2).md`.
 
 **Commit:** `feat: add the page tree`.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   api,
   errorMessage,
@@ -87,18 +87,22 @@ export function ProfilePage({
     }
   };
 
+  const prefsRequest = useRef(0);
   const handleTogglePref = useCallback(
     (key: keyof NotifyPrefs) => {
       const next: NotifyPrefs = { ...prefs, [key]: !prefs[key] };
       setPrefs(next);
+      // Only the newest save may update the switches; an older reply must not undo a later toggle.
+      const request = ++prefsRequest.current;
       api.setNotifyPrefs(next).then(
         (saved) => {
+          if (request !== prefsRequest.current) return;
           setPrefs(saved);
           onPrefsChanged?.(saved);
         },
         (err) => {
           toast(errorMessage(err), "error");
-          setPrefs(prefs);
+          if (request === prefsRequest.current) setPrefs(prefs);
         },
       );
     },

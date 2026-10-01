@@ -66,6 +66,7 @@ export function isVoiceInstalled(status: VoiceStatus | null | undefined): boolea
   );
   return Boolean(
     status.pwRecord &&
+    status.pwPlay &&
     status.whisper &&
     status.whisperModel &&
     status.piper &&

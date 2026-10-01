@@ -1,5 +1,7 @@
 import type { useAssistant, AssistantMode } from "./useAssistant";
 import { ProposalCard } from "./ProposalCard";
+import { OllamaOfflineCard } from "./OllamaOfflineCard";
+import { VoiceMissingCard } from "./VoiceMissingCard";
 
 export const STATUS: Record<AssistantMode, { text: string; color: string }> = {
   idle: { text: "Siap", color: "var(--color-muted)" },
@@ -12,6 +14,56 @@ export interface AssistantFeedbackProps {
   readonly assistant: ReturnType<typeof useAssistant>;
   readonly showHistory?: boolean;
   readonly compact?: boolean;
+}
+
+export function AssistantCaption({
+  assistant,
+  hint = "Aku siap membantu tugas, jadwal, keuangan, dan catatanmu. Ketik pesan atau ketuk mikrofon.",
+  compact = false,
+  onOpenAiSettings,
+  onOpenVoiceSettings,
+}: Readonly<{
+  assistant: ReturnType<typeof useAssistant>;
+  hint?: string;
+  compact?: boolean;
+  onOpenAiSettings?: () => void;
+  onOpenVoiceSettings?: () => void;
+}>) {
+  const { mode, streamingCaption } = assistant;
+  if (mode === "idle") {
+    if (assistant.aiStatus?.available === false) return <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />;
+    if (assistant.voiceMissing) return <VoiceMissingCard onOpenVoiceSettings={onOpenVoiceSettings} compact={compact} />;
+  }
+  const thinking = mode === "thinking";
+  const speaking = mode === "speaking";
+  const listening = mode === "listening";
+  return (
+    <div className="flex flex-col gap-1.5">
+      {thinking || speaking ? (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-accent">{speaking ? "Berbicara" : "Sedang berpikir…"}</span>
+          <button
+            type="button"
+            aria-label={speaking ? "Hentikan suara" : "Hentikan"}
+            onClick={assistant.stop}
+            className={`rounded border px-2 py-0.5 text-xs font-medium cursor-pointer ${speaking
+              ? "border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
+              : "border-danger/40 bg-danger/10 text-danger hover:bg-danger/20"}`}
+          >
+            Hentikan
+          </button>
+        </div>
+      ) : !compact && (
+        <span className={`text-xs ${listening ? "text-danger" : "text-muted"}`}>
+          {listening ? "Mendengarkan…" : "Asisten suara"}
+        </span>
+      )}
+      <p className="m-0 text-sm leading-snug text-ink">
+        {listening ? "Bicaralah ke mikrofon. Ketuk lagi untuk mengirim ke asisten."
+          : streamingCaption || (thinking ? "Memproses permintaan…" : hint)}
+      </p>
+    </div>
+  );
 }
 
 export function AssistantFeedback({

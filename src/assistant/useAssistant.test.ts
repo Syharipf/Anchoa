@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { api, type AiStatus, type AssistantProposal, type AssistantReply } from "../api";
+import { api, type AiStatus, type AssistantEvent, type AssistantProposal, type AssistantReply } from "../api";
 import { deferred, hookHarness } from "../test/hookHarness";
 import {
   assistantReducer,
@@ -251,6 +251,17 @@ describe("useAssistant", () => {
     expect(api.assistantPending).toHaveBeenCalledTimes(2);
   });
 
+  it("restores pending proposals after StrictMode's cleanup and ignores the first snapshot", async () => {
+    const first = deferred<AssistantProposal[]>();
+    spies.push(spyOn(api, "assistantPending").mockReturnValueOnce(first.promise).mockResolvedValue([proposal]));
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    harness.replayEffects();
+    expect((await harness.settle()).pendingProposals).toEqual([proposal]);
+    first.resolve([{ ...proposal, id: "stale" }]);
+    expect((await harness.settle()).pendingProposals).toEqual([proposal]);
+  });
+
   it.each([true, false])("keeps the card during a decision and after failure (approve: %s)", async (approve) => {
     const decision = deferred<null>();
     const decideSpy = spyOn(api, "assistantDecide").mockReturnValueOnce(decision.promise).mockResolvedValue(null);
@@ -415,6 +426,9 @@ describe("microphone and voice flow in useAssistant", () => {
   beforeEach(() => {
     spies.push(spyOn(api, "assistantPending").mockResolvedValue([]));
     spies.push(spyOn(api, "aiStatus").mockResolvedValue({ available: true, models: ["qwen2.5:3b"], error: null }));
+    spies.push(spyOn(api, "assistantStop").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "assistantReset").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceStop").mockResolvedValue(undefined));
   });
 
   afterEach(() => {
@@ -498,6 +512,9 @@ describe("microphone and voice flow in useAssistant", () => {
     // Mode should be speaking while voiceSpeak is running
     expect(harness.render().mode).toBe("speaking");
     expect(harness.render().streamingCaption).toBe("Halo juga, ada yang bisa kubantu?");
+    expect(harness.render().messages).toEqual([
+      { role: "user", content: "Halo anchoa" }, reply.message,
+    ]);
     expect(speakSpy).toHaveBeenCalledWith("Halo juga, ada yang bisa kubantu?");
 
     // Complete speaking
@@ -587,5 +604,193 @@ describe("microphone and voice flow in useAssistant", () => {
 
     expect(failed.mode).toBe("idle");
     expect(failed.error).toBe("Transkripsi gagal");
+  });
+
+  const mountListening = async () => {
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+    await harness.render().toggleMic();
+    expect(harness.render().mode).toBe("listening");
+  };
+
+  it.each(["stop", "reset", "unmount"])("stops the recorder and discards its transcript on %s", async (action) => {
+    const transcript = deferred<string>();
+    const recordStop = spyOn(api, "voiceRecordStop").mockReturnValue(transcript.promise);
+    const send = spyOn(api, "assistantSend").mockResolvedValue(reply);
+    const speak = spyOn(api, "voiceSpeak").mockResolvedValue(undefined);
+    spies.push(recordStop, send, speak);
+    await mountListening();
+    if (action === "unmount") harness!.dispose();
+    else void harness!.render()[action as "stop" | "reset"]();
+    expect(recordStop).toHaveBeenCalledTimes(1);
+    transcript.resolve("Ne jamais envoyer");
+    await transcript.promise;
+    if (action !== "unmount") {
+      await harness!.settle();
+      await harness!.render().toggleMic();
+      expect(harness!.render().mode).toBe("listening");
+    }
+    expect(send).not.toHaveBeenCalled();
+    expect(speak).not.toHaveBeenCalled();
+    expect(api.voiceStop).toHaveBeenCalled();
+  });
+
+  it("uses thinking during transcription and guards repeated mic presses and typed sends", async () => {
+    const transcript = deferred<string>();
+    const recordStop = spyOn(api, "voiceRecordStop").mockReturnValue(transcript.promise);
+    const send = spyOn(api, "assistantSend").mockResolvedValue(reply);
+    spies.push(recordStop, send);
+    await mountListening();
+    const assistant = harness!.render();
+    await assistant.send("Typed during recording");
+    const recording = assistant.toggleMic();
+    expect(harness!.render().mode).toBe("thinking");
+    await assistant.toggleMic(); // Also guard a handler captured before the render.
+    await harness!.render().send("Typed during transcription");
+    expect(recordStop).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+    transcript.resolve("");
+    await recording;
+    expect(harness!.render().mode).toBe("idle");
+  });
+
+  it.each(["stop", "reset", "unmount"])("does not send a pending transcription after %s", async (action) => {
+    const transcript = deferred<string>();
+    const send = spyOn(api, "assistantSend").mockResolvedValue(reply);
+    const speak = spyOn(api, "voiceSpeak").mockResolvedValue(undefined);
+    spies.push(spyOn(api, "voiceRecordStop").mockReturnValue(transcript.promise), send, speak);
+    await mountListening();
+    const recording = harness!.render().toggleMic();
+    if (action === "unmount") harness!.dispose();
+    else void harness!.render()[action as "stop" | "reset"]();
+    transcript.resolve("Cancelled transcript");
+    await recording;
+    expect(send).not.toHaveBeenCalled();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it.each(["stop", "reset", "unmount"])("drains a recorder whose start finishes after %s", async (action) => {
+    const start = deferred<void>();
+    const recordStop = spyOn(api, "voiceRecordStop").mockResolvedValue("Discard");
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus),
+      spyOn(api, "voiceRecordStart").mockReturnValue(start.promise), recordStop);
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+    const starting = harness.render().toggleMic();
+    await harness.settle();
+    if (action === "unmount") harness.dispose();
+    else void harness.render()[action as "stop" | "reset"]();
+    start.resolve();
+    await starting;
+    expect(recordStop).toHaveBeenCalledTimes(1);
+    if (action !== "unmount") expect(harness.render().mode).toBe("idle");
+  });
+
+  it("keeps thinking on channel completion, appends once, and ignores late callbacks after unmount", async () => {
+    const response = deferred<AssistantReply>();
+    let onEvent!: (event: AssistantEvent) => void;
+    const speak = spyOn(api, "voiceSpeak").mockResolvedValue(undefined);
+    spies.push(spyOn(api, "voiceRecordStop").mockResolvedValue("Halo"), speak,
+      spyOn(api, "assistantSend").mockImplementation((_text, callback) => {
+        onEvent = callback;
+        return response.promise;
+      }));
+    await mountListening();
+    const recording = harness!.render().toggleMic();
+    await harness!.settle();
+    onEvent({ type: "done", data: reply.message });
+    expect(harness!.render().mode).toBe("thinking");
+    expect(harness!.render().messages).toHaveLength(2);
+    onEvent({ type: "done", data: reply.message });
+    expect(harness!.render().messages).toHaveLength(2);
+    harness!.dispose();
+    onEvent({ type: "delta", data: "Stale caption" });
+    response.resolve(reply);
+    await recording;
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("keeps a new recording listening when stopped speech completes late", async () => {
+    const speech = deferred<void>();
+    spies.push(spyOn(api, "voiceRecordStop").mockResolvedValue("Halo"),
+      spyOn(api, "assistantSend").mockResolvedValue(reply),
+      spyOn(api, "voiceSpeak").mockReturnValue(speech.promise));
+    await mountListening();
+    const recording = harness!.render().toggleMic();
+    await harness!.settle();
+    expect(harness!.render().mode).toBe("speaking");
+    await harness!.render().toggleMic();
+    await harness!.render().toggleMic();
+    expect(harness!.render().mode).toBe("listening");
+    speech.resolve();
+    await recording;
+    expect(harness!.render().mode).toBe("listening");
+  });
+
+  it("refreshes missing voice components on a mic press without remounting", async () => {
+    const status = spyOn(api, "voiceStatus").mockResolvedValueOnce(missingVoiceStatus)
+      .mockResolvedValue(installedVoiceStatus);
+    spies.push(status, spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+    await harness.render().toggleMic();
+    expect(harness.render().mode).toBe("listening");
+    expect(status).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits for a cancelled start to drain before starting a new recording", async () => {
+    const oldStart = deferred<void>();
+    const oldStop = deferred<string>();
+    const start = spyOn(api, "voiceRecordStart").mockReturnValueOnce(oldStart.promise).mockResolvedValue(undefined);
+    const recordStop = spyOn(api, "voiceRecordStop").mockReturnValue(oldStop.promise);
+    spies.push(start, recordStop, spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus));
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+    const first = harness.render().toggleMic();
+    const stopping = harness.render().stop();
+    const next = harness.render().toggleMic();
+    oldStart.resolve();
+    await harness.settle();
+    expect(recordStop).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(harness.render().mode).toBe("thinking");
+    oldStop.resolve("Discard old interaction");
+    await Promise.all([first, stopping, next]);
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(harness.render().mode).toBe("listening");
+  });
+
+  it("ignores a late reply failure and channel events while a newer recording listens", async () => {
+    const oldReply = deferred<AssistantReply>();
+    let onEvent!: (event: AssistantEvent) => void;
+    const speak = spyOn(api, "voiceSpeak").mockResolvedValue(undefined);
+    spies.push(spyOn(api, "voiceRecordStop").mockResolvedValue("Halo"), speak,
+      spyOn(api, "assistantSend").mockImplementation((_text, callback) => {
+        onEvent = callback;
+        return oldReply.promise;
+      }));
+    await mountListening();
+    const first = harness!.render().toggleMic();
+    await harness!.settle();
+    await harness!.render().stop();
+    await harness!.render().toggleMic();
+    onEvent({ type: "delta", data: "Stale" });
+    onEvent({ type: "proposal", data: proposal });
+    onEvent({ type: "done", data: reply.message });
+    onEvent({ type: "error", data: "Stale channel error" });
+    oldReply.reject(new Error("Stale reply failure"));
+    await first;
+    expect(harness!.render().mode).toBe("listening");
+    expect(harness!.render().messages).toEqual([{ role: "user", content: "Halo" }]);
+    expect(harness!.render().error).toBeNull();
+    expect(harness!.render().streamingCaption).toBe("");
+    expect(harness!.render().pendingProposals).toEqual([]);
+    expect(speak).not.toHaveBeenCalled();
   });
 });

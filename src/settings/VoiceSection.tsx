@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   api,
   errorMessage,
@@ -7,6 +7,7 @@ import {
   type VoiceInstallProgress,
   type VoiceParams,
   type VoiceStatus,
+  type VoiceSettings,
 } from "../api";
 import { H2, PANEL, PRIMARY, SECONDARY } from "../shell/ui";
 
@@ -25,54 +26,90 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
   const [importing, setImporting] = useState(false);
   const [speaking, setSpeaking] = useState(false);
 
-  // Sliders state
-  const [lengthScale, setLengthScale] = useState(1.0);
-  const [noiseScale, setNoiseScale] = useState(0.667);
-  const [noiseW, setNoiseW] = useState(0.8);
+  const [params, setParams] = useState<VoiceParams>({ lengthScale: 1, noiseScale: 0.667, noiseW: 0.8 });
+  const { lengthScale, noiseScale, noiseW } = params;
+  const mountedRef = useRef(true);
+  const statusRequestRef = useRef(0);
+  const settingsRequestRef = useRef(0);
+  const savedSettingsRequestRef = useRef(0);
+  const settingsRef = useRef<VoiceSettings | null>(null);
+  const saveTimerRef = useRef<number | null>(null);
+  const speechRequestRef = useRef(0);
+  const speakingRef = useRef(false);
+  const [micMode, setMicMode] = useState<"idle" | "starting" | "listening" | "transcribing">("idle");
+  const micModeRef = useRef(micMode);
+  const micRequestRef = useRef(0);
+  const [transcript, setTranscript] = useState<string | null>(null);
+  const [micError, setMicError] = useState<string | null>(null);
 
-  const loadStatus = useCallback(async () => {
-    try {
-      const res = await api.voiceStatus();
-      setStatus(res);
-      setLengthScale(res.settings.params.lengthScale);
-      setNoiseScale(res.settings.params.noiseScale);
-      setNoiseW(res.settings.params.noiseW);
-    } catch {
-      setStatus(null);
-    } finally {
-      setLoading(false);
-    }
+  const applySettings = useCallback((settings: VoiceSettings) => {
+    settingsRef.current = settings;
+    setParams(settings.params);
+    setStatus((prev) => prev ? {
+      ...prev, settings,
+      voices: prev.voices.map((voice) => voice.id === settings.id ? { ...voice, params: settings.params } : voice),
+    } : prev);
   }, []);
 
+  const loadStatus = useCallback(async () => {
+    const request = ++statusRequestRef.current;
+    const settingsRequest = settingsRequestRef.current;
+    const settingsPending = savedSettingsRequestRef.current !== settingsRequest;
+    try {
+      const res = await api.voiceStatus();
+      if (!mountedRef.current || request !== statusRequestRef.current) return null;
+      const preserveSettings = settingsPending || settingsRequest !== settingsRequestRef.current ||
+        savedSettingsRequestRef.current !== settingsRequestRef.current;
+      const settings = preserveSettings && settingsRef.current ? settingsRef.current : res.settings;
+      setStatus({ ...res, settings });
+      applySettings(settings);
+      return res;
+    } catch {
+      if (mountedRef.current && request === statusRequestRef.current &&
+          settingsRequest === settingsRequestRef.current) setStatus((prev) => settingsRef.current ? prev : null);
+      return null;
+    } finally {
+      if (mountedRef.current && request === statusRequestRef.current) setLoading(false);
+    }
+  }, [applySettings]);
+
   useEffect(() => {
-    loadStatus();
+    mountedRef.current = true;
+    void loadStatus();
+    return () => {
+      mountedRef.current = false;
+      statusRequestRef.current++;
+      settingsRequestRef.current++;
+      savedSettingsRequestRef.current = settingsRequestRef.current;
+      speechRequestRef.current++;
+      micRequestRef.current++;
+      if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+      if (speakingRef.current) void api.voiceStop().catch(() => {});
+      if (micModeRef.current === "listening") void api.voiceRecordStop().catch(() => {});
+    };
   }, [loadStatus]);
 
   const handleInstall = async (component: VoiceComponent) => {
     setInstallError(null);
     setInstalling((prev) => ({
       ...prev,
-      [component]: {
-        component,
-        file: "",
-        doneBytes: 0,
-        totalBytes: null,
-        stage: "downloading",
-      },
+      [component]: { component, file: "", doneBytes: 0, totalBytes: null, stage: "downloading" },
     }));
-
     try {
       await api.voiceInstall(component, (progress) => {
-        setInstalling((prev) => ({ ...prev, [component]: progress }));
+        if (mountedRef.current) setInstalling((prev) => ({ ...prev, [component]: progress }));
       });
+      if (!mountedRef.current) return;
       setInstalling((prev) => {
         const next = { ...prev };
         delete next[component];
         return next;
       });
       await loadStatus();
+      if (!mountedRef.current) return;
       onChanged?.();
     } catch (e) {
+      if (!mountedRef.current) return;
       setInstalling((prev) => {
         const next = { ...prev };
         delete next[component];
@@ -82,86 +119,136 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
     }
   };
 
-  const handleSelectVoice = async (id: string) => {
+  const saveSettings = async (request: number, id: string, newParams?: VoiceParams) => {
     try {
-      const updated = await api.setVoice(id);
-      setStatus((prev) => (prev ? { ...prev, settings: updated } : prev));
-      setLengthScale(updated.params.lengthScale);
-      setNoiseScale(updated.params.noiseScale);
-      setNoiseW(updated.params.noiseW);
+      const updated = await (newParams ? api.setVoice(id, newParams) : api.setVoice(id));
+      if (!mountedRef.current || request !== settingsRequestRef.current) return;
+      savedSettingsRequestRef.current = request;
+      applySettings(updated);
       onChanged?.();
     } catch (e) {
-      setInstallError(errorMessage(e));
+      if (mountedRef.current && request === settingsRequestRef.current) setInstallError(errorMessage(e));
     }
   };
 
-  const handleParamChange = async (key: keyof VoiceParams, value: number) => {
-    if (!status) return;
-    const newParams: VoiceParams = {
-      lengthScale: key === "lengthScale" ? value : lengthScale,
-      noiseScale: key === "noiseScale" ? value : noiseScale,
-      noiseW: key === "noiseW" ? value : noiseW,
-    };
-    setLengthScale(newParams.lengthScale);
-    setNoiseScale(newParams.noiseScale);
-    setNoiseW(newParams.noiseW);
+  const handleSelectVoice = async (id: string) => {
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    const request = ++settingsRequestRef.current;
+    const voice = status?.voices.find((v) => v.id === id);
+    if (voice) applySettings({ id, params: voice.params });
+    setInstallError(null);
+    await saveSettings(request, id);
+  };
 
-    try {
-      const updated = await api.setVoice(status.settings.id, newParams);
-      setStatus((prev) => (prev ? { ...prev, settings: updated } : prev));
-      onChanged?.();
-    } catch (e) {
-      setInstallError(errorMessage(e));
-    }
+  const handleParamChange = (key: keyof VoiceParams, value: number) => {
+    if (!settingsRef.current) return;
+    const settings = { ...settingsRef.current, params: { ...settingsRef.current.params, [key]: value } };
+    const request = ++settingsRequestRef.current;
+    applySettings(settings);
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      void saveSettings(request, settings.id, settings.params);
+    }, 300);
   };
 
   const handleImport = async () => {
+    const settingsRequest = settingsRequestRef.current;
     setImportError(null);
     setImporting(true);
     try {
       const onnxPath = await api.pickVoiceModel();
-      if (!onnxPath) {
-        setImporting(false);
-        return;
-      }
+      if (!mountedRef.current || !onnxPath) return;
       const importedId = await api.voiceImport(onnxPath);
-      const res = await api.voiceStatus();
-      setStatus(res);
-      if (res.voices.some((v) => v.id === importedId)) {
+      if (!mountedRef.current) return;
+      const res = await loadStatus();
+      if (!mountedRef.current) return;
+      if (settingsRequest === settingsRequestRef.current && res?.voices.some((v) => v.id === importedId)) {
         await handleSelectVoice(importedId);
+        if (!mountedRef.current) return;
       }
       onChanged?.();
     } catch (e) {
-      setImportError(errorMessage(e));
+      if (mountedRef.current) setImportError(errorMessage(e));
     } finally {
-      setImporting(false);
+      if (mountedRef.current) setImporting(false);
     }
   };
 
   const handleSpeakSample = async () => {
+    if (micModeRef.current !== "idle" || speakingRef.current) return;
+    const request = ++speechRequestRef.current;
+    speakingRef.current = true;
     setSpeaking(true);
     try {
       await api.voiceSpeak(SAMPLE_TEXT);
     } catch {
-      // ignore
+      // Keep sample playback optional.
     } finally {
-      setSpeaking(false);
+      if (mountedRef.current && request === speechRequestRef.current) {
+        speakingRef.current = false;
+        setSpeaking(false);
+      }
     }
   };
 
   const handleStopSpeak = async () => {
+    const request = ++speechRequestRef.current;
     try {
       await api.voiceStop();
     } catch {
-      // ignore
+      // The sample may already have finished.
     } finally {
-      setSpeaking(false);
+      if (mountedRef.current && request === speechRequestRef.current) {
+        speakingRef.current = false;
+        setSpeaking(false);
+      }
+    }
+  };
+
+  const microphoneMissing = status ? [
+    !status.pwRecord && "pw-record",
+    !status.whisper && "whisper.cpp",
+    !status.whisperModel && "model Whisper Base",
+  ].filter(Boolean) : ["status suara"];
+
+  const handleMicTest = async () => {
+    if (!mountedRef.current || speakingRef.current || microphoneMissing.length > 0) return;
+    if (micModeRef.current === "starting" || micModeRef.current === "transcribing") return;
+    const request = ++micRequestRef.current;
+    const current = () => mountedRef.current && request === micRequestRef.current;
+    const setMode = (mode: typeof micMode) => {
+      micModeRef.current = mode;
+      setMicMode(mode);
+    };
+    setMicError(null);
+    try {
+      if (micModeRef.current === "listening") {
+        setMode("transcribing");
+        const text = await api.voiceRecordStop();
+        if (!current()) return;
+        setTranscript(text.trim() || "Tidak ada ucapan yang terdeteksi. Coba lagi.");
+        setMode("idle");
+      } else {
+        setTranscript(null);
+        setMode("starting");
+        await api.voiceRecordStart();
+        if (!current()) {
+          await api.voiceRecordStop().catch(() => {});
+          return;
+        }
+        setMode("listening");
+      }
+    } catch (e) {
+      if (!current()) return;
+      setMicError(errorMessage(e));
+      setMode("idle");
     }
   };
 
   const activeVoiceId = status?.settings.id ?? "";
   const activeVoice = status?.voices.find((v) => v.id === activeVoiceId);
-  const canSpeak = Boolean(status?.piper && activeVoice?.installed);
+  const canSpeak = Boolean(status?.pwPlay && status.piper && activeVoice?.installed);
 
   const renderProgressBar = (progress: VoiceInstallProgress | null | undefined) => {
     if (!progress) return null;
@@ -378,6 +465,30 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
               {renderProgressBar(installing.piper)}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="heading-microphone-test" className={PANEL}>
+        <div className="flex flex-col gap-3">
+          <h2 id="heading-microphone-test" className={H2}>Uji Mikrofon</h2>
+          <p className="m-0 text-sm text-muted">
+            Bicaralah selama beberapa detik, lalu hentikan rekaman untuk melihat transkripsi.
+          </p>
+          {microphoneMissing.length > 0 && (
+            <p className="m-0 text-xs text-warn">Uji mikrofon memerlukan: {microphoneMissing.join(", ")}.</p>
+          )}
+          <button
+            type="button"
+            aria-label={micMode === "listening" ? "Hentikan rekaman uji" : "Uji mikrofon"}
+            disabled={microphoneMissing.length > 0 || speaking || micMode === "starting" || micMode === "transcribing"}
+            onClick={handleMicTest}
+            className={`${SECONDARY} self-start disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {micMode === "listening" ? "Hentikan rekaman uji" : micMode === "starting" ? "Memulai rekaman…" : micMode === "transcribing" ? "Mentranskripsi…" : "Uji mikrofon"}
+          </button>
+          {micMode === "listening" && <p className="m-0 text-xs text-danger" role="status">Mendengarkan…</p>}
+          {transcript !== null && <p className="m-0 rounded-lg bg-surface-2 p-3 text-sm text-ink" role="status">{transcript}</p>}
+          {micError && <p className="m-0 text-xs text-danger" role="alert">{micError}</p>}
         </div>
       </section>
 

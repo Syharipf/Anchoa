@@ -89,6 +89,7 @@ describe("sectionStatus", () => {
       whisperModel: false,
     };
     expect(sectionStatus("suara", { voiceStatus: missingModelVoiceStatus })).toBe("Belum dipasang");
+    expect(sectionStatus("suara", { voiceStatus: { ...installedVoiceStatus, pwPlay: false } })).toBe("Belum dipasang");
   });
 
   it("returns 'Lokal' for data", () => {

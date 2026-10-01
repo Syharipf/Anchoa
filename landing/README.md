@@ -1,5 +1,7 @@
 # Anchoa Landing Page
 
+Ini landing page untuk **[Anchoa](../README.md)**, aplikasi dashboard pribadi di repo yang sama ([Syharipf/Anchoa](https://github.com/Syharipf/Anchoa)). Kode aplikasi ada di root repo (`src/`, `src-tauri/`); folder `landing/` hanya berisi situs promosinya yang tayang di https://syharipf.github.io/Anchoa/.
+
 Landing page mengikuti warna, font, tata letak, konten, dan ilustrasi laut dari `Anchoa.html` yang diberikan pengguna. Visi produk mengikuti `Anchoa.md`. Dibangun dengan **Astro, TypeScript strict, dan CSS native**; hasilnya HTML statis tanpa server aplikasi atau runtime framework UI.
 
 ## Menjalankan

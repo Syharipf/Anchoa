@@ -176,6 +176,30 @@
 **Commit:** `test: cover voice settings end to end; bump version to 0.14.0`.
 **Penutup PR 5-4**, lalu rilis.
 
+## Konstanta unduhan (diverifikasi sesi Opus, 2026-10-01 23:33)
+
+Hash SHA-256 diambil dari header `x-linked-etag` Hugging Face (LFS) atau dihitung dari berkas yang diunduh.
+
+| Komponen | URL | SHA-256 | Ukuran |
+|---|---|---|---|
+| whisper `ggml-base.bin` | https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin | 60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe | 147951465 |
+| Piper binary `piper_linux_x86_64.tar.gz` | https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz | a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992 | 26460462 |
+| `id_ID-news_tts-medium.onnx` | https://huggingface.co/rhasspy/piper-voices/resolve/main/id/id_ID/news_tts/medium/id_ID-news_tts-medium.onnx | ed8f02aa593f7af6b19acbdb8142e0da0dd72f46194eb33d38e0eb10a52597e8 | 62950044 |
+| `id_ID-news_tts-medium.onnx.json` | (same path + `.json`) | 1ef677072668a5e172e0759b1d3871f129009d1167f093325a17607f7add5ad7 | — |
+| `en_US-amy-medium.onnx` | https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx | b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18 | 63201294 |
+| `en_US-amy-medium.onnx.json` | (same path + `.json`) | 95a23eb4d42909d38df73bb9ac7f45f597dbfcde2d1bf9526fdeaf5466977d77 | — |
+| `en_US-lessac-high.onnx` | https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx | 4cabf7c3a638017137f34a1516522032d4fe3f38228a843cc9b764ddcbcd9e09 | 113895201 |
+| `en_US-lessac-high.onnx.json` | (same path + `.json`) | db42b97d9859f257bc1561b8ed980e7fb2398402050a74ddd6cbec931a92412f | — |
+| `en_US-ryan-high.onnx` | https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/high/en_US-ryan-high.onnx | b3990d7606e183ec8dbfba70a4607074f162de1a0c412e0180d1ff60bb154eca | 120786792 |
+| `en_US-ryan-high.onnx.json` | (same path + `.json`) | c6d3b98f08315cb4bebf0d49d50fc4ff491b503c64b940cd3d5ca28543b48011 | — |
+
+Tarball Piper berisi folder `piper/`:
+- binary `piper`;
+- `libonnxruntime.so`, `libpiper_phonemize.so`, `libespeak-ng.so`;
+- `espeak-ng-data`.
+
+Uji di Fedora 44: `echo "…" | piper/piper --model id.onnx --noise_scale 0.667 --noise_w 0.8 --output_file test.wav` berjalan dengan real-time factor 0,19.
+
 ## Menjalankan task
 
 - **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "<task>" < /dev/null`. Sandbox Sol tidak bisa commit, jadi sesi Opus yang commit.

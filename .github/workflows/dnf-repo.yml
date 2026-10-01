@@ -20,19 +20,28 @@ jobs:
     container: fedora:44
     steps:
       - name: Install tools
-        run: dnf install -y --setopt=install_weak_deps=False git tar gh gnupg2 rpm-sign createrepo_c
+        run: dnf install -y --setopt=install_weak_deps=False git tar gawk gh gnupg2 rpm-sign createrepo_c
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Download the RPMs of the latest releases
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
         # ponytail: the last 5 releases only; raise the limit if older versions must stay installable.
         run: |
+          # "published" can fire before the RPM is attached: wait for it (up to 10 minutes).
+          if [[ -n "$TAG" ]]; then
+            for _ in $(seq 1 30); do
+              gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -q '\.rpm$' && break
+              sleep 20
+            done
+          fi
           mkdir -p site/rpm/x86_64
           gh release list --repo "$GITHUB_REPOSITORY" --limit 5 --json tagName --jq '.[].tagName' |
             while read -r tag; do
               gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*.rpm' --dir site/rpm/x86_64
             done
           ls site/rpm/x86_64
+        shell: bash
       - name: Sign the packages and the repository metadata
         env:
           RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}

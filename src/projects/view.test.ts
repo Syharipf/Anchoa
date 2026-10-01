@@ -1,12 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ACTIVITY_FILTERS,
+  AGENT_QUICK_BUTTONS,
   KIND_LABELS,
   ROLE_LABELS,
   STATUS_LABELS,
   actorInitials,
   boardColumns,
+  connectedAgents,
   deadlineLabel,
+  filterActivities,
   lastActivity,
+  matchActivityFilter,
   moveLabel,
   nextStatus,
   parentLabel,
@@ -130,4 +135,81 @@ describe("project view helpers", () => {
     expect(parentLabel(null)).toBe("↑ Induk");
     expect(parentLabel(undefined)).toBe("↑ Induk");
   });
+
+  test("activity filters define standard filter categories", () => {
+    expect(ACTIVITY_FILTERS.map((f) => [f.id, f.label])).toEqual([
+      ["all", "Semua"],
+      ["tasks", "Rencana & tugas"],
+      ["test", "Tes"],
+    ]);
+  });
+
+  test("filterActivities filters activities by role and status kind", () => {
+    const items = [
+      { id: "1", role: "request" as const, kind: "message" as const },
+      { id: "2", role: "plan" as const, kind: "result" as const },
+      { id: "3", role: "implement" as const, kind: "message" as const },
+      { id: "4", role: "merge" as const, kind: "link" as const },
+      { id: "5", role: "test" as const, kind: "result" as const },
+      { id: "6", role: "review" as const, kind: "message" as const },
+      { id: "7", role: "test" as const, kind: "status" as const },
+      { id: "8", role: "note" as const, kind: "message" as const },
+    ];
+
+    expect(filterActivities(items, "all").map((i) => i.id)).toEqual([
+      "1", "2", "3", "4", "5", "6", "7", "8",
+    ]);
+
+    // Rencana & tugas: request, plan, implement, merge, or kind: status
+    expect(filterActivities(items, "tasks").map((i) => i.id)).toEqual([
+      "1", "2", "3", "4", "7",
+    ]);
+
+    // Tes: test or review
+    expect(filterActivities(items, "test").map((i) => i.id)).toEqual([
+      "5", "6", "7",
+    ]);
+
+    expect(matchActivityFilter({ role: "request", kind: "message" }, "tasks")).toBe(true);
+    expect(matchActivityFilter({ role: "test", kind: "message" }, "tasks")).toBe(false);
+    expect(matchActivityFilter({ role: "test", kind: "result" }, "test")).toBe(true);
+    expect(matchActivityFilter({ role: "request", kind: "message" }, "all")).toBe(true);
+  });
+
+  test("connectedAgents lists unique non-user actors with latest timestamp and initials", () => {
+    const activities = [
+      { actor: "Claude Code", createdAt: 100 },
+      { actor: "Sol", createdAt: 200 },
+      { actor: "Kamu", createdAt: 300 },
+      { actor: "Anchoa", createdAt: 400 },
+      { actor: "kamu", createdAt: 500 },
+      { actor: "anchoa", createdAt: 600 },
+      { actor: "Claude Code", createdAt: 700 },
+      { actor: "  Opus 5.5  ", createdAt: 150 },
+      { actor: "", createdAt: 800 },
+      { actor: "   ", createdAt: 900 },
+    ];
+
+    const agents = connectedAgents(activities);
+    expect(agents).toEqual([
+      { name: "Claude Code", initials: "CC", lastActiveAt: 700 },
+      { name: "Sol", initials: "S", lastActiveAt: 200 },
+      { name: "Opus 5.5", initials: "O5", lastActiveAt: 150 },
+    ]);
+  });
+
+  test("connectedAgents returns empty list when only Kamu/Anchoa or empty", () => {
+    expect(connectedAgents([])).toEqual([]);
+    expect(connectedAgents([{ actor: "Kamu", createdAt: 10 }, { actor: "Anchoa", createdAt: 20 }])).toEqual([]);
+  });
+
+  test("quick buttons provide standard prompts", () => {
+    expect(AGENT_QUICK_BUTTONS).toEqual([
+      "Jalankan tes",
+      "Perbaiki tes yang gagal",
+      "Lanjutkan tugas berikutnya",
+      "Ringkas progres hari ini",
+    ]);
+  });
 });
+

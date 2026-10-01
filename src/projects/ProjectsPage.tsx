@@ -9,7 +9,7 @@ import {
 } from "../api";
 import { useToast } from "../shell/toast";
 import { H1, PRIMARY, SECONDARY } from "../shell/ui";
-import { AgentRequest } from "./AgentRequest";
+import { AgentTab } from "./AgentTab";
 import { AgentThread } from "./AgentThread";
 import { Kanban } from "./Kanban";
 import { ProjectForm } from "./ProjectForm";
@@ -31,12 +31,14 @@ export function ProjectsPage({
   const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined);
   const [formOpen, setFormOpen] = useState<{ edit?: ProjectDetail | null } | null>(null);
   const [version, setVersion] = useState(0);
+  const [tab, setTab] = useState<"kanban" | "agent">("kanban");
   const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
   const selectedProject = useRef(selectedId);
   selectedProject.current = selectedId;
   const openTaskId = panel && panel.projectId === selectedId && !panel.log ? panel.taskId : null;
   const { board, lastActors, activities, running } = useProjectBoard(selectedId, version, openTaskId);
   const agentProject = board?.project?.agent ? board.project : null;
+  const activeTab = agentProject ? tab : "kanban";
   const cards = board ? Object.values(board.columns).flat() : [];
   const panelTask = agentProject && panel?.projectId === agentProject.id
     ? cards.find((card) => card.id === panel.taskId) : undefined;
@@ -123,7 +125,10 @@ export function ProjectsPage({
   }
 
   function handleShowLog() {
-    if (agentProject && logTaskId) setPanel({ projectId: agentProject.id, taskId: logTaskId, log: true });
+    if (agentProject && logTaskId) {
+      setTab("kanban");
+      setPanel({ projectId: agentProject.id, taskId: logTaskId, log: true });
+    }
   }
 
   return (
@@ -196,10 +201,28 @@ export function ProjectsPage({
             project={board?.project ?? null}
             looseCount={overview.loose}
             onEdit={() => board?.project && setFormOpen({ edit: board.project })}
+            tab={activeTab}
+            onTabChange={(t) => setTab(t)}
+            running={running}
           />
-          {agentProject && <AgentRequest key={agentProject.id} project={agentProject} running={running}
-            logAvailable={logTaskId !== null} onRequested={handleAgentRequested} onRefresh={handleAgentChanged} onShowLog={handleShowLog} />}
-          {board ? (
+          {activeTab === "agent" && agentProject ? (
+            <AgentTab
+              key={agentProject.id}
+              project={agentProject}
+              running={running}
+              version={version}
+              logAvailable={logTaskId !== null}
+              onRequested={handleAgentRequested}
+              onRefresh={handleAgentChanged}
+              onShowLog={handleShowLog}
+              onOpenTaskInKanban={(taskId) => {
+                setTab("kanban");
+                setPanel({ projectId: agentProject.id, taskId, log: false });
+              }}
+              onOpenItem={onOpenItem}
+              onEditProject={() => setFormOpen({ edit: agentProject })}
+            />
+          ) : board ? (
             <div className="flex min-h-0 flex-1 gap-3.5">
               <Kanban
                 key={selectedId ?? "loose"}

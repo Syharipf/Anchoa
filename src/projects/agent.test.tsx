@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { FormEvent, ReactNode } from "react";
+import type { ComponentProps, FormEvent, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { api, type Activity, type ProjectDetail, type TaskCard } from "../api";
 import { deferred, elements, hookHarness } from "../test/hookHarness";
 import { AgentRequest } from "./AgentRequest";
+import { AgentTab, ConnectAgentDialog } from "./AgentTab";
 import { AgentLog, AgentThread } from "./AgentThread";
 import { Kanban } from "./Kanban";
 import { ProjectForm } from "./ProjectForm";
@@ -185,5 +186,122 @@ describe("agent project components", () => {
     await harness.settle();
     expect(control("pre").children).toBe("Second task's log");
     expect(api.agentLog).toHaveBeenLastCalledWith("second");
+  });
+
+  it("renders AgentTab status bar and stops running agent", async () => {
+    spies.push(
+      spyOn(api, "projectActivities").mockResolvedValue([]),
+      spyOn(api, "agentStop").mockResolvedValue(),
+      spyOn(globalThis, "setInterval").mockImplementation((() => 1) as unknown as typeof setInterval),
+      spyOn(globalThis, "clearInterval").mockImplementation(() => {}),
+    );
+    const refreshed = mock(() => {});
+    let running = false;
+    harness = hookHarness(() => AgentTab({
+      project,
+      running,
+      version: 0,
+      logAvailable: true,
+      onRequested: () => {},
+      onRefresh: refreshed,
+      onShowLog: () => {},
+      onOpenTaskInKanban: () => {},
+      onOpenItem: () => {},
+    }));
+    harness.render();
+    await harness.settle();
+    expect(control("span", (props) => props.role === "status").children).toContain("Agen tidak berjalan");
+
+    running = true;
+    harness.render();
+    expect(control("span", (props) => props.role === "status").children).toContain("Agen sedang bekerja");
+    await (control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Hentikan"))).onClick as () => Promise<void>)();
+    await harness.settle();
+    expect(api.agentStop).toHaveBeenCalledWith(project.id);
+    expect(refreshed).toHaveBeenCalled();
+  });
+
+  it("filters activities in AgentTab and opens task in kanban", async () => {
+    const act1: Activity = { id: "a1", taskId: "t1", projectId: project.id, actor: "Sol", role: "plan", kind: "result", title: "Rencana fitur", body: "Rincian rencana", createdAt: 100 };
+    const act2: Activity = { id: "a2", taskId: "t2", projectId: project.id, actor: "Sol", role: "test", kind: "result", title: "Hasil tes", body: "Semua lulus", createdAt: 200 };
+    spies.push(
+      spyOn(api, "projectActivities").mockResolvedValue([act1, act2]),
+      spyOn(globalThis, "setInterval").mockImplementation((() => 1) as unknown as typeof setInterval),
+      spyOn(globalThis, "clearInterval").mockImplementation(() => {}),
+    );
+    const openKanban = mock(() => {});
+    harness = hookHarness(() => AgentTab({
+      project,
+      running: false,
+      version: 0,
+      logAvailable: false,
+      onRequested: () => {},
+      onRefresh: () => {},
+      onShowLog: () => {},
+      onOpenTaskInKanban: openKanban,
+      onOpenItem: () => {},
+    }));
+    harness.render();
+    await harness.settle();
+    expect(api.projectActivities).toHaveBeenCalledWith(project.id);
+
+    // Initial filter is 'all': both act1 and act2 rendered as EventCards
+    expect(elements(harness.render()).filter((e) => e.props?.activity).map((e) => (e.props as any).activity.id)).toEqual(["a1", "a2"]);
+
+    // Filter to Tes: only act2 rendered
+    const testFilterBtn = control("button", (props) => props.children === "Tes");
+    (testFilterBtn.onClick as () => void)();
+    harness.render();
+    expect(elements(harness.render()).filter((e) => e.props?.activity).map((e) => (e.props as any).activity.id)).toEqual(["a2"]);
+
+    // Filter to Rencana & tugas: only act1 rendered
+    const taskFilterBtn = control("button", (props) => props.children === "Rencana & tugas");
+    (taskFilterBtn.onClick as () => void)();
+    harness.render();
+    expect(elements(harness.render()).filter((e) => e.props?.activity).map((e) => (e.props as any).activity.id)).toEqual(["a1"]);
+
+    // Calling onOpenTaskInKanban from EventCard props
+    const card = elements(harness.render()).find((e) => (e.props as any)?.activity?.id === "a1");
+    (card!.props as any).onOpenTaskInKanban("t1");
+    expect(openKanban).toHaveBeenCalledWith("t1");
+  });
+
+  it("handles ConnectAgentDialog and quick button click", async () => {
+    spies.push(
+      spyOn(api, "projectActivities").mockResolvedValue([]),
+      spyOn(globalThis, "setInterval").mockImplementation((() => 1) as unknown as typeof setInterval),
+      spyOn(globalThis, "clearInterval").mockImplementation(() => {}),
+    );
+    const editProject = mock(() => {});
+    harness = hookHarness(() => AgentTab({
+      project,
+      running: false,
+      version: 0,
+      logAvailable: false,
+      onRequested: () => {},
+      onRefresh: () => {},
+      onShowLog: () => {},
+      onOpenTaskInKanban: () => {},
+      onOpenItem: () => {},
+      onEditProject: editProject,
+    }));
+    harness.render();
+    await harness.settle();
+
+    // Open Hubungkan agen dialog
+    const hubungkanBtn = control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Hubungkan agen")));
+    (hubungkanBtn.onClick as () => void)();
+    harness.render();
+    const dialog = elements(harness.render()).find((e) => e.type === ConnectAgentDialog);
+    expect(dialog).toBeDefined();
+
+    // Trigger onEditProject on ConnectAgentDialog props
+    (dialog!.props as ComponentProps<typeof ConnectAgentDialog>).onEditProject?.();
+    expect(editProject).toHaveBeenCalledTimes(1);
+
+    // Close dialog
+    (dialog!.props as ComponentProps<typeof ConnectAgentDialog>).onClose();
+    harness.render();
+    expect(elements(harness.render()).some((e) => e.type === ConnectAgentDialog)).toBe(false);
   });
 });

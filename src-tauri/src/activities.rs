@@ -470,6 +470,26 @@ mod tests {
     }
 
     #[test]
+    fn for_project_returns_newest_first_and_respects_limit() {
+        let conn = open_in_memory();
+        let p = project(&conn, "Agen Proyek");
+        let t1 = task(&conn, &p, "Tugas 1");
+        let t2 = task(&conn, &p, "Tugas 2");
+        let a1 = add(&conn, &message(&p, Some(&t1), Role::Request), 100).unwrap();
+        let a2 = add(&conn, &message(&p, Some(&t2), Role::Plan), 200).unwrap();
+        let a3 = add(&conn, &message(&p, None, Role::Note), 300).unwrap();
+
+        let all = for_project(&conn, &p, 10).unwrap();
+        assert_eq!(all, vec![a3.clone(), a2.clone(), a1.clone()]);
+
+        let limited = for_project(&conn, &p, 2).unwrap();
+        assert_eq!(limited, vec![a3, a2]);
+
+        let empty = for_project(&conn, "nonexistent", 10).unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
     fn failed_activity_insert_rolls_back_item_and_search_index() {
         let conn = open_in_memory();
         let p = project(&conn, "Agen");

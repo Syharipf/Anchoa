@@ -163,6 +163,15 @@ pub fn task_activities(db: State<'_, Db>, task_id: String) -> Result<Vec<Activit
 }
 
 #[tauri::command]
+pub fn project_activities(
+    db: State<'_, Db>,
+    project_id: String,
+    limit: usize,
+) -> Result<Vec<Activity>, AppError> {
+    activities::for_project(&*db.conn()?, &project_id, limit)
+}
+
+#[tauri::command]
 pub fn add_activity(db: State<'_, Db>, input: NewActivity) -> Result<Activity, AppError> {
     activities::add(&*db.conn()?, &input, time::now_ms())
 }

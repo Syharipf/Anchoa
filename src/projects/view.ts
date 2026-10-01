@@ -84,3 +84,79 @@ export function toggleTaskStatus(status: TaskStatus): TaskStatus {
 export function parentLabel(parentTitle: string | null | undefined): string {
   return parentTitle ? `↑ ${parentTitle}` : "↑ Induk";
 }
+
+export type ActivityFilter = "all" | "tasks" | "test";
+
+export const ACTIVITY_FILTERS: readonly Readonly<{ id: ActivityFilter; label: string }>[] = [
+  { id: "all", label: "Semua" },
+  { id: "tasks", label: "Rencana & tugas" },
+  { id: "test", label: "Tes" },
+];
+
+export function matchActivityFilter(
+  activity: Pick<Activity, "role" | "kind">,
+  filter: ActivityFilter,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "tasks") {
+    return (
+      activity.kind === "status" ||
+      activity.role === "request" ||
+      activity.role === "plan" ||
+      activity.role === "implement" ||
+      activity.role === "merge"
+    );
+  }
+  if (filter === "test") {
+    return activity.role === "test" || activity.role === "review";
+  }
+  return true;
+}
+
+export function filterActivities<T extends Pick<Activity, "role" | "kind">>(
+  activities: readonly T[],
+  filter: ActivityFilter,
+): T[] {
+  return activities.filter((activity) => matchActivityFilter(activity, filter));
+}
+
+export interface ConnectedAgent {
+  readonly name: string;
+  readonly initials: string;
+  readonly lastActiveAt: number;
+}
+
+export function connectedAgents(
+  activities: readonly Pick<Activity, "actor" | "createdAt">[],
+): ConnectedAgent[] {
+  const latest = new Map<string, number>();
+  for (const a of activities) {
+    const actor = a.actor.trim();
+    if (!actor) continue;
+    const lower = actor.toLowerCase();
+    if (lower === "kamu" || lower === "anchoa") continue;
+    const current = latest.get(actor);
+    if (current === undefined || a.createdAt > current) {
+      latest.set(actor, a.createdAt);
+    }
+  }
+  return Array.from(latest.entries())
+    .map(([name, lastActiveAt]) => ({
+      name,
+      initials: actorInitials(name),
+      lastActiveAt,
+    }))
+    .sort((a, b) => b.lastActiveAt - a.lastActiveAt || a.name.localeCompare(b.name));
+}
+
+export const AGENT_QUICK_BUTTONS = [
+  "Jalankan tes",
+  "Perbaiki tes yang gagal",
+  "Lanjutkan tugas berikutnya",
+  "Ringkas progres hari ini",
+] as const;
+
+export const AGENT_CLI_SNIPPET = `## Melapor ke Anchoa
+- Status tugas: "$ANCHOA_CLI" agent task status --task "$ANCHOA_TASK" <STATUS> --actor <NAMA>
+- Buat rencana: "$ANCHOA_CLI" agent plan --task "$ANCHOA_TASK" --actor <NAMA> --file <PATH.md>
+- Catat log/tes: "$ANCHOA_CLI" agent log --task "$ANCHOA_TASK" --actor <NAMA> --role implement|test|review --body "..."`;

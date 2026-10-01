@@ -698,6 +698,8 @@ export const api = {
   agentRunning: () => invoke<string[]>("agent_running"),
   agentLastActors: (projectId: string) => invoke<Record<string, LastActor>>("agent_last_actors", { projectId }),
   taskActivities: (taskId: string) => invoke<Activity[]>("task_activities", { taskId }),
+  projectActivities: (projectId: string, limit = 200) =>
+    invoke<Activity[]>("project_activities", { projectId, limit }),
   addActivity: (input: NewActivity) => invoke<Activity>("add_activity", { input }),
   agentLog: (taskId: string) => invoke<string>("agent_log", { taskId }),
   createTask: (input: NewTask) => invoke<TaskCard>("create_task", { input }),

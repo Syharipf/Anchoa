@@ -3,8 +3,10 @@ import type { ComponentProps, ReactNode } from "react";
 import { api, type Activity, type Board, type ProjectDetail, type TaskCard } from "../api";
 import { deferred, elements, hookHarness } from "../test/hookHarness";
 import { AgentRequest } from "./AgentRequest";
+import { AgentTab } from "./AgentTab";
 import { AgentThread } from "./AgentThread";
 import { Kanban } from "./Kanban";
+import { ProjectHeader } from "./ProjectHeader";
 import { ProjectList } from "./ProjectList";
 import { ProjectsPage } from "./ProjectsPage";
 
@@ -29,8 +31,9 @@ describe("project page agent routing", () => {
   }
   const kanban = () => props<ComponentProps<typeof Kanban>>(Kanban);
   const thread = () => props<ComponentProps<typeof AgentThread>>(AgentThread);
-  const requestBox = () => props<ComponentProps<typeof AgentRequest>>(AgentRequest);
   const list = () => props<ComponentProps<typeof ProjectList>>(ProjectList);
+  const header = () => props<ComponentProps<typeof ProjectHeader>>(ProjectHeader);
+  const agentTab = () => props<ComponentProps<typeof AgentTab>>(AgentTab);
 
   beforeEach(async () => {
     openItem.mockClear();
@@ -44,6 +47,7 @@ describe("project page agent routing", () => {
         columns: { plan: [], doing: [task], test: [], review: [], done: [] },
       })),
       spyOn(api, "taskActivities").mockResolvedValue([request]),
+      spyOn(api, "projectActivities").mockResolvedValue([request]),
       spyOn(api, "agentLastActors").mockResolvedValue({ [task.id]: { actor: "Sol", role: "implement" } }),
       spyOn(api, "agentRunning").mockResolvedValue([]),
       spyOn(api, "updateTask").mockResolvedValue({ ...task, parentId: null, parentTitle: null, startAt: null, subtasks: [] }),
@@ -82,7 +86,7 @@ describe("project page agent routing", () => {
     expect(kanban().agent).toBe(false);
     kanban().onOpenItem(task.id);
     expect(openItem).toHaveBeenCalledWith(task.id);
-    expect(elements(harness.render()).some((element) => element.type === AgentThread || element.type === AgentRequest)).toBe(false);
+    expect(elements(harness.render()).some((element) => element.type === AgentThread || element.type === AgentRequest || element.type === AgentTab)).toBe(false);
   });
 
   it("chooses the newest attributed card's log without reading closed threads", async () => {
@@ -92,10 +96,16 @@ describe("project page agent routing", () => {
       [task.id]: { actor: "Sol", role: "implement" },
       [second.id]: { actor: "Kamu", role: "request" },
     });
-    requestBox().onRefresh();
+    header().onTabChange?.("agent");
+    await harness.settle();
+    agentTab().onRefresh();
+    header().onTabChange?.("kanban");
     await harness.settle();
     kanban().onOpenItem(task.id);
-    requestBox().onShowLog();
+    header().onTabChange?.("agent");
+    await harness.settle();
+    agentTab().onShowLog();
+    await harness.settle();
     expect(thread().showLog).toBe(true);
     expect(thread().task.id).toBe(second.id);
     await harness.settle();
@@ -135,7 +145,10 @@ describe("project page agent routing", () => {
   it("discards a pending thread after selecting a different card", async () => {
     const second = { ...task, id: "second" };
     spyOn(api, "projectBoard").mockResolvedValue({ project: agent, columns: { plan: [second], doing: [task], test: [], review: [], done: [] } });
-    requestBox().onRefresh();
+    header().onTabChange?.("agent");
+    await harness.settle();
+    agentTab().onRefresh();
+    header().onTabChange?.("kanban");
     await harness.settle();
     const old = deferred<Activity[]>();
     const secondActivity = { ...request, taskId: second.id, actor: "Gemini" };
@@ -162,12 +175,33 @@ describe("project page agent routing", () => {
   });
 
   it("does not reopen an old project's thread when a request finishes after switching projects", async () => {
-    const oldRequestBox = requestBox();
+    header().onTabChange?.("agent");
+    await harness.settle();
+    const oldAgentTab = agentTab();
     list().onSelect(ordinary.id);
     await harness.settle();
-    oldRequestBox.onRequested(task);
+    oldAgentTab.onRequested(task);
     list().onSelect(agent.id);
     await harness.settle();
     expect(elements(harness.render()).some((element) => element.type === AgentThread)).toBe(false);
+  });
+
+  it("switches between Kanban and Agen kode tabs and opens task thread via Lihat di Kanban", async () => {
+    expect(header().tab).toBe("kanban");
+    expect(elements(harness.render()).some((e) => e.type === Kanban)).toBe(true);
+    expect(elements(harness.render()).some((e) => e.type === AgentTab)).toBe(false);
+
+    header().onTabChange?.("agent");
+    await harness.settle();
+    expect(header().tab).toBe("agent");
+    expect(elements(harness.render()).some((e) => e.type === AgentTab)).toBe(true);
+    expect(elements(harness.render()).some((e) => e.type === Kanban)).toBe(false);
+
+    // Clicking 'Lihat di Kanban' switches tab to kanban and opens the thread panel
+    agentTab().onOpenTaskInKanban(task.id);
+    await harness.settle();
+    expect(header().tab).toBe("kanban");
+    expect(elements(harness.render()).some((e) => e.type === Kanban)).toBe(true);
+    expect(thread().task.id).toBe(task.id);
   });
 });

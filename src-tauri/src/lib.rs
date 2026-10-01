@@ -72,6 +72,7 @@ pub fn run() {
             app.manage(downloader::Downloader::default());
             app.manage(agent_runner::AgentRunner::default());
             app.manage(assistant::AssistantState::default());
+            app.manage(assistant::voice::VoiceState::new(data_dir));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -83,6 +84,15 @@ pub fn run() {
             assistant::ai_status,
             assistant::ai_roles,
             assistant::set_ai_role,
+            assistant::voice::voice_status,
+            assistant::voice::voice_install,
+            assistant::voice::voice_record_start,
+            assistant::voice::voice_record_stop,
+            assistant::voice::voice_voices,
+            assistant::voice::voice_import,
+            assistant::voice::set_voice,
+            assistant::voice::voice_speak,
+            assistant::voice::voice_stop,
             commands::db_status,
             commands::capture_note,
             commands::open_item,
@@ -184,6 +194,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 app.state::<downloader::Downloader>().stop_all();
                 app.state::<agent_runner::AgentRunner>().stop_all();
+                app.state::<assistant::voice::VoiceState>().stop_all();
             }
         });
 }

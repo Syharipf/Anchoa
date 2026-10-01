@@ -2,6 +2,7 @@ pub mod context;
 pub mod llm;
 pub mod roles;
 pub mod tools;
+pub mod voice;
 
 #[cfg(test)]
 mod test_server;

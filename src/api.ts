@@ -779,7 +779,65 @@ export interface AssistantReply {
 
 export type AssistantDecision = TaskCard | TaskDetail | TransactionView | Entry | HabitRow | null;
 
+/** Piper controls; Rust clamps to 0.8–1.3, 0.3–0.9, and 0.5–1.0. */
+export interface VoiceParams {
+  lengthScale: number;
+  noiseScale: number;
+  noiseW: number;
+}
+
+export interface VoiceSettings {
+  id: string;
+  params: VoiceParams;
+}
+
+export interface Voice {
+  id: string;
+  label: string;
+  language: string;
+  quality: string;
+  installed: boolean;
+  imported: boolean;
+  params: VoiceParams;
+}
+
+export interface VoiceStatus {
+  pwRecord: boolean;
+  pwPlay: boolean;
+  whisper: string | null;
+  whisperModel: boolean;
+  piper: boolean;
+  voices: Voice[];
+  settings: VoiceSettings;
+  recording: boolean;
+  speaking: boolean;
+}
+
+export type VoiceComponent = "whisper-model" | "piper" | `voice:${string}`;
+
+export interface VoiceInstallProgress {
+  component: VoiceComponent;
+  file: string;
+  doneBytes: number;
+  totalBytes: number | null;
+  stage: "downloading" | "verified" | "installed";
+}
+
 export const api = {
+  voiceStatus: () => invoke<VoiceStatus>("voice_status"),
+  voiceInstall: (component: VoiceComponent, onEvent: (event: VoiceInstallProgress) => void = () => {}) => {
+    const channel = new Channel<VoiceInstallProgress>();
+    channel.onmessage = onEvent;
+    return invoke<void>("voice_install", { component, onEvent: channel });
+  },
+  voiceRecordStart: () => invoke<void>("voice_record_start"),
+  voiceRecordStop: () => invoke<string>("voice_record_stop"),
+  voiceVoices: () => invoke<Voice[]>("voice_voices"),
+  voiceImport: (onnxPath: string) => invoke<string>("voice_import", { onnxPath }),
+  /** Omitting params restores this voice's saved controls or Piper defaults. */
+  setVoice: (id: string, params?: VoiceParams) => invoke<VoiceSettings>("set_voice", { id, params }),
+  voiceSpeak: (text: string) => invoke<void>("voice_speak", { text }),
+  voiceStop: () => invoke<void>("voice_stop"),
   assistantSend: (text: string, onEvent: (event: AssistantEvent) => void) => {
     const channel = new Channel<AssistantEvent>();
     channel.onmessage = onEvent;

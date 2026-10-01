@@ -571,7 +571,7 @@ check_journal() {
   sleep 1
   shot 15-journal
 
-  [[ "$(sql "SELECT body FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note'")" = "Membangun aplikasi open-source untuk produktivitas." ]] \
+  sql_becomes "SELECT body FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note'" "Membangun aplikasi open-source untuk produktivitas." \
     || fail "journal body not saved"
   [[ "$(sql "SELECT mood FROM journal_entries WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note')")" = "4" ]] \
     || fail "journal mood not saved"

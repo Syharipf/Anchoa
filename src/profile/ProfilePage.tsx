@@ -90,6 +90,7 @@ export function ProfilePage({
   const prefsRequest = useRef(0);
   const handleTogglePref = useCallback(
     (key: keyof NotifyPrefs) => {
+      const previous: NotifyPrefs = { ...prefs };
       const next: NotifyPrefs = { ...prefs, [key]: !prefs[key] };
       setPrefs(next);
       // Only the newest save may update the switches; an older reply must not undo a later toggle.
@@ -102,7 +103,7 @@ export function ProfilePage({
         },
         (err) => {
           toast(errorMessage(err), "error");
-          if (request === prefsRequest.current) setPrefs(prefs);
+          if (request === prefsRequest.current) setPrefs(previous);
         },
       );
     },

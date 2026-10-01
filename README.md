@@ -8,7 +8,7 @@ Tambahkan repo dnf Anchoa sekali, lalu pasang:
 
 ```bash
 sudo dnf config-manager addrepo --from-repofile=https://syharipf.github.io/Anchoa/anchoa.repo
-sudo dnf install Anchoa
+sudo dnf install anchoa
 ```
 
 Versi baru datang lewat `sudo dnf upgrade`. Paket dan metadata repo ditandatangani GPG; dnf meminta konfirmasi kunci saat pertama kali.

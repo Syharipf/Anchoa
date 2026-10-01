@@ -95,6 +95,7 @@ check_items() {
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'catatan dari e2e'
+  sleep 1
   xdotool key Return
   sleep 1
   [[ "$(sql "SELECT title FROM items")" = "catatan dari e2e" ]] || fail "capture not saved"
@@ -116,6 +117,7 @@ check_palette() {
   sleep 0.3
   shot 4-palette        # expect: Buka halaman (10 pages), no Terbaru yet
   xdotool type --delay 20 'keu'
+  sleep 1
   xdotool key Return
   sleep 0.7
   shot 4-palette-keuangan   # expect: Keuangan page with "Belum ada akun"
@@ -129,6 +131,7 @@ check_palette() {
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'catatan dari palette'
+  sleep 1
   xdotool key Return
   sleep 1
   shot 4-palette-inbox  # expect: the new note listed in the Jurnal
@@ -142,16 +145,19 @@ check_dashboard() {
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'tugas hari ini'
+  sleep 1
   xdotool key Return
   sleep 1
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'tugas terlambat'
+  sleep 1
   xdotool key Return
   sleep 1
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'tugas besok'
+  sleep 1
   xdotool key Return
   sleep 1
   make_task 'tugas hari ini'
@@ -179,6 +185,7 @@ check_notifications() {
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'tugas terlambat'
+  sleep 1
   xdotool key Return
   sleep 1
   make_task 'tugas terlambat'
@@ -199,6 +206,7 @@ palette_new_transaction() {
   xdotool key ctrl+k
   sleep 0.3
   xdotool type --delay 20 'catat'
+  sleep 1
   xdotool key Return
   sleep 1
 }
@@ -209,8 +217,10 @@ add_account() {
   palette_new_transaction
   if [[ -n "${1:-}" ]]; then shot "$1"; fi
   xdotool type --delay 20 'BCA'
+  sleep 1
   xdotool key Tab Tab   # Nama -> Jenis -> Saldo awal
   xdotool type --delay 20 '1000000'
+  sleep 1
   xdotool key Return
   sleep 1
   [[ "$(sql "SELECT i.title || ':' || a.kind || ':' || a.opening_balance FROM accounts a JOIN items i ON i.id = a.item_id")" = "BCA:bank:1000000" ]] \
@@ -227,10 +237,13 @@ check_finance() {
   palette_new_transaction
   shot 10-transaction-form     # expect: Pengeluaran pressed, account BCA, today's date
   xdotool type --delay 20 '25.000'
+  sleep 1
   xdotool key Tab Tab          # Jumlah -> Akun -> Kategori
   xdotool type --delay 20 'Makan & minum'
+  sleep 1
   xdotool key Tab              # Keterangan
   xdotool type --delay 20 'Makan siang'
+  sleep 1
   xdotool key Return
   sleep 1
   [[ "$(sql "SELECT t.amount || ':' || t.category || ':' || i.title FROM transactions t JOIN items i ON i.id = t.item_id")" = "-25000:Makan & minum:Makan siang" ]] \
@@ -238,6 +251,7 @@ check_finance() {
 
   click 820 200                # the Pengeluaran card opens the limit form
   xdotool type --delay 20 '200000'
+  sleep 1
   xdotool key Return
   sleep 1
   [[ "$(sql "SELECT b.amount FROM budgets b JOIN items i ON i.id = b.item_id WHERE i.deleted_at IS NULL")" = 200000 ]] \
@@ -259,8 +273,10 @@ check_bills() {
   click 1207 461               # Tagihan: + Tambah (no limit set, so the cards are 12px shorter than in check_finance)
   shot 11-bill-form            # expect: "Tagihan baru", Bulanan pressed, due today
   xdotool type --delay 20 'Listrik'
+  sleep 1
   xdotool key Tab              # Nama -> Jumlah
   xdotool type --delay 20 '150000'
+  sleep 1
   xdotool key Return
   sleep 1
   [[ "$(sql "SELECT i.title || ':' || b.amount || ':' || b.repeat FROM bills b JOIN items i ON i.id = b.item_id")" = "Listrik:150000:monthly" ]] \
@@ -342,14 +358,17 @@ check_projects() {
   click 1203 104                # + Proyek
   sleep 0.5
   xdotool type --delay 20 'Anchoa v1'
+  sleep 1
   xdotool key Return
   sleep 1
   click 450 355                 # + Tugas in Rencana
   sleep 0.5
   xdotool type --delay 20 'Tugas A'
+  sleep 1
   xdotool key Return
   sleep 1
   xdotool type --delay 20 'Tugas B'
+  sleep 1
   xdotool key Return
   sleep 1
   click 646 445                 # arrow on first card (Tugas A)
@@ -367,6 +386,7 @@ check_projects() {
   click 200 380                 # Tambah sub-tugas input
   sleep 0.5
   xdotool type --delay 20 'Sub 1'
+  sleep 1
   xdotool key Return
   sleep 1
   tugas_b_id=$(sql "SELECT id FROM items WHERE title = 'Tugas B'")
@@ -379,7 +399,7 @@ check_projects() {
   xdotool key ctrl+k
   sleep 0.5
   xdotool type --delay 20 'tugas dari palette'
-  sleep 0.5
+  sleep 1
   xdotool key Down
   sleep 0.3
   xdotool key Return
@@ -391,7 +411,7 @@ check_projects() {
   xdotool key ctrl+n
   sleep 0.5
   xdotool type --delay 20 'catatan jadi tugas'
-  sleep 0.5
+  sleep 1
   xdotool key Return
   sleep 1
   click 36 148                  # nav: Jurnal
@@ -416,7 +436,7 @@ check_schedule() {
   xdotool key ctrl+k
   sleep 0.5
   xdotool type --delay 20 'Tugas E2E'
-  sleep 0.5
+  sleep 1
   xdotool key Down
   sleep 0.2
   xdotool key Return
@@ -478,6 +498,7 @@ check_habits() {
   click 1215 104               # + Habit
   sleep 0.5
   xdotool type --delay 20 'Olahraga pagi'
+  sleep 1
   xdotool key Return
   sleep 1
   [[ "$(sql "SELECT i.title FROM habits h JOIN items i ON i.id = h.item_id WHERE i.deleted_at IS NULL")" = "Olahraga pagi" ]] \
@@ -508,7 +529,7 @@ check_journal() {
   xdotool key ctrl+n
   sleep 0.5
   xdotool type --delay 20 'catatan cepat jurnal'
-  sleep 0.5
+  sleep 1
   xdotool key Return
   sleep 1
   [[ "$(sql "SELECT count(*) FROM items WHERE title = 'catatan cepat jurnal' AND type = 'note'")" = "1" ]] \
@@ -524,7 +545,7 @@ check_journal() {
 
   click 480 235                 # judul
   xdotool type --delay 20 'Ide Bisnis Baru'
-  sleep 0.5
+  sleep 1
   click 600 350                 # body
   xdotool type --delay 20 'Membangun aplikasi open-source untuk produktivitas.'
   sleep 1.5
@@ -586,6 +607,7 @@ check_downloads() {
   shot 17-downloads-empty
   click 400 181
   xdotool type --delay 20 "http://127.0.0.1:$port/contoh.bin"
+  sleep 1
   shot 17-downloads-file-detected   # expect: chip "File langsung"
   xdotool key Return
   wait_download contoh.bin 20
@@ -607,6 +629,7 @@ check_downloads() {
   click 1068 589                    # Batas kecepatan 1 MB/s, shared by 2 slots
   click 400 181
   xdotool type --delay 20 "http://127.0.0.1:$port/besar.bin"
+  sleep 1
   xdotool key Return
   sleep 3
   shot 17-downloads-running         # expect: ~512 KB/s, Mengunduh, pause button
@@ -677,6 +700,134 @@ check_files() {
   stop_app
 }
 
+check_notes() {
+  fresh
+  local notes_home="$WORK/notes-home" export_dir rencana_id ide_id expected_body
+  export_dir="$notes_home/Documents/Anchoa Catatan"
+  mkdir -p "$notes_home/Documents"
+  HOME="$notes_home" start_app
+  click 36 202                 # nav: Catatan
+  shot 18-notes-empty
+  click 240 152                # + Halaman baru
+  shot 18-notes-new
+
+  click 500 158                # judul halaman
+  xdotool key ctrl+a
+  xdotool type --delay 20 'Rencana'
+  sleep 1
+  click 500 247                # blok pertama; blur menyimpan judul
+  xdotool type --delay 20 'Catatan rencana dari e2e.'
+  sleep 1
+  xdotool key Return
+  sleep 0.3
+  xdotool type --delay 20 '- [ ] Tulis ide'
+  sleep 1
+  xdotool key Return           # lanjutkan daftar tugas
+  sleep 0.3
+  xdotool type --delay 20 'Tinjau rencana'
+  sleep 1
+  expected_body=$'Catatan rencana dari e2e.\n\n- [ ] Tulis ide\n- [ ] Tinjau rencana'
+  rencana_id=$(sql "SELECT id FROM items WHERE type = 'page' AND title = 'Rencana' AND deleted_at IS NULL")
+  [[ -n "$rencana_id" ]] || fail "Rencana page not created"
+  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+    || fail "notes paragraph and task list not saved as Markdown"
+  shot 18-notes-written
+
+  xdotool key Return Return    # daftar kosong menjadi paragraf baru
+  sleep 0.3
+  xdotool type --delay 20 '[[Ide baru]]'
+  sleep 1
+  xdotool key Escape           # pratinjau wikilink yang belum punya tujuan
+  sleep 0.3
+  expected_body+=$'\n\n[[Ide baru]]'
+  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+    || fail "unresolved wikilink not saved"
+  [[ "$(sql "SELECT COUNT(*) FROM items WHERE title = 'Ide baru'")" = 0 ]] \
+    || fail "typing an unresolved wikilink must not create its page"
+  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id'")" = 0 ]] \
+    || fail "unresolved wikilink must not create a links row"
+  shot 18-notes-unresolved
+  click 445 363                # klik [[Ide baru]]: buat halaman di akar
+  ide_id=$(sql "SELECT id FROM items WHERE type = 'page' AND title = 'Ide baru' AND parent_id IS NULL AND deleted_at IS NULL")
+  [[ -n "$ide_id" ]] || fail "clicking unresolved wikilink did not create Ide baru"
+  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'")" = 1 ]] \
+    || fail "new page did not resolve Rencana's backlink"
+  shot 18-notes-backlinks      # expect: Disebut di berisi Rencana
+
+  click 1060 145               # backlink Rencana membuka halaman asal
+  click 417 293                # centang tugas pertama di pratinjau
+  sleep 1
+  expected_body=${expected_body/'- [ ] Tulis ide'/'- [x] Tulis ide'}
+  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+    || fail "backlink did not open Rencana or task checkbox did not save"
+  shot 18-notes-backlink-open
+
+  click 180 196                # pohon: Ide baru (urut judul)
+  click 332 196                # menu Ide baru
+  shot 18-notes-rename-menu
+  click 220 258                # Ganti nama
+  xdotool key ctrl+a
+  xdotool type --delay 20 'Ide besar'
+  sleep 1
+  xdotool key Return
+  sleep 0.7
+  expected_body=${expected_body/'[[Ide baru]]'/'[[Ide besar]]'}
+  [[ "$(sql "SELECT title FROM items WHERE id = '$ide_id'")" = 'Ide besar' ]] \
+    || fail "page rename not saved"
+  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+    || fail "renaming Ide baru did not rewrite Rencana's wikilink"
+  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'")" = 1 ]] \
+    || fail "page rename lost the backlink"
+  shot 18-notes-renamed
+
+  click 200 111                # pencarian FTS halaman
+  xdotool type --delay 20 'renc'
+  sleep 1
+  shot 18-notes-search         # expect: Rencana dan cuplikan isi
+  click 180 196                # hasil Rencana membuka halaman
+  click 417 323                # centang tugas kedua untuk memverifikasi hasil dibuka
+  sleep 1
+  expected_body=${expected_body/'- [ ] Tinjau rencana'/'- [x] Tinjau rencana'}
+  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+    || fail "search for renc did not open Rencana or task checkbox did not save"
+  shot 18-notes-search-open
+
+  click 200 111
+  xdotool key ctrl+a BackSpace # kosongkan pencarian untuk menampilkan pohon
+  sleep 0.3
+  click 332 228                # menu Rencana (baris kedua)
+  shot 18-notes-delete-menu
+  click 220 346                # Hapus
+  shot 18-notes-delete-confirm
+  click 818 239                # konfirmasi Hapus
+  [[ "$(sql "SELECT COUNT(*) FROM items WHERE id = '$rencana_id' AND deleted_at IS NOT NULL")" = 1 ]] \
+    || fail "deleting Rencana did not set deleted_at"
+  [[ "$(sql "SELECT COUNT(*) FROM items WHERE type = 'page' AND deleted_at IS NULL")" = 1 ]] \
+    || fail "deleting Rencana affected the other page"
+  shot 18-notes-deleted        # expect: hanya Ide besar, Sampah (1)
+  click 160 755                # Sampah
+  shot 18-notes-trash          # expect: Rencana dengan Pulihkan
+  click 800 188                # Pulihkan Rencana
+  [[ "$(sql "SELECT COUNT(*) FROM items WHERE id = '$rencana_id' AND deleted_at IS NULL")" = 1 ]] \
+    || fail "restore did not clear Rencana's deleted_at"
+  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+    || fail "restore changed Rencana's Markdown"
+  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'")" = 1 ]] \
+    || fail "restore lost Rencana's backlink"
+  shot 18-notes-trash-restored # expect: Sampah kosong
+  click 810 215                # Tutup (dialog Sampah kosong)
+  shot 18-notes-restored       # expect: Rencana kembali ke pohon dan editor
+
+  click 285 755                # Ekspor Markdown
+  [[ -f "$export_dir/Rencana.md" ]] || fail "Rencana.md missing from temporary HOME export"
+  printf '%s' "$expected_body" | cmp -s - "$export_dir/Rencana.md" \
+    || fail "exported Rencana.md differs from saved Markdown"
+  [[ -f "$export_dir/Ide besar.md" && ! -e "$export_dir/Ide baru.md" ]] \
+    || fail "export did not use the renamed page title"
+  shot 18-notes-export         # expect: toast Diekspor ke .../Anchoa Catatan
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -701,6 +852,5 @@ check_habits
 check_journal
 check_files
 check_downloads
+check_notes
 echo "PASS. Screenshots in $WORK"
-
-

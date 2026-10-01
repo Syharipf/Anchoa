@@ -634,9 +634,14 @@ pub fn remove_download(
     let conn = db.conn()?;
     let row = downloads::get(&conn, &id)?;
     downloads::remove(&conn, &id, time::now_ms())?;
-    if row.status != downloads::DownloadStatus::Done {
-        downloader.stop(&id)?;
-        // A running worker removes its temp folder when it stops; this covers the others.
+    downloader.stop(&id)?;
+    // A running worker removes its own temp folder once it has stopped.
+    if matches!(
+        row.status,
+        downloads::DownloadStatus::Queued
+            | downloads::DownloadStatus::Paused
+            | downloads::DownloadStatus::Failed
+    ) {
         let dir = downloader::current_settings(&app, &conn)?.dir;
         let _ = std::fs::remove_dir_all(PathBuf::from(dir).join(".anchoa-part").join(&id));
     }
@@ -654,6 +659,7 @@ pub fn open_download(app: AppHandle, db: State<'_, Db>, id: String) -> Result<()
         Some(file) if row.status == downloads::DownloadStatus::Done => file,
         _ => downloader::current_settings(&app, &conn)?.dir,
     };
+    drop(conn);
     app.opener()
         .open_path(path, None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))

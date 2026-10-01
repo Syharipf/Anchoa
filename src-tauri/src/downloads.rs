@@ -140,16 +140,17 @@ pub enum YtEvent {
     Error(String),
 }
 
+/// A plain file name: no separators, no NUL, and no leading dots, so it can
+/// never be "." or ".." and never leaves the download folder.
 pub fn safe_name(raw: &str) -> String {
-    let mut s = raw.replace(['/', '\\', '\0'], "");
-    while let Some(stripped) = s.strip_prefix("..") {
-        s = stripped.to_string();
-    }
-    let trimmed = s.trim();
-    if trimmed.is_empty() {
+    let s = raw.replace(['/', '\\', '\0'], "");
+    let name = s
+        .trim_start_matches(|c: char| c == '.' || c.is_whitespace())
+        .trim_end();
+    if name.is_empty() {
         "unduhan".to_string()
     } else {
-        trimmed.to_string()
+        name.to_string()
     }
 }
 
@@ -269,21 +270,10 @@ pub fn set_status(
     error: Option<&str>,
     now: i64,
 ) -> Result<(), AppError> {
-    let finished_at: Option<i64> = if matches!(status, DownloadStatus::Done | DownloadStatus::Failed) {
-        Some(now)
-    } else {
-        None
-    };
-
+    // A retried or resumed download is unfinished again.
+    let finished_at = matches!(status, DownloadStatus::Done | DownloadStatus::Failed).then_some(now);
     let updated = conn.execute(
-        "UPDATE downloads
-         SET status = ?1,
-             error = ?2,
-             finished_at = CASE
-                 WHEN ?1 IN ('done', 'failed') THEN COALESCE(finished_at, ?3)
-                 ELSE finished_at
-             END
-         WHERE item_id = ?4",
+        "UPDATE downloads SET status = ?1, error = ?2, finished_at = ?3 WHERE item_id = ?4",
         params![status, error, finished_at, id],
     )?;
 
@@ -318,10 +308,10 @@ pub fn set_progress(
     Ok(())
 }
 
-pub fn set_title(conn: &Connection, id: &str, title: &str) -> Result<(), AppError> {
+pub fn set_title(conn: &Connection, id: &str, title: &str, now: i64) -> Result<(), AppError> {
     let updated = conn.execute(
-        "UPDATE items SET title = ?1 WHERE id = ?2 AND deleted_at IS NULL",
-        params![title, id],
+        "UPDATE items SET title = ?1, updated_at = ?2 WHERE id = ?3 AND deleted_at IS NULL",
+        params![title, now, id],
     )?;
     if updated == 0 {
         return Err(AppError::NotFound);
@@ -984,5 +974,8 @@ mod tests {
         assert_eq!(safe_name(""), "unduhan");
         assert_eq!(safe_name("   "), "unduhan");
         assert_eq!(safe_name(".."), "unduhan");
+        assert_eq!(safe_name(" .. "), "unduhan");
+        assert_eq!(safe_name(". ./x"), "x");
+        assert_eq!(safe_name("...video.mp4"), "video.mp4");
     }
 }

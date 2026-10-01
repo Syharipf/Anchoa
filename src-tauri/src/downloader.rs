@@ -211,7 +211,7 @@ fn run_file(
             with_db(app, |conn| {
                 downloads::set_file(conn, id, &path.to_string_lossy())?;
                 match path.file_name() {
-                    Some(name) => downloads::set_title(conn, id, &name.to_string_lossy()),
+                    Some(name) => downloads::set_title(conn, id, &name.to_string_lossy(), time::now_ms()),
                     None => Ok(()),
                 }
             });
@@ -298,7 +298,9 @@ fn run_media(
                     downloads::set_status(conn, id, DownloadStatus::Processing, None, time::now_ms())
                 });
             }
-            Some(YtEvent::Title(title)) => with_db(app, |conn| downloads::set_title(conn, id, &title)),
+            Some(YtEvent::Title(title)) => {
+                with_db(app, |conn| downloads::set_title(conn, id, &title, time::now_ms()))
+            }
             Some(YtEvent::File(path)) => with_db(app, |conn| downloads::set_file(conn, id, &path)),
             Some(YtEvent::Error(e)) => stdout_error = Some(e),
             _ => {}
@@ -365,34 +367,26 @@ fn cleanup(app: &AppHandle, id: &str) {
     }
 }
 
+/// `filename*=` wins over `filename=` when both are present (RFC 6266 §4.3).
 fn filename_from_content_disposition(cd: &str) -> Option<String> {
+    let mut plain = None;
     for part in cd.split(';') {
         let part = part.trim();
         if let Some(rest) = part.strip_prefix("filename*=") {
             let rest = rest.trim();
-            let value = if let Some((_, encoded)) = rest.split_once("''") {
-                encoded
-            } else {
-                rest
-            };
+            let value = rest.split_once("''").map_or(rest, |(_, encoded)| encoded);
             let decoded = percent_decode(value);
             if !decoded.is_empty() {
                 return Some(decoded);
             }
         } else if let Some(rest) = part.strip_prefix("filename=") {
-            let mut val = rest.trim();
-            if ((val.starts_with('"') && val.ends_with('"'))
-                || (val.starts_with('\'') && val.ends_with('\'')))
-                && val.len() >= 2
-            {
-                val = &val[1..val.len() - 1];
-            }
-            if !val.is_empty() {
-                return Some(val.to_string());
+            let val = rest.trim().trim_matches(|c| c == '"' || c == '\'');
+            if !val.is_empty() && plain.is_none() {
+                plain = Some(val.to_string());
             }
         }
     }
-    None
+    plain
 }
 
 /// Decodes `%XX` escapes. An invalid escape stays as it is.
@@ -556,6 +550,17 @@ mod tests {
     use super::*;
     use std::io::{BufRead, BufReader};
     use std::net::TcpListener;
+
+    #[test]
+    fn content_disposition_prefers_the_encoded_name() {
+        let cd = "attachment; filename=\"lama.pdf\"; filename*=UTF-8''laporan%20baru.pdf";
+        assert_eq!(filename_from_content_disposition(cd).as_deref(), Some("laporan baru.pdf"));
+        assert_eq!(
+            filename_from_content_disposition("inline; filename='a b.txt'").as_deref(),
+            Some("a b.txt")
+        );
+        assert_eq!(filename_from_content_disposition("attachment"), None);
+    }
 
     #[test]
     fn percent_decode_keeps_invalid_escapes() {

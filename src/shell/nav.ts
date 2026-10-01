@@ -41,12 +41,7 @@ export const PAGES: readonly NavPage[] = [
   { id: "keuangan", label: "Keuangan" },
   { id: "proyek", label: "Proyek" },
   { id: "berkas", label: "Berkas" },
-  {
-    id: "unduhan",
-    label: "Unduhan",
-    fase: 7,
-    about: "Unduh file, video, dan audio lewat antrean dengan status yang jelas.",
-  },
+  { id: "unduhan", label: "Unduhan" },
   {
     id: "profil",
     label: "Profil",

@@ -88,9 +88,11 @@ function TrashConfirmDialog({
 export function FilesPage({
   clipboard,
   onSetClipboard,
+  initialPath,
 }: Readonly<{
   clipboard: FileClipboard | null;
   onSetClipboard: (clip: FileClipboard | null) => void;
+  initialPath?: string;
 }>) {
   const toast = useToast();
   const [places, setPlaces] = useState<Place[]>([]);
@@ -105,7 +107,7 @@ export function FilesPage({
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [conflictCount, setConflictCount] = useState<number | null>(null);
 
-  const history = useHistory();
+  const history = useHistory(initialPath ?? "");
   const currentPath = history.current;
   const canGoUp = Boolean(listing?.parent);
 

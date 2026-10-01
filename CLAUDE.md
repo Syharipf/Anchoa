@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Fase 6 Berkas built; Fase 7 Unduhan is next. The old Fase 4 note features (page tree, block editor, wikilinks, FTS5) wait for the user to choose where they live.
+Status: Fase 7 Unduhan built; next phases wait for the user. The old Fase 4 note features (page tree, block editor, wikilinks, FTS5) wait for the user to choose where they live.
 
 ## Commands
 
@@ -74,16 +74,19 @@ Do not start implementing a phase until the user approves moving from planning t
 ### Model per step
 
 - Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session, with the `superpowers:brainstorming` and `superpowers:writing-plans` skills. Execute plans with `superpowers:subagent-driven-development`, and close each PR with `superpowers:verification-before-completion` and `superpowers:finishing-a-development-branch`. Use any other listed skill that fits the task.
-- Implementation: Gemini 3.8 Flash High through `agy` with `--dangerously-skip-permissions`, one plan task per run, to save Claude tokens. The prompt keeps it inside this repository and forbids push, merge and PRs; the Opus session does those and checks each result (the task's tests and the commit diff). Each plan has the command under "Menjalankan task dengan agy".
-- Review: Gemini 3.8 Flash High through the Antigravity CLI (`agy`), read-only:
+- Implementation: Gemini 3.8 Flash High through `agy-multi` with `--dangerously-skip-permissions`, one plan task per run, to save Claude tokens. Gemini only implements; it does not review. The prompt keeps it inside this repository and forbids push, merge and PRs; the Opus session does those and checks each result (the task's tests and the commit diff). Each plan has the command under "Menjalankan task dengan agy".
+- `agy-multi` (`~/.local/bin/agy-multi`) wraps `agy` with the same arguments. Put `--model` before `-p`, because `-p` takes the next argument as the prompt.
+  - On a quota error, it repeats the run with the next Google account.
+  - When a Gemini model is out of quota on every account, it repeats the run with `claude-opus-4-6-thinking` (Claude Opus 4.6 in Antigravity), again account by account.
+  - When that is out everywhere too, it sends the `-p` prompt to `codex exec` without sandbox.
+- Review: Codex (Codex CLI, ChatGPT login), read-only, on every PR:
 
   ```bash
-  git diff main...HEAD > .git/review.diff
-  agy --model gemini-3.8-flash-high --mode plan --print-timeout 600s -p "Rules: do not run shell commands, do not open URLs, and read only files inside this repository with your built-in file viewing tool. Task: review the diff in .git/review.diff against CLAUDE.md and the spec for this PR. Open changed files for context. Report bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
+  codex exec -s read-only -C "$PWD" -o ../review.txt "You are reviewing a pull request. Run git diff origin/main...HEAD to see it, and open changed files for context. Project rules are in CLAUDE.md; the spec is <spec path>, and this PR is <PR>. Do not edit files. Report real bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
   ```
 
-  Put `--model` before `-p`, because `-p` takes the next argument as the prompt. Headless `agy` ignores stdin, so give it the diff as a file inside the repo. It denies any tool call that needs a permission prompt (shell commands outside its allow-list, URLs, files outside the repo), and one denial ends the run with `jetski: no output produced`. The rules at the start of the prompt prevent that; if it still happens, run it once more. Check every finding before fixing it: Gemini also reports false positives.
-- Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when `agy` fails (not installed, auth, quota, timeout, or no output after a retry). Use the `implementer` agent (Sonnet, `.claude/agents/implementer.md`) when a task fails twice with Gemini, and Opus only when it also fails twice with Sonnet.
+  `codex review --base` does not accept custom instructions, so use `codex exec`. Check every finding before fixing it: reviewers also report false positives.
+- Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when Codex fails (auth, quota, timeout, or no output after a retry). Use the `implementer` agent (Sonnet, `.claude/agents/implementer.md`) when a task fails twice through `agy-multi`, and Opus only when it also fails twice with Sonnet.
 
 ## GUI testing
 

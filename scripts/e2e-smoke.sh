@@ -19,7 +19,8 @@ XVFB=$!
 { read -r DBUS_SESSION_BUS_ADDRESS; read -r DBUS_PID; } < <(dbus-daemon --session --fork --print-address=1 --print-pid=1)
 export DBUS_SESSION_BUS_ADDRESS
 APP=
-trap 'kill $APP $DBUS_PID $XVFB 2>/dev/null || true' EXIT
+SERVER=
+trap 'kill $APP $SERVER $DBUS_PID $XVFB 2>/dev/null || true' EXIT
 sleep 1
 
 fail() { echo "FAIL: $*"; exit 1; }
@@ -558,6 +559,75 @@ check_journal() {
 
 # Runs the app with a throwaway HOME, so the file manager never sees or
 # trashes the real user's files.
+# Waits up to $2 seconds for the download whose URL ends in $1 to reach status done.
+wait_download() {
+  local status
+  for _ in $(seq 1 "$2"); do
+    status=$(sql "SELECT status FROM downloads WHERE url LIKE '%$1'")
+    [[ $status == done ]] && return
+    [[ $status == failed ]] && fail "download of $1 failed: $(sql "SELECT error FROM downloads WHERE url LIKE '%$1'")"
+    sleep 1
+  done
+  fail "download of $1 not done after $2 s (status: $status)"
+}
+
+check_downloads() {
+  fresh
+  local home="$WORK/home" srv="$WORK/srv" port
+  rm -rf "$home" "$srv" && mkdir -p "$home/Downloads" "$srv"
+  head -c 2097152 /dev/urandom > "$srv/contoh.bin"
+  ffmpeg -loglevel error -f lavfi -i sine=d=3 -f lavfi -i color=c=green:s=160x120:d=3 -shortest "$srv/klip.mp4"
+  port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+  python3 -m http.server "$port" --bind 127.0.0.1 --directory "$srv" >/dev/null 2>&1 &
+  SERVER=$!
+  # No user-dirs.dirs in this HOME: the download folder defaults to $home/Downloads.
+  HOME="$home" start_app
+  click 36 524
+  shot 17-downloads-empty
+  click 400 181
+  xdotool type --delay 20 "http://127.0.0.1:$port/contoh.bin"
+  shot 17-downloads-file-detected   # expect: chip "File langsung"
+  xdotool key Return
+  wait_download contoh.bin 20
+  cmp -s "$srv/contoh.bin" "$home/Downloads/contoh.bin" || fail "contoh.bin missing or different"
+  [[ ! -e "$home/Downloads/.anchoa-part/$(sql "SELECT item_id FROM downloads WHERE url LIKE '%contoh.bin'")" ]] || fail "temp folder left behind"
+  sleep 1.5
+  shot 17-downloads-file-done       # expect: row Selesai, "Tersimpan di ..."
+  click 400 181
+  xdotool type --delay 20 "http://127.0.0.1:$port/klip.mp4"
+  click 733 181                     # chip: force Media
+  shot 17-downloads-media-options   # expect: Video/Audio segmented, quality and format chips
+  click 216 229                     # Audio saja (MP3 192 kbps)
+  click 833 181                     # Unduh audio MP3
+  wait_download klip.mp4 90
+  [[ -s "$home/Downloads/klip.mp3" ]] || fail "klip.mp3 missing: $(ls -A "$home/Downloads")"
+  shot 17-downloads-media-done
+  head -c 8388608 /dev/urandom > "$srv/besar.bin"
+  click 1068 589                    # Batas kecepatan 1 MB/s, shared by 2 slots
+  click 400 181
+  xdotool type --delay 20 "http://127.0.0.1:$port/besar.bin"
+  xdotool key Return
+  sleep 3
+  shot 17-downloads-running         # expect: ~512 KB/s, Mengunduh, pause button
+  click 36 94
+  sleep 1.5
+  shot 17-downloads-dashboard       # expect: Unduhan card with besar.bin and its progress
+  click 36 524
+  click 867 344                     # Jeda
+  sleep 1
+  local id
+  id=$(sql "SELECT item_id FROM downloads WHERE url LIKE '%besar.bin'")
+  [[ $(sql "SELECT status FROM downloads WHERE item_id = '$id'") == paused ]] || fail "besar.bin not paused"
+  [[ -s "$home/Downloads/.anchoa-part/$id/besar.bin.part" ]] || fail "pause did not keep the .part file"
+  shot 17-downloads-paused          # expect: Dijeda with its percentage, resume button
+  click 867 344                     # Lanjutkan
+  wait_download besar.bin 40
+  cmp -s "$srv/besar.bin" "$home/Downloads/besar.bin" || fail "resumed besar.bin differs"
+  stop_app
+  kill "$SERVER"
+  SERVER=
+}
+
 check_files() {
   fresh
   local home="$WORK/home"
@@ -629,6 +699,7 @@ check_schedule
 check_habits
 check_journal
 check_files
+check_downloads
 echo "PASS. Screenshots in $WORK"
 
 

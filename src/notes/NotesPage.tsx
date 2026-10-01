@@ -154,13 +154,6 @@ export function NotesPage({
     [activePageId, flush],
   );
 
-  // Sync initialId prop when it changes
-  useEffect(() => {
-    if (initialId && initialId !== activePageId) {
-      void handleSelectPage(initialId);
-    }
-  }, [initialId, activePageId, handleSelectPage]);
-
   // Load active page body and backlinks when activePageId changes
   useEffect(() => {
     if (!activePageId) {

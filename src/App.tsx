@@ -120,6 +120,7 @@ export function App() {
         {page.name === "jurnal" && <JournalPage key={captures} onOpenItem={openItem} onChanged={reload} />}
         {page.name === "catatan" && (
           <NotesPage
+            key={page.id ?? ""}
             initialId={page.id}
             onOpenItem={openItem}
             onReveal={onReveal}

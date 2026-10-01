@@ -19,6 +19,8 @@ Kartu Keamanan di Profil sekarang masih "Menyusul". Fase ini menambah kunci PIN:
 | K6 | Layar kunci: logo, "Anchoa terkunci", input PIN (`inputMode="numeric"`, `type="password"`), tombol Buka, pesan error, dan sisa jeda. Ada tautan "Lupa PIN?" yang menjelaskan cara reset lewat terminal: hapus baris `security.pin_hash` dengan `sqlite3` setelah app ditutup. | Tidak ada pintu belakang di UI. Reset butuh akses ke berkas user. |
 | K7 | Profil › Keamanan: sakelar "Kunci dengan PIN saat aplikasi dibuka". Menyalakannya membuka dialog Buat PIN (PIN dan konfirmasi). Mematikannya meminta PIN lama. Ada tombol Ganti PIN. Baris "Enkripsi data lokal" tetap menyusul. | Mengikuti artboard Profil. |
 | K8 | Kunci otomatis setelah idle tidak dikerjakan di fase ini. | YAGNI. Bisa ditambah nanti. |
+| K9 | **Batas ancaman.** PIN menahan orang di depan layar yang tidak bisa menjalankan kode di webview (build rilis tanpa devtools). Proses lain dengan akses user OS yang sama tetap bisa membaca `anchoa.db` langsung, karena DB belum terenkripsi. Jadi `asset://` dan command plugin (opener, dialog, core) tidak dijaga guard: frontend hanya merender layar kunci selama terkunci. Perlindungan penuh datang bersama enkripsi DB. | Jujur soal batasnya, tanpa kerumitan yang tidak menambah keamanan nyata. |
+| K10 | Gagal tertutup: kalau status PIN tidak bisa dibaca (DB gagal dibuka atau query error), app dianggap terkunci. Kalau `SecurityState` belum terdaftar, command juga ditolak. `db_status` diizinkan saat terkunci karena layar error DB membutuhkannya. | Kesalahan tidak boleh membuka kunci. |
 
 ## 3. Testing
 

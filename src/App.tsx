@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type DbStatus } from "./api";
+import { api, errorMessage, type DbStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
@@ -8,6 +8,7 @@ import { DownloadsPage } from "./downloads/DownloadsPage";
 import { FinancePage } from "./finance/FinancePage";
 import { HabitsPage } from "./habits/HabitsPage";
 import { JournalPage } from "./journal/JournalPage";
+import { NotesPage } from "./notes/NotesPage";
 import { ItemPage } from "./item/ItemPage";
 import { ProjectsPage } from "./projects/ProjectsPage";
 import { SchedulePage } from "./schedule/SchedulePage";
@@ -24,7 +25,7 @@ import { TopBar } from "./shell/TopBar";
 import { useToast } from "./shell/toast";
 
 /** A new `intent` number remounts Keuangan with the transaction form open (palette "Catat transaksi"). */
-type Page = { name: PageId; intent?: number; path?: string } | { name: "item"; id: string };
+type Page = { name: PageId; intent?: number; path?: string; id?: string } | { name: "item"; id: string };
 /** Only one overlay is open at a time. */
 type Overlay = "palette" | "notifications" | null;
 
@@ -81,7 +82,21 @@ export function App() {
   if (status.error) return <ErrorScreen path={status.path} message={status.error} />;
 
   const go = (name: PageId) => setStack([{ name }]);
-  const openItem = (id: string) => setStack((s) => [...s, { name: "item", id }]);
+  const openItem = useCallback(
+    (id: string) => {
+      api.openItem(id).then(
+        (item) => {
+          if (item.type === "page") {
+            setStack((s) => [...s, { name: "catatan", id }]);
+          } else {
+            setStack((s) => [...s, { name: "item", id }]);
+          }
+        },
+        (e) => toast(errorMessage(e), "error"),
+      );
+    },
+    [toast],
+  );
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
   const newTransaction = () => setStack([{ name: "keuangan", intent: ++intents.current }]);
   const info = page.name === "item" ? null : pageInfo(page.name);
@@ -103,6 +118,14 @@ export function App() {
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
         {page.name === "jurnal" && <JournalPage key={captures} onOpenItem={openItem} onChanged={reload} />}
+        {page.name === "catatan" && (
+          <NotesPage
+            initialId={page.id}
+            onOpenItem={openItem}
+            onReveal={onReveal}
+            onChanged={reload}
+          />
+        )}
         {page.name === "habit" && <HabitsPage onChanged={reload} />}
         {page.name === "keuangan" && (
           <FinancePage key={page.intent ?? 0} newTransaction={page.intent !== undefined} onChanged={reload} />

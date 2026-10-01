@@ -18,6 +18,13 @@ const ICON: Record<PageId, ReactNode> = {
       <path d="M10 7h5M10 10h3" />
     </>
   ),
+  catatan: (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+      <path d="M14 2v6h6" />
+      <path d="M16 13H8M16 17H8M10 9H8" />
+    </>
+  ),
   email: (
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />

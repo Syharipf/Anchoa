@@ -51,8 +51,13 @@ describe("sectionStatus", () => {
   it("formats version with 'v' prefix for tentang", () => {
     expect(sectionStatus("about", { version: "0.10.0" })).toBe("v0.10.0");
     expect(sectionStatus("about", { version: "v0.11.0" })).toBe("v0.11.0");
-    expect(sectionStatus("about", { version: "" })).toBe("v0.10.0");
-    expect(sectionStatus("about", {})).toBe("v0.10.0");
+  });
+
+  it("shows a placeholder until a real version is available", () => {
+    expect(sectionStatus("about", { version: "" })).toBe("…");
+    expect(sectionStatus("about", { version: "  " })).toBe("…");
+    expect(sectionStatus("about", {})).toBe("…");
+    expect(sectionStatus("about")).toBe("…");
   });
 });
 

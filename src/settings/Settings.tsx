@@ -11,11 +11,13 @@ import { normalizeSection, type SettingsSection } from "./view";
 
 export interface SettingsProps {
   readonly initialSection?: SettingsSection;
+  readonly onSectionChange: (section: SettingsSection) => void;
   readonly onGithubChanged: () => void;
 }
 
 export function Settings({
   initialSection,
+  onSectionChange,
   onGithubChanged,
 }: Readonly<SettingsProps>) {
   const [section, setSection] = useState<SettingsSection>(() =>
@@ -25,15 +27,18 @@ export function Settings({
   const [ghStatus, setGhStatus] = useState<GithubStatus | null>(null);
 
   useEffect(() => {
-    getVersion().then(setVersion, () => setVersion("0.10.0"));
+    getVersion().then(setVersion, () => setVersion(""));
     api.githubStatus().then(setGhStatus, () => setGhStatus(null));
   }, []);
 
   useEffect(() => {
-    if (initialSection) {
-      setSection(normalizeSection(initialSection));
-    }
+    setSection(normalizeSection(initialSection));
   }, [initialSection]);
+
+  const handleSectionChange = (next: SettingsSection) => {
+    setSection(next);
+    onSectionChange(next);
+  };
 
   const handleGithubChanged = () => {
     api.githubStatus().then(setGhStatus, () => setGhStatus(null));
@@ -52,7 +57,7 @@ export function Settings({
       <div className="grid grid-cols-[212px_minmax(0,1fr)] items-start gap-4">
         <SettingsNav
           current={section}
-          onSelect={setSection}
+          onSelect={handleSectionChange}
           statusContext={{
             githubConnected: ghStatus?.connected ?? false,
             version,

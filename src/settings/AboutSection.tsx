@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, errorMessage, type UpdateCheck } from "../api";
 import { useToast } from "../shell/toast";
 import { H2, PANEL, SECONDARY } from "../shell/ui";
-import { THIRD_PARTY_LICENSES } from "./view";
+import { sectionStatus, THIRD_PARTY_LICENSES } from "./view";
 
 const REPO_URL = "https://github.com/Syharipf/Anchoa";
 const RELEASES_URL = "https://github.com/Syharipf/Anchoa/releases";
@@ -16,13 +16,10 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
   const [updateResult, setUpdateResult] = useState<UpdateCheck | null>(null);
 
   useEffect(() => {
-    if (!initialVersion) {
-      getVersion().then(setVersion, () => {
-        // Fallback if Tauri API is not running in test env
-        setVersion("0.10.0");
-      });
-    } else {
+    if (initialVersion !== undefined) {
       setVersion(initialVersion);
+    } else {
+      getVersion().then(setVersion, () => setVersion(""));
     }
   }, [initialVersion]);
 
@@ -55,11 +52,7 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
     api.openLink(url).catch((e) => toast(errorMessage(e), "error"));
   }
 
-  const displayVersion = version
-    ? version.startsWith("v")
-      ? version
-      : `v${version}`
-    : "v0.10.0";
+  const displayVersion = sectionStatus("about", { version });
 
   return (
     <div className="flex flex-col gap-4">
@@ -145,10 +138,18 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
           {THIRD_PARTY_LICENSES.map((item) => (
             <div
               key={item.name}
-              className="flex items-center justify-between px-3 py-2 text-xs"
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-xs"
             >
               <span className="font-medium text-ink">{item.name}</span>
               <span className="font-mono text-muted">{item.license}</span>
+              <button
+                type="button"
+                onClick={() => openExternal(item.url)}
+                aria-label={`Buka lisensi atau situs ${item.name}`}
+                className="cursor-pointer text-accent hover:underline"
+              >
+                Buka ↗
+              </button>
             </div>
           ))}
         </div>

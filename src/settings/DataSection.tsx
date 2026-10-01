@@ -105,7 +105,7 @@ export function DataSection() {
       {/* Item counts summary */}
       <section className={`${PANEL} flex flex-col gap-3`}>
         <h2 className={H2}>Ringkasan data</h2>
-        {overview && overview.counts.length > 0 ? (
+        {overview && (overview.counts.length > 0 || overview.trashed > 0) ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {overview.counts.map((c) => (
               <div

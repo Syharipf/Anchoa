@@ -57,7 +57,7 @@ export function SettingsNav({
             className={`flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-[9px] px-2.5 text-left transition-colors ${
               active
                 ? "bg-surface-2 text-ink"
-                : "text-[#C9CED8] hover:bg-surface-2/60"
+                : "text-ink hover:bg-surface-2/60"
             }`}
           >
             <span className={`flex shrink-0 ${active ? "text-accent" : "text-muted"}`}>

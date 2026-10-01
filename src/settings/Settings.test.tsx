@@ -1,5 +1,9 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
+import * as tauriApp from "@tauri-apps/api/app";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { api, type DataOverview } from "../api";
+import { deferred, elements, hookHarness } from "../test/hookHarness";
 import { AboutSection } from "./AboutSection";
 import { ComingSection } from "./ComingSection";
 import { DataSection } from "./DataSection";
@@ -8,6 +12,7 @@ import { Settings } from "./Settings";
 import { SettingsNav } from "./SettingsNav";
 import { ComingSoon } from "../shell/ComingSoon";
 import { pageInfo } from "../shell/nav";
+import { sectionStatus, THIRD_PARTY_LICENSES, type SettingsSection, type StatusContext } from "./view";
 
 describe("SettingsNav", () => {
   it("renders 212px section nav with 6 sections and status lines", () => {
@@ -126,7 +131,7 @@ describe("AboutSection", () => {
 describe("Settings layout", () => {
   it("renders page header and default Data section", () => {
     const html = renderToStaticMarkup(
-      <Settings initialSection="data" onGithubChanged={() => {}} />,
+      <Settings initialSection="data" onSectionChange={() => {}} onGithubChanged={() => {}} />,
     );
     expect(html).toContain("Pengaturan");
     expect(html).toContain("Perangkat ini: Laptop Fedora");
@@ -136,10 +141,120 @@ describe("Settings layout", () => {
 
   it("renders initial section when provided", () => {
     const html = renderToStaticMarkup(
-      <Settings initialSection="about" onGithubChanged={() => {}} />,
+      <Settings initialSection="about" onSectionChange={() => {}} onGithubChanged={() => {}} />,
     );
     expect(html).toContain("Lisensi pihak ketiga");
     expect(html).toContain("sudo dnf upgrade anchoa");
+  });
+});
+
+describe("Settings interactions", () => {
+  let harness: ReturnType<typeof hookHarness<ReactNode>>;
+  let spies: { mockRestore: () => void }[] = [];
+  afterEach(() => {
+    harness?.dispose();
+    spies.forEach((spy) => spy.mockRestore());
+    spies = [];
+  });
+
+  function mockGithubStatus() {
+    spies.push(spyOn(api, "githubStatus").mockResolvedValue({ connected: false, login: null }));
+  }
+
+  function settingsNav() {
+    return elements(harness.render()).find((element) => element.type === SettingsNav)!;
+  }
+
+  it("reports section selection and follows subsequent navigation props", async () => {
+    mockGithubStatus();
+    spies.push(spyOn(tauriApp, "getVersion").mockResolvedValue("3.4.5"));
+    let initialSection: SettingsSection | undefined = "data";
+    const onSectionChange = mock(() => {});
+    harness = hookHarness(() => Settings({ initialSection, onSectionChange, onGithubChanged: () => {} }));
+
+    (settingsNav().props.onSelect as (section: SettingsSection) => void)("about");
+    expect(settingsNav().props.current).toBe("about");
+    expect(onSectionChange).toHaveBeenCalledTimes(1);
+    expect(onSectionChange).toHaveBeenCalledWith("about");
+
+    initialSection = "avatar";
+    expect(settingsNav().props.current).toBe("avatar");
+    initialSection = undefined;
+    expect(settingsNav().props.current).toBe("data");
+    expect(onSectionChange).toHaveBeenCalledTimes(1);
+    await harness.settle();
+  });
+
+  it.each(["resolve", "reject"] as const)("uses only the loaded app version in Settings (%s)", async (result) => {
+    mockGithubStatus();
+    const version = deferred<string>();
+    spies.push(spyOn(tauriApp, "getVersion").mockReturnValue(version.promise));
+    harness = hookHarness(() => Settings({
+      initialSection: "about", onSectionChange: () => {}, onGithubChanged: () => {},
+    }));
+    const context = () => settingsNav().props.statusContext as StatusContext;
+    const aboutVersion = () => elements(harness.render()).find((element) => element.type === AboutSection)!.props.version;
+    expect(sectionStatus("about", context())).toBe("…");
+    expect(aboutVersion()).toBe("");
+
+    if (result === "resolve") version.resolve("3.4.5");
+    else version.reject(new Error("Version unavailable"));
+    await harness.settle();
+    expect(sectionStatus("about", context())).toBe(result === "resolve" ? "v3.4.5" : "…");
+    expect(aboutVersion()).toBe(result === "resolve" ? "3.4.5" : "");
+  });
+
+  it.each([
+    { counts: [], trashed: 1234, empty: false },
+    { counts: [{ kind: "task", count: 2 }], trashed: 1234, empty: false },
+    { counts: [], trashed: 0, empty: true },
+  ])("renders the loaded data summary: %j", async ({ counts, trashed, empty }) => {
+    const overview: DataOverview = { dataDir: "/data", dbBytes: 1024, walBytes: 0, counts: [...counts], trashed, backups: [] };
+    spies.push(spyOn(api, "dataOverview").mockResolvedValue(overview));
+    harness = hookHarness(DataSection);
+    harness.render();
+    await harness.settle();
+    const html = renderToStaticMarkup(harness.render());
+    expect(html.includes("Belum ada item.")).toBe(empty);
+    expect(html.includes("Sampah (terhapus)")).toBe(!empty);
+    if (trashed > 0) expect(html).toContain("1.234");
+    if (counts.length > 0) expect(html).toContain("Tugas");
+  });
+
+  it.each(["resolve", "reject"] as const)("uses only the loaded app version in About (%s)", async (result) => {
+    const version = deferred<string>();
+    spies.push(spyOn(tauriApp, "getVersion").mockReturnValue(version.promise));
+    harness = hookHarness(() => AboutSection({}));
+    const markup = () => renderToStaticMarkup(harness.render());
+    expect(markup()).not.toMatch(/v\d+\.\d+\.\d+/);
+    expect(markup()).toContain("…");
+
+    if (result === "resolve") version.resolve("v6.7.8");
+    else version.reject(new Error("Version unavailable"));
+    await harness.settle();
+    if (result === "resolve") {
+      expect(markup()).toContain("v6.7.8");
+      expect(markup()).not.toContain("vv6.7.8");
+    } else {
+      expect(markup()).not.toMatch(/v\d+\.\d+\.\d+/);
+    }
+  });
+
+  it("opens every third-party license or project link through the external-link API", async () => {
+    const opening = spyOn(api, "openLink").mockResolvedValue(undefined);
+    spies.push(opening);
+    harness = hookHarness(() => AboutSection({ version: "3.4.5" }));
+    const links = elements(harness.render()).filter((element) =>
+      element.type === "button" && String(element.props["aria-label"]).startsWith("Buka lisensi atau situs "));
+    expect(links).toHaveLength(THIRD_PARTY_LICENSES.length);
+    for (const [index, link] of links.entries()) {
+      const item = THIRD_PARTY_LICENSES[index];
+      expect(new URL(item.url).protocol).toBe("https:");
+      expect(link.props["aria-label"]).toContain(item.name);
+      (link.props.onClick as () => void)();
+      expect(opening).toHaveBeenLastCalledWith(item.url);
+    }
+    await harness.settle();
   });
 });
 

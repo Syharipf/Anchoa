@@ -42,6 +42,13 @@ export function App() {
   const [contributionsVersion, setContributionsVersion] = useState(0);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
+  const onSectionChange = useCallback((section: SettingsSection) => {
+    setStack((s) => {
+      const current = s[s.length - 1];
+      if (current.name !== "settings" || current.section === section) return s;
+      return [...s.slice(0, -1), { ...current, section }];
+    });
+  }, []);
   const onReveal = useCallback((path: string) => setStack([{ name: "berkas", path }]), []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
@@ -161,8 +168,8 @@ export function App() {
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}
         {page.name === "settings" && (
           <Settings
-            key={page.section ?? "default"}
             initialSection={page.section}
+            onSectionChange={onSectionChange}
             onGithubChanged={onGithubChanged}
           />
         )}

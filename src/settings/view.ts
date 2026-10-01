@@ -68,7 +68,7 @@ export function sectionStatus(
       return context?.githubConnected ? "Terhubung" : "Belum terhubung";
     case "about": {
       const v = context?.version?.trim();
-      if (!v) return "v0.10.0";
+      if (!v) return "…";
       return v.startsWith("v") ? v : `v${v}`;
     }
   }
@@ -111,20 +111,21 @@ export function sensibleSection(pageId: string): SettingsSection | undefined {
 export interface ThirdPartyLicense {
   readonly name: string;
   readonly license: string;
+  readonly url: string;
 }
 
 export const THIRD_PARTY_LICENSES: readonly ThirdPartyLicense[] = [
-  { name: "Tauri", license: "MIT / Apache-2.0" },
-  { name: "React", license: "MIT" },
-  { name: "SQLite", license: "Public Domain" },
-  { name: "rusqlite", license: "MIT" },
-  { name: "jiff", license: "MIT / Unlicense" },
-  { name: "ureq", license: "MIT / Apache-2.0" },
-  { name: "yt-dlp", license: "Unlicense" },
-  { name: "FFmpeg", license: "LGPL-2.1+" },
-  { name: "IBM Plex", license: "OFL-1.1" },
-  { name: "Space Grotesk", license: "OFL-1.1" },
-  { name: "JetBrains Mono", license: "OFL-1.1" },
+  { name: "Tauri", license: "MIT / Apache-2.0", url: "https://tauri.app/" },
+  { name: "React", license: "MIT", url: "https://react.dev/" },
+  { name: "SQLite", license: "Public Domain", url: "https://www.sqlite.org/copyright.html" },
+  { name: "rusqlite", license: "MIT", url: "https://github.com/rusqlite/rusqlite" },
+  { name: "jiff", license: "MIT / Unlicense", url: "https://github.com/BurntSushi/jiff" },
+  { name: "ureq", license: "MIT / Apache-2.0", url: "https://github.com/algesten/ureq" },
+  { name: "yt-dlp", license: "Unlicense", url: "https://github.com/yt-dlp/yt-dlp" },
+  { name: "FFmpeg", license: "LGPL-2.1+", url: "https://ffmpeg.org/legal.html" },
+  { name: "IBM Plex", license: "OFL-1.1", url: "https://github.com/IBM/plex" },
+  { name: "Space Grotesk", license: "OFL-1.1", url: "https://github.com/floriankarsten/space-grotesk" },
+  { name: "JetBrains Mono", license: "OFL-1.1", url: "https://www.jetbrains.com/lp/mono/" },
 ] as const;
 
 export const ITEM_KIND_LABELS: Record<string, string> = {

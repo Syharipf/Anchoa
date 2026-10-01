@@ -340,6 +340,47 @@ mod tests {
     }
 
     #[test]
+    fn version_9_database_upgrades_to_agent_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..9], Some(&path)).unwrap();
+        conn.execute(
+            "INSERT INTO items (id, type, title, created_at, updated_at) VALUES
+             ('p1', 'project', 'Proyek lama', 1, 1), ('t1', 'task', 'Tugas lama', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO projects (item_id, kind) VALUES ('p1', 'app')", []).unwrap();
+        conn.execute("INSERT INTO tasks (item_id, status, project_id) VALUES ('t1', 'doing', 'p1')", []).unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+
+        assert_eq!(version(&conn), 10);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v9")).unwrap();
+        assert_eq!(version(&backup), 9);
+        let project: (String, bool, Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT i.title, p.agent, p.agent_command, p.agent_dir
+                 FROM projects p JOIN items i ON i.id = p.item_id WHERE i.id = 'p1'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(project, ("Proyek lama".into(), false, None, None));
+        let status: String = conn.query_row("SELECT status FROM tasks WHERE item_id = 't1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(status, "doing");
+        conn.prepare("SELECT item_id, task_id, project_id, actor, role, kind FROM activities").unwrap();
+        for index in ["activities_task", "activities_project"] {
+            let exists: bool = conn
+                .query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?1)", [index], |r| r.get(0))
+                .unwrap();
+            assert!(exists, "{index}");
+        }
+    }
+
+    #[test]
     fn fts_follows_title_and_body_updates() {
         let conn = open_in_memory();
 

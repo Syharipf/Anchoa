@@ -74,9 +74,9 @@ check_corrupt_db() {
 check_nav() {
   fresh
   start_app
-  for y in 202 256 310 364 418 472 526 706; do
+  for y in 256 310 364 418 472 526 580 706; do
     click 36 "$y"
-    shot "3-nav-$y"     # expect: placeholder page (Email, Jadwal, Unduhan … Profil); y=310 is Habit; y=364 is Keuangan; y=418 is Proyek; y=472 is Berkas
+    shot "3-nav-$y"     # expect: Email placeholder, then Jadwal, Habit, Keuangan, Proyek, Berkas, Unduhan, Profil (Catatan at y=202 is covered by check_notes)
   done
   click 36 148          # Jurnal: the mini assistant replaces the side panel
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
@@ -220,7 +220,7 @@ add_account() {
 check_finance() {
   fresh
   start_app
-  click 36 364                 # nav: Keuangan
+  click 36 418                 # nav: Keuangan
   shot 10-finance-empty        # expect: four cards at Rp 0, six empty bars, "Belum ada akun"
   add_account 10-account-form  # expect: "Akun baru" with "Buat akun dulu", focus in Nama
 
@@ -253,7 +253,7 @@ check_finance() {
 check_bills() {
   fresh
   start_app
-  click 36 364                 # nav: Keuangan
+  click 36 418                 # nav: Keuangan
   add_account
   shot 11-finance-account      # measure "+ Tambah" of Tagihan and the first bill row from here
   click 1207 461               # Tagihan: + Tambah (no limit set, so the cards are 12px shorter than in check_finance)
@@ -275,7 +275,7 @@ check_bills() {
   shot 11-notif-bill           # expect: "Listrik" under Terlambat, "Terlambat 1 hari · Rp 150.000"
   xdotool key Escape
   sleep 0.3
-  click 36 364                 # nav: Keuangan
+  click 36 418                 # nav: Keuangan
   shot 11-bill-late            # expect: Listrik row on coral, "Terlambat 1 hari · sejak <yesterday>", "Tandai lunas"
   before=$(sql "SELECT due_at FROM items WHERE type = 'bill'")
   click 1177 508               # Tandai lunas on the first bill row
@@ -337,7 +337,7 @@ check_github() {
 check_projects() {
   fresh
   start_app
-  click 36 418                 # nav: Proyek
+  click 36 472                 # nav: Proyek
   shot 12-projects-empty        # measure "+ Proyek" and other coordinates from here
   click 1203 104                # + Proyek
   sleep 0.5
@@ -434,7 +434,7 @@ check_schedule() {
   sql "INSERT INTO bills (item_id, account_id, amount, repeat, due_day) VALUES ('bill-e2e', 'acc-e2e', 150000, 'monthly', CAST(strftime('%d', 'now', 'localtime') AS INTEGER))"
 
   # 3. nav Jadwal (y=256), lalu screenshot 13-calendar
-  click 36 256
+  click 36 310
   sleep 1
   shot 13-calendar
 
@@ -473,7 +473,7 @@ check_schedule() {
 check_habits() {
   fresh
   start_app
-  click 36 310                 # nav: Habit
+  click 36 364                 # nav: Habit
   shot 14-habits-empty         # measure "+ Habit" from here
   click 1215 104               # + Habit
   sleep 0.5
@@ -582,7 +582,7 @@ check_downloads() {
   SERVER=$!
   # No user-dirs.dirs in this HOME: the download folder defaults to $home/Downloads.
   HOME="$home" start_app
-  click 36 524
+  click 36 580
   shot 17-downloads-empty
   click 400 181
   xdotool type --delay 20 "http://127.0.0.1:$port/contoh.bin"
@@ -613,7 +613,7 @@ check_downloads() {
   click 36 94
   sleep 1.5
   shot 17-downloads-dashboard       # expect: Unduhan card with besar.bin and its progress
-  click 36 524
+  click 36 580
   click 867 344                     # Jeda
   sleep 1
   local id
@@ -638,7 +638,7 @@ check_files() {
   magick -size 64x64 xc:'#C6F36B' "$home/Pictures/contoh.png"
   magick xc:white "$home/Documents/kecil.pdf"
   HOME="$home" start_app
-  click 36 472
+  click 36 526
   shot 16-files-home         # expect: Tempat sidebar, Documents/Downloads/Pictures folders
   xdotool mousemove 390 265 click --repeat 2 --delay 80 1; sleep 1
   click 390 265

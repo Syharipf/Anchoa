@@ -120,7 +120,6 @@ impl<'a> Options<'a> {
             } else if allowed.contains(&arg) {
                 let value = args
                     .next()
-                    .filter(|value| !value.starts_with("--"))
                     .ok_or_else(|| AppError::Invalid(format!("Nilai {arg} wajib diisi")))?;
                 if values.insert(arg, value).is_some() {
                     return Err(AppError::Invalid(format!("Opsi {arg} berulang")));
@@ -652,7 +651,7 @@ mod tests {
             ],
             &["plan", "--task", "t", "--file", "f"],
             &["show"],
-            &["show", "--task", "--json"],
+            &["show", "--task"],
         ];
         for command in invalid {
             error(command, dir.path());
@@ -759,6 +758,17 @@ mod tests {
         assert_eq!(history[0].role, Role::Test);
         assert_eq!(history[0].title, "Sol memindahkan ke Tes");
         assert_eq!(history[0].created_at, NOW + 1);
+    }
+
+    #[test]
+    fn option_values_may_start_with_dashes() {
+        let (dir, _conn, _, task) = fixture();
+        let output = success(
+            &["log", "--task", &task, "--actor", "Sol", "--role", "plan", "--body", "---\njudul: x\n---"],
+            dir.path(),
+            NOW + 1,
+        );
+        assert_eq!(output[0]["body"], "---\njudul: x\n---");
     }
 
     #[test]

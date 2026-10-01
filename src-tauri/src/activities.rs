@@ -276,6 +276,16 @@ pub fn inbox(conn: &Connection, project_id: Option<&str>) -> Result<Vec<TaskCard
     )
 }
 
+/// Notes titles may not hold `[`, `]`, `|` or line breaks (they would break `[[links]]`)
+/// and are capped at 200 characters.
+fn page_title(title: &str) -> String {
+    let clean: String = title
+        .chars()
+        .map(|c| if matches!(c, '[' | ']' | '|' | '\n' | '\r') { ' ' } else { c })
+        .collect();
+    clean.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(200).collect()
+}
+
 pub fn save_plan(
     conn: &Connection,
     task_id: &str,
@@ -302,7 +312,7 @@ pub fn save_plan(
         },
         now,
     )?;
-    let parent_title = format!("Rencana {}", project.title);
+    let parent_title = page_title(&format!("Rencana {}", project.title));
     let parent_id: Option<String> = tx
         .query_row(
             "SELECT id FROM items WHERE title = ?1 AND type = 'page' AND deleted_at IS NULL
@@ -315,7 +325,7 @@ pub fn save_plan(
         Some(id) => id,
         None => notes::create_in_transaction(&tx, None, &parent_title, now)?.id,
     };
-    let page = notes::create_in_transaction(&tx, Some(&parent_id), &task.title, now)?;
+    let page = notes::create_in_transaction(&tx, Some(&parent_id), &page_title(&task.title), now)?;
     items::update(
         &tx,
         &page.id,
@@ -590,6 +600,19 @@ mod tests {
     }
 
     #[test]
+    fn save_plan_cleans_titles_notes_would_reject() {
+        let conn = open_in_memory();
+        let p = project(&conn, "Proyek [beta] | v2");
+        let long = format!("Tugas [x] {}", "a".repeat(300));
+        let t = task(&conn, &p, &long);
+        save_plan(&conn, &t, "Opus", "Rencana", now()).unwrap();
+        let pages = crate::notes::tree(&conn).unwrap();
+        assert!(pages.iter().any(|p| p.title == "Rencana Proyek beta v2"));
+        let page = pages.iter().find(|p| p.title.starts_with("Tugas x a")).unwrap();
+        assert_eq!(page.title.chars().count(), 200);
+    }
+
+    #[test]
     fn save_plan_writes_activity_and_notes_page() {
         let conn = open_in_memory();
         let p = project(&conn, "Anchoa");
@@ -608,7 +631,7 @@ mod tests {
             crate::links::backlinks(&conn, &reference.id)
                 .unwrap()
                 .iter()
-                .any(|link| link.id == page.id)
+                .any(|link| link.item.id == page.id)
         );
         let second = task(&conn, &p, "Fitur kedua");
         save_plan(&conn, &second, "Sol", "Rencana kedua", now() + 2).unwrap();

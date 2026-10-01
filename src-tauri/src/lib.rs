@@ -13,6 +13,7 @@ mod gpu;
 mod habits;
 mod items;
 pub mod journal;
+pub mod links;
 mod overview;
 mod projects;
 mod schedule;

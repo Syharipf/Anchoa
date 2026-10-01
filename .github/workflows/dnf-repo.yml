@@ -36,7 +36,7 @@ jobs:
           BASE_PATH: /Anchoa/
         # --bun: run Astro on the Bun runtime, so the container needs no Node.js.
         run: |
-          bun install --frozen-lockfile
+          bun install --frozen-lockfile --ignore-scripts
           bun --bun run build
           mkdir -p ../site
           cp -r dist/. ../site/

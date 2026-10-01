@@ -1,0 +1,154 @@
+---
+import { id as copy } from '../content/translations';
+import { site } from '../config/site';
+---
+
+<section class="band" id="unduh" data-depth="180" aria-labelledby="h-dl">
+  <div class="wrap">
+    <div class="band-head">
+      <div class="depth">
+        −180 m<small data-i18n="zone.epi" set:html={copy['zone.epi']} />
+      </div>
+      <div>
+        <h2 id="h-dl" data-i18n="dl.title" set:html={copy['dl.title']} />
+        <p data-i18n="dl.lead" set:html={copy['dl.lead']} />
+      </div>
+    </div>
+    <div class="dl">
+      <article class="card main reveal">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span
+            class="status ready"
+            data-i18n="dl.ready"
+            set:html={copy['dl.ready']}
+          />
+          <h3 data-i18n="dl.rpmT" set:html={copy['dl.rpmT']} />
+          <p data-i18n="dl.rpmD" set:html={copy['dl.rpmD']} />
+          <div>
+            <a
+              class="btn btn-primary js-releases"
+              href={site.releases}
+              target="_blank"
+              rel="noopener"
+            >
+              <span data-i18n="dl.rpmBtn" set:html={copy['dl.rpmBtn']} />
+            </a>
+          </div>
+        </div>
+        <div class="cmds">
+          <div class="cmd">
+            <code id="c1" tabindex="0">
+              {site.installCommand}
+            </code>
+            <button
+              class="copy"
+              type="button"
+              data-copy-target="c1"
+              aria-label="Salin perintah instalasi Fedora"
+              data-i18n="copy"
+              set:html={copy['copy']}
+            />
+          </div>
+          <div class="cmd">
+            <code id="c2" tabindex="0">
+              anchoa
+            </code>
+            <button
+              class="copy"
+              type="button"
+              data-copy-target="c2"
+              aria-label="Salin perintah menjalankan Anchoa"
+              data-i18n="copy"
+              set:html={copy['copy']}
+            />
+          </div>
+        </div>
+      </article>
+      <article class="card reveal">
+        <span
+          class="status soon"
+          data-i18n="dl.soon"
+          set:html={copy['dl.soon']}
+        />
+        <h3 data-i18n="dl.dnfT" set:html={copy['dl.dnfT']} />
+        <p data-i18n="dl.dnfD" set:html={copy['dl.dnfD']} />
+        <div class="cmd">
+          <code id="c3" class="js-copr" tabindex="0">
+            {site.coprCommand}
+          </code>
+          <button
+            class="copy"
+            type="button"
+            data-copy-target="c3"
+            aria-label="Salin contoh perintah Copr"
+            data-i18n="copy"
+            set:html={copy['copy']}
+          />
+        </div>
+      </article>
+      <article class="card reveal">
+        <span
+          class="status soon"
+          data-i18n="dl.soon"
+          set:html={copy['dl.soon']}
+        />
+        <h3>Flatpak · Flathub</h3>
+        <p data-i18n="dl.flatD" set:html={copy['dl.flatD']} />
+        <div class="cmd">
+          <code id="c4" class="js-flat" tabindex="0">
+            {site.flatpakCommand}
+          </code>
+          <button
+            class="copy"
+            type="button"
+            data-copy-target="c4"
+            aria-label="Salin contoh perintah Flatpak"
+            data-i18n="copy"
+            set:html={copy['copy']}
+          />
+        </div>
+      </article>
+      <article class="card roadmap reveal">
+        <div class="rm-head">
+          <h3 data-i18n="rm.title" set:html={copy['rm.title']} />
+          <span data-i18n="rm.note" set:html={copy['rm.note']} />
+        </div>
+        <ol class="route">
+          <li class="now">
+            <span class="rn"></span>
+            <svg class="route-fish" viewBox="-12 -4 22 8" aria-hidden="true">
+              <path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" />
+            </svg>
+            <b>Fedora</b>
+            <small data-i18n="rm.s1" set:html={copy['rm.s1']} />
+          </li>
+          <li class="next">
+            <span class="rn"></span>
+            <b data-i18n="rm.l2" set:html={copy['rm.l2']} />
+            <small data-i18n="rm.s2" set:html={copy['rm.s2']} />
+          </li>
+          <li>
+            <span class="rn"></span>
+            <b>Android</b>
+            <small data-i18n="rm.s3" set:html={copy['rm.s3']} />
+          </li>
+          <li>
+            <span class="rn"></span>
+            <b>Windows</b>
+            <small data-i18n="rm.s3" set:html={copy['rm.s3']} />
+          </li>
+          <li>
+            <span class="rn"></span>
+            <b>macOS</b>
+            <small data-i18n="rm.s3" set:html={copy['rm.s3']} />
+          </li>
+          <li>
+            <span class="rn"></span>
+            <b>iOS</b>
+            <small data-i18n="rm.s4" set:html={copy['rm.s4']} />
+          </li>
+        </ol>
+      </article>
+    </div>
+  </div>
+</section>

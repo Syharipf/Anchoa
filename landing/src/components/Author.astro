@@ -1,0 +1,50 @@
+---
+import { id as copy } from '../content/translations';
+import { site } from '../config/site';
+---
+
+<section class="band" aria-labelledby="h-author" style="padding-top:24px">
+  <div class="wrap">
+    <div class="author reveal">
+      <div>
+        <span class="eyebrow">
+          <span class="dot"></span>
+          <span data-i18n="au.eyebrow" set:html={copy['au.eyebrow']} />
+        </span>
+        <h3
+          id="h-author"
+          style="margin-top:12px"
+          data-i18n="au.title"
+          set:html={copy['au.title']}
+        />
+        <p data-i18n="au.d" set:html={copy['au.d']} />
+      </div>
+      <div class="links">
+        <a
+          class="btn btn-ghost btn-sm js-repo"
+          href={site.repository}
+          target="_blank"
+          rel="noopener"
+        >
+          GitHub
+        </a>
+        <a
+          class="btn btn-ghost btn-sm js-portfolio"
+          href={site.profile}
+          target="_blank"
+          rel="noopener"
+          data-i18n="au.port"
+          set:html={copy['au.port']}
+        />
+        <a
+          class="btn btn-primary btn-sm js-linkedin"
+          href={site.linkedin}
+          target="_blank"
+          rel="noopener"
+        >
+          LinkedIn
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

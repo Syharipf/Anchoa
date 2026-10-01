@@ -1,0 +1,55 @@
+---
+import { id as copy } from '../content/translations';
+import LanguageSwitcher from './ui/LanguageSwitcher.astro';
+---
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Anchoa, ke atas">
+      <span class="logo-slot" title="Tempat logo">
+        LOGO
+      </span>
+      Anchoa
+    </a>
+    <nav aria-label="Navigasi utama">
+      <ul>
+        <li>
+          <a
+            href="#fitur"
+            data-i18n="nav.features"
+            set:html={copy['nav.features']}
+          />
+        </li>
+        <li>
+          <a
+            href="#cara-kerja"
+            data-i18n="nav.how"
+            set:html={copy['nav.how']}
+          />
+        </li>
+        <li>
+          <a href="#rekayasa" data-i18n="nav.eng" set:html={copy['nav.eng']} />
+        </li>
+        <li>
+          <a
+            href="#unduh"
+            data-i18n="nav.download"
+            set:html={copy['nav.download']}
+          />
+        </li>
+        <li>
+          <a href="#faq">FAQ</a>
+        </li>
+      </ul>
+    </nav>
+    <div class="right">
+      <LanguageSwitcher />
+      <a
+        class="btn btn-primary btn-sm"
+        href="#unduh"
+        data-i18n="nav.cta"
+        set:html={copy['nav.cta']}
+      />
+    </div>
+  </div>
+</header>

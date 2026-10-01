@@ -2,6 +2,8 @@
 
 Aplikasi desktop untuk mengelola semuanya di satu tempat (catatan, task, keuangan, project), bergaya Notion/Obsidian. Dibangun dengan Tauri 2, React, dan SQLite. Saat ini untuk Fedora Linux.
 
+Landing page: https://syharipf.github.io/Anchoa/ (source di [`landing/`](landing/)).
+
 ## Instal
 
 Tambahkan repo dnf Anchoa sekali, lalu pasang:

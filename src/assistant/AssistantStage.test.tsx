@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { api, type AiStatus, type AssistantEvent, type AssistantProposal } from "../api";
 import { deferred, elements, hookHarness } from "../test/hookHarness";
+import { AssistantFeedback } from "./AssistantFeedback";
 import { AssistantStage } from "./AssistantStage";
 import { ProposalCard } from "./ProposalCard";
 
@@ -212,11 +213,18 @@ describe("AssistantStage", () => {
     (button("Kirim").props.onClick as () => void)();
     await harness.settle();
 
-    const alert = elements(harness.render()).find((el) => el.props.role === "alert")!;
+    const feedback = elements(harness.render()).find((el) => el.type === AssistantFeedback)!;
+    expect(feedback).toBeDefined();
+    const feedbackElements = elements(AssistantFeedback(feedback.props as any));
+    const alert = feedbackElements.find((el) => el.props.role === "alert")!;
     expect(alert).toBeDefined();
     expect(alert.props.className).toContain("text-danger");
     expect(renderToStaticMarkup(alert)).toContain("Balasan gagal");
-    (button("Tutup pesan kesalahan").props.onClick as () => void)();
+    const closeBtn = feedbackElements.find(
+      (el) => el.props["aria-label"] === "Tutup pesan kesalahan",
+    )!;
+    expect(closeBtn).toBeDefined();
+    (closeBtn.props.onClick as () => void)();
     expect(renderToStaticMarkup(harness.render())).not.toContain("Balasan gagal");
   });
 

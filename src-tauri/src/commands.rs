@@ -22,7 +22,7 @@ use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery,
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
-use crate::{backup, files, time};
+use crate::{backup, downloader, downloads, files, time};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -460,5 +460,395 @@ pub fn open_file(app: AppHandle, path: String) -> Result<(), AppError> {
         .open_path(canonical.to_string_lossy(), None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
 }
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadView {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+    pub kind: downloads::DownloadKind,
+    pub options: Option<downloads::MediaOptions>,
+    pub status: downloads::DownloadStatus,
+    pub total_bytes: Option<i64>,
+    pub done_bytes: i64,
+    pub file_path: Option<String>,
+    pub error: Option<String>,
+    pub created_at: i64,
+    pub finished_at: Option<i64>,
+    pub speed: Option<f64>,
+    pub eta: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadsPayload {
+    pub items: Vec<DownloadView>,
+    pub speed: f64,
+    pub active: usize,
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YtDlpEngine {
+    pub version: String,
+    pub stale: bool,
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FfmpegEngine {
+    pub version: String,
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnginesInfo {
+    pub ytdlp: Option<YtDlpEngine>,
+    pub ffmpeg: Option<FfmpegEngine>,
+    pub hint: Option<String>,
+}
+
+pub fn is_ytdlp_stale(version: &str) -> bool {
+    let parts: Vec<&str> = version.split('.').collect();
+    if parts.len() < 3 {
+        return false;
+    }
+    let (Ok(year), Ok(month), Ok(day)) = (
+        parts[0].parse::<i16>(),
+        parts[1].parse::<i8>(),
+        parts[2].parse::<i8>(),
+    ) else {
+        return false;
+    };
+    let Ok(ver_date) = jiff::civil::Date::new(year, month, day) else {
+        return false;
+    };
+    let today = jiff::Zoned::now().date();
+    today.since(ver_date).is_ok_and(|span| span.get_days() > 60)
+}
+
+#[tauri::command]
+pub fn downloads_list(
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+) -> Result<DownloadsPayload, AppError> {
+    let rows = downloads::list(&*db.conn()?)?;
+    let live = downloader.live();
+
+    let items: Vec<DownloadView> = rows
+        .into_iter()
+        .map(|r| {
+            if let Some(l) = live.get(&r.id) {
+                DownloadView {
+                    id: r.id,
+                    title: r.title,
+                    url: r.url,
+                    kind: r.kind,
+                    options: r.options,
+                    status: r.status,
+                    total_bytes: l.total.map(|t| t as i64).or(r.total_bytes),
+                    done_bytes: l.done as i64,
+                    file_path: r.file_path,
+                    error: r.error,
+                    created_at: r.created_at,
+                    finished_at: r.finished_at,
+                    speed: l.speed,
+                    eta: l.eta,
+                }
+            } else {
+                DownloadView {
+                    id: r.id,
+                    title: r.title,
+                    url: r.url,
+                    kind: r.kind,
+                    options: r.options,
+                    status: r.status,
+                    total_bytes: r.total_bytes,
+                    done_bytes: r.done_bytes,
+                    file_path: r.file_path,
+                    error: r.error,
+                    created_at: r.created_at,
+                    finished_at: r.finished_at,
+                    speed: None,
+                    eta: None,
+                }
+            }
+        })
+        .collect();
+
+    let speed: f64 = items.iter().filter_map(|i| i.speed).sum();
+    let active = items
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.status,
+                downloads::DownloadStatus::Running | downloads::DownloadStatus::Processing
+            )
+        })
+        .count();
+
+    Ok(DownloadsPayload {
+        items,
+        speed,
+        active,
+    })
+}
+
+#[tauri::command]
+pub fn add_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    input: downloads::NewDownload,
+) -> Result<DownloadView, AppError> {
+    let row = downloads::add(&*db.conn()?, &input, time::now_ms())?;
+    let _ = downloader.schedule(&app);
+    Ok(DownloadView {
+        id: row.id,
+        title: row.title,
+        url: row.url,
+        kind: row.kind,
+        options: row.options,
+        status: row.status,
+        total_bytes: row.total_bytes,
+        done_bytes: row.done_bytes,
+        file_path: row.file_path,
+        error: row.error,
+        created_at: row.created_at,
+        finished_at: row.finished_at,
+        speed: None,
+        eta: None,
+    })
+}
+
+#[tauri::command]
+pub fn pause_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    let _ = downloader.pause(&id);
+    downloads::set_status(
+        &*db.conn()?,
+        &id,
+        downloads::DownloadStatus::Paused,
+        None,
+        time::now_ms(),
+    )?;
+    let _ = downloader.schedule(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn resume_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    downloads::set_status(
+        &*db.conn()?,
+        &id,
+        downloads::DownloadStatus::Queued,
+        None,
+        time::now_ms(),
+    )?;
+    downloader.schedule(&app)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn retry_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    downloads::set_status(
+        &*db.conn()?,
+        &id,
+        downloads::DownloadStatus::Queued,
+        None,
+        time::now_ms(),
+    )?;
+    downloader.schedule(&app)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    id: String,
+) -> Result<(), AppError> {
+    let conn = db.conn()?;
+    let row = downloads::get(&conn, &id)?;
+    if row.status != downloads::DownloadStatus::Done {
+        let _ = downloader.cancel(&id);
+        let home = app.path().home_dir()?;
+        let user_dirs_path = home.join(".config").join("user-dirs.dirs");
+        let user_dirs_text = std::fs::read_to_string(&user_dirs_path).ok();
+        let default_dir =
+            files::xdg_dir(&home, user_dirs_text.as_deref(), "XDG_DOWNLOAD_DIR", "Downloads");
+        let s = downloads::settings(&conn, &default_dir)?;
+        let part_dir = PathBuf::from(&s.dir).join(".anchoa-part").join(&id);
+        let _ = std::fs::remove_dir_all(&part_dir);
+    }
+    downloads::remove(&conn, &id, time::now_ms())?;
+    let _ = downloader.schedule(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    id: String,
+) -> Result<(), AppError> {
+    let conn = db.conn()?;
+    let row = downloads::get(&conn, &id)?;
+    let home = app.path().home_dir()?;
+    let user_dirs_path = home.join(".config").join("user-dirs.dirs");
+    let user_dirs_text = std::fs::read_to_string(&user_dirs_path).ok();
+    let default_dir =
+        files::xdg_dir(&home, user_dirs_text.as_deref(), "XDG_DOWNLOAD_DIR", "Downloads");
+    let s = downloads::settings(&conn, &default_dir)?;
+
+    if row.status == downloads::DownloadStatus::Done && let Some(file_path) = row.file_path {
+        app.opener()
+            .open_path(file_path, None::<&str>)
+            .map_err(|e| AppError::Other(e.to_string()))
+    } else {
+        app.opener()
+            .open_path(s.dir, None::<&str>)
+            .map_err(|e| AppError::Other(e.to_string()))
+    }
+}
+
+#[tauri::command]
+pub fn reveal_download(
+    app: AppHandle,
+    db: State<'_, Db>,
+    id: String,
+) -> Result<String, AppError> {
+    let conn = db.conn()?;
+    let row = downloads::get(&conn, &id)?;
+    if let Some(fp) = row.file_path {
+        let p = PathBuf::from(&fp);
+        if let Some(parent) = p.parent() {
+            return Ok(parent.to_string_lossy().to_string());
+        }
+        return Ok(fp);
+    }
+    let home = app.path().home_dir()?;
+    let user_dirs_path = home.join(".config").join("user-dirs.dirs");
+    let user_dirs_text = std::fs::read_to_string(&user_dirs_path).ok();
+    let default_dir =
+        files::xdg_dir(&home, user_dirs_text.as_deref(), "XDG_DOWNLOAD_DIR", "Downloads");
+    let s = downloads::settings(&conn, &default_dir)?;
+    Ok(s.dir)
+}
+
+#[tauri::command]
+pub fn download_engines() -> Result<EnginesInfo, AppError> {
+    let ytdlp_out = std::process::Command::new("yt-dlp")
+        .arg("--version")
+        .output()
+        .ok();
+    let ytdlp = ytdlp_out
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if ver.is_empty() {
+                None
+            } else {
+                let stale = is_ytdlp_stale(&ver);
+                Some(YtDlpEngine {
+                    version: ver,
+                    stale,
+                })
+            }
+        });
+
+    let ffmpeg_out = std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .ok();
+    let ffmpeg = ffmpeg_out
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let first_line = String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if first_line.is_empty() {
+                None
+            } else {
+                Some(FfmpegEngine { version: first_line })
+            }
+        });
+
+    let hint = if ytdlp.is_none() || ffmpeg.is_none() {
+        Some("sudo dnf install yt-dlp ffmpeg".to_string())
+    } else if ytdlp.as_ref().is_some_and(|y| y.stale) {
+        Some("Perbarui: sudo dnf upgrade yt-dlp".to_string())
+    } else {
+        None
+    };
+
+    Ok(EnginesInfo {
+        ytdlp,
+        ffmpeg,
+        hint,
+    })
+}
+
+#[tauri::command]
+pub fn download_settings(
+    app: AppHandle,
+    db: State<'_, Db>,
+) -> Result<downloads::DownloadSettings, AppError> {
+    let conn = db.conn()?;
+    let home = app.path().home_dir()?;
+    let user_dirs_path = home.join(".config").join("user-dirs.dirs");
+    let user_dirs_text = std::fs::read_to_string(&user_dirs_path).ok();
+    let default_dir =
+        files::xdg_dir(&home, user_dirs_text.as_deref(), "XDG_DOWNLOAD_DIR", "Downloads");
+    downloads::settings(&conn, &default_dir)
+}
+
+#[tauri::command]
+pub fn save_download_settings(
+    app: AppHandle,
+    db: State<'_, Db>,
+    downloader: State<'_, downloader::Downloader>,
+    settings: downloads::DownloadSettings,
+) -> Result<downloads::DownloadSettings, AppError> {
+    let conn = db.conn()?;
+    let home = app.path().home_dir()?;
+    let saved = downloads::save_settings(&conn, &settings, &home)?;
+    let _ = downloader.schedule(&app);
+    Ok(saved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_ytdlp_stale_identifies_old_and_current_versions() {
+        assert!(is_ytdlp_stale("2020.01.01"));
+        let today = jiff::Zoned::now().date();
+        let current = format!("{}.{:02}.{:02}", today.year(), today.month(), today.day());
+        assert!(!is_ytdlp_stale(&current));
+        assert!(!is_ytdlp_stale("invalid.version"));
+    }
+}
+
 
 

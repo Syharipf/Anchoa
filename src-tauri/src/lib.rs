@@ -54,9 +54,13 @@ pub fn run() {
                             db.backup_error = Some(e.to_string());
                         }
                     }
+                    if let Ok(conn) = db.conn() {
+                        let _ = downloads::pause_interrupted(&conn);
+                    }
                 }
             }
             app.manage(db);
+            app.manage(downloader::Downloader::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -116,6 +120,17 @@ pub fn run() {
             commands::paste_items,
             commands::trash_items,
             commands::open_file,
+            commands::downloads_list,
+            commands::add_download,
+            commands::pause_download,
+            commands::resume_download,
+            commands::retry_download,
+            commands::remove_download,
+            commands::open_download,
+            commands::reveal_download,
+            commands::download_engines,
+            commands::download_settings,
+            commands::save_download_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

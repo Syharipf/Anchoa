@@ -542,6 +542,72 @@ export interface TextPreview {
   truncated: boolean;
 }
 
+export type DownloadKind = "media" | "file";
+export type DownloadStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "processing"
+  | "done"
+  | "failed";
+
+export interface MediaOptions {
+  audioOnly: boolean;
+  quality: string;
+  format: string;
+  subtitles: boolean;
+}
+
+export interface NewDownload {
+  url: string;
+  kind: DownloadKind;
+  options?: MediaOptions | null;
+}
+
+export interface DownloadView {
+  id: string;
+  title: string;
+  url: string;
+  kind: DownloadKind;
+  options: MediaOptions | null;
+  status: DownloadStatus;
+  totalBytes: number | null;
+  doneBytes: number;
+  filePath: string | null;
+  error: string | null;
+  createdAt: number;
+  finishedAt: number | null;
+  speed: number | null;
+  eta: number | null;
+}
+
+export interface DownloadsPayload {
+  items: DownloadView[];
+  speed: number;
+  active: number;
+}
+
+export interface YtDlpEngine {
+  version: string;
+  stale: boolean;
+}
+
+export interface FfmpegEngine {
+  version: string;
+}
+
+export interface EnginesInfo {
+  ytdlp: YtDlpEngine | null;
+  ffmpeg: FfmpegEngine | null;
+  hint: string | null;
+}
+
+export interface DownloadSettings {
+  dir: string;
+  parallel: number;
+  limit: number;
+}
+
 export const api = {
   dbStatus: () => invoke<DbStatus>("db_status"),
   openFolder: (kind: FolderKind) => invoke<void>("open_folder", { kind }),
@@ -612,6 +678,19 @@ export const api = {
   trashItems: (paths: string[]) =>
     invoke<OpReport>("trash_items", { paths }),
   openFile: (path: string) => invoke<void>("open_file", { path }),
+  downloadsList: () => invoke<DownloadsPayload>("downloads_list"),
+  addDownload: (input: NewDownload) =>
+    invoke<DownloadView>("add_download", { input }),
+  pauseDownload: (id: string) => invoke<void>("pause_download", { id }),
+  resumeDownload: (id: string) => invoke<void>("resume_download", { id }),
+  retryDownload: (id: string) => invoke<void>("retry_download", { id }),
+  removeDownload: (id: string) => invoke<void>("remove_download", { id }),
+  openDownload: (id: string) => invoke<void>("open_download", { id }),
+  revealDownload: (id: string) => invoke<string>("reveal_download", { id }),
+  downloadEngines: () => invoke<EnginesInfo>("download_engines"),
+  downloadSettings: () => invoke<DownloadSettings>("download_settings"),
+  saveDownloadSettings: (settings: DownloadSettings) =>
+    invoke<DownloadSettings>("save_download_settings", { settings }),
 };
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */

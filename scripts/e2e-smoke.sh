@@ -836,12 +836,6 @@ check_notes() {
   stop_app
 }
 
-if [[ -n "${E2E_ONLY:-}" ]]; then
-  "$E2E_ONLY"
-  echo "PASS ($E2E_ONLY). Screenshots in $WORK"
-  exit 0
-fi
-
 check_agent() {
   fresh
   local repo="$WORK/agent-repo" proj_id task_id
@@ -886,6 +880,13 @@ check_agent() {
   shot 19-agent-moved
   stop_app
 }
+
+if [[ -n "${E2E_ONLY:-}" ]]; then
+  "$E2E_ONLY"
+  echo "PASS ($E2E_ONLY). Screenshots in $WORK"
+  exit 0
+fi
+
 
 check_shell
 check_corrupt_db

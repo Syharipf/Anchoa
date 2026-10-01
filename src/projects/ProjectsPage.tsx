@@ -42,11 +42,18 @@ export function ProjectsPage({
   const cards = board ? Object.values(board.columns).flat() : [];
   const panelTask = agentProject && panel?.projectId === agentProject.id
     ? cards.find((card) => card.id === panel.taskId) : undefined;
-  // UUIDv7 task IDs sort by creation, so the log shortcut needs no thread history reads.
-  const latestTask = cards.filter((card) => lastActors[card.id]).reduce<TaskCard | null>(
-    (latest, card) => !latest || card.id > latest.id ? card : latest, null,
-  );
-  const logTaskId = latestTask?.id ?? panelTask?.id ?? null;
+  // Runs log per task: prefer the task this page last sent, then the newest task an agent touched
+  // or was asked to (UUIDv7 IDs sort by creation). The user's own moves and notes ("Kamu") are skipped.
+  const lastRequests = useRef(new Map<string, string>());
+  const ranByAgent = (id: string) => {
+    const last = lastActors[id];
+    return last !== undefined && (last.actor !== "Kamu" || last.role === "request");
+  };
+  const latestTask = cards.filter((card) => ranByAgent(card.id))
+    .reduce<TaskCard | null>((latest, card) => !latest || card.id > latest.id ? card : latest, null);
+  const sentTaskId = agentProject ? lastRequests.current.get(agentProject.id) : undefined;
+  const logTaskId = (sentTaskId && cards.some((card) => card.id === sentTaskId) ? sentTaskId : null)
+    ?? latestTask?.id ?? panelTask?.id ?? null;
 
   useEffect(() => {
     let active = true;
@@ -114,6 +121,7 @@ export function ProjectsPage({
   }
 
   function handleAgentRequested(task: TaskCard) {
+    if (task.projectId) lastRequests.current.set(task.projectId, task.id);
     if (task.projectId && selectedProject.current === task.projectId) {
       setPanel({ projectId: task.projectId, taskId: task.id, log: false });
     }

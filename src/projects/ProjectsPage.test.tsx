@@ -91,10 +91,13 @@ describe("project page agent routing", () => {
 
   it("chooses the newest attributed card's log without reading closed threads", async () => {
     const second = { ...task, id: "0199a1b0-0000-7000-8000-000000000002" };
-    spyOn(api, "projectBoard").mockResolvedValue({ project: agent, columns: { plan: [second], doing: [task], test: [], review: [], done: [] } });
+    // Newest, but only moved by the user: no agent ran for it, so its log is not the one to show.
+    const manual = { ...task, id: "0199a1b0-0000-7000-8000-000000000003" };
+    spyOn(api, "projectBoard").mockResolvedValue({ project: agent, columns: { plan: [second, manual], doing: [task], test: [], review: [], done: [] } });
     spyOn(api, "agentLastActors").mockResolvedValue({
       [task.id]: { actor: "Sol", role: "implement" },
       [second.id]: { actor: "Kamu", role: "request" },
+      [manual.id]: { actor: "Kamu", role: "note" },
     });
     header().onTabChange?.("agent");
     await harness.settle();

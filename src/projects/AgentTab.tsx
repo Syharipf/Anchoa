@@ -167,6 +167,9 @@ function EventCard({
   );
 }
 
+/** Start time of each running agent, by project id (the app has no run start from the backend). */
+const runStarts = new Map<string, number>();
+
 export function ConnectAgentDialog({
   project,
   onClose,
@@ -343,15 +346,10 @@ export function AgentTab({
   const [connectOpen, setConnectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [startTime, setStartTime] = useState<number | null>(running ? Date.now() : null);
-
-  useEffect(() => {
-    if (running) {
-      setStartTime((prev) => prev ?? Date.now());
-    } else {
-      setStartTime(null);
-    }
-  }, [running]);
+  // Kept outside the component so switching to Kanban and back does not reset the duration.
+  if (running && !runStarts.has(project.id)) runStarts.set(project.id, Date.now());
+  if (!running) runStarts.delete(project.id);
+  const startTime = runStarts.get(project.id) ?? null;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 15000);
@@ -367,6 +365,7 @@ export function AgentTab({
     async function refresh() {
       const request = ++requests;
       try {
+        // ponytail: newest 200 only; older events and actors drop off the feed. Add paging if projects outgrow it.
         const data = await api.projectActivities(project.id);
         if (active && request === requests) {
           setActivities(data);

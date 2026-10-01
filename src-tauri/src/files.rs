@@ -276,7 +276,7 @@ fn decode_octal(s: &str) -> String {
             let d1 = chars[i + 1] - b'0';
             let d2 = chars[i + 2] - b'0';
             let d3 = chars[i + 3] - b'0';
-            if d1 < 8 && d2 < 8 && d3 < 8 {
+            if d1 <= 3 && d2 < 8 && d3 < 8 {
                 let oct = (d1 << 6) | (d2 << 3) | d3;
                 bytes.push(oct);
                 i += 4;
@@ -443,11 +443,14 @@ pub fn list_dir(path: &str, hidden: bool, roots: &Roots) -> Result<Listing, AppE
 
 pub fn read_text(path: &str, roots: &Roots) -> Result<TextPreview, AppError> {
     let canonical = guard(path, roots)?;
-    if canonical.is_dir() {
-        return Err(AppError::Invalid("Folder tidak bisa dibaca sebagai teks".into()));
+    let meta = fs::metadata(&canonical)?;
+    if !meta.is_file() {
+        return Err(AppError::Invalid(
+            "Hanya berkas biasa yang bisa dipratinjau".into(),
+        ));
     }
     let file = fs::File::open(&canonical)?;
-    let len = file.metadata()?.len();
+    let len = meta.len();
     let mut buf = Vec::new();
     file.take(TEXT_PREVIEW_LIMIT as u64).read_to_end(&mut buf)?;
     let truncated = len > TEXT_PREVIEW_LIMIT as u64;
@@ -474,7 +477,7 @@ pub fn unique_name(dest_dir: &Path, name: &str) -> PathBuf {
     loop {
         let candidate = format!("{stem} ({counter}){ext}");
         let target = dest_dir.join(&candidate);
-        if !target.exists() {
+        if fs::symlink_metadata(&target).is_err() {
             return target;
         }
         counter += 1;
@@ -500,7 +503,15 @@ fn copy_recursive(src: &Path, dst: &Path, overwrite: bool) -> io::Result<()> {
         let _ = (&target, dst);
         Ok(())
     } else if meta.is_dir() {
-        if fs::symlink_metadata(dst).is_err() {
+        if let Ok(dst_meta) = fs::symlink_metadata(dst) {
+            if dst_meta.file_type().is_symlink() {
+                if !overwrite {
+                    return Ok(());
+                }
+                fs::remove_file(dst)?;
+                fs::create_dir_all(dst)?;
+            }
+        } else {
             fs::create_dir_all(dst)?;
         }
         for entry in fs::read_dir(src)? {
@@ -612,6 +623,9 @@ pub fn paste(req: &PasteRequest, roots: &Roots) -> Result<OpReport, AppError> {
             }
             if let Some(file_name) = src_entry.file_name() {
                 let target_path = dest_canonical.join(file_name);
+                if req.mode == PasteMode::Move && target_path == *src_entry {
+                    continue;
+                }
                 if fs::symlink_metadata(&target_path).is_ok() {
                     conflicts.push(file_name.to_string_lossy().to_string());
                 }
@@ -1338,6 +1352,105 @@ XDG_MUSIC_DIR="$HOME/NonExistentMusic"
         assert!(matches!(guard_entry("..", &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
         assert!(matches!(guard_entry(home.path().join(".").to_str().unwrap(), &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
         assert!(matches!(guard_entry(home.path().join("..").to_str().unwrap(), &roots), Err(AppError::Invalid(msg)) if msg == "Nama file tidak valid"));
+    }
+
+    #[test]
+    fn decode_octal_handles_valid_and_out_of_range_escapes() {
+        assert_eq!(decode_octal(r"\040"), " ");
+        assert_eq!(decode_octal(r"\777"), r"\777");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn read_text_rejects_fifo() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let fifo_path = home.path().join("test_fifo");
+
+        let status = std::process::Command::new("mkfifo")
+            .arg(&fifo_path)
+            .status()
+            .expect("mkfifo failed");
+        assert!(status.success());
+
+        let fifo_str = fifo_path.to_str().unwrap().to_string();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let res = read_text(&fifo_str, &roots);
+            let _ = tx.send(res);
+        });
+
+        match rx.recv_timeout(std::time::Duration::from_millis(300)) {
+            Ok(Err(AppError::Invalid(msg))) => {
+                assert_eq!(msg, "Hanya berkas biasa yang bisa dipratinjau");
+            }
+            Ok(other) => panic!("expected Invalid error, got {other:?}"),
+            Err(_) => panic!("read_text blocked on FIFO instead of rejecting it immediately"),
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn unique_name_treats_dangling_symlink_as_taken() {
+        let dir = tempdir().unwrap();
+        let dangling = dir.path().join("a (2).txt");
+        std::os::unix::fs::symlink(dir.path().join("nonexistent.txt"), &dangling).unwrap();
+
+        let name = unique_name(dir.path(), "a.txt");
+        assert_eq!(name, dir.path().join("a (3).txt"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn copy_recursive_folder_symlink_destination_leaves_outside_folder_untouched() {
+        let home = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+
+        let outside_dir = outside.path().join("outside_folder");
+        fs::create_dir(&outside_dir).unwrap();
+        let outside_file = outside_dir.join("outside.txt");
+        fs::write(&outside_file, "original").unwrap();
+
+        let src_dir = home.path().join("src");
+        let src_sub = src_dir.join("sub");
+        fs::create_dir_all(&src_sub).unwrap();
+        fs::write(src_sub.join("file.txt"), "new").unwrap();
+
+        let dst_dir = home.path().join("dst");
+        fs::create_dir(&dst_dir).unwrap();
+        let dst_sub = dst_dir.join("sub");
+        std::os::unix::fs::symlink(&outside_dir, &dst_sub).unwrap();
+
+        copy_recursive(&src_sub, &dst_sub, true).unwrap();
+
+        assert!(!outside_dir.join("file.txt").exists());
+        assert_eq!(fs::read_to_string(&outside_file).unwrap(), "original");
+
+        let meta = fs::symlink_metadata(&dst_sub).unwrap();
+        assert!(meta.is_dir());
+        assert!(!meta.file_type().is_symlink());
+        assert!(dst_sub.join("file.txt").exists());
+    }
+
+    #[test]
+    fn paste_move_into_own_folder_has_no_conflict() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let file = home.path().join("file.txt");
+        fs::write(&file, "content").unwrap();
+
+        let req = PasteRequest {
+            sources: vec![file.to_str().unwrap().to_string()],
+            dest: home.path().to_str().unwrap().to_string(),
+            mode: PasteMode::Move,
+            on_conflict: None,
+        };
+
+        let rep = paste(&req, &roots).unwrap();
+        assert!(rep.conflicts.is_empty(), "conflicts should be empty, got {:?}", rep.conflicts);
+        assert_eq!(rep.done, vec![file.to_str().unwrap().to_string()]);
+        assert!(file.exists());
+        assert_eq!(fs::read_to_string(&file).unwrap(), "content");
     }
 }
 

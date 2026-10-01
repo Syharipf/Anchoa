@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   api,
   errorMessage,
-  type Board,
   type ProjectDetail,
   type ProjectsOverview,
   type TaskCard,
@@ -10,12 +9,15 @@ import {
 } from "../api";
 import { useToast } from "../shell/toast";
 import { H1, PRIMARY, SECONDARY } from "../shell/ui";
+import { AgentRequest } from "./AgentRequest";
+import { AgentThread } from "./AgentThread";
 import { Kanban } from "./Kanban";
 import { ProjectForm } from "./ProjectForm";
 import { ProjectHeader } from "./ProjectHeader";
 import { ProjectList } from "./ProjectList";
 import { UpcomingList } from "./UpcomingList";
-import { nextStatus } from "./view";
+import { useProjectBoard } from "./useProjectBoard";
+import { boardColumns, lastActivity, nextStatus } from "./view";
 
 export function ProjectsPage({
   onOpenItem,
@@ -26,14 +28,25 @@ export function ProjectsPage({
 }>) {
   const toast = useToast();
   const [overview, setOverview] = useState<ProjectsOverview | null>(null);
-  const [board, setBoard] = useState<Board | null>(null);
   const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined);
   const [formOpen, setFormOpen] = useState<{ edit?: ProjectDetail | null } | null>(null);
   const [version, setVersion] = useState(0);
+  const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
+  const selectedProject = useRef(selectedId);
+  selectedProject.current = selectedId;
+  const { board, activities, running } = useProjectBoard(selectedId, version);
+  const agentProject = board?.project?.agent ? board.project : null;
+  const cards = board ? Object.values(board.columns).flat() : [];
+  const panelTask = agentProject && panel?.projectId === agentProject.id
+    ? cards.find((card) => card.id === panel.taskId) : undefined;
+  const latestRequest = lastActivity(Object.values(activities).flat().filter((activity) => activity.role === "request"));
+  const logTaskId = latestRequest?.taskId ?? panelTask?.id ?? null;
 
   useEffect(() => {
+    let active = true;
     api.projectsOverview().then(
       (data) => {
+        if (!active) return;
         setOverview(data);
         setSelectedId((prev) => {
           if (prev === undefined) {
@@ -45,17 +58,10 @@ export function ProjectsPage({
           return prev;
         });
       },
-      (e) => toast(errorMessage(e), "error"),
+      (e) => { if (active) toast(errorMessage(e), "error"); },
     );
+    return () => { active = false; };
   }, [version, toast]);
-
-  useEffect(() => {
-    if (selectedId === undefined) return;
-    api.projectBoard(selectedId).then(
-      (data) => setBoard(data),
-      (e) => toast(errorMessage(e), "error"),
-    );
-  }, [selectedId, version, toast]);
 
   if (!overview) {
     return <h1 className={H1}>Proyek</h1>;
@@ -63,7 +69,7 @@ export function ProjectsPage({
 
   async function handleMoveCard(card: TaskCard) {
     try {
-      await api.updateTask(card.id, { status: nextStatus(card.status) });
+      await api.updateTask(card.id, { status: nextStatus(card.status, agentProject !== null) });
       setVersion((v) => v + 1);
       onChanged();
     } catch (e) {
@@ -94,6 +100,26 @@ export function ProjectsPage({
     }
     setVersion((v) => v + 1);
     onChanged();
+  }
+
+  function handleAgentChanged() {
+    setVersion((v) => v + 1);
+    onChanged();
+  }
+
+  function handleAgentRequested(task: TaskCard) {
+    if (task.projectId && selectedProject.current === task.projectId) {
+      setPanel({ projectId: task.projectId, taskId: task.id, log: false });
+    }
+  }
+
+  function handleOpenCard(id: string) {
+    if (agentProject) setPanel({ projectId: agentProject.id, taskId: id, log: false });
+    else onOpenItem(id);
+  }
+
+  function handleShowLog() {
+    if (agentProject && logTaskId) setPanel({ projectId: agentProject.id, taskId: logTaskId, log: true });
   }
 
   return (
@@ -161,24 +187,31 @@ export function ProjectsPage({
           <UpcomingList tasks={overview.upcoming} onOpenItem={onOpenItem} />
         </div>
 
-        <div className="flex min-h-0 flex-col gap-3.5 self-stretch">
+        <div className="flex min-h-0 min-w-0 flex-col gap-3.5 self-stretch">
           <ProjectHeader
             project={board?.project ?? null}
             looseCount={overview.loose}
             onEdit={() => board?.project && setFormOpen({ edit: board.project })}
           />
+          {agentProject && <AgentRequest key={agentProject.id} project={agentProject} running={running}
+            logAvailable={logTaskId !== null} onRequested={handleAgentRequested} onRefresh={handleAgentChanged} onShowLog={handleShowLog} />}
           {board ? (
-            <Kanban
-              columns={board.columns}
-              onOpenItem={onOpenItem}
-              onMoveCard={handleMoveCard}
-              onCreateTask={handleCreateTask}
-            />
+            <div className="flex min-h-0 flex-1 gap-3.5">
+              <Kanban
+                key={selectedId ?? "loose"}
+                columns={board.columns}
+                agent={agentProject !== null}
+                activities={activities}
+                onOpenItem={handleOpenCard}
+                onMoveCard={handleMoveCard}
+                onCreateTask={handleCreateTask}
+              />
+              {panelTask && <AgentThread key={panelTask.id} task={panelTask} activities={activities[panelTask.id]}
+                showLog={panel?.log} onChanged={handleAgentChanged} onClose={() => setPanel(null)} onOpenItem={onOpenItem} />}
+            </div>
           ) : (
             <div className="grid min-h-0 flex-1 grid-cols-3 gap-3.5">
-              <div className="rounded-[14px] border border-line bg-stage p-3" />
-              <div className="rounded-[14px] border border-line bg-stage p-3" />
-              <div className="rounded-[14px] border border-line bg-stage p-3" />
+              {boardColumns(false).map(({ status }) => <div key={status} className="rounded-[14px] border border-line bg-stage p-3" />)}
             </div>
           )}
         </div>

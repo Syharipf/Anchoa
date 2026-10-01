@@ -99,18 +99,27 @@ describe("Unduhan components", () => {
   });
 
   describe("EnginesPanel", () => {
+    it("shows the install command when an engine is missing", () => {
+      const html = renderToStaticMarkup(
+        <EnginesPanel engines={{ ytdlp: null, ffmpeg: null, hint: "sudo dnf install yt-dlp ffmpeg" }} />,
+      );
+      expect(html).toContain("Belum terpasang");
+      expect(html).toContain("sudo dnf install yt-dlp ffmpeg");
+    });
+
     it("renders engines info including yt-dlp, ffmpeg, File langsung, and Torrent", () => {
       const engines: EnginesInfo = {
         ytdlp: { version: "2026.09.01", stale: false },
-        ffmpeg: { version: "7.0.2" },
+        ffmpeg: { version: "ffmpeg version 7.0.2 Copyright (c) 2000-2024" },
         hint: null,
       };
       const html = renderToStaticMarkup(<EnginesPanel engines={engines} />);
       expect(html).toContain("Mesin unduhan");
       expect(html).toContain("yt-dlp");
-      expect(html).toContain("Terbaru");
+      expect(html).toContain("2026.09.01");
       expect(html).toContain("ffmpeg");
-      expect(html).toContain("Terpasang");
+      expect(html).toContain(">7.0.2<");
+      expect(html).not.toContain("Belum terpasang");
       expect(html).toContain("File langsung");
       expect(html).toContain("Bawaan");
       expect(html).toContain("Torrent");

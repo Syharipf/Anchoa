@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   errorMessage,
@@ -26,9 +26,13 @@ export function DownloadsPage({
   const [engines, setEngines] = useState<EnginesInfo | null>(null);
   const [settings, setSettings] = useState<DownloadSettings | null>(null);
 
+  // Only the newest answer counts: a slow poll must not overwrite a later action.
+  const requests = useRef(0);
   const reloadList = useCallback(async () => {
+    const request = ++requests.current;
     try {
       const payload = await api.downloadsList();
+      if (request !== requests.current) return;
       setItems(payload.items);
       setSpeed(payload.speed);
       setActiveCount(payload.active);
@@ -128,11 +132,14 @@ export function DownloadsPage({
     }
   };
 
-  const anyRunning = items.some((x) => x.status === "running");
+  // Queued rows count too: pausing only the running ones would let the queue start them.
+  const isActive = (x: DownloadView) =>
+    x.status === "running" || x.status === "queued" || x.status === "processing";
+  const anyRunning = items.some(isActive);
   const anyPaused = items.some((x) => x.status === "paused");
 
   const handlePauseAll = async () => {
-    const running = items.filter((x) => x.status === "running");
+    const running = items.filter(isActive);
     await Promise.allSettled(running.map((x) => api.pauseDownload(x.id)));
     void reloadList();
   };

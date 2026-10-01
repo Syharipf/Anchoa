@@ -95,7 +95,7 @@ export function AddDownload({
         Tambah unduhan
       </h2>
       <div className="flex items-center gap-2.5">
-        <label className="flex h-11 flex-1 min-w-0 items-center gap-2.5 rounded-lg border border-line bg-canvas px-3 focus-within:border-field-focus">
+        <div className="flex h-11 flex-1 min-w-0 items-center gap-2.5 rounded-lg border border-line bg-canvas px-3 focus-within:border-field-focus">
           <svg
             width="16"
             height="16"
@@ -113,7 +113,10 @@ export function AddDownload({
           </svg>
           <input
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              setForcedMedia(false);
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Tempel tautan video, audio, atau file…"
             aria-label="Tautan unduhan"
@@ -149,7 +152,7 @@ export function AddDownload({
             />
             {forcedMedia ? "Media (dipaksa)" : info.label}
           </button>
-        </label>
+        </div>
         <button
           type="button"
           onClick={() => void handleAdd()}

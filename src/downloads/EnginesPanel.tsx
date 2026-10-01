@@ -1,13 +1,16 @@
 import type { EnginesInfo } from "../api";
-import { useToast } from "../shell/toast";
+
+/** Version on the right, or "Belum terpasang" (spec U1). A stale yt-dlp shows in warn colour. */
+function EngineState({ version, stale = false }: Readonly<{ version?: string; stale?: boolean }>) {
+  if (!version) return <span className="text-xs text-danger">Belum terpasang</span>;
+  return <span className={`font-mono text-xs ${stale ? "text-warn" : "text-muted"}`}>{version}</span>;
+}
 
 export function EnginesPanel({
   engines,
 }: Readonly<{
   engines: EnginesInfo | null;
 }>) {
-  const toast = useToast();
-
   return (
     <section
       aria-labelledby="mesin-unduhan-judul"
@@ -25,20 +28,7 @@ export function EnginesPanel({
           <span className="font-mono text-xs font-medium text-ink">yt-dlp</span>
           <span className="truncate text-[11px] text-muted">Video & audio dari ribuan situs</span>
         </div>
-        {!engines?.ytdlp ? (
-          <span className="text-xs text-danger">Belum terpasang</span>
-        ) : engines.ytdlp.stale ? (
-          <button
-            type="button"
-            onClick={() => toast("Perbarui: sudo dnf upgrade yt-dlp", "info")}
-            title="Perbarui: sudo dnf upgrade yt-dlp"
-            className="min-h-7 rounded-md border border-field-focus px-2 text-xs text-accent transition-colors hover:bg-surface-2"
-          >
-            Perbarui
-          </button>
-        ) : (
-          <span className="text-xs text-muted">Terbaru</span>
-        )}
+        <EngineState version={engines?.ytdlp?.version} stale={engines?.ytdlp?.stale} />
       </div>
 
       <div className="flex items-center gap-2.5 py-1.5">
@@ -49,11 +39,8 @@ export function EnginesPanel({
           <span className="font-mono text-xs font-medium text-ink">ffmpeg</span>
           <span className="truncate text-[11px] text-muted">Gabung & konversi format</span>
         </div>
-        {engines?.ffmpeg ? (
-          <span className="text-xs text-muted">Terpasang</span>
-        ) : (
-          <span className="text-xs text-danger">Belum terpasang</span>
-        )}
+        {/* "ffmpeg version 8.1.3 Copyright ..." → "8.1.3" */}
+        <EngineState version={engines?.ffmpeg?.version.match(/version (\S+)/)?.[1] ?? engines?.ffmpeg?.version} />
       </div>
 
       <div className="flex items-center gap-2.5 py-1.5">
@@ -66,6 +53,8 @@ export function EnginesPanel({
         </div>
         <span className="text-xs text-muted">Bawaan</span>
       </div>
+
+      {engines?.hint && <p className="select-text font-mono text-[11px] text-warn">{engines.hint}</p>}
 
       <div className="my-1 border-t border-line" />
 

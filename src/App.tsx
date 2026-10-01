@@ -78,9 +78,6 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (!status) return null;
-  if (status.error) return <ErrorScreen path={status.path} message={status.error} />;
-
   const go = (name: PageId) => setStack([{ name }]);
   const openItem = useCallback(
     (id: string) => {
@@ -99,6 +96,9 @@ export function App() {
   );
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
   const newTransaction = () => setStack([{ name: "keuangan", intent: ++intents.current }]);
+
+  if (!status) return null;
+  if (status.error) return <ErrorScreen path={status.path} message={status.error} />;
   const info = page.name === "item" ? null : pageInfo(page.name);
   const data = dashboard.data;
 

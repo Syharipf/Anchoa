@@ -720,7 +720,7 @@ check_notes() {
   sleep 1
   xdotool key Return
   sleep 0.3
-  xdotool type --delay 20 '- [ ] Tulis ide'
+  xdotool type --delay 20 -- '- [ ] Tulis ide'
   sleep 1
   xdotool key Return           # lanjutkan daftar tugas
   sleep 0.3

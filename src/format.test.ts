@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   clockLabel,
   dateInputToMs,
+  formatBytes,
   fullDate,
   greeting,
   msToDateInput,
@@ -71,3 +72,19 @@ describe("upcomingLabel", () => {
     expect(upcomingLabel("2026-10-04")).toEqual({ weekday: "Min", day: 4 });
   });
 });
+
+describe("formatBytes", () => {
+  test("formats byte sizes using Indonesian conventions", () => {
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(1023)).toBe("1023 B");
+    expect(formatBytes(1536)).toBe("1,5 KB");
+    expect(formatBytes(Math.round(12.3 * 1024 * 1024))).toBe("12,3 MB");
+  });
+
+  test("formats whole units and gigabytes", () => {
+    expect(formatBytes(1024)).toBe("1 KB");
+    expect(formatBytes(1024 * 1024)).toBe("1 MB");
+    expect(formatBytes(Math.round(2.5 * 1024 * 1024 * 1024))).toBe("2,5 GB");
+  });
+});
+

@@ -16,6 +16,7 @@ import { NotifPanel } from "./notifications/NotifPanel";
 import { reminderCount } from "./notifications/reminders";
 import { CommandPalette } from "./palette/CommandPalette";
 import { Settings } from "./settings/Settings";
+import type { SettingsSection } from "./settings/view";
 import { Aside } from "./shell/Aside";
 import { ComingSoon } from "./shell/ComingSoon";
 import { ErrorScreen } from "./shell/ErrorScreen";
@@ -25,7 +26,9 @@ import { TopBar } from "./shell/TopBar";
 import { useToast } from "./shell/toast";
 
 /** `intent` remounts Catatan on navigation or opens Keuangan's transaction form. */
-type Page = { name: PageId; intent?: number; path?: string; id?: string } | { name: "item"; id: string };
+type Page =
+  | { name: PageId; intent?: number; path?: string; id?: string; section?: SettingsSection }
+  | { name: "item"; id: string };
 /** Only one overlay is open at a time. */
 type Overlay = "palette" | "notifications" | null;
 
@@ -39,6 +42,13 @@ export function App() {
   const [contributionsVersion, setContributionsVersion] = useState(0);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
+  const onSectionChange = useCallback((section: SettingsSection) => {
+    setStack((s) => {
+      const current = s[s.length - 1];
+      if (current.name !== "settings" || current.section === section) return s;
+      return [...s.slice(0, -1), { ...current, section }];
+    });
+  }, []);
   const onReveal = useCallback((path: string) => setStack([{ name: "berkas", path }]), []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
@@ -78,7 +88,9 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const go = (name: PageId) => setStack([{ name, intent: name === "catatan" ? ++intents.current : undefined }]);
+  const go = (name: PageId, section?: SettingsSection) =>
+    setStack([{ name, section, intent: name === "catatan" ? ++intents.current : undefined }]);
+  const openSettings = (section?: SettingsSection) => setStack([{ name: "settings", section }]);
   const openItem = useCallback(
     (id: string) => {
       api.openItem(id).then(
@@ -154,11 +166,20 @@ export function App() {
           <DownloadsPage onReveal={onReveal} />
         )}
         {page.name === "item" && <ItemPage key={page.id} id={page.id} onBack={back} onOpenItem={openItem} />}
-        {page.name === "settings" && <Settings onGithubChanged={onGithubChanged} />}
-        {info?.about && <ComingSoon page={info} onOpenSettings={() => go("settings")} />}
+        {page.name === "settings" && (
+          <Settings
+            initialSection={page.section}
+            onSectionChange={onSectionChange}
+            onGithubChanged={onGithubChanged}
+          />
+        )}
+        {info?.about && <ComingSoon page={info} onOpenSettings={openSettings} />}
       </main>
       {page.name === "dashboard" ? (
-        <Aside contributionsVersion={contributionsVersion} onOpenSettings={() => go("settings")} />
+        <Aside
+          contributionsVersion={contributionsVersion}
+          onOpenSettings={() => openSettings("integrations")}
+        />
       ) : (
         <AssistantMini key={page.name === "item" ? page.id : page.name} hint={assistantHint(info)} onOpenFull={() => go("dashboard")} />
       )}

@@ -1,53 +1,80 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
-import { api, errorMessage, type DataPaths, type FolderKind } from "../api";
-import { useToast } from "../shell/toast";
-import { GithubSection } from "./GithubSection";
-import { H1, H2, LABEL, PANEL, SECONDARY } from "../shell/ui";
+import { api, type GithubStatus } from "../api";
+import { H1 } from "../shell/ui";
+import { AboutSection } from "./AboutSection";
+import { ComingSection } from "./ComingSection";
+import { DataSection } from "./DataSection";
+import { IntegrationsSection } from "./IntegrationsSection";
+import { SettingsNav } from "./SettingsNav";
+import { normalizeSection, type SettingsSection } from "./view";
 
-export function Settings({ onGithubChanged }: Readonly<{ onGithubChanged: () => void }>) {
-  const toast = useToast();
-  const [paths, setPaths] = useState<DataPaths | null>(null);
+export interface SettingsProps {
+  readonly initialSection?: SettingsSection;
+  readonly onSectionChange: (section: SettingsSection) => void;
+  readonly onGithubChanged: () => void;
+}
+
+export function Settings({
+  initialSection,
+  onSectionChange,
+  onGithubChanged,
+}: Readonly<SettingsProps>) {
+  const [section, setSection] = useState<SettingsSection>(() =>
+    normalizeSection(initialSection),
+  );
   const [version, setVersion] = useState("");
+  const [ghStatus, setGhStatus] = useState<GithubStatus | null>(null);
 
   useEffect(() => {
-    api.dataPaths().then(setPaths, (e) => toast(errorMessage(e), "error"));
-    getVersion().then(setVersion);
-  }, [toast]);
+    getVersion().then(setVersion, () => setVersion(""));
+    api.githubStatus().then(setGhStatus, () => setGhStatus(null));
+  }, []);
 
-  async function backup() {
-    try {
-      toast(`Backup dibuat: ${await api.backupNow()}`);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    }
-  }
+  useEffect(() => {
+    setSection(normalizeSection(initialSection));
+  }, [initialSection]);
 
-  const open = (kind: FolderKind) => api.openFolder(kind).catch((e) => toast(errorMessage(e), "error"));
+  const handleSectionChange = (next: SettingsSection) => {
+    setSection(next);
+    onSectionChange(next);
+  };
+
+  const handleGithubChanged = () => {
+    api.githubStatus().then(setGhStatus, () => setGhStatus(null));
+    onGithubChanged();
+  };
 
   return (
-    <div className="flex max-w-3xl flex-col gap-[18px]">
-      <h1 className={H1}>Pengaturan</h1>
-      <section className={`${PANEL} flex flex-col gap-3`}>
-        <h2 className={H2}>Data</h2>
-        <p className="m-0 break-all font-mono text-xs text-muted">{paths?.dataDir}</p>
-        <div className="flex gap-2">
-          <button onClick={() => void backup()} className={SECONDARY}>
-            Backup sekarang
-          </button>
-          <button onClick={() => void open("backup")} className={SECONDARY}>
-            Buka folder backup
-          </button>
-          <button onClick={() => void open("data")} className={SECONDARY}>
-            Buka folder data
-          </button>
+    <div className="flex flex-col gap-3.5">
+      <div className="flex flex-wrap items-baseline gap-3">
+        <h1 className={H1}>Pengaturan</h1>
+        <span className="text-xs text-muted">
+          Perangkat ini: Laptop Fedora · disimpan secara lokal
+        </span>
+      </div>
+
+      <div className="grid grid-cols-[212px_minmax(0,1fr)] items-start gap-4">
+        <SettingsNav
+          current={section}
+          onSelect={handleSectionChange}
+          statusContext={{
+            githubConnected: ghStatus?.connected ?? false,
+            version,
+          }}
+        />
+
+        <div className="min-w-0">
+          {(section === "ai" || section === "avatar" || section === "suara") && (
+            <ComingSection section={section} />
+          )}
+          {section === "data" && <DataSection />}
+          {section === "integrations" && (
+            <IntegrationsSection onChanged={handleGithubChanged} />
+          )}
+          {section === "about" && <AboutSection version={version} />}
         </div>
-        <p className="m-0 text-xs text-muted">
-          Backup harian dibuat otomatis saat aplikasi dibuka; 7 backup terbaru disimpan.
-        </p>
-      </section>
-      <GithubSection onChanged={onGithubChanged} />
-      <p className={LABEL}>Anchoa versi {version}</p>
+      </div>
     </div>
   );
 }

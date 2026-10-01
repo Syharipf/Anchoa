@@ -15,6 +15,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/006_habits.sql"),
     include_str!("../migrations/007_journal.sql"),
     include_str!("../migrations/008_downloads.sql"),
+    include_str!("../migrations/009_notes.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -300,6 +301,114 @@ mod tests {
         ] {
             conn.prepare(sql).unwrap();
         }
+    }
+
+    #[test]
+    fn version_8_database_upgrades_to_notes_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..8], Some(&path)).unwrap();
+        conn.execute(
+            "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES ('n1', 'note', 'lama', 'isi lama dicari', 1, 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v8")).unwrap();
+        assert_eq!(version(&backup), 8);
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'lama'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+
+        for sql in [
+            "SELECT from_id, to_id FROM links",
+            "SELECT item_id, title, body FROM items_fts",
+        ] {
+            conn.prepare(sql).unwrap();
+        }
+    }
+
+    #[test]
+    fn fts_follows_title_and_body_updates() {
+        let conn = open_in_memory();
+
+        // 1. Insert item
+        conn.execute(
+            "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES ('i1', 'note', 'Halo Dunia', 'Isi pertama', 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        let count_dunia: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'Dunia'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_dunia, 1);
+
+        let count_pertama: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'pertama'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_pertama, 1);
+
+        // 2. Update title
+        conn.execute("UPDATE items SET title = 'Selamat Pagi' WHERE id = 'i1'", []).unwrap();
+
+        let count_old_title: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'Dunia'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_old_title, 0);
+
+        let count_new_title: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'Pagi'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_new_title, 1);
+
+        // Body remains indexed after title update
+        let count_body_after_title_update: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'pertama'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_body_after_title_update, 1);
+
+        // 3. Update body
+        conn.execute("UPDATE items SET body = 'Isi kedua yang baru' WHERE id = 'i1'", []).unwrap();
+
+        let count_old_body: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'pertama'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_old_body, 0);
+
+        let count_new_body: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'kedua'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_new_body, 1);
+
+        // 4. Physical delete removes from FTS index
+        conn.execute("DELETE FROM items WHERE id = 'i1'", []).unwrap();
+
+        let count_deleted_title: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'Pagi'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_deleted_title, 0);
+
+        let count_deleted_body: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'kedua'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_deleted_body, 0);
+
+        let count_item_id: i64 = conn
+            .query_row("SELECT COUNT(*) FROM items_fts WHERE item_id = 'i1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_item_id, 0);
     }
 
     #[test]

@@ -147,6 +147,9 @@ pub fn update(conn: &Connection, id: &str, patch: &ItemPatch, now: i64) -> Resul
     if changed == 0 {
         return Err(AppError::NotFound);
     }
+    if let Some(body) = &patch.body {
+        crate::links::refresh(conn, id, body)?;
+    }
     get(conn, id)
 }
 

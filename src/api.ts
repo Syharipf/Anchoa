@@ -21,6 +21,22 @@ export interface ItemSummary {
   lastActivityAt: number;
 }
 
+export interface PageNode {
+  id: string;
+  title: string;
+  parentId: string | null;
+  updatedAt: number;
+}
+
+export interface TrashEntry {
+  id: string;
+  title: string;
+  deletedAt: number;
+  descendants: number;
+}
+
+export type SearchHit = ItemSummary & { snippet: string };
+
 /** Omitted fields stay unchanged; `dueAt: null` clears the due date. */
 export interface ItemPatch {
   title?: string;
@@ -708,6 +724,26 @@ export const api = {
   downloadSettings: () => invoke<DownloadSettings>("download_settings"),
   saveDownloadSettings: (settings: DownloadSettings) =>
     invoke<DownloadSettings>("save_download_settings", { settings }),
+  pagesTree: () => invoke<PageNode[]>("pages_tree"),
+  createPage: (parentId: string | null, title: string) =>
+    invoke<PageNode>("create_page", { parentId, title }),
+  renamePage: (id: string, title: string) =>
+    invoke<PageNode>("rename_page", { id, title }),
+  movePage: (id: string, parentId: string | null) =>
+    invoke<PageNode>("move_page", { id, parentId }),
+  savePageBody: (id: string, body: string) =>
+    invoke<void>("save_page_body", { id, body }),
+  deletePage: (id: string) => invoke<void>("delete_page", { id }),
+  pagesTrash: () => invoke<TrashEntry[]>("pages_trash"),
+  restorePage: (id: string) => invoke<PageNode>("restore_page", { id }),
+  pageBacklinks: (id: string) =>
+    invoke<ItemSummary[]>("page_backlinks", { id }),
+  resolveLink: (title: string) =>
+    invoke<ItemSummary | null>("resolve_link", { title }),
+  searchItems: (text: string, pagesOnly: boolean, limit: number) =>
+    invoke<SearchHit[]>("search_items", { text, pagesOnly, limit }),
+  exportPages: () => invoke<string>("export_pages"),
+  openLink: (url: string) => invoke<void>("open_link", { url }),
 };
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */

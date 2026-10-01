@@ -57,7 +57,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 8 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 9 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -595,6 +595,7 @@ check_downloads() {
   shot 17-downloads-file-done       # expect: row Selesai, "Tersimpan di ..."
   click 400 181
   xdotool type --delay 20 "http://127.0.0.1:$port/klip.mp4"
+  sleep 1                           # let WebKit take every key before the click moves focus
   click 733 181                     # chip: force Media
   shot 17-downloads-media-options   # expect: Video/Audio segmented, quality and format chips
   click 216 229                     # Audio saja (MP3 192 kbps)

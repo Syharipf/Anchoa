@@ -87,7 +87,7 @@ export function ProjectHeader({
                   aria-current={tab === "agent" ? "page" : undefined}
                 >
                   Agen kode
-                  <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent animate-pulse" : "bg-faint"}`} />
+                  <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent animate-pulse" : "bg-disabled"}`} />
                 </button>
               </nav>
             )}

@@ -85,7 +85,7 @@ export function AgentRequest({
               type="button"
               onClick={() => setText(quick)}
               disabled={busy}
-              className="rounded-full border border-line bg-transparent px-2.5 py-0.5 text-[11px] text-muted transition-colors hover:border-border-strong hover:text-ink disabled:opacity-50"
+              className="rounded-full border border-line bg-transparent px-2.5 py-0.5 text-[11px] text-muted transition-colors hover:border-field-focus hover:text-ink disabled:opacity-50"
             >
               {quick}
             </button>

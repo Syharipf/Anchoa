@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { api, errorMessage, type ItemSummary } from "../api";
+import { api, errorMessage, type ItemSummary, type SearchHit } from "../api";
+import { snippetParts } from "../notes/view";
 import type { PageId } from "../shell/nav";
 import { useToast } from "../shell/toast";
-import { paletteResults, type PaletteOption } from "./results";
+import { nextActiveIndex, paletteResults, type PaletteOption } from "./results";
 
 const OPTION_ICON: Record<PaletteOption["kind"], ReactNode> = {
   action: <path d="M4 7h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4zM4 7l10-3v3M16 13h1" />,
@@ -33,9 +34,42 @@ export function CommandPalette({
   const toast = useToast();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [searchResults, setSearchResults] = useState<{ query: string; hits: SearchHit[] }>({ query: "", hits: [] });
+  const searchRequestId = useRef(0);
   const saving = useRef(false);
   const input = useRef<HTMLInputElement>(null);
-  const groups = useMemo(() => paletteResults(query, recent), [query, recent]);
+
+  useEffect(() => {
+    const text = query.trim();
+    if (!text) {
+      searchRequestId.current += 1;
+      setSearchResults({ query: text, hits: [] });
+      return;
+    }
+
+    const reqId = ++searchRequestId.current;
+    const timer = setTimeout(async () => {
+      try {
+        const hits = await api.searchItems(text, false, 8);
+        if (searchRequestId.current === reqId) {
+          setSearchResults({ query: text, hits });
+        }
+      } catch {
+        if (searchRequestId.current === reqId) {
+          setSearchResults({ query: text, hits: [] });
+        }
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+      searchRequestId.current += 1;
+    };
+  }, [query]);
+
+  const groups = useMemo(() => paletteResults(
+    query, recent, searchResults.query === query.trim() ? searchResults.hits : [],
+  ), [query, recent, searchResults]);
   const flat = groups.flatMap((g) => g.options);
   const current = Math.min(active, flat.length - 1);
 
@@ -98,10 +132,10 @@ export function CommandPalette({
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive(Math.min(current + 1, flat.length - 1));
+      setActive(nextActiveIndex(current, flat.length, 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActive(Math.max(current - 1, 0));
+      setActive(nextActiveIndex(current, flat.length, -1));
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
       const option = flat[current];
@@ -178,15 +212,33 @@ export function CommandPalette({
                         void run(o);
                       }
                     }}
-                    className={`flex min-h-10 cursor-pointer items-center gap-3 rounded-[9px] px-2.5 text-sm ${on ? "bg-[#232833]" : ""}`}
+                    className={`flex min-h-10 cursor-pointer items-center gap-3 rounded-[9px] px-2.5 py-1 text-sm ${on ? "bg-[#232833]" : ""}`}
                   >
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${on ? "bg-[#2e3440] text-accent" : "bg-surface-2 text-muted"}`}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         {OPTION_ICON[o.kind]}
                       </svg>
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                    <span className="text-xs text-muted">{o.sub}</span>
+                    <div className="flex min-w-0 flex-1 flex-col justify-center">
+                      <span className="truncate">{o.label}</span>
+                      {o.kind === "item" && o.snippet ? (
+                        <span className="truncate text-xs text-muted">
+                          {snippetParts(o.snippet).map((part, idx) =>
+                            part.mark ? (
+                              <mark
+                                key={`${idx}-${part.text}`}
+                                className="rounded bg-accent/20 px-0.5 font-medium text-accent"
+                              >
+                                {part.text}
+                              </mark>
+                            ) : (
+                              <span key={`${idx}-${part.text}`}>{part.text}</span>
+                            ),
+                          )}
+                        </span>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 text-xs text-muted">{o.sub}</span>
                   </div>
                 );
               })}

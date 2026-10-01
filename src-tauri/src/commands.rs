@@ -816,7 +816,7 @@ pub fn restore_page(db: State<'_, Db>, id: String) -> Result<notes::PageNode, Ap
 }
 
 #[tauri::command]
-pub fn page_backlinks(db: State<'_, Db>, id: String) -> Result<Vec<ItemSummary>, AppError> {
+pub fn page_backlinks(db: State<'_, Db>, id: String) -> Result<Vec<links::Backlink>, AppError> {
     links::backlinks(&*db.conn()?, &id)
 }
 

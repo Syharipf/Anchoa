@@ -1,8 +1,16 @@
 //! Wikilinks parsing, rewriting, resolving, and backlinks tracking (spec Fase 4B §3-4).
 use rusqlite::{Connection, params};
+use serde::Serialize;
 
 use crate::error::AppError;
-use crate::items::{self, ItemSummary};
+use crate::items::ItemSummary;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Backlink {
+    #[serde(flatten)]
+    pub item: ItemSummary,
+    pub excerpt: String,
+}
 
 enum Segment<'a> {
     Code(&'a str),
@@ -328,13 +336,42 @@ pub fn refresh(conn: &Connection, from_id: &str, body: &str) -> Result<(), AppEr
     Ok(())
 }
 
-/// Item yang menautkan id, tidak terhapus, updated_at terbaru dulu.
-pub fn backlinks(conn: &Connection, id: &str) -> Result<Vec<ItemSummary>, AppError> {
-    items::summaries(
-        conn,
-        "id IN (SELECT from_id FROM links WHERE to_id = ?1) ORDER BY updated_at DESC, id ASC",
-        [id],
-    )
+/// Item yang menautkan id, tidak terhapus, updated_at terbaru dulu, dengan cuplikan
+/// baris pertama dengan tautan yang judulnya sama (tanpa membedakan huruf besar/kecil), maksimal 120 karakter.
+pub fn backlinks(conn: &Connection, id: &str) -> Result<Vec<Backlink>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT i.id, i.type, i.title, i.due_at,
+                MAX(i.created_at, i.updated_at, COALESCE(i.opened_at, 0)), i.body, target.title
+         FROM links l
+         JOIN items i ON i.id = l.from_id
+         JOIN items target ON target.id = l.to_id
+         WHERE l.to_id = ?1 AND i.deleted_at IS NULL AND target.deleted_at IS NULL
+         ORDER BY i.updated_at DESC, i.id ASC",
+    )?;
+    let rows = stmt.query_map([id], |row| {
+        let body: String = row.get(5)?;
+        let title: String = row.get(6)?;
+        let excerpt = body
+            .lines()
+            .find(|line| {
+                parse(line)
+                    .iter()
+                    .any(|link| link.eq_ignore_ascii_case(title.trim()))
+            })
+            .map(|line| line.trim().chars().take(120).collect())
+            .unwrap_or_default();
+        Ok(Backlink {
+            item: ItemSummary {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                title: row.get(2)?,
+                due_at: row.get(3)?,
+                last_activity_at: row.get(4)?,
+            },
+            excerpt,
+        })
+    })?;
+    Ok(rows.collect::<Result<_, _>>()?)
 }
 
 /// Menjalankan `refresh` ulang untuk setiap item tidak terhapus yang isinya memuat `[[judul`
@@ -509,7 +546,8 @@ Inline: `[[Lama]]` tidak diubah.
 
         let links1 = backlinks(&conn, "target").unwrap();
         assert_eq!(links1.len(), 1);
-        assert_eq!(links1[0].id, note_id);
+        assert_eq!(links1[0].item.id, note_id);
+        assert_eq!(links1[0].excerpt, "Tautan ke [[Target Halaman]].");
 
         // 2. Source 2: a Jurnal entry; the editor saves its body through items::update
         let journal_entry = crate::journal::create_entry(&conn, crate::journal::EntryKind::Note, Some("Jurnal Penaut"), 200, &tz).unwrap();
@@ -527,20 +565,22 @@ Inline: `[[Lama]]` tidak diubah.
 
         let links2 = backlinks(&conn, "target").unwrap();
         assert_eq!(links2.len(), 2);
-        assert_eq!(links2[0].id, journal_entry.id); // updated at 250
-        assert_eq!(links2[1].id, note_id);          // updated at 150
+        assert_eq!(links2[0].item.id, journal_entry.id); // updated at 250
+        assert_eq!(links2[0].item.kind, "note");
+        assert_eq!(links2[0].excerpt, "Menyebut [[Target Halaman|alias]].");
+        assert_eq!(links2[1].item.id, note_id);          // updated at 150
 
         // 3. Self-links are ignored
         refresh(&conn, "target", "Menautkan diri sendiri: [[Target Halaman]]").unwrap();
         let links3 = backlinks(&conn, "target").unwrap();
         assert_eq!(links3.len(), 2);
-        assert!(!links3.iter().any(|item| item.id == "target"));
+        assert!(!links3.iter().any(|backlink| backlink.item.id == "target"));
 
         // 4. Soft-deleted linking items do not appear
         crate::items::soft_delete(&conn, &journal_entry.id, 300).unwrap();
         let links4 = backlinks(&conn, "target").unwrap();
         assert_eq!(links4.len(), 1);
-        assert_eq!(links4[0].id, note_id);
+        assert_eq!(links4[0].item.id, note_id);
     }
 
     #[test]
@@ -568,6 +608,91 @@ Inline: `[[Lama]]` tidak diubah.
         // Now the note appears in backlinks!
         let links_after = backlinks(&conn, target_id).unwrap();
         assert_eq!(links_after.len(), 1);
-        assert_eq!(links_after[0].id, note_id);
+        assert_eq!(links_after[0].item.id, note_id);
+        assert_eq!(links_after[0].excerpt, "Membahas [[Halaman Rencana]].");
+    }
+
+    #[test]
+    fn backlinks_excerpt_uses_first_matching_line_and_flattens_item() {
+        let conn = crate::db::open_in_memory();
+        let target = crate::notes::create(&conn, None, "Target Halaman", 100).unwrap();
+        let body = "Pendahuluan tanpa tautan.\n\tLihat [[tArGeT HaLaMaN|alias]] hari ini.  \r\nBaris berikutnya [[Target Halaman]].";
+        let source = crate::items::insert(&conn, "note", "Jurnal Penaut", body, 200).unwrap();
+        refresh(&conn, &source, body).unwrap();
+
+        let backlinks = backlinks(&conn, &target.id).unwrap();
+        assert_eq!(backlinks.len(), 1);
+        assert_eq!(backlinks[0].excerpt, "Lihat [[tArGeT HaLaMaN|alias]] hari ini.");
+        assert_eq!(
+            serde_json::to_value(&backlinks[0]).unwrap(),
+            serde_json::json!({
+                "id": source,
+                "type": "note",
+                "title": "Jurnal Penaut",
+                "dueAt": null,
+                "lastActivityAt": 200,
+                "excerpt": "Lihat [[tArGeT HaLaMaN|alias]] hari ini.",
+            })
+        );
+    }
+
+    #[test]
+    fn backlinks_excerpt_limits_unicode_to_120_characters() {
+        let conn = crate::db::open_in_memory();
+        let target = crate::notes::create(&conn, None, "Target", 100).unwrap();
+        let line = format!("Lihat [[Target]]: {}", "🦀".repeat(150));
+        let body = format!("Pengantar.\n  {line}  \n[[Target]] di baris terakhir.");
+        let source = crate::items::insert(&conn, "task", "Tugas Penaut", &body, 200).unwrap();
+        refresh(&conn, &source, &body).unwrap();
+
+        let backlinks = backlinks(&conn, &target.id).unwrap();
+        assert_eq!(backlinks[0].excerpt, line.chars().take(120).collect::<String>());
+        assert_eq!(backlinks[0].excerpt.chars().count(), 120);
+    }
+
+    #[test]
+    fn backlinks_without_matching_line_have_empty_excerpt() {
+        let conn = crate::db::open_in_memory();
+        let target = crate::notes::create(&conn, None, "Target", 100).unwrap();
+        let body = "Tautan dengan spasi [[ Target ]].";
+        let source = crate::items::insert(&conn, "note", "Penaut", body, 200).unwrap();
+        refresh(&conn, &source, body).unwrap();
+
+        let backlinks = backlinks(&conn, &target.id).unwrap();
+        assert_eq!(backlinks.len(), 1);
+        assert_eq!(backlinks[0].excerpt, body);
+
+        // A stored backlink without a parsed mention has no excerpt.
+        conn.execute(
+            "UPDATE items SET body = 'Tanpa tautan.' WHERE id = ?1",
+            [&source],
+        )
+        .unwrap();
+        assert_eq!(super::backlinks(&conn, &target.id).unwrap()[0].excerpt, "");
+    }
+
+    #[test]
+    fn backlinks_excerpt_skips_prefix_matches_and_inline_code() {
+        let conn = crate::db::open_in_memory();
+        let target = crate::notes::create(&conn, None, "Target", 100).unwrap();
+        let body = "Mirip [[Target Extra]].\nKode `[[Target]]`.\n  Benar [[ tArGeT |alias]].  \n[[Target]] lagi.";
+        let source = crate::items::insert(&conn, "note", "Penaut", body, 200).unwrap();
+        refresh(&conn, &source, body).unwrap();
+
+        assert_eq!(
+            backlinks(&conn, &target.id).unwrap()[0].excerpt,
+            "Benar [[ tArGeT |alias]]."
+        );
+    }
+
+    #[test]
+    fn backlinks_exclude_deleted_targets() {
+        let conn = crate::db::open_in_memory();
+        let target = crate::notes::create(&conn, None, "Target", 100).unwrap();
+        let source = crate::items::insert(&conn, "note", "Penaut", "[[Target]]", 200).unwrap();
+        refresh(&conn, &source, "[[Target]]").unwrap();
+        crate::notes::delete(&conn, &target.id, 300).unwrap();
+
+        assert!(backlinks(&conn, &target.id).unwrap().is_empty());
     }
 }

@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: Fase 7 Unduhan built; next phases wait for the user. The old Fase 4 note features (page tree, block editor, wikilinks, FTS5) wait for the user to choose where they live.
+Status: Fase 4B Catatan built (page tree, block editor, wikilinks, FTS5, and Markdown export); next phases wait for the user.
 
 ## Commands
 
@@ -73,16 +73,17 @@ Do not start implementing a phase until the user approves moving from planning t
 
 ### Model per step
 
-- Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session, with the `superpowers:brainstorming` and `superpowers:writing-plans` skills. Execute plans with `superpowers:subagent-driven-development`, and close each PR with `superpowers:verification-before-completion` and `superpowers:finishing-a-development-branch`. Use any other listed skill that fits the task.
-- Implementation: Gemini 3.8 Flash High through `agy-multi` with `--dangerously-skip-permissions`, one plan task per run, to save Claude tokens. Gemini only implements; it does not review. The prompt keeps it inside this repository and forbids push, merge and PRs; the Opus session does those and checks each result (the task's tests and the commit diff). Each plan has the command under "Menjalankan task dengan agy".
+- Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session, with the `superpowers:brainstorming` and `superpowers:writing-plans` skills. Close each PR with `superpowers:verification-before-completion` and `superpowers:finishing-a-development-branch`. Use any other listed skill that fits the task.
+- Main implementation: Codex gpt-6.1-sol at xhigh effort via `codex exec -s workspace-write`, one plan task per run. The prompt keeps it inside this repository and forbids push, merge and PRs; the Opus session checks each result (the task's tests and the commit diff).
+- Helper implementation on other tasks: Gemini 3.8 Flash High through `agy-multi` with `--dangerously-skip-permissions`, one plan task per run. The prompt keeps it inside this repository and forbids push, merge and PRs. Each plan has the command under "Menjalankan task dengan agy".
 - `agy-multi` (`~/.local/bin/agy-multi`) wraps `agy` with the same arguments. Put `--model` before `-p`, because `-p` takes the next argument as the prompt.
   - On a quota error, it repeats the run with the next Google account.
   - When a Gemini model is out of quota on every account, it repeats the run with `claude-opus-4-6-thinking` (Claude Opus 4.6 in Antigravity), again account by account.
-  - When that is out everywhere too, it sends the `-p` prompt to `codex exec` without sandbox.
-- Review: Codex (Codex CLI, ChatGPT login), read-only, on every PR:
+  - When that is out everywhere too, it sends the `-p` prompt to `codex exec -s workspace-write`.
+- Review: both Gemini 3.8 Flash High through `agy-multi` and Codex gpt-6.1-sol (Sol, Codex CLI, ChatGPT login), in parallel on every PR. Both review without editing files. For Sol:
 
   ```bash
-  codex exec -s read-only -C "$PWD" -o ../review.txt < /dev/null "You are reviewing a pull request. Run git diff origin/main...HEAD to see it, and open changed files for context. Project rules are in CLAUDE.md; the spec is <spec path>, and this PR is <PR>. Do not edit files. Report real bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
+  codex exec -m gpt-6.1-sol -s read-only -C "$PWD" -o ../review.txt < /dev/null "You are reviewing a pull request. Run git diff origin/main...HEAD to see it, and open changed files for context. Project rules are in CLAUDE.md; the spec is <spec path>, and this PR is <PR>. Do not edit files. Report real bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
   ```
 
   `codex review --base` does not accept custom instructions, so use `codex exec`. Keep `< /dev/null`: without a terminal, `codex exec` otherwise waits for more input on stdin. Check every finding before fixing it: reviewers also report false positives.

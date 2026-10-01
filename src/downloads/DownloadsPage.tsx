@@ -26,13 +26,15 @@ export function DownloadsPage({
   const [engines, setEngines] = useState<EnginesInfo | null>(null);
   const [settings, setSettings] = useState<DownloadSettings | null>(null);
 
-  // Only the newest answer counts: a slow poll must not overwrite a later action.
+  // An answer older than one already shown is dropped: a slow poll must not overwrite a later action.
   const requests = useRef(0);
+  const applied = useRef(0);
   const reloadList = useCallback(async () => {
     const request = ++requests.current;
     try {
       const payload = await api.downloadsList();
-      if (request !== requests.current) return;
+      if (request < applied.current) return;
+      applied.current = request;
       setItems(payload.items);
       setSpeed(payload.speed);
       setActiveCount(payload.active);

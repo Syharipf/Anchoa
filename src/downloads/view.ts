@@ -31,10 +31,10 @@ export function detect(url: string): DetectedKind {
   if (s.startsWith("magnet:") || /\.torrent($|\?)/.test(s)) {
     return "torrent";
   }
-  if (!/^https?:\/\/\S+\.\S+/.test(s)) {
+  const host = /^https?:\/\//.test(s) ? extractHost(s) : "";
+  if (!host) {
     return "invalid";
   }
-  const host = extractHost(s);
   return MEDIA_HOSTS.some((h) => host === h || host.endsWith(`.${h}`)) ? "media" : "file";
 }
 

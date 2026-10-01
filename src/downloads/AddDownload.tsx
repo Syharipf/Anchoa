@@ -118,6 +118,7 @@ export function AddDownload({
               setForcedMedia(false);
             }}
             onKeyDown={handleKeyDown}
+            readOnly={adding}
             placeholder="Tempel tautan video, audio, atau file…"
             aria-label="Tautan unduhan"
             className="flex-1 min-w-0 border-0 bg-transparent font-mono text-sm text-ink outline-none placeholder:text-muted"

@@ -62,6 +62,8 @@ describe("downloads view rules", () => {
       expect(detect("ftp://example.com/file.bin")).toBe("invalid");
       expect(detect("https://")).toBe("invalid");
       expect(detect("http://")).toBe("invalid");
+      expect(detect("http://localhost:8000/download")).toBe("file");
+      expect(detect("http://[::1]:8000/download")).toBe("file");
     });
   });
 

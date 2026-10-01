@@ -22,6 +22,7 @@ pub mod search;
 mod overview;
 mod projects;
 mod schedule;
+mod settings;
 mod tasks;
 mod time;
 
@@ -115,6 +116,8 @@ pub fn run() {
             commands::disconnect_github,
             commands::get_contributions,
             commands::backup_now,
+            commands::data_overview,
+            commands::check_update,
             commands::schedule,
             commands::habits_overview,
             commands::habit_history,

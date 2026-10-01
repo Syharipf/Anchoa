@@ -24,6 +24,7 @@ use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery, Side};
 use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
+use crate::settings::{self, DataOverview, UpdateCheck};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
 use crate::{backup, downloader, downloads, files, links, notes, search, time};
 
@@ -363,6 +364,21 @@ pub async fn get_contributions(app: AppHandle, force: bool) -> Result<Contributi
 pub fn backup_now(app: AppHandle, db: State<'_, Db>) -> Result<String, AppError> {
     let path = backup::manual(&*db.conn()?, &backup_dir(&app)?, &time::now_stamp())?;
     Ok(path.display().to_string())
+}
+
+#[tauri::command]
+pub fn data_overview(app: AppHandle, db: State<'_, Db>) -> Result<DataOverview, AppError> {
+    let data_dir = app.path().app_data_dir()?;
+    let backup_dir = backup_dir(&app)?;
+    settings::data_overview(db.conn()?, &data_dir, &backup_dir)
+}
+
+#[tauri::command]
+pub async fn check_update(app: AppHandle) -> Result<UpdateCheck, AppError> {
+    let current = app.package_info().version.to_string();
+    tauri::async_runtime::spawn_blocking(move || settings::check_update(&current))
+        .await
+        .map_err(blocking_error)?
 }
 
 #[tauri::command]

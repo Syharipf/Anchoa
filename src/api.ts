@@ -489,6 +489,33 @@ export interface DataPaths {
   logDir: string;
 }
 
+export interface TypeCount {
+  kind: string;
+  count: number;
+}
+
+export interface BackupFile {
+  name: string;
+  bytes: number;
+  modifiedAt: number;
+}
+
+export interface DataOverview {
+  dataDir: string;
+  dbBytes: number;
+  walBytes: number;
+  counts: TypeCount[];
+  trashed: number;
+  backups: BackupFile[];
+}
+
+export interface UpdateCheck {
+  current: string;
+  latest: string;
+  newer: boolean;
+  url: string;
+}
+
 export interface GithubStatus {
   connected: boolean;
   login: string | null;
@@ -732,6 +759,8 @@ export const api = {
   disconnectGithub: () => invoke<void>("disconnect_github"),
   getContributions: (force: boolean) => invoke<Contributions>("get_contributions", { force }),
   backupNow: () => invoke<string>("backup_now"),
+  dataOverview: () => invoke<DataOverview>("data_overview"),
+  checkUpdate: () => invoke<UpdateCheck>("check_update"),
   schedule: (from: string, to: string) =>
     invoke<Schedule>("schedule", { range: { from, to } }),
   habitsOverview: () => invoke<HabitsOverview>("habits_overview"),

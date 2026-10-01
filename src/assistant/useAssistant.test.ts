@@ -377,3 +377,215 @@ describe("useAssistant", () => {
     expect(harness.intervalDelays()).toEqual([]);
   });
 });
+
+describe("microphone and voice flow in useAssistant", () => {
+  const spies: ReturnType<typeof spyOn>[] = [];
+  let harness: ReturnType<typeof hookHarness<ReturnType<typeof useAssistant>>> | null = null;
+
+  const installedVoiceStatus = {
+    pwRecord: true,
+    pwPlay: true,
+    whisper: "/usr/bin/whisper-cli",
+    whisperModel: true,
+    piper: true,
+    voices: [
+      {
+        id: "id_ID-news_tts-medium",
+        label: "Indonesia · News",
+        language: "id_ID",
+        quality: "medium",
+        installed: true,
+        imported: false,
+        params: { lengthScale: 1.0, noiseScale: 0.667, noiseW: 0.8 },
+      },
+    ],
+    settings: {
+      id: "id_ID-news_tts-medium",
+      params: { lengthScale: 1.0, noiseScale: 0.667, noiseW: 0.8 },
+    },
+    recording: false,
+    speaking: false,
+  };
+
+  const missingVoiceStatus = {
+    ...installedVoiceStatus,
+    whisperModel: false,
+  };
+
+  beforeEach(() => {
+    spies.push(spyOn(api, "assistantPending").mockResolvedValue([]));
+    spies.push(spyOn(api, "aiStatus").mockResolvedValue({ available: true, models: ["qwen2.5:3b"], error: null }));
+  });
+
+  afterEach(() => {
+    spies.forEach((s) => s.mockRestore());
+    spies.length = 0;
+    if (harness) {
+      harness.dispose();
+      harness = null;
+    }
+  });
+
+  it("sets voiceMissing and does not start recording when voice parts are not installed", async () => {
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(missingVoiceStatus));
+    const startSpy = spyOn(api, "voiceRecordStart").mockResolvedValue(undefined);
+    spies.push(startSpy);
+
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+
+    const assistant = harness.render();
+    expect(assistant.voiceMissing).toBe(false);
+    expect(assistant.mode).toBe("idle");
+
+    await assistant.toggleMic();
+    const updated = await harness.settle();
+    expect(updated.voiceMissing).toBe(true);
+    expect(updated.mode).toBe("idle");
+    expect(startSpy).not.toHaveBeenCalled();
+  });
+
+  it("starts recording and enters listening mode when voice parts are installed", async () => {
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus));
+    const startSpy = spyOn(api, "voiceRecordStart").mockResolvedValue(undefined);
+    spies.push(startSpy);
+
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+
+    const assistant = harness.render();
+    await assistant.toggleMic();
+    const listening = await harness.settle();
+
+    expect(listening.mode).toBe("listening");
+    expect(listening.voiceMissing).toBe(false);
+    expect(startSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops recording on second press, sends transcript, speaks reply, and goes idle with caption intact", async () => {
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceRecordStop").mockResolvedValue("Halo anchoa"));
+
+    const reply: AssistantReply = {
+      message: { role: "assistant", content: "Halo juga, ada yang bisa kubantu?" },
+      proposals: [],
+    };
+    spies.push(spyOn(api, "assistantSend").mockImplementation(async (_text, onEvent) => {
+      onEvent({ type: "delta", data: "Halo juga" });
+      onEvent({ type: "done", data: reply.message });
+      return reply;
+    }));
+
+    const speechDeferred = deferred<void>();
+    const speakSpy = spyOn(api, "voiceSpeak").mockReturnValue(speechDeferred.promise);
+    spies.push(speakSpy);
+
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+
+    // First press -> listening
+    await harness.render().toggleMic();
+    expect(harness.render().mode).toBe("listening");
+
+    // Second press -> stops recording, sends to assistant, then speaks
+    const togglePromise = harness.render().toggleMic();
+    await harness.settle();
+
+    // Mode should be speaking while voiceSpeak is running
+    expect(harness.render().mode).toBe("speaking");
+    expect(harness.render().streamingCaption).toBe("Halo juga, ada yang bisa kubantu?");
+    expect(speakSpy).toHaveBeenCalledWith("Halo juga, ada yang bisa kubantu?");
+
+    // Complete speaking
+    speechDeferred.resolve();
+    await togglePromise;
+    const finalState = await harness.settle();
+
+    expect(finalState.mode).toBe("idle");
+    expect(finalState.streamingCaption).toBe("Halo juga, ada yang bisa kubantu?");
+  });
+
+  it("stops speech and returns to idle when mic is pressed during speaking mode", async () => {
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceRecordStop").mockResolvedValue("Pertanyaan"));
+
+    const reply: AssistantReply = {
+      message: { role: "assistant", content: "Jawaban panjang" },
+      proposals: [],
+    };
+    spies.push(spyOn(api, "assistantSend").mockResolvedValue(reply));
+
+    const speechDeferred = deferred<void>();
+    spies.push(spyOn(api, "voiceSpeak").mockReturnValue(speechDeferred.promise));
+    const stopSpy = spyOn(api, "voiceStop").mockResolvedValue(undefined);
+    spies.push(stopSpy);
+
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+
+    // Start recording
+    await harness.render().toggleMic();
+    // Stop recording and start speaking
+    void harness.render().toggleMic();
+    await harness.settle();
+    expect(harness.render().mode).toBe("speaking");
+
+    // Press mic while speaking -> stops voice
+    await harness.render().toggleMic();
+    speechDeferred.resolve();
+    await harness.settle();
+
+    expect(stopSpy).toHaveBeenCalled();
+    expect(harness.render().mode).toBe("idle");
+    expect(harness.render().streamingCaption).toBe("Jawaban panjang");
+  });
+
+  it("handles empty transcript by resetting to idle without sending", async () => {
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceRecordStop").mockResolvedValue("   "));
+    const sendSpy = spyOn(api, "assistantSend").mockResolvedValue({
+      message: { role: "assistant", content: "" },
+      proposals: [],
+    });
+    spies.push(sendSpy);
+
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+
+    await harness.render().toggleMic();
+    expect(harness.render().mode).toBe("listening");
+
+    await harness.render().toggleMic();
+    await harness.settle();
+
+    expect(harness.render().mode).toBe("idle");
+    expect(sendSpy).not.toHaveBeenCalled();
+  });
+
+  it("handles voiceRecordStop failure gracefully", async () => {
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(installedVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceRecordStop").mockRejectedValue(new Error("Transkripsi gagal")));
+
+    harness = hookHarness(() => useAssistant());
+    harness.render();
+    await harness.settle();
+
+    await harness.render().toggleMic();
+    expect(harness.render().mode).toBe("listening");
+
+    await harness.render().toggleMic();
+    const failed = await harness.settle();
+
+    expect(failed.mode).toBe("idle");
+    expect(failed.error).toBe("Transkripsi gagal");
+  });
+});

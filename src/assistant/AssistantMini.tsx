@@ -11,6 +11,7 @@ import { OllamaOfflineCard } from "./OllamaOfflineCard";
 import { School } from "./School";
 import { useAssistant } from "./useAssistant";
 import { usePageVisible } from "./usePageVisible";
+import { VoiceMissingCard } from "./VoiceMissingCard";
 
 const ROUND =
   "flex items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95 cursor-pointer";
@@ -57,6 +58,7 @@ export interface AssistantMiniProps {
   readonly hint: string;
   readonly onOpenFull: () => void;
   readonly onOpenAiSettings?: () => void;
+  readonly onOpenVoiceSettings?: () => void;
   readonly onChanged?: () => void;
 }
 
@@ -67,6 +69,7 @@ export function AssistantMini({
   hint,
   onOpenFull,
   onOpenAiSettings,
+  onOpenVoiceSettings,
   onChanged,
 }: Readonly<AssistantMiniProps>) {
   const assistant = useAssistant({ onChanged });
@@ -80,6 +83,7 @@ export function AssistantMini({
 
   const mode = assistant.mode;
   const listening = mode === "listening";
+  const speaking = mode === "speaking";
   const thinking = mode === "thinking";
   const running = mode !== "idle" && visible;
   const status = STATUS[mode];
@@ -110,7 +114,7 @@ export function AssistantMini({
 
   const collapse = () => {
     setOpen(false);
-    if (mode === "listening") assistant.setMode("idle");
+    if (mode === "listening" || mode === "speaking") void assistant.stop();
     setTyping(false);
   };
 
@@ -193,10 +197,29 @@ export function AssistantMini({
 
       {ollamaOffline && !thinking ? (
         <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />
+      ) : assistant.voiceMissing && !thinking ? (
+        <VoiceMissingCard onOpenVoiceSettings={onOpenVoiceSettings} compact />
       ) : listening ? (
         <p className="m-0 text-sm leading-snug text-ink">
-          Pengenalan suara hadir di Fase 5. Ketuk lagi untuk berhenti.
+          Bicaralah ke mikrofon. Ketuk lagi untuk mengirim ke asisten.
         </p>
+      ) : speaking ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-accent">Berbicara</span>
+            <button
+              type="button"
+              aria-label="Hentikan suara"
+              onClick={assistant.toggleMic}
+              className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent hover:bg-accent/20 cursor-pointer"
+            >
+              Hentikan
+            </button>
+          </div>
+          <p className="m-0 text-sm leading-snug text-ink">
+            {assistant.streamingCaption}
+          </p>
+        </div>
       ) : thinking ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
@@ -280,11 +303,15 @@ export function AssistantMini({
         <button
           ref={mic}
           type="button"
-          onClick={() => assistant.setMode(listening ? "idle" : "listening")}
+          onClick={assistant.toggleMic}
           aria-label={
-            listening ? "Berhenti mendengarkan" : "Ketuk untuk bicara"
+            listening
+              ? "Berhenti mendengarkan"
+              : speaking
+                ? "Hentikan suara"
+                : "Ketuk untuk bicara"
           }
-          aria-pressed={listening}
+          aria-pressed={listening || speaking}
           disabled={thinking}
           className={`${ROUND} h-11 w-11 text-canvas disabled:opacity-50 disabled:cursor-not-allowed ${
             listening ? "bg-danger" : "bg-accent"

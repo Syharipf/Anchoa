@@ -5,9 +5,11 @@ import { OllamaOfflineCard } from "./OllamaOfflineCard";
 import { School } from "./School";
 import { useAssistant } from "./useAssistant";
 import { usePageVisible } from "./usePageVisible";
+import { VoiceMissingCard } from "./VoiceMissingCard";
 
 export interface AssistantStageProps {
   readonly onOpenAiSettings?: () => void;
+  readonly onOpenVoiceSettings?: () => void;
   readonly onChanged?: () => void;
 }
 
@@ -18,6 +20,7 @@ const ROUND =
 
 export function AssistantStage({
   onOpenAiSettings,
+  onOpenVoiceSettings,
   onChanged,
 }: Readonly<AssistantStageProps>) {
   const assistant = useAssistant({ onChanged });
@@ -28,6 +31,7 @@ export function AssistantStage({
 
   const mode = assistant.mode;
   const listening = mode === "listening";
+  const speaking = mode === "speaking";
   const thinking = mode === "thinking";
   const running = mode !== "idle" && visible;
   const status = STATUS[mode];
@@ -109,11 +113,30 @@ export function AssistantStage({
         <div className="absolute right-3 bottom-3 left-3 flex flex-col gap-1.5 rounded-[14px] border border-line bg-sidebar/90 px-3.5 py-3">
           {ollamaOffline && !thinking ? (
             <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />
+          ) : assistant.voiceMissing && !thinking ? (
+            <VoiceMissingCard onOpenVoiceSettings={onOpenVoiceSettings} />
           ) : listening ? (
             <>
-              <span className="text-xs text-danger">Mikrofon aktif</span>
+              <span className="text-xs text-danger">Mendengarkan…</span>
               <span className="text-sm leading-snug">
-                Pengenalan suara hadir di Fase 5. Ketuk lagi untuk berhenti.
+                Bicaralah ke mikrofon. Ketuk lagi untuk mengirim ke asisten.
+              </span>
+            </>
+          ) : speaking ? (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-accent">Berbicara</span>
+                <button
+                  type="button"
+                  aria-label="Hentikan suara"
+                  onClick={assistant.toggleMic}
+                  className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent hover:bg-accent/20 cursor-pointer"
+                >
+                  Hentikan
+                </button>
+              </div>
+              <span className="text-sm leading-snug">
+                {assistant.streamingCaption}
               </span>
             </>
           ) : thinking ? (
@@ -242,11 +265,15 @@ export function AssistantStage({
           <button
             type="button"
             aria-label={
-              listening ? "Berhenti mendengarkan" : "Ketuk untuk bicara"
+              listening
+                ? "Berhenti mendengarkan"
+                : speaking
+                  ? "Hentikan suara"
+                  : "Ketuk untuk bicara"
             }
-            aria-pressed={listening}
+            aria-pressed={listening || speaking}
             disabled={thinking}
-            onClick={() => assistant.setMode(listening ? "idle" : "listening")}
+            onClick={assistant.toggleMic}
             className={`${ROUND} relative h-16 w-16 text-canvas disabled:opacity-50 disabled:cursor-not-allowed ${
               listening
                 ? "bg-danger"

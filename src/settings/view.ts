@@ -1,4 +1,4 @@
-import type { AiStatus } from "../api";
+import type { AiStatus, VoiceStatus } from "../api";
 
 // Settings navigation definitions, section status calculation, and static metadata.
 
@@ -54,6 +54,23 @@ export interface StatusContext {
   readonly version?: string;
   readonly aiStatus?: AiStatus | null;
   readonly aiChatModel?: string;
+  readonly voiceStatus?: VoiceStatus | null;
+  readonly avatarStatus?: string;
+}
+
+/** Check if all essential voice components are installed on the device. */
+export function isVoiceInstalled(status: VoiceStatus | null | undefined): boolean {
+  if (!status) return false;
+  const activeVoiceInstalled = status.voices.some(
+    (v) => v.id === status.settings.id && v.installed,
+  );
+  return Boolean(
+    status.pwRecord &&
+    status.whisper &&
+    status.whisperModel &&
+    status.piper &&
+    activeVoiceInstalled,
+  );
 }
 
 /** Computes the small status line below each section's title. */
@@ -71,8 +88,16 @@ export function sectionStatus(
       return `Ollama · ${model}`;
     }
     case "avatar":
-    case "suara":
-      return "Menyusul";
+      return context?.avatarStatus ?? "Statis";
+    case "suara": {
+      if (!context?.voiceStatus || !isVoiceInstalled(context.voiceStatus)) {
+        return "Belum dipasang";
+      }
+      const active = context.voiceStatus.voices.find(
+        (v) => v.id === context.voiceStatus!.settings.id,
+      );
+      return active?.label ?? "Di perangkat";
+    }
     case "data":
       return "Lokal";
     case "integrations":

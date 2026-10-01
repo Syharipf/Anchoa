@@ -31,7 +31,8 @@ describe("SettingsNav", () => {
     expect(html).toContain("Integrasi");
     expect(html).toContain("Tentang");
 
-    expect(html).toContain("Menyusul");
+    expect(html).toContain("Statis");
+    expect(html).toContain("Belum dipasang");
     expect(html).toContain("Lokal");
     expect(html).toContain("Terhubung");
     expect(html).toContain("v0.10.0");

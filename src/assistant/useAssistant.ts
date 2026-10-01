@@ -7,7 +7,9 @@ import {
   type AssistantEvent,
   type AssistantMessage,
   type AssistantProposal,
+  type VoiceStatus,
 } from "../api";
+import { isVoiceInstalled } from "../settings/view";
 
 export type AssistantMode = "idle" | "thinking" | "listening" | "speaking";
 
@@ -18,6 +20,7 @@ export interface AssistantState {
   readonly pendingProposals: readonly AssistantProposal[];
   readonly error: string | null;
   readonly currentSendId: number;
+  readonly voiceMissing: boolean;
 }
 
 export type AssistantAction =
@@ -32,7 +35,9 @@ export type AssistantAction =
   | { type: "set_mode"; mode: AssistantMode }
   | { type: "stop" }
   | { type: "clear_error" }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "voice_missing"; missing: boolean }
+  | { type: "clear_voice_missing" };
 
 export const initialAssistantState: AssistantState = {
   mode: "idle",
@@ -41,6 +46,7 @@ export const initialAssistantState: AssistantState = {
   pendingProposals: [],
   error: null,
   currentSendId: 0,
+  voiceMissing: false,
 };
 
 export function assistantReducer(
@@ -56,6 +62,7 @@ export function assistantReducer(
         streamingCaption: "",
         pendingProposals: [],
         error: null,
+        voiceMissing: false,
         messages: [...state.messages, { role: "user", content: action.text }],
       };
     case "delta":
@@ -114,11 +121,13 @@ export function assistantReducer(
       return {
         ...state,
         mode: action.mode,
+        voiceMissing: action.mode !== "idle" ? false : state.voiceMissing,
       };
     case "stop":
       return {
         ...state,
         mode: "idle",
+        voiceMissing: false,
         currentSendId: state.currentSendId + 1,
       };
     case "clear_error":
@@ -130,6 +139,16 @@ export function assistantReducer(
       return {
         ...initialAssistantState,
         currentSendId: state.currentSendId + 1,
+      };
+    case "voice_missing":
+      return {
+        ...state,
+        voiceMissing: action.missing,
+      };
+    case "clear_voice_missing":
+      return {
+        ...state,
+        voiceMissing: false,
       };
     default:
       return state;
@@ -150,7 +169,9 @@ export function useAssistant(options?: UseAssistantOptions) {
   const proposalsRef = useRef(state.pendingProposals);
   proposalsRef.current = state.pendingProposals;
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
   const statusCheckIdRef = useRef(0);
+  const voiceCheckIdRef = useRef(0);
 
   const checkStatus = useCallback(async () => {
     const checkId = ++statusCheckIdRef.current;
@@ -169,12 +190,28 @@ export function useAssistant(options?: UseAssistantOptions) {
     }
   }, []);
 
+  const checkVoiceStatus = useCallback(async () => {
+    const checkId = ++voiceCheckIdRef.current;
+    try {
+      const status = await api.voiceStatus();
+      if (checkId === voiceCheckIdRef.current) setVoiceStatus(status);
+      return status;
+    } catch {
+      if (checkId === voiceCheckIdRef.current) setVoiceStatus(null);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     void checkStatus();
-    const onFocus = () => { void checkStatus(); };
+    void checkVoiceStatus();
+    const onFocus = () => {
+      void checkStatus();
+      void checkVoiceStatus();
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [checkStatus]);
+  }, [checkStatus, checkVoiceStatus]);
 
   useEffect(() => {
     if (aiStatus?.available !== false) return;
@@ -229,18 +266,134 @@ export function useAssistant(options?: UseAssistantOptions) {
         sendingRef.current = false;
       }
     },
-    [checkStatus],
+    [checkStatus, dispatch],
   );
+
+  const sendVoice = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || sendingRef.current) return;
+      sendingRef.current = true;
+      const sendId = ++sendIdRef.current;
+      dispatch({ type: "send", text: trimmed, sendId });
+
+      let replyContent = "";
+      try {
+        const reply = await api.assistantSend(trimmed, (event: AssistantEvent) => {
+          switch (event.type) {
+            case "delta":
+              dispatch({ type: "delta", data: event.data, sendId });
+              break;
+            case "proposal":
+              dispatch({ type: "proposal", data: event.data, sendId });
+              break;
+            case "done":
+              dispatch({ type: "done", data: event.data, sendId });
+              break;
+            case "error":
+              dispatch({ type: "error", error: event.data, sendId });
+              break;
+          }
+        });
+        void checkStatus();
+        replyContent = reply.message.content;
+        if (replyContent && sendIdRef.current === sendId) {
+          dispatch({ type: "done", data: reply.message, sendId });
+        }
+      } catch (e) {
+        dispatch({ type: "error", error: errorMessage(e), sendId });
+        void checkStatus();
+        sendingRef.current = false;
+        return;
+      } finally {
+        sendingRef.current = false;
+      }
+
+      if (replyContent.trim() && sendIdRef.current === sendId) {
+        dispatch({ type: "set_mode", mode: "speaking" });
+        try {
+          await api.voiceSpeak(replyContent.trim());
+        } catch {
+          // Stopped or failed to speak
+        } finally {
+          if (sendIdRef.current === sendId) {
+            dispatch({ type: "set_mode", mode: "idle" });
+          }
+        }
+      } else if (sendIdRef.current === sendId) {
+        dispatch({ type: "set_mode", mode: "idle" });
+      }
+    },
+    [checkStatus, dispatch],
+  );
+
+  const toggleMic = useCallback(async () => {
+    if (state.mode === "speaking") {
+      try {
+        await api.voiceStop();
+      } catch {
+        // ignore
+      }
+      dispatch({ type: "set_mode", mode: "idle" });
+      return;
+    }
+
+    if (state.mode === "listening") {
+      let transcript = "";
+      try {
+        transcript = await api.voiceRecordStop();
+      } catch (e) {
+        dispatch({ type: "set_mode", mode: "idle" });
+        dispatch({ type: "failure", error: errorMessage(e), sendId: sendIdRef.current });
+        return;
+      }
+
+      const trimmed = transcript.trim();
+      if (!trimmed) {
+        dispatch({ type: "set_mode", mode: "idle" });
+        return;
+      }
+
+      await sendVoice(trimmed);
+      return;
+    }
+
+    if (state.mode === "thinking") {
+      return;
+    }
+
+    // mode === "idle"
+    let vStatus = voiceStatus;
+    if (!vStatus) {
+      vStatus = await checkVoiceStatus();
+    }
+
+    if (!isVoiceInstalled(vStatus)) {
+      dispatch({ type: "voice_missing", missing: true });
+      return;
+    }
+
+    dispatch({ type: "voice_missing", missing: false });
+    try {
+      await api.voiceRecordStart();
+      dispatch({ type: "set_mode", mode: "listening" });
+    } catch (e) {
+      dispatch({ type: "failure", error: errorMessage(e), sendId: sendIdRef.current });
+    }
+  }, [state.mode, voiceStatus, checkVoiceStatus, sendVoice, dispatch]);
 
   const stop = useCallback(async () => {
     sendIdRef.current++;
     dispatch({ type: "stop" });
     try {
-      await api.assistantStop();
+      await Promise.all([
+        api.assistantStop().catch(() => {}),
+        api.voiceStop().catch(() => {}),
+      ]);
     } catch {
       // ignore
     }
-  }, []);
+  }, [dispatch]);
 
   const decide = useCallback(
     async (id: string, approve: boolean): Promise<AssistantDecision> => {
@@ -257,37 +410,49 @@ export function useAssistant(options?: UseAssistantOptions) {
       if (approve) options?.onChanged?.();
       return result;
     },
-    [options],
+    [options, dispatch],
   );
 
   const setMode = useCallback((mode: AssistantMode) => {
     if (sendingRef.current) return;
     dispatch({ type: "set_mode", mode });
-  }, []);
+  }, [dispatch]);
 
   const clearError = useCallback(() => {
     dispatch({ type: "clear_error" });
+  }, [dispatch]);
+
+  const clearVoiceMissing = useCallback(() => {
+    dispatch({ type: "clear_voice_missing" });
   }, [dispatch]);
 
   const reset = useCallback(async () => {
     sendIdRef.current++;
     dispatch({ type: "reset" });
     try {
-      await api.assistantReset();
+      await Promise.all([
+        api.assistantReset().catch(() => {}),
+        api.voiceStop().catch(() => {}),
+      ]);
     } catch {
       // ignore
     }
-  }, []);
+  }, [dispatch]);
 
   return {
     ...state,
     aiStatus,
+    voiceStatus,
     checkStatus,
+    checkVoiceStatus,
     send,
+    sendVoice,
+    toggleMic,
     stop,
     decide,
     setMode,
     clearError,
+    clearVoiceMissing,
     reset,
   };
 }

@@ -27,6 +27,7 @@ export type AssistantAction =
   | { type: "done"; data: AssistantMessage; sendId: number }
   | { type: "error"; error: string; sendId: number }
   | { type: "decide"; proposalId: string }
+  | { type: "decided"; summary: string; approved: boolean }
   | { type: "set_mode"; mode: AssistantMode }
   | { type: "stop" }
   | { type: "clear_error" }
@@ -92,6 +93,15 @@ export function assistantReducer(
         ...state,
         pendingProposals: state.pendingProposals.filter((p) => p.id !== action.proposalId),
       };
+    case "decided": {
+      // The model is not asked again after a decision, so the caption confirms what happened.
+      const note = action.approved ? `✓ ${action.summary}` : `Dibatalkan: ${action.summary}`;
+      return {
+        ...state,
+        streamingCaption: note,
+        messages: [...state.messages, { role: "assistant", content: note }],
+      };
+    }
     case "set_mode":
       return {
         ...state,
@@ -128,6 +138,8 @@ export function useAssistant(options?: UseAssistantOptions) {
     setState((prev) => assistantReducer(prev, action));
   }, []);
   const sendIdRef = useRef(0);
+  const proposalsRef = useRef(state.pendingProposals);
+  proposalsRef.current = state.pendingProposals;
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
 
   const checkStatus = useCallback(async () => {
@@ -194,9 +206,11 @@ export function useAssistant(options?: UseAssistantOptions) {
 
   const decide = useCallback(
     async (id: string, approve: boolean): Promise<AssistantDecision> => {
+      const summary = proposalsRef.current.find((p) => p.id === id)?.summary ?? "Usulan";
       dispatch({ type: "decide", proposalId: id });
       try {
         const result = await api.assistantDecide(id, approve);
+        dispatch({ type: "decided", summary, approved: approve });
         if (approve) {
           options?.onChanged?.();
         }

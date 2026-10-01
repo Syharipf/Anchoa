@@ -915,6 +915,33 @@ check_profile() {
   stop_app
 }
 
+check_assistant_ai() {
+  fresh
+  ANCHOA_AI_BASE=http://127.0.0.1:18435/v1 start_app   # nothing listens there
+  sleep 2
+  shot 22-assistant-offline     # expect: card "Ollama belum berjalan"
+  stop_app
+
+  python3 "$(dirname "$0")/fake-llm.py" 18434 &
+  SERVER=$!
+  sleep 1
+  ANCHOA_AI_BASE=http://127.0.0.1:18434/v1 start_app
+  click 1011 750               # keyboard
+  click 1070 677               # message field
+  xdotool type --delay 20 'buat tugas beli teri'
+  xdotool key Return
+  sleep 3
+  shot 22-assistant-proposal    # expect: card "Buat tugas “Beli teri”" with Tolak / Setujui
+  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'Beli teri'")" = 0 ]] || fail "assistant wrote before approval"
+  click 1215 609               # Setujui
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'Beli teri' AND type = 'task' AND deleted_at IS NULL" 1 \
+    || fail "approved proposal did not create the task"
+  shot 22-assistant-approved
+  stop_app
+  kill "$SERVER" 2>/dev/null || true
+  SERVER=
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -944,4 +971,5 @@ check_notes
 check_agent
 check_settings
 check_profile
+check_assistant_ai
 echo "PASS. Screenshots in $WORK"

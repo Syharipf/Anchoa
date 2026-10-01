@@ -205,3 +205,13 @@ describe("assistantReducer", () => {
     expect(s2.error).toBe("Ollama belum berjalan di 127.0.0.1:11434");
   });
 });
+
+describe("decided", () => {
+  it("confirms approvals and rejections in the caption and history", () => {
+    const approved = assistantReducer(initialAssistantState, { type: "decided", summary: "Buat tugas “Beli teri”", approved: true });
+    expect(approved.streamingCaption).toBe("✓ Buat tugas “Beli teri”");
+    expect(approved.messages.at(-1)?.content).toBe("✓ Buat tugas “Beli teri”");
+    const rejected = assistantReducer(initialAssistantState, { type: "decided", summary: "Buat tugas “Beli teri”", approved: false });
+    expect(rejected.streamingCaption).toBe("Dibatalkan: Buat tugas “Beli teri”");
+  });
+});

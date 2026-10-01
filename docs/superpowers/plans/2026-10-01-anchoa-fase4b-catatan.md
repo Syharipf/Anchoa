@@ -231,13 +231,14 @@ export function BlockPreview(props: Readonly<{
   text: string;
   isResolved: (title: string) => boolean;
   onOpenLink: (title: string) => void;      // wikilink
+  onOpenUrl: (href: string) => void;        // tautan http(s); NotesPage meneruskan ke api.openLink
   onToggleTodo: (line: number) => void;
 }>): JSX.Element
 ```
 
 **Aturan:**
 - Tautan Markdown dengan `href` selain `http(s)://` dirender sebagai teks biasa.
-- Tautan http dibuka lewat `api.openLink`.
+- Tautan http dibuka lewat prop `onOpenUrl`, jadi renderer tidak memanggil `api` dan bisa dikerjakan sebelum PR 4B-1 selesai.
 - Klik link dan checkbox memanggil `stopPropagation` supaya blok tidak masuk mode edit.
 - Judul `#` dirender sebagai `h2` dengan kelas ukuran H2 karena H1 dipakai judul halaman, `##` sebagai `h3`, dan `###` sebagai `h4`.
 
@@ -261,6 +262,7 @@ export function BlockEditor(props: Readonly<{
   titles: readonly string[];                       // judul halaman untuk saran [[ dan isResolved
   onChange: (body: string) => void;                // dipanggil setiap edit; debounce simpan di NotesPage
   onOpenLink: (title: string) => void;
+  onOpenUrl: (href: string) => void;
   onCreatePage: (title: string) => Promise<void>;  // pilihan "Buat halaman" di saran [[
 }>): JSX.Element
 ```

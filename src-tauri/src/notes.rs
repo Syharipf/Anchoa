@@ -31,6 +31,10 @@ fn sanitize_title(title: &str) -> Result<String, AppError> {
     if trimmed.chars().count() > 200 {
         return Err(AppError::Invalid("Judul maksimal 200 karakter".into()));
     }
+    // These would break the [[Judul]] links that point at the page.
+    if trimmed.contains(['[', ']', '|', '\n', '\r']) {
+        return Err(AppError::Invalid("Judul tidak boleh berisi [ ] | atau baris baru".into()));
+    }
     if trimmed.is_empty() {
         Ok("Tanpa judul".to_string())
     } else {
@@ -466,6 +470,15 @@ struct ExportRecord {
     parent_id: Option<String>,
 }
 
+/// Export writes only regular files and folders: a symlink in the way is removed,
+/// never followed, so nothing outside "Anchoa Catatan" is overwritten.
+fn drop_symlink(path: &Path) -> Result<(), AppError> {
+    if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
 fn export_level(
     parent_id: Option<&str>,
     current_dir: &Path,
@@ -478,21 +491,27 @@ fn export_level(
 
     // Names are unique within this export only, so exporting again overwrites
     // the earlier export instead of adding "A (2).md" copies next to it.
+    // Both "<name>.md" and the folder "<name>" are reserved, so "A" and "A.md" never collide.
     let mut used = std::collections::HashSet::new();
     for page in pages {
         let safe = crate::downloads::safe_name(&page.title);
         let mut name = safe.clone();
         let mut n = 2;
-        while !used.insert(name.to_lowercase()) {
+        while used.contains(&name.to_lowercase()) || used.contains(&format!("{name}.md").to_lowercase()) {
             name = format!("{safe} ({n})");
             n += 1;
         }
+        used.insert(name.to_lowercase());
+        used.insert(format!("{name}.md").to_lowercase());
 
-        std::fs::write(current_dir.join(format!("{name}.md")), &page.body)?;
+        let file = current_dir.join(format!("{name}.md"));
+        drop_symlink(&file)?;
+        std::fs::write(&file, &page.body)?;
 
         let has_children = by_parent.contains_key(&Some(page.id.clone()));
         if has_children {
             let child_dir = current_dir.join(&name);
+            drop_symlink(&child_dir)?;
             std::fs::create_dir_all(&child_dir)?;
             export_level(Some(&page.id), &child_dir, by_parent)?;
         }
@@ -503,6 +522,7 @@ fn export_level(
 
 pub fn export(conn: &Connection, root: &Path) -> Result<PathBuf, AppError> {
     let export_dir = root.join("Anchoa Catatan");
+    drop_symlink(&export_dir)?;
     std::fs::create_dir_all(&export_dir)?;
 
     let mut stmt = conn.prepare(
@@ -546,6 +566,39 @@ pub fn export(conn: &Connection, root: &Path) -> Result<PathBuf, AppError> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn titles_that_break_wikilinks_are_rejected() {
+        let conn = crate::db::open_in_memory();
+        for bad in ["A|B", "A]]", "[[A", "A\nB"] {
+            assert!(matches!(create(&conn, None, bad, 1), Err(AppError::Invalid(_))), "{bad:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn export_replaces_symlinks_instead_of_following_them() {
+        let conn = crate::db::open_in_memory();
+        create(&conn, None, "A", 1).unwrap();
+        let p = create(&conn, None, "A.md", 1).unwrap();
+        create(&conn, Some(&p.id), "Anak", 1).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside.txt");
+        std::fs::write(&outside, "jangan ditimpa").unwrap();
+        let export_dir = dir.path().join("Anchoa Catatan");
+        std::fs::create_dir_all(&export_dir).unwrap();
+        std::os::unix::fs::symlink(&outside, export_dir.join("A.md")).unwrap();
+
+        export(&conn, dir.path()).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&outside).unwrap(), "jangan ditimpa");
+        assert!(!std::fs::symlink_metadata(export_dir.join("A.md")).unwrap().file_type().is_symlink());
+        // "A" takes A.md; the page "A.md" would need that same name, so it becomes "A.md (2)".
+        assert!(export_dir.join("A.md").is_file());
+        assert!(export_dir.join("A.md (2).md").is_file());
+        assert!(export_dir.join("A.md (2)").join("Anak.md").is_file());
+    }
+
     use super::*;
     use crate::db::open_in_memory;
     use crate::links;

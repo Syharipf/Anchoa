@@ -107,8 +107,8 @@ fn segment_markdown(body: &str) -> Vec<Segment<'_>> {
                 tick_count += 1;
                 cursor += 1;
             }
-            let pattern = "`".repeat(tick_count);
-            if let Some(found) = body[cursor..].find(&pattern) {
+            // The span closes only on a run of exactly the same length (CommonMark).
+            if let Some(found) = closing_run(&bytes[cursor..], tick_count) {
                 let code_end = cursor + found + tick_count;
                 if tick_start > text_start {
                     segments.push(Segment::Text(&body[text_start..tick_start]));
@@ -130,6 +130,25 @@ fn segment_markdown(body: &str) -> Vec<Segment<'_>> {
     }
 
     segments
+}
+
+/// Offset of the next run of exactly `count` backticks in `rest`.
+fn closing_run(rest: &[u8], count: usize) -> Option<usize> {
+    let mut i = 0;
+    while i < rest.len() {
+        if rest[i] != b'`' {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < rest.len() && rest[i] == b'`' {
+            i += 1;
+        }
+        if i - start == count {
+            return Some(start);
+        }
+    }
+    None
 }
 
 fn parse_text_wikilinks(text: &str, titles: &mut Vec<String>) {
@@ -327,12 +346,12 @@ pub fn refresh_mentions(conn: &Connection, title: &str) -> Result<(), AppError> 
         return Ok(());
     }
 
-    let pattern1 = format!("%[[{}%", clean);
-    let pattern2 = format!("%[[ %{}%", clean);
+    // A loose filter: refresh() parses each body exactly, so "[[\tJudul]]" is found too.
+    let pattern = format!("%{clean}%");
     let mut stmt = conn.prepare(
-        "SELECT id, body FROM items WHERE deleted_at IS NULL AND (body LIKE ?1 OR body LIKE ?2)",
+        "SELECT id, body FROM items WHERE deleted_at IS NULL AND body LIKE '%[[%' AND body LIKE ?1",
     )?;
-    let rows = stmt.query_map([&pattern1, &pattern2], |row| {
+    let rows = stmt.query_map([&pattern], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })?;
 
@@ -350,6 +369,14 @@ pub fn refresh_mentions(conn: &Connection, title: &str) -> Result<(), AppError> 
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn inline_code_closes_only_on_an_equal_backtick_run() {
+        let body = "``a ``` b ` [[Old]] `` and [[Real]]";
+        assert_eq!(parse(body), vec!["Real".to_string()]);
+        assert_eq!(rewrite(body, "Old", "New"), body);
+    }
+
     use super::*;
 
     #[test]

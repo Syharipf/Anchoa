@@ -1,26 +1,56 @@
-# Anchoa
+<p align="center">
+  <img src="landing/public/social-card.png" alt="Anchoa: satu kawanan untuk semua urusan harianmu" width="720">
+</p>
 
-Anchoa 0.17.0 adalah aplikasi desktop untuk urusan harian di satu tempat: Dashboard, Jurnal, Catatan, Email, Jadwal, Habit, Keuangan, Proyek dengan papan agen, Berkas, Unduhan, Asisten dengan suara, Notifikasi, Profil, Pengaturan, dan kunci PIN. Dibangun dengan Tauri 2, React, Rust, dan SQLite; data aplikasi tersimpan lokal di laptop. Saat ini untuk Fedora Linux. Windows, Android, dan sinkron antarperangkat masih direncanakan.
+<h1 align="center">Anchoa</h1>
 
-[Landing page](https://syharipf.github.io/Anchoa/) · [Panduan pengguna](docs/MANUAL.md)
+<p align="center">
+  Aplikasi desktop all-in-one untuk urusan harian: tugas, jadwal, keuangan, jurnal, catatan, berkas, unduhan, dan email dalam satu tempat, dengan asisten AI yang berjalan di laptopmu sendiri.
+</p>
 
-## Fitur
+<p align="center">
+  <a href="https://github.com/Syharipf/Anchoa/releases/latest"><img alt="Rilis terbaru" src="https://img.shields.io/github/v/release/Syharipf/Anchoa?label=rilis&color=c6f36b&labelColor=0f1115"></a>
+  <a href="https://github.com/Syharipf/Anchoa/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Syharipf/Anchoa/ci.yml?branch=main&label=CI&labelColor=0f1115"></a>
+  <img alt="Platform: Fedora Linux" src="https://img.shields.io/badge/platform-Fedora%20Linux-51a2da?labelColor=0f1115">
+  <img alt="Data lokal" src="https://img.shields.io/badge/data-lokal%20(SQLite)-8a9ba8?labelColor=0f1115">
+</p>
 
-- Dashboard: tugas hari ini, agenda mendatang, ringkasan modul, dan kontribusi GitHub opsional.
-- Jurnal: ide, curhat, catatan singkat, tag, suasana hati, dan ide yang bisa dijadikan tugas.
-- Catatan: halaman bertingkat, editor blok Markdown, tautan balik, sampah, dan ekspor Markdown.
-- Email: satu akun Gmail, baca, tulis, balas, bintang, arsip, dan ringkasan asisten lokal.
-- Jadwal: kalender bulanan dan timeline 8 minggu dari tugas serta tagihan.
-- Habit: centang harian, hari aktif, pengingat, streak, dan riwayat bulanan.
-- Keuangan: akun, pemasukan, pengeluaran, transfer, tagihan, dan batas pengeluaran bulanan.
-- Proyek: Kanban, sub-tugas, papan agen 5 kolom, utas aktivitas, dan perintah agen lokal opsional.
-- Berkas: jelajahi folder lokal, pratinjau, salin, pindahkan, dan buang ke Tong Sampah.
-- Unduhan: file langsung serta video/audio lewat yt-dlp dan ffmpeg, dengan antrean dan jeda.
-- Asisten: percakapan Ollama lokal, usulan aksi dengan persetujuan, dan suara Whisper/Piper.
-- Notifikasi: panel pengingat tugas, tagihan, batas pengeluaran, dan habit.
-- Profil: nama tampilan, statistik, preferensi notifikasi, dan pengaturan PIN.
-- Pengaturan: model AI, suara, database, backup, integrasi, dan cek rilis.
-- Kunci PIN: minta PIN saat aplikasi dibuka; database belum dienkripsi.
+<p align="center">
+  <a href="https://syharipf.github.io/Anchoa/">Landing page</a> ·
+  <a href="docs/MANUAL.md">Panduan pengguna</a> ·
+  <a href="#instal">Instal</a> ·
+  <a href="https://github.com/Syharipf/Anchoa/releases">Rilis</a>
+</p>
+
+---
+
+## Kenapa Anchoa
+
+- **Semua di satu tempat.** Tugas, jadwal, uang, habit, jurnal, dan catatan saling tertaut; satu pencarian (Ctrl K) untuk semuanya.
+- **Data tetap di laptopmu.** Semua tersimpan di SQLite lokal, dengan backup harian otomatis. Tidak perlu akun Anchoa, dan tidak ada data yang dikirim ke cloud.
+- **Asisten yang privat.** Asisten berjalan di Ollama lokal, bisa diajak bicara (Whisper dan Piper), dan setiap perubahan yang diusulkannya harus kamu setujui dulu.
+- **Gratis.** Seluruh kodenya ada di repo ini.
+
+## Modul
+
+| Modul | Isi |
+|---|---|
+| Dashboard | Tugas hari ini, agenda mendatang, ringkasan modul, kontribusi GitHub (opsional) |
+| Jurnal | Ide, curhat, catatan singkat, tag, suasana hati; ide bisa dijadikan tugas |
+| Catatan | Halaman bertingkat, editor blok Markdown, `[[wikilink]]` dan tautan balik, sampah, ekspor Markdown |
+| Email | Satu akun Gmail: baca, tulis, balas, bintang, arsip, ringkasan dan saran balasan dari asisten |
+| Jadwal | Kalender bulanan dan timeline 8 minggu dari tugas dan tagihan |
+| Habit | Centang harian, hari aktif, pengingat, streak, riwayat |
+| Keuangan | Akun, pemasukan, pengeluaran, transfer, tagihan, batas pengeluaran bulanan |
+| Proyek | Kanban, sub-tugas, papan agen kode dengan utas aktivitas |
+| Berkas | Jelajah folder lokal, pratinjau, salin, pindah, buang ke Tong Sampah |
+| Unduhan | File langsung serta video/audio lewat yt-dlp dan ffmpeg, dengan antrean |
+| Asisten | Chat dan suara, usulan aksi yang harus disetujui, model per tugas |
+| Notifikasi, Profil, Pengaturan | Pengingat, statistik, kunci PIN, model AI, suara, backup, integrasi |
+
+Cara pakai setiap modul ada di [panduan pengguna](docs/MANUAL.md).
+
+**Status:** versi 0.17.0, untuk Fedora Linux. Yang direncanakan: sinkron terenkripsi end-to-end antarperangkat ([spec](docs/superpowers/specs/2026-10-02-anchoa-sync-design.md)), lalu Android dan Windows.
 
 ## Instal
 

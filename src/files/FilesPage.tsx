@@ -13,6 +13,7 @@ import {
   type Place,
 } from "../api";
 import { Dialog } from "../shell/Dialog";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { useToast } from "../shell/toast";
 import { H1, SECONDARY } from "../shell/ui";
 import { ActionBar } from "./ActionBar";
@@ -89,10 +90,12 @@ export function FilesPage({
   clipboard,
   onSetClipboard,
   initialPath,
+  onOpenAssistant,
 }: Readonly<{
   clipboard: FileClipboard | null;
   onSetClipboard: (clip: FileClipboard | null) => void;
   initialPath?: string;
+  onOpenAssistant: OpenAssistant;
 }>) {
   const toast = useToast();
   const [places, setPlaces] = useState<Place[]>([]);
@@ -340,6 +343,7 @@ export function FilesPage({
 
         {singleEntry && (
           <PreviewPanel
+            onOpenAssistant={onOpenAssistant}
             entry={singleEntry}
             onClose={() => {
               setSelected([]);

@@ -31,8 +31,8 @@ export function AssistantCaption({
 }>) {
   const { mode, streamingCaption } = assistant;
   if (mode === "idle") {
-    if (assistant.aiStatus?.available === false) return <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />;
     if (assistant.voiceMissing) return <VoiceMissingCard onOpenVoiceSettings={onOpenVoiceSettings} compact={compact} />;
+    if (assistant.aiStatus?.available === false) return <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />;
   }
   const thinking = mode === "thinking";
   const speaking = mode === "speaking";
@@ -58,7 +58,7 @@ export function AssistantCaption({
           {listening ? "Mendengarkan…" : "Asisten suara"}
         </span>
       )}
-      <p className="m-0 text-sm leading-snug text-ink">
+      <p className="m-0 max-h-40 overflow-y-auto break-words text-sm leading-snug text-ink">
         {listening ? "Bicaralah ke mikrofon. Ketuk lagi untuk mengirim ke asisten."
           : streamingCaption || (thinking ? "Memproses permintaan…" : hint)}
       </p>

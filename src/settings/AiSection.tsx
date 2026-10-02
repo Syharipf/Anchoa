@@ -230,7 +230,7 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
       <div className="rounded-xl border border-line bg-surface p-3.5 text-xs text-muted leading-relaxed">
         <span className="font-medium text-ink">Penyedia eksternal</span>:
         Dukungan penyedia pihak ketiga (OpenRouter, OpenAI, Anthropic, dll.)
-        menyusul di fase berikutnya. Saat ini Anchoa berfokus pada model lokal
+        belum tersedia. Anchoa menggunakan model lokal
         Ollama agar seluruh data tetap berada di perangkatmu.
       </div>
 

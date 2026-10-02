@@ -3,7 +3,6 @@ import {
   formatKind,
   normalizeSection,
   sectionStatus,
-  sensibleSection,
   SETTINGS_SECTIONS,
   THIRD_PARTY_LICENSES,
 } from "./view";
@@ -135,14 +134,6 @@ describe("normalizeSection", () => {
     expect(normalizeSection(null)).toBe("data");
     expect(normalizeSection(undefined)).toBe("data");
     expect(normalizeSection("unknown")).toBe("data");
-  });
-});
-
-describe("sensibleSection", () => {
-  it("maps placeholder pages to sensible settings sections", () => {
-    expect(sensibleSection("email")).toBe("ai");
-    expect(sensibleSection("profil")).toBe("data");
-    expect(sensibleSection("other")).toBeUndefined();
   });
 });
 

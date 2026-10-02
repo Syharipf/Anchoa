@@ -50,7 +50,7 @@ export function DataSection() {
         <div className="flex items-center justify-between gap-3">
           <h2 className={H2}>Database lokal</h2>
           <span className="text-xs text-muted">
-            Sinkron antarperangkat menyusul (Fase 9)
+            Sinkron antarperangkat belum tersedia
           </span>
         </div>
 

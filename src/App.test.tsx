@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { api } from "./api";
 import { App } from "./App";
+import type { OpenAssistant } from "./assistant/useAssistantRequest";
 import { AssistantMini } from "./assistant/AssistantMini";
 import { LockScreen } from "./security/LockScreen";
 import { DownloadsPage } from "./downloads/DownloadsPage";
+import { Dashboard } from "./dashboard/Dashboard";
+import { EmailPage } from "./email/EmailPage";
 import { FilesPage } from "./files/FilesPage";
 import { FinancePage } from "./finance/FinancePage";
 import { HabitsPage } from "./habits/HabitsPage";
@@ -18,6 +21,7 @@ import { SchedulePage } from "./schedule/SchedulePage";
 import { Settings } from "./settings/Settings";
 import type { SettingsSection } from "./settings/view";
 import { Sidebar } from "./shell/Sidebar";
+import { Aside } from "./shell/Aside";
 import { elements, hookHarness } from "./test/hookHarness";
 
 describe("App note navigation", () => {
@@ -48,6 +52,38 @@ describe("App note navigation", () => {
     const treeKey = note().key;
     (sidebar.props.onSelect as (name: string) => void)("catatan");
     expect(note().key).not.toBe(treeKey);
+  });
+});
+
+describe("App release pages and assistant actions", () => {
+  let harness: ReturnType<typeof hookHarness<ReactNode>>;
+  afterEach(() => harness?.dispose());
+
+  it.each([
+    { name: "dashboard", component: Dashboard, assistant: Aside },
+    { name: "jurnal", component: JournalPage, assistant: AssistantMini },
+    { name: "habit", component: HabitsPage, assistant: AssistantMini },
+    { name: "keuangan", component: FinancePage, assistant: AssistantMini },
+    { name: "proyek", component: ProjectsPage, assistant: AssistantMini },
+    { name: "jadwal", component: SchedulePage, assistant: AssistantMini },
+    { name: "berkas", component: FilesPage, assistant: AssistantMini },
+  ])("routes $name actions to the mounted assistant and clears them on navigation", ({ name, component, assistant }) => {
+    harness = hookHarness(App, { 0: { path: "/db", error: null }, 8: { pinEnabled: false, locked: false } });
+    const render = () => elements(harness.render(false));
+    const navigate = (page: string) => (render().find((element) => element.type === Sidebar)!.props.onSelect as (page: string) => void)(page);
+    navigate(name);
+    const current = () => render().find((element) => element.type === component)!;
+    const panel = () => render().find((element) => element.type === assistant)!;
+    expect(current()).toBeDefined();
+    (current().props.onOpenAssistant as OpenAssistant)({ kind: "compose", text: "Bantu saya" });
+    expect(panel().props.request).toEqual({ id: 1, action: { kind: "compose", text: "Bantu saya" } });
+    (current().props.onOpenAssistant as OpenAssistant)({ kind: "voice" });
+    expect(panel().props.request).toEqual({ id: 2, action: { kind: "voice" } });
+    navigate("email");
+    expect(render().find((element) => element.type === EmailPage)).toBeDefined();
+    expect(render().find((element) => element.type === AssistantMini)!.props.request).toBeUndefined();
+    navigate(name);
+    expect(panel().props.request).toBeUndefined();
   });
 });
 

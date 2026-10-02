@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
@@ -53,8 +54,10 @@ function PlusIcon() {
 
 export function HabitsPage({
   onChanged,
+  onOpenAssistant,
 }: Readonly<{
   onChanged?: () => void;
+  onOpenAssistant: OpenAssistant;
 }>) {
   const toast = useToast();
   const [overview, setOverview] = useState<HabitsOverview | null>(null);
@@ -143,9 +146,8 @@ export function HabitsPage({
         <div className="ml-auto flex items-center gap-2.5">
           <button
             type="button"
-            disabled
-            title="Hadir di Fase 5"
-            className={`${SECONDARY} flex items-center gap-2 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-transparent`}
+            onClick={() => onOpenAssistant({ kind: "voice" })}
+            className={`${SECONDARY} flex items-center gap-2`}
           >
             <MicIcon />
             <span>Catat lewat suara</span>

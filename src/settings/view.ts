@@ -138,13 +138,6 @@ export function normalizeSection(section?: string | null): SettingsSection {
   }
 }
 
-/** Sensible default settings section when opened from a placeholder page. */
-export function sensibleSection(pageId: string): SettingsSection | undefined {
-  if (pageId === "email") return "ai";
-  if (pageId === "profil") return "data";
-  return undefined;
-}
-
 export interface ThirdPartyLicense {
   readonly name: string;
   readonly license: string;

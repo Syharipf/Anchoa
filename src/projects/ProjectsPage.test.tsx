@@ -57,7 +57,7 @@ describe("project page agent routing", () => {
       }) as unknown as typeof setInterval),
       spyOn(globalThis, "clearInterval").mockImplementation((id) => { timers.delete(Number(id)); }),
     ];
-    harness = hookHarness(() => ProjectsPage({ onOpenItem: openItem, onChanged: changed }));
+    harness = hookHarness(() => ProjectsPage({ onOpenItem: openItem, onChanged: changed, onOpenAssistant: () => {} }));
     harness.render();
     await harness.settle();
   });

@@ -647,7 +647,7 @@ check_downloads() {
   [[ -s "$home/Downloads/klip.mp3" ]] || fail "klip.mp3 missing: $(ls -A "$home/Downloads")"
   shot 17-downloads-media-done
   head -c 8388608 /dev/urandom > "$srv/besar.bin"
-  click 1068 589                    # Batas kecepatan 1 MB/s, shared by 2 slots
+  click 1086 527                    # Batas kecepatan 1 MB/s, shared by 2 slots
   click 400 181
   xdotool type --delay 20 "http://127.0.0.1:$port/besar.bin"
   sleep 1

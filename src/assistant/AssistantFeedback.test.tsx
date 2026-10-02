@@ -23,6 +23,7 @@ function createMockAssistant(
     checkVoiceStatus: async () => null,
     toggleMic: async () => {},
     sendVoice: async () => {},
+    speak: async () => {},
     clearVoiceMissing: () => {},
     send: async () => {},
     stop: async () => {},

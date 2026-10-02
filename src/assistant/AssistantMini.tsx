@@ -7,6 +7,7 @@ import { AssistantCaption, AssistantFeedback, STATUS } from "./AssistantFeedback
 import { School } from "./School";
 import { useAssistant } from "./useAssistant";
 import { usePageVisible } from "./usePageVisible";
+import { useAssistantRequest, type AssistantRequest } from "./useAssistantRequest";
 import {
   AssistantComposer,
   AssistantIcon as Icon,
@@ -35,6 +36,7 @@ const MIC = (
 );
 
 export interface AssistantMiniProps {
+  readonly request?: AssistantRequest;
   readonly hint: string;
   readonly onOpenFull: () => void;
   readonly onOpenAiSettings?: () => void;
@@ -46,6 +48,7 @@ export interface AssistantMiniProps {
  * Collapsed assistant for every page except the dashboard (DESIGN.md §1).
  */
 export function AssistantMini({
+  request,
   hint,
   onOpenFull,
   onOpenAiSettings,
@@ -59,6 +62,8 @@ export function AssistantMini({
   const trigger = useRef<HTMLButtonElement>(null);
   const mic = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
+
+  useAssistantRequest(request, assistant, composer, () => setOpen(true));
 
   const mode = assistant.mode;
   const listening = mode === "listening";

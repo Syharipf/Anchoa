@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
@@ -15,9 +16,11 @@ import { JournalSide } from "./JournalSide";
 export function JournalPage({
   onOpenItem,
   onChanged,
+  onOpenAssistant,
 }: Readonly<{
   onOpenItem: (id: string) => void;
   onChanged?: () => void;
+  onOpenAssistant: OpenAssistant;
 }>) {
   const toast = useToast();
   const [query, setQuery] = useState("");
@@ -172,9 +175,8 @@ export function JournalPage({
         <div className="ml-auto flex items-center gap-2.5">
           <button
             type="button"
-            disabled
-            title="Hadir di Fase 5"
-            className="flex min-h-10 cursor-not-allowed items-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm text-disabled"
+            onClick={() => onOpenAssistant({ kind: "voice" })}
+            className="flex min-h-10 items-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm text-ink transition-colors hover:bg-surface-2"
           >
             <svg
               width="16"
@@ -191,7 +193,7 @@ export function JournalPage({
               <path d="M5 11a7 7 0 0 0 14 0" />
               <path d="M12 18v3" />
             </svg>
-            Dikte
+            Catat lewat suara
           </button>
 
           <button
@@ -230,6 +232,7 @@ export function JournalPage({
 
         {currentEntry ? (
           <EntryEditor
+            onOpenAssistant={onOpenAssistant}
             entry={currentEntry}
             onEntryChanged={handleEntryChanged}
             onOpenTask={onOpenItem}

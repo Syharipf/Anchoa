@@ -258,6 +258,7 @@ describe("file manager components", () => {
     it("renders image preview and metadata", () => {
       const html = renderToStaticMarkup(
         <PreviewPanel
+          onOpenAssistant={() => {}}
           entry={imageEntry}
           onClose={() => {}}
           onOpen={() => {}}
@@ -265,13 +266,14 @@ describe("file manager components", () => {
       );
       expect(html).toContain("pantai.jpg");
       expect(html).toContain("Gambar");
-      expect(html).toContain("Tanya asisten (hadir di Fase 5)");
+      expect(html).toContain("Tanya asisten");
       expect(html).toContain("<img");
     });
 
     it("renders video preview with preload and controls but no autoplay", () => {
       const html = renderToStaticMarkup(
         <PreviewPanel
+          onOpenAssistant={() => {}}
           entry={videoEntry}
           onClose={() => {}}
           onOpen={() => {}}
@@ -287,6 +289,7 @@ describe("file manager components", () => {
     it("renders pdf preview in iframe", () => {
       const html = renderToStaticMarkup(
         <PreviewPanel
+          onOpenAssistant={() => {}}
           entry={pdfEntry}
           onClose={() => {}}
           onOpen={() => {}}

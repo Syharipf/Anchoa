@@ -17,10 +17,6 @@ export type PageId =
 export interface NavPage {
   id: PageId;
   label: string;
-  /** The fase that builds this module. */
-  fase?: number;
-  /** Set only on pages that are not built yet: shown on their placeholder page. */
-  about?: string;
   /** Sits at the bottom of the nav rail. */
   bottom?: true;
 }
@@ -58,6 +54,7 @@ export function pageInfo(id: PageId): NavPage {
 
 /** One line for the mini assistant on each page. */
 export function assistantHint(page: NavPage | null): string {
-  if (page?.fase) return `${page.label} hadir di Fase ${page.fase}. Asisten suara menyusul di Fase 5.`;
-  return "Asisten suara aktif di Fase 5. Untuk sekarang, coba ketuk mikrofon.";
+  return page
+    ? `Ada yang ingin dibantu di ${page.label}? Ketik pesan atau ketuk mikrofon.`
+    : "Ketik pesan atau ketuk mikrofon untuk bicara dengan asisten.";
 }

@@ -107,7 +107,7 @@ describe("Unduhan components", () => {
       expect(html).toContain("sudo dnf install yt-dlp ffmpeg");
     });
 
-    it("renders engines info including yt-dlp, ffmpeg, File langsung, and Torrent", () => {
+    it("renders the available engines without a torrent placeholder", () => {
       const engines: EnginesInfo = {
         ytdlp: { version: "2026.09.01", stale: false },
         ffmpeg: { version: "ffmpeg version 7.0.2 Copyright (c) 2000-2024" },
@@ -122,8 +122,8 @@ describe("Unduhan components", () => {
       expect(html).not.toContain("Belum terpasang");
       expect(html).toContain("File langsung");
       expect(html).toContain("Bawaan");
-      expect(html).toContain("Torrent");
-      expect(html).toContain("Menyusul");
+      expect(html).not.toContain("Torrent");
+      expect(html).not.toContain("Menyusul");
     });
 
     it("renders uninstalled engines and stale yt-dlp notice", () => {

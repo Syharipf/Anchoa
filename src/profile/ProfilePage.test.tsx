@@ -347,7 +347,7 @@ describe("ProfilePage", () => {
     expect(changeBtn).toBeUndefined();
   });
 
-  it("renders 'Enkripsi data lokal' still marked Menyusul", async () => {
+  it("shows neutral availability for encryption, calendar import and quiet hours", async () => {
     getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
     githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
     securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
@@ -361,7 +361,11 @@ describe("ProfilePage", () => {
 
     expect(textNodes).toContain("Enkripsi data lokal");
     expect(textNodes).toContain("Keuangan, email, dan catatan");
-    expect(textNodes).toContain("Menyusul");
+    expect(textNodes.filter((text) => text === "Belum tersedia")).toHaveLength(3);
+    expect(textNodes).not.toContain("Menyusul");
+    expect(textNodes).not.toContain("22.00");
+    expect(textNodes).not.toContain("06.00");
+    expect(textNodes).toContain("Pengaturan jam tenang dan suara notifikasi desktop belum tersedia.");
   });
 
   it("shows an error state for Keamanan card when securityStatus fails and prevents create flow", async () => {

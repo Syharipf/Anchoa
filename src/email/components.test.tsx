@@ -357,6 +357,25 @@ describe("email UI", () => {
     expect(elements(harness.render()).some((el) => el.type === ReadingPane)).toBe(false);
   });
 
+  it("shows an email immediately from list data while the body loads without a blank pane", async () => {
+    connectedPage();
+    const pending = deferred<EmailMessage>();
+    spies.push(spyOn(api, "emailOpen").mockReturnValue(pending.promise));
+    await harness.settle();
+    const openPromise = (element(EmailList).props.onOpen as (id: string) => Promise<void>)(message.id);
+    // While emailOpen is in flight, ReadingPane is already shown with list data
+    const pane = element(ReadingPane);
+    expect(pane).toBeDefined();
+    expect((pane.props.message as EmailMessage).id).toBe(message.id);
+    expect((pane.props.message as EmailMessage).subject).toBe(message.subject);
+    expect(elements(harness.render()).some((el) => el.props.children === "Membuka email…")).toBe(false);
+
+    pending.resolve({ ...message, body: "Full loaded body", unread: false, bodyCached: true });
+    await openPromise;
+    await harness.settle();
+    expect((element(ReadingPane).props.message as EmailMessage).body).toBe("Full loaded body");
+  });
+
   it.each(["sync", "filter"])("refreshes the reading pane flags on %s and toggles the latest star", async (reload) => {
     const list = connectedPage();
     const opened = { ...message, unread: false, bodyCached: true };

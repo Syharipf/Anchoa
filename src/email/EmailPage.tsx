@@ -111,7 +111,8 @@ export function EmailPage({ onChanged }: Readonly<{ onChanged?: () => void }>) {
     if (selected?.id === id && !openingId) return;
     const request = ++opens.current;
     setOpeningId(id);
-    setSelected(null);
+    const initial = messages.find((m) => m.id === id) ?? null;
+    setSelected(initial);
     setError(null);
     try {
       const message = await api.emailOpen(id);
@@ -123,7 +124,10 @@ export function EmailPage({ onChanged }: Readonly<{ onChanged?: () => void }>) {
       setMessages((rows) => rows.map((row) => row.id === id ? message : row)
         .filter((row) => query.current.filter !== "unread" || row.unread));
     } catch (e) {
-      if (active.current && request === opens.current) setError(errorMessage(e));
+      if (active.current && request === opens.current) {
+        setError(errorMessage(e));
+        setSelected(null);
+      }
     } finally {
       if (active.current && request === opens.current) setOpeningId(null);
     }

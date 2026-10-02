@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::sync::{Arc, atomic::Ordering};
 
 use super::*;
 use account::{AppPassword, Credentials, KeyringStore};
-use client::{Header, MailClient};
+use client::{Header, MailClient, MailError};
 use fake::FakeMailClient;
 
 const ADDRESS: &str = "anchoa@gmail.com";
@@ -313,7 +313,7 @@ fn repeated_sync_updates_headers_and_soft_deletes_missing_messages() {
     let rows = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].id, original[1].id);
-    assert_eq!(rows[0].subject, "Subjek diperbarui");
+    assert_eq!(rows[0].subject, "Pesan 1");
     assert!(!rows[0].unread);
     assert!(rows[0].starred);
     assert!(get(&f.db.conn().unwrap(), &original[0].id).is_err());
@@ -389,8 +389,13 @@ fn actions_reject_reused_uids_before_the_next_sync() {
                     b"Content-Type: text/plain\r\n\r\nReplacement".to_vec(),
                 )
                 .unwrap();
+            if !cached {
+                assert_eq!(
+                    actions::open(&f.db, &f.client, &id).map(|_| ()).unwrap_err().to_string(),
+                    client::MailError::Missing.to_string()
+                );
+            }
             for result in [
-                actions::open(&f.db, &f.client, &id).map(|_| ()),
                 actions::set_flag(&f.db, &f.client, &id, Flag::Seen, true),
                 actions::set_flag(&f.db, &f.client, &id, Flag::Starred, false),
                 actions::archive(&f.db, &f.client, &id),
@@ -798,4 +803,436 @@ fn database_is_not_held_during_any_client_call() {
     )
     .unwrap();
     actions::archive(&f.db, &f.client, &id).unwrap();
+}
+
+#[test]
+fn second_sync_of_unchanged_mail_fetches_no_headers() {
+    let f = Fixture::new();
+    f.seed(1);
+    f.seed(2);
+    sync::sync(&f.db, &f.client).unwrap();
+    let initial_fetches = f.client.fetched_headers_count.load(Ordering::SeqCst);
+    assert!(initial_fetches >= 2);
+
+    f.client.fetched_headers_count.store(0, Ordering::SeqCst);
+    sync::sync(&f.db, &f.client).unwrap();
+
+    assert_eq!(f.client.fetched_headers_count.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn changed_flags_update_locally() {
+    let f = Fixture::new();
+    let mut h = header(1);
+    h.starred = true;
+    f.client.insert(INBOX, h, Vec::new()).unwrap();
+    sync::sync(&f.db, &f.client).unwrap();
+    let rows = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].unread);
+    assert!(rows[0].starred);
+
+    // Update flag on server (fake client)
+    let validity = f.client.list_uids_flags(INBOX).unwrap().uid_validity;
+    f.client.set_flag(INBOX, 1, validity, Flag::Seen, true).unwrap();
+    f.client.set_flag(INBOX, 1, validity, Flag::Starred, false).unwrap();
+
+    f.client.fetched_headers_count.store(0, Ordering::SeqCst);
+    sync::sync(&f.db, &f.client).unwrap();
+
+    // No headers fetched because UIDs are unchanged
+    assert_eq!(f.client.fetched_headers_count.load(Ordering::SeqCst), 0);
+
+    // Flags updated locally
+    let rows = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert!(!rows[0].unread);
+    assert!(!rows[0].starred);
+}
+
+#[test]
+fn a_new_uid_fetches_exactly_one_header() {
+    let f = Fixture::new();
+    f.seed(1);
+    f.seed(2);
+    sync::sync(&f.db, &f.client).unwrap();
+
+    f.seed(3);
+    f.client.fetched_headers_count.store(0, Ordering::SeqCst);
+    sync::sync(&f.db, &f.client).unwrap();
+
+    assert_eq!(f.client.fetched_headers_count.load(Ordering::SeqCst), 1);
+    let rows = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap();
+    assert_eq!(rows.len(), 3);
+}
+
+#[test]
+fn open_of_a_cached_email_makes_no_blocking_network_call() {
+    let f = Fixture::new();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+
+    // Cache the email by opening it first
+    actions::open(&f.db, &f.client, &id).unwrap();
+    let cached = get(&f.db.conn().unwrap(), &id).unwrap();
+    assert!(cached.body_cached);
+
+    // Reset all network call counters
+    f.client.fetch_body_peek_count.store(0, Ordering::SeqCst);
+    f.client.fetch_body_mark_read_count.store(0, Ordering::SeqCst);
+    f.client.set_flag_count.store(0, Ordering::SeqCst);
+
+    // Open again: must make NO blocking network calls
+    let opened = actions::open(&f.db, &f.client, &id).unwrap();
+    assert_eq!(opened.id, id);
+    assert!(opened.body_cached);
+    assert!(!opened.unread);
+
+    assert_eq!(f.client.fetch_body_peek_count.load(Ordering::SeqCst), 0);
+    assert_eq!(f.client.fetch_body_mark_read_count.load(Ordering::SeqCst), 0);
+    assert_eq!(f.client.set_flag_count.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn open_of_an_uncached_email_uses_one_fetch() {
+    let f = Fixture::new();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+
+    let before = get(&f.db.conn().unwrap(), &id).unwrap();
+    assert!(!before.body_cached);
+    assert!(before.unread);
+
+    // Reset all call counters
+    f.client.fetch_body_peek_count.store(0, Ordering::SeqCst);
+    f.client.fetch_body_mark_read_count.store(0, Ordering::SeqCst);
+    f.client.set_flag_count.store(0, Ordering::SeqCst);
+
+    let opened = actions::open(&f.db, &f.client, &id).unwrap();
+    assert!(opened.body_cached);
+    assert!(!opened.unread);
+
+    // Exactly one non-PEEK fetch (which sets \Seen on server), no separate set_flag call
+    assert_eq!(f.client.fetch_body_mark_read_count.load(Ordering::SeqCst), 1);
+    assert_eq!(f.client.fetch_body_peek_count.load(Ordering::SeqCst), 0);
+    assert_eq!(f.client.set_flag_count.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_dropped_session_is_retried_once_with_a_new_login() {
+    let f = Fixture::new();
+    f.connect();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+
+    let initial_logins = f.client.login_count.load(Ordering::SeqCst);
+    assert!(initial_logins >= 1);
+
+    // Simulate dropped session
+    f.client.drop_session();
+
+    // Call should succeed because it retries once with a new login
+    let batch = f.client.list_uids_flags(INBOX).unwrap();
+    assert!(!batch.entries.is_empty());
+    assert_eq!(
+        f.client.login_count.load(Ordering::SeqCst),
+        initial_logins + 1
+    );
+}
+
+#[test]
+fn prefetch_caches_bodies_without_marking_them_read() {
+    let f = Fixture::new();
+    f.connect();
+    f.seed(1);
+    f.seed(2);
+    sync::sync(&f.db, &f.client).unwrap();
+
+    let before = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap();
+    assert_eq!(before.len(), 2);
+    assert!(before.iter().all(|e| !e.body_cached && e.unread));
+
+    f.client.fetch_body_peek_count.store(0, Ordering::SeqCst);
+    f.client.set_flag_count.store(0, Ordering::SeqCst);
+
+    // Run prefetch for up to 20 newest uncached INBOX messages
+    sync::prefetch(&f.db, &f.client, 20);
+
+    // Bodies must now be cached, but unread must STILL be true!
+    let after = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap();
+    assert_eq!(after.len(), 2);
+    assert!(after.iter().all(|e| e.body_cached && e.unread));
+    assert!(after.iter().all(|e| e.body.contains("Halo Indonesia")));
+
+    // PEEK fetches were used, no set_flag
+    assert_eq!(f.client.fetch_body_peek_count.load(Ordering::SeqCst), 2);
+    assert_eq!(f.client.set_flag_count.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn prefetch_after_disconnect_writes_nothing() {
+    let f = Fixture::new();
+    f.connect();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+    let before = get(&f.db.conn().unwrap(), &id).unwrap();
+    assert!(!before.body_cached);
+
+    // Disconnect the account before prefetch writes
+    account::disconnect(&f.db, &f.keys).unwrap();
+
+    // Prefetch must target rows and re-check DB statement before write
+    sync::prefetch(&f.db, &f.client, 20);
+
+    // The item in DB must not have been modified by prefetch
+    let conn = f.db.conn().unwrap();
+    let row: (bool, String) = conn
+        .query_row(
+            "SELECT e.body_cached, i.body FROM emails e JOIN items i ON i.id = e.item_id WHERE e.item_id = ?1",
+            [&id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert!(!row.0);
+    assert_eq!(row.1, "");
+}
+
+#[test]
+fn failed_connect_leaves_no_cached_client_and_password_change_uses_new_password() {
+    let fake = Arc::new(FakeMailClient::empty());
+    let state = EmailState::with_fake(fake.clone());
+    let dir = tempfile::tempdir().unwrap();
+    let db = Arc::new(Db::open_at(dir.path().join("test.db")));
+
+    // Failed connect must leave candidate uncached
+    fake.reject_login(true).unwrap();
+    let creds1 = Credentials::new(ADDRESS, PASSWORD).unwrap();
+    let candidate = state.create_client(&creds1);
+    let err = account::connect(&db, &state.keys, ADDRESS, PASSWORD, &*candidate);
+    assert!(err.is_err());
+    assert!(!state.has_cached_client());
+
+    // Successful connect replaces the cache
+    fake.reject_login(false).unwrap();
+    let candidate = state.create_client(&creds1);
+    account::connect(&db, &state.keys, ADDRESS, PASSWORD, &*candidate).unwrap();
+    state.set_client(&creds1, candidate);
+    assert!(state.has_cached_client());
+    let key1 = ClientCacheKey::new(&creds1);
+    assert_eq!(state.cached_client_key(), Some(key1));
+
+    // Password change
+    let new_password = "ponmlkjihgfedcba";
+    let creds2 = Credentials::new(ADDRESS, new_password).unwrap();
+    let candidate2 = state.create_client(&creds2);
+    account::connect(&db, &state.keys, ADDRESS, new_password, &*candidate2).unwrap();
+    state.set_client(&creds2, candidate2);
+
+    let key2 = ClientCacheKey::new(&creds2);
+    assert_eq!(state.cached_client_key(), Some(key2));
+    assert_ne!(state.cached_client_key(), Some(ClientCacheKey::new(&creds1)));
+
+    let client = state.get_client(creds2);
+    assert_eq!(client.address(), ADDRESS);
+}
+
+#[test]
+fn race_where_body_is_cached_before_open_still_sends_seen() {
+    let f = Fixture::new();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+
+    // Verify unread before open
+    let before = get(&f.db.conn().unwrap(), &id).unwrap();
+    assert!(before.unread);
+    assert!(!before.body_cached);
+
+    // Simulate prefetch caching body in SQLite just before actions::open executes
+    f.db.conn()
+        .unwrap()
+        .execute("UPDATE emails SET body_cached = 1 WHERE item_id = ?1", [&id])
+        .unwrap();
+
+    f.client.fetch_body_peek_count.store(0, Ordering::SeqCst);
+    f.client.fetch_body_mark_read_count.store(0, Ordering::SeqCst);
+    f.client.set_flag_count.store(0, Ordering::SeqCst);
+
+    // open skips BODY[] fetch
+    let outcome = actions::open(&f.db, &f.client, &id).unwrap();
+    assert!(!outcome.used_body);
+    assert!(outcome.was_unread);
+
+    // Because BODY[] was skipped and message was unread, background Seen is decided and sent
+    actions::mark_pending_seen(&id);
+    actions::run_background_seen(
+        &f.db,
+        &f.client,
+        &id,
+        &outcome.folder,
+        outcome.uid,
+        outcome.uid_validity,
+    )
+    .unwrap();
+
+    assert_eq!(f.client.set_flag_count.load(Ordering::SeqCst), 1);
+    let uids = f.client.list_uids_flags(INBOX).unwrap();
+    assert!(!uids.entries[0].unread);
+}
+
+#[test]
+fn explicit_unread_after_open_is_not_overwritten() {
+    let f = Fixture::new();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+
+    // Cached email
+    f.db.conn()
+        .unwrap()
+        .execute("UPDATE emails SET body_cached = 1 WHERE item_id = ?1", [&id])
+        .unwrap();
+
+    let outcome = actions::open(&f.db, &f.client, &id).unwrap();
+    assert!(!outcome.used_body);
+    assert!(outcome.was_unread);
+    actions::mark_pending_seen(&id);
+
+    // Explicit flag change to unread arrives before background Seen sends
+    actions::set_flag(&f.db, &f.client, &id, Flag::Seen, false).unwrap();
+
+    let uids = f.client.list_uids_flags(INBOX).unwrap();
+    assert!(uids.entries[0].unread);
+
+    let flag_count_before = f.client.set_flag_count.load(Ordering::SeqCst);
+
+    // Now background task executes: must be dropped and NOT overwrite explicit unread
+    actions::run_background_seen(
+        &f.db,
+        &f.client,
+        &id,
+        &outcome.folder,
+        outcome.uid,
+        outcome.uid_validity,
+    )
+    .unwrap();
+
+    assert_eq!(f.client.set_flag_count.load(Ordering::SeqCst), flag_count_before);
+    let uids = f.client.list_uids_flags(INBOX).unwrap();
+    assert!(uids.entries[0].unread);
+}
+
+#[test]
+fn mailbox_with_300_messages_second_sync_fetches_zero_headers() {
+    let f = Fixture::new();
+    for uid in 1..=300 {
+        f.seed(uid);
+    }
+
+    f.client.fetched_headers_count.store(0, Ordering::SeqCst);
+    let res1 = sync::sync(&f.db, &f.client).unwrap();
+    assert_eq!(res1.headers, HEADER_LIMIT);
+    assert_eq!(f.client.fetched_headers_count.load(Ordering::SeqCst), HEADER_LIMIT);
+
+    // Second sync of unchanged 300 messages mailbox
+    f.client.fetched_headers_count.store(0, Ordering::SeqCst);
+    let res2 = sync::sync(&f.db, &f.client).unwrap();
+    assert_eq!(res2.headers, 0);
+    assert_eq!(f.client.fetched_headers_count.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn uidvalidity_change_fetches_at_most_header_limit_headers() {
+    let f = Fixture::new();
+    for uid in 1..=300 {
+        f.seed(uid);
+    }
+    sync::sync(&f.db, &f.client).unwrap();
+
+    // Server changes UIDVALIDITY
+    f.client.reset_mailbox(INBOX, 2).unwrap();
+    for uid in 1..=300 {
+        f.seed(uid);
+    }
+
+    f.client.fetched_headers_count.store(0, Ordering::SeqCst);
+    let res = sync::sync(&f.db, &f.client).unwrap();
+    assert_eq!(res.headers, HEADER_LIMIT);
+    assert_eq!(f.client.fetched_headers_count.load(Ordering::SeqCst), HEADER_LIMIT);
+}
+
+#[test]
+fn timeout_drops_the_session() {
+    use std::time::Duration;
+
+    let f = Fixture::new();
+    f.connect();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    assert!(f.client.has_session());
+
+    // Fake simulates hang with short timeout
+    f.client.set_timeout(Duration::from_millis(20));
+    f.client.set_hang(true);
+
+    let err = f.client.list_uids_flags(INBOX).unwrap_err();
+    assert!(matches!(err, MailError::Network));
+    assert!(!f.client.has_session());
+
+    // Subsequent operation reconnects with a fresh login
+    f.client.set_hang(false);
+    let initial_logins = f.client.login_count.load(Ordering::SeqCst);
+    let batch = f.client.list_uids_flags(INBOX).unwrap();
+    assert!(!batch.entries.is_empty());
+    assert_eq!(f.client.login_count.load(Ordering::SeqCst), initial_logins + 1);
+}
+
+#[test]
+fn a_failing_move_is_called_exactly_once() {
+    let f = Fixture::new();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+
+    f.client.fail_move.store(true, Ordering::SeqCst);
+    f.client.move_to_count.store(0, Ordering::SeqCst);
+
+    let err = actions::archive(&f.db, &f.client, &id).unwrap_err();
+    assert!(matches!(err, AppError::Other(_)));
+    assert_eq!(f.client.move_to_count.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn prefetch_stops_at_the_first_connection_failure_instead_of_retrying_every_body() {
+    let f = Fixture::new();
+    f.connect();
+    for uid in 1..=5 {
+        f.seed(uid);
+    }
+    sync::sync(&f.db, &f.client).unwrap();
+    // A hung connection surfaces as MailError::Network after the timeout.
+    f.client.set_timeout(std::time::Duration::from_millis(10));
+    f.client.set_hang(true);
+    f.client.fetch_body_peek_count.store(0, Ordering::SeqCst);
+    sync::prefetch(&f.db, &f.client, 20);
+    assert_eq!(f.client.fetch_body_peek_count.load(Ordering::SeqCst), 1, "prefetch must stop after the first connection failure");
+    assert!(list(&f.db, Folder::Inbox, Filter::All, 200).unwrap().iter().all(|e| !e.body_cached));
+}
+
+#[test]
+fn sync_keeps_an_opened_email_read_while_its_background_seen_is_pending() {
+    let f = Fixture::new();
+    f.connect();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+    f.db.conn().unwrap().execute("UPDATE emails SET unread = 0 WHERE item_id = ?1", [&id]).unwrap();
+    actions::mark_pending_seen(&id);
+    sync::sync(&f.db, &f.client).unwrap();
+    assert!(!list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].unread);
+    assert!(actions::take_pending_seen(&id));
 }

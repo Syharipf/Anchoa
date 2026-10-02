@@ -55,18 +55,35 @@ pub struct Header {
     pub has_html: bool,
     pub refs: Vec<String>,
 }
+/// Lightweight batch of UID + FLAGS for incremental sync.
+#[derive(Debug, Clone)]
+pub struct UidFlag {
+    pub uid: u32,
+    pub unread: bool,
+    pub starred: bool,
+}
 
-pub struct HeaderBatch {
-    pub headers: Vec<Header>,
-    // Full search result, so falling outside the 200-header window isn't deletion.
-    pub all_uids: Vec<u32>,
+#[derive(Debug)]
+pub struct UidFlagBatch {
+    pub entries: Vec<UidFlag>,
     pub uid_validity: u32,
 }
 
 pub trait MailClient: Send + Sync {
+    fn address(&self) -> &str;
     fn login(&self, credentials: &Credentials) -> Result<(), MailError>;
-    fn list_headers(&self, folder: &str, limit: usize) -> Result<HeaderBatch, MailError>;
+    /// Fetches headers for specific UIDs in a folder.
+    fn fetch_headers(&self, folder: &str, uids: &[u32]) -> Result<Vec<Header>, MailError>;
+    /// Returns UIDs and FLAGS for a folder, cheaply (no header/body data).
+    fn list_uids_flags(&self, folder: &str) -> Result<UidFlagBatch, MailError>;
     fn fetch_body(&self, folder: &str, uid: u32, uid_validity: u32) -> Result<Vec<u8>, MailError>;
+    /// Fetch body without PEEK — sets \Seen on the server in the same command.
+    fn fetch_body_and_mark_read(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+    ) -> Result<Vec<u8>, MailError>;
     fn set_flag(
         &self,
         folder: &str,
@@ -129,6 +146,10 @@ pub fn parse_header(
 // No Debug implementation: even transport objects can contain login details.
 pub struct GmailClient {
     credentials: Credentials,
+    // Built on first use so a failure is an error, not a panic in the constructor.
+    runtime: std::sync::OnceLock<tokio::runtime::Runtime>,
+    session: tokio::sync::Mutex<Option<Session>>,
+    timeout: Duration,
 }
 
 type Session = async_imap::Session<TlsStream<TcpStream>>;
@@ -162,25 +183,100 @@ fn html_structure(body: &BodyStructure<'_>) -> bool {
 
 impl GmailClient {
     pub fn new(credentials: Credentials) -> Self {
-        Self { credentials }
+        Self::with_timeout(credentials, TIMEOUT)
     }
 
+    pub fn with_timeout(credentials: Credentials, timeout: Duration) -> Self {
+        Self {
+            credentials,
+            runtime: std::sync::OnceLock::new(),
+            session: tokio::sync::Mutex::new(None),
+            timeout,
+        }
+    }
+
+    fn runtime(&self) -> Result<&tokio::runtime::Runtime, MailError> {
+        if let Some(rt) = self.runtime.get() {
+            return Ok(rt);
+        }
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .map_err(|_| MailError::Network)?;
+        let _ = self.runtime.set(rt);
+        self.runtime.get().ok_or(MailError::Network)
+    }
+
+    /// Run an async operation with timeout, reusing the persistent runtime without holding a std Mutex across block_on.
     fn run<T>(
         &self,
         operation: impl Future<Output = Result<T, MailError>>,
     ) -> Result<T, MailError> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|_| MailError::Network)?;
-        runtime.block_on(async {
-            tokio::time::timeout(TIMEOUT, operation)
+        let rt = self.runtime()?;
+        let timeout = self.timeout;
+        rt.block_on(async {
+            tokio::time::timeout(timeout, operation)
                 .await
                 .map_err(|_| MailError::Network)?
         })
     }
 
-    async fn session(&self) -> Result<Session, MailError> {
+    /// Execute an operation on the persistent session. Lock waiting is inside the timeout.
+    /// Uses guard.take() so that on timeout or any error, the broken session is dropped and never left cached.
+    async fn execute_with_session<T>(
+        &self,
+        operation: &(impl for<'a> Fn(&'a mut Session) -> std::pin::Pin<Box<dyn Future<Output = Result<T, MailError>> + 'a>> + ?Sized),
+    ) -> Result<T, MailError> {
+        let mut guard = self.session.lock().await;
+        if guard.is_none() {
+            *guard = Some(self.connect().await?);
+        }
+        let mut session = guard.take().ok_or(MailError::Network)?;
+        match operation(&mut session).await {
+            Ok(value) => {
+                *guard = Some(session);
+                Ok(value)
+            }
+            Err(err) => {
+                drop(session);
+                Err(err)
+            }
+        }
+    }
+
+    /// Run an operation using the persistent session.
+    /// If retry is true, on error/timeout it drops the session and retries once with a fresh login.
+    fn with_session<T>(
+        &self,
+        retry: bool,
+        operation: impl for<'a> Fn(&'a mut Session) -> std::pin::Pin<Box<dyn Future<Output = Result<T, MailError>> + 'a>>,
+    ) -> Result<T, MailError> {
+        let first_attempt = self.run(self.execute_with_session(&operation));
+        match first_attempt {
+            Ok(value) => Ok(value),
+            Err(first_error) => {
+                // Only a broken connection is worth one fresh login; a rejected login or a
+                // missing message would fail again, and repeated logins can lock the account.
+                if !retry || !matches!(first_error, MailError::Network) {
+                    return Err(first_error);
+                }
+                self.run(self.execute_with_session(&operation))
+            }
+        }
+    }
+
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub fn has_session(&self) -> bool {
+        if let Ok(rt) = self.runtime() {
+            rt.block_on(async { self.session.lock().await.is_some() })
+        } else {
+            false
+        }
+    }
+
+    async fn connect(&self) -> Result<Session, MailError> {
         let roots = RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         let provider =
             std::sync::Arc::new(tokio_rustls::rustls::crypto::aws_lc_rs::default_provider());
@@ -234,7 +330,7 @@ impl GmailClient {
             .build())
     }
 
-    async fn select(
+    async fn select_mailbox(
         session: &mut Session,
         folder: &str,
         uid_validity: u32,
@@ -310,10 +406,14 @@ impl GmailClient {
 }
 
 impl MailClient for GmailClient {
+    fn address(&self) -> &str {
+        &self.credentials.address
+    }
+
     fn login(&self, credentials: &Credentials) -> Result<(), MailError> {
         let candidate = Self::new(credentials.clone());
         candidate.run(async {
-            let mut session = candidate.session().await?;
+            let mut session = candidate.connect().await?;
             session.logout().await.map_err(|_| MailError::Network)
         })?;
         if candidate
@@ -327,66 +427,148 @@ impl MailClient for GmailClient {
         }
     }
 
-    fn list_headers(&self, folder: &str, limit: usize) -> Result<HeaderBatch, MailError> {
+    fn fetch_headers(&self, folder: &str, uids: &[u32]) -> Result<Vec<Header>, MailError> {
+        if uids.is_empty() {
+            return Ok(Vec::new());
+        }
         mailbox(folder)?;
-        self.run(async {
-            let mut session = self.session().await?;
-            let selected = session
-                .select(folder)
-                .await
-                .map_err(|_| MailError::Protocol)?;
-            let uid_validity = selected.uid_validity.ok_or(MailError::Protocol)?;
-            let mut all_uids: Vec<_> = session
-                .uid_search(if folder == ALL_MAIL { "FLAGGED" } else { "ALL" })
-                .await
-                .map_err(|_| MailError::Protocol)?
-                .into_iter()
-                .collect();
-            all_uids.sort_unstable_by(|a, b| b.cmp(a));
-            let selected: Vec<_> = all_uids
-                .iter()
-                .take(limit.min(super::HEADER_LIMIT))
-                .map(u32::to_string)
-                .collect();
-            let mut headers = Vec::new();
-            if !selected.is_empty() {
+        self.with_session(true, |session| {
+            let folder = folder.to_owned();
+            let uids = uids.to_vec();
+            Box::pin(async move {
+                let _selected = session
+                    .select(&folder)
+                    .await
+                    .map_err(|_| MailError::Protocol)?;
+                let uid_strings: Vec<String> = uids.iter().map(ToString::to_string).collect();
                 let query = format!(
                     "UID FETCH {} (UID FLAGS BODY.PEEK[HEADER] BODYSTRUCTURE)",
-                    selected.join(",")
+                    uid_strings.join(",")
                 );
-                for fetched in Self::fetch(&mut session, &query).await? {
-                    // Unsolicited flag-only responses are not header results.
+                let mut headers = Vec::new();
+                for fetched in Self::fetch(session, &query).await? {
                     if let (Some(uid), Some(raw)) = (fetched.uid, fetched.raw) {
                         let flags = fetched.flags.ok_or(MailError::Protocol)?;
                         let unread = !flags.iter().any(|s| s.eq_ignore_ascii_case("\\Seen"));
                         let starred = flags.iter().any(|s| s.eq_ignore_ascii_case("\\Flagged"));
-                        headers.push(parse_header(uid, &raw, unread, starred, fetched.has_html)?);
+                        headers.push(parse_header(
+                            uid,
+                            &raw,
+                            unread,
+                            starred,
+                            fetched.has_html,
+                        )?);
                     }
                 }
-            }
-            session.logout().await.map_err(|_| MailError::Network)?;
-            Ok(HeaderBatch {
-                headers,
-                all_uids,
-                uid_validity,
+                Ok(headers)
+            })
+        })
+    }
+
+    fn list_uids_flags(&self, folder: &str) -> Result<UidFlagBatch, MailError> {
+        mailbox(folder)?;
+        self.with_session(true, |session| {
+            let folder = folder.to_owned();
+            Box::pin(async move {
+                let selected = session
+                    .select(&folder)
+                    .await
+                    .map_err(|_| MailError::Protocol)?;
+                let uid_validity = selected.uid_validity.ok_or(MailError::Protocol)?;
+                // Check if mailbox has messages at all.
+                let exists = selected.exists;
+                if exists == 0 {
+                    return Ok(UidFlagBatch {
+                        entries: Vec::new(),
+                        uid_validity,
+                    });
+                }
+                if folder == ALL_MAIL {
+                    let flagged_uids = session
+                        .uid_search("FLAGGED")
+                        .await
+                        .map_err(|_| MailError::Protocol)?;
+                    if flagged_uids.is_empty() {
+                        return Ok(UidFlagBatch {
+                            entries: Vec::new(),
+                            uid_validity,
+                        });
+                    }
+                    let uid_strs: Vec<_> = flagged_uids.iter().map(ToString::to_string).collect();
+                    let rows = Self::fetch(session, &format!("UID FETCH {} (UID FLAGS)", uid_strs.join(","))).await?;
+                    let mut entries = Vec::new();
+                    for row in rows {
+                        if let (Some(uid), Some(flags)) = (row.uid, row.flags) {
+                            entries.push(UidFlag {
+                                uid,
+                                unread: !flags.iter().any(|s| s.eq_ignore_ascii_case("\\Seen")),
+                                starred: flags.iter().any(|s| s.eq_ignore_ascii_case("\\Flagged")),
+                            });
+                        }
+                    }
+                    return Ok(UidFlagBatch {
+                        entries,
+                        uid_validity,
+                    });
+                }
+                let rows = Self::fetch(session, "UID FETCH 1:* (UID FLAGS)").await?;
+                let mut entries = Vec::new();
+                for row in rows {
+                    if let (Some(uid), Some(flags)) = (row.uid, row.flags) {
+                        entries.push(UidFlag {
+                            uid,
+                            unread: !flags.iter().any(|s| s.eq_ignore_ascii_case("\\Seen")),
+                            starred: flags.iter().any(|s| s.eq_ignore_ascii_case("\\Flagged")),
+                        });
+                    }
+                }
+                Ok(UidFlagBatch {
+                    entries,
+                    uid_validity,
+                })
             })
         })
     }
 
     fn fetch_body(&self, folder: &str, uid: u32, uid_validity: u32) -> Result<Vec<u8>, MailError> {
         mailbox(folder)?;
-        self.run(async {
-            let mut session = self.session().await?;
-            Self::select(&mut session, folder, uid_validity).await?;
-            let rows =
-                Self::fetch(&mut session, &format!("UID FETCH {uid} (UID BODY.PEEK[])")).await?;
-            let raw = rows
-                .into_iter()
-                .find(|row| row.uid == Some(uid) && row.raw.is_some())
-                .and_then(|row| row.raw)
-                .ok_or(MailError::Missing)?;
-            session.logout().await.map_err(|_| MailError::Network)?;
-            Ok(raw)
+        self.with_session(true, |session| {
+            let folder = folder.to_owned();
+            Box::pin(async move {
+                Self::select_mailbox(session, &folder, uid_validity).await?;
+                let rows =
+                    Self::fetch(session, &format!("UID FETCH {uid} (UID BODY.PEEK[])")).await?;
+                let raw = rows
+                    .into_iter()
+                    .find(|row| row.uid == Some(uid) && row.raw.is_some())
+                    .and_then(|row| row.raw)
+                    .ok_or(MailError::Missing)?;
+                Ok(raw)
+            })
+        })
+    }
+
+    fn fetch_body_and_mark_read(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+    ) -> Result<Vec<u8>, MailError> {
+        mailbox(folder)?;
+        self.with_session(true, |session| {
+            let folder = folder.to_owned();
+            Box::pin(async move {
+                Self::select_mailbox(session, &folder, uid_validity).await?;
+                // BODY[] without PEEK sets \Seen on the server.
+                let rows =
+                    Self::fetch(session, &format!("UID FETCH {uid} (UID BODY[])")).await?;
+                let raw = rows
+                    .into_iter()
+                    .find(|row| row.uid == Some(uid) && row.raw.is_some())
+                    .and_then(|row| row.raw)
+                    .ok_or(MailError::Missing)?;
+                Ok(raw)
+            })
         })
     }
 
@@ -399,18 +581,20 @@ impl MailClient for GmailClient {
         on: bool,
     ) -> Result<(), MailError> {
         mailbox(folder)?;
-        self.run(async {
-            let mut session = self.session().await?;
-            Self::select(&mut session, folder, uid_validity).await?;
-            session
-                .run_command_and_check_ok(format!(
-                    "UID STORE {uid} {}FLAGS.SILENT ({})",
-                    if on { "+" } else { "-" },
-                    flag.imap()
-                ))
-                .await
-                .map_err(|_| MailError::Protocol)?;
-            session.logout().await.map_err(|_| MailError::Network)
+        self.with_session(true, |session| {
+            let folder = folder.to_owned();
+            Box::pin(async move {
+                Self::select_mailbox(session, &folder, uid_validity).await?;
+                session
+                    .run_command_and_check_ok(format!(
+                        "UID STORE {uid} {}FLAGS.SILENT ({})",
+                        if on { "+" } else { "-" },
+                        flag.imap()
+                    ))
+                    .await
+                    .map_err(|_| MailError::Protocol)?;
+                Ok(())
+            })
         })
     }
 
@@ -423,22 +607,27 @@ impl MailClient for GmailClient {
     ) -> Result<(), MailError> {
         mailbox(folder)?;
         mailbox(destination)?;
-        self.run(async {
-            let mut session = self.session().await?;
-            Self::select(&mut session, folder, uid_validity).await?;
-            if folder == ALL_MAIL && destination == ALL_MAIL {
-                // Archiving from the Starred view removes only Gmail's Inbox label.
-                session
-                    .run_command_and_check_ok(format!("UID STORE {uid} -X-GM-LABELS (\\Inbox)"))
-                    .await
-                    .map_err(|_| MailError::Protocol)?;
-            } else {
-                session
-                    .uid_mv(uid.to_string(), destination)
-                    .await
-                    .map_err(|_| MailError::Protocol)?;
-            }
-            session.logout().await.map_err(|_| MailError::Network)
+        self.with_session(false, |session| {
+            let folder = folder.to_owned();
+            let destination = destination.to_owned();
+            Box::pin(async move {
+                Self::select_mailbox(session, &folder, uid_validity).await?;
+                if folder == ALL_MAIL && destination == ALL_MAIL {
+                    // Archiving from the Starred view removes only Gmail's Inbox label.
+                    session
+                        .run_command_and_check_ok(format!(
+                            "UID STORE {uid} -X-GM-LABELS (\\Inbox)"
+                        ))
+                        .await
+                        .map_err(|_| MailError::Protocol)?;
+                } else {
+                    session
+                        .uid_mv(uid.to_string(), &destination)
+                        .await
+                        .map_err(|_| MailError::Protocol)?;
+                }
+                Ok(())
+            })
         })
     }
 

@@ -1,11 +1,12 @@
 //! In-memory mailbox; compiled only for tests and debug builds.
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::{
     ALL_MAIL, Flag, INBOX, SENT,
     account::Credentials,
-    client::{Header, HeaderBatch, MailClient, MailError, parse_header},
+    client::{Header, MailClient, MailError, UidFlag, UidFlagBatch, parse_header},
 };
 
 #[derive(Clone)]
@@ -43,8 +44,31 @@ impl Data {
     }
 }
 
+use std::sync::Arc;
+
 pub struct FakeMailClient {
-    data: Mutex<Data>,
+    data: Arc<Mutex<Data>>,
+    pub address: String,
+    #[allow(dead_code)]
+    pub credentials: Mutex<Option<Credentials>>,
+    /// Counts of login calls for retry testing.
+    pub login_count: AtomicUsize,
+    /// Counts of fetched headers.
+    pub fetched_headers_count: AtomicUsize,
+    /// Counts of set_flag calls.
+    pub set_flag_count: AtomicUsize,
+    /// Counts of fetch_body calls (PEEK, no mark read).
+    pub fetch_body_peek_count: AtomicUsize,
+    /// Counts of fetch_body_and_mark_read calls (non-PEEK).
+    pub fetch_body_mark_read_count: AtomicUsize,
+    /// Counts of move_to calls.
+    pub move_to_count: AtomicUsize,
+    /// Flag indicating whether the simulated session was dropped.
+    pub session_dropped: std::sync::atomic::AtomicBool,
+    pub session_active: std::sync::atomic::AtomicBool,
+    pub hang: std::sync::atomic::AtomicBool,
+    pub timeout: Mutex<Option<std::time::Duration>>,
+    pub fail_move: std::sync::atomic::AtomicBool,
 }
 
 impl Default for FakeMailClient {
@@ -58,14 +82,90 @@ impl Default for FakeMailClient {
     }
 }
 
+/// Test helper result: what the fake server holds for a folder.
+#[cfg(test)]
+pub struct ServerFolder {
+    pub headers: Vec<Header>,
+}
+
 impl FakeMailClient {
+    /// Test helper: the server-side view of a folder.
+    #[cfg(test)]
+    pub fn list_headers(&self, folder: &str, limit: usize) -> Result<ServerFolder, MailError> {
+        self.call()?;
+        let data = self.data()?;
+        let headers: Vec<_> = data
+            .messages
+            .get(folder)
+            .into_iter()
+            .flat_map(|m| m.values().rev())
+            .filter(|m| folder != ALL_MAIL || m.header.starred)
+            .map(|m| m.header.clone())
+            .collect();
+        Ok(ServerFolder { headers: headers.into_iter().take(limit).collect() })
+    }
+
     pub fn empty() -> Self {
         Self {
-            data: Mutex::new(Data::default()),
+            data: Arc::new(Mutex::new(Data::default())),
+            address: "anchoa@gmail.com".into(),
+            credentials: Mutex::new(None),
+            login_count: AtomicUsize::new(0),
+            fetched_headers_count: AtomicUsize::new(0),
+            set_flag_count: AtomicUsize::new(0),
+            fetch_body_peek_count: AtomicUsize::new(0),
+            fetch_body_mark_read_count: AtomicUsize::new(0),
+            move_to_count: AtomicUsize::new(0),
+            session_dropped: std::sync::atomic::AtomicBool::new(false),
+            session_active: std::sync::atomic::AtomicBool::new(true),
+            hang: std::sync::atomic::AtomicBool::new(false),
+            timeout: Mutex::new(None),
+            fail_move: std::sync::atomic::AtomicBool::new(false),
         }
     }
+
+    pub fn with_credentials(&self, credentials: &Credentials) -> Arc<Self> {
+        Arc::new(Self {
+            data: self.data.clone(),
+            address: credentials.address.clone(),
+            credentials: Mutex::new(Some(credentials.clone())),
+            login_count: AtomicUsize::new(0),
+            fetched_headers_count: AtomicUsize::new(0),
+            set_flag_count: AtomicUsize::new(0),
+            fetch_body_peek_count: AtomicUsize::new(0),
+            fetch_body_mark_read_count: AtomicUsize::new(0),
+            move_to_count: AtomicUsize::new(0),
+            session_dropped: std::sync::atomic::AtomicBool::new(false),
+            session_active: std::sync::atomic::AtomicBool::new(true),
+            hang: std::sync::atomic::AtomicBool::new(false),
+            timeout: Mutex::new(None),
+            fail_move: std::sync::atomic::AtomicBool::new(false),
+        })
+    }
+
     fn data(&self) -> Result<MutexGuard<'_, Data>, MailError> {
         self.data.lock().map_err(|_| MailError::Protocol)
+    }
+
+    #[cfg(test)]
+    pub fn drop_session(&self) {
+        self.session_dropped.store(true, Ordering::SeqCst);
+        self.session_active.store(false, Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    pub fn set_hang(&self, hang: bool) {
+        self.hang.store(hang, Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    pub fn set_timeout(&self, timeout: std::time::Duration) {
+        *self.timeout.lock().unwrap() = Some(timeout);
+    }
+
+    #[cfg(test)]
+    pub fn has_session(&self) -> bool {
+        self.session_active.load(Ordering::SeqCst) && !self.session_dropped.load(Ordering::SeqCst)
     }
 
     fn call(&self) -> Result<(), MailError> {
@@ -75,6 +175,17 @@ impl FakeMailClient {
             if let Some(hook) = hook {
                 hook();
             }
+        }
+        if self.hang.load(Ordering::SeqCst) {
+            let timeout = self.timeout.lock().unwrap().unwrap_or(std::time::Duration::from_millis(50));
+            std::thread::sleep(timeout + std::time::Duration::from_millis(10));
+            self.session_active.store(false, Ordering::SeqCst);
+            self.session_dropped.store(true, Ordering::SeqCst);
+            return Err(MailError::Network);
+        }
+        if self.session_dropped.swap(false, Ordering::SeqCst) {
+            self.session_active.store(true, Ordering::SeqCst);
+            self.login_count.fetch_add(1, Ordering::SeqCst);
         }
         Ok(())
     }
@@ -132,7 +243,12 @@ impl FakeMailClient {
 }
 
 impl MailClient for FakeMailClient {
+    fn address(&self) -> &str {
+        &self.address
+    }
+
     fn login(&self, _credentials: &Credentials) -> Result<(), MailError> {
+        self.login_count.fetch_add(1, Ordering::SeqCst);
         self.call()?;
         if self.data()?.reject_login {
             Err(MailError::Login)
@@ -141,25 +257,46 @@ impl MailClient for FakeMailClient {
         }
     }
 
-    fn list_headers(&self, folder: &str, limit: usize) -> Result<HeaderBatch, MailError> {
+    fn fetch_headers(&self, folder: &str, uids: &[u32]) -> Result<Vec<Header>, MailError> {
         self.call()?;
         let data = self.data()?;
-        let headers: Vec<_> = data
+        let mut headers = Vec::new();
+        if let Some(folder_msgs) = data.messages.get(folder) {
+            for uid in uids {
+                if let Some(m) = folder_msgs.get(uid)
+                    && (folder != ALL_MAIL || m.header.starred)
+                {
+                    headers.push(m.header.clone());
+                }
+            }
+        }
+        self.fetched_headers_count.fetch_add(headers.len(), Ordering::SeqCst);
+        Ok(headers)
+    }
+
+    fn list_uids_flags(&self, folder: &str) -> Result<UidFlagBatch, MailError> {
+        self.call()?;
+        let data = self.data()?;
+        let entries: Vec<_> = data
             .messages
             .get(folder)
             .into_iter()
-            .flat_map(|m| m.values().rev())
+            .flat_map(|m| m.values())
             .filter(|m| folder != ALL_MAIL || m.header.starred)
-            .map(|m| m.header.clone())
+            .map(|m| UidFlag {
+                uid: m.header.uid,
+                unread: m.header.unread,
+                starred: m.header.starred,
+            })
             .collect();
-        Ok(HeaderBatch {
-            all_uids: headers.iter().map(|h| h.uid).collect(),
-            headers: headers.into_iter().take(limit).collect(),
+        Ok(UidFlagBatch {
+            entries,
             uid_validity: data.validity.get(folder).copied().unwrap_or(1),
         })
     }
 
     fn fetch_body(&self, folder: &str, uid: u32, uid_validity: u32) -> Result<Vec<u8>, MailError> {
+        self.fetch_body_peek_count.fetch_add(1, Ordering::SeqCst);
         self.call()?;
         let mut data = self.data()?;
         data.check_uid_validity(folder, uid_validity)?;
@@ -174,6 +311,35 @@ impl MailClient for FakeMailClient {
         Ok(raw)
     }
 
+    fn fetch_body_and_mark_read(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+    ) -> Result<Vec<u8>, MailError> {
+        self.fetch_body_mark_read_count.fetch_add(1, Ordering::SeqCst);
+        self.call()?;
+        let mut data = self.data()?;
+        data.check_uid_validity(folder, uid_validity)?;
+        let selected = data
+            .messages
+            .get(folder)
+            .and_then(|m| m.get(&uid))
+            .ok_or(MailError::Missing)?
+            .clone();
+        let raw = selected.raw.clone();
+        // Mark as read (non-PEEK sets \Seen)
+        for messages in data.messages.values_mut() {
+            for message in messages.values_mut() {
+                if message.same_message(&selected) {
+                    message.header.unread = false;
+                }
+            }
+        }
+        data.body_fetches += 1;
+        Ok(raw)
+    }
+
     fn set_flag(
         &self,
         folder: &str,
@@ -182,6 +348,7 @@ impl MailClient for FakeMailClient {
         flag: Flag,
         on: bool,
     ) -> Result<(), MailError> {
+        self.set_flag_count.fetch_add(1, Ordering::SeqCst);
         self.call()?;
         let mut data = self.data()?;
         data.check_uid_validity(folder, uid_validity)?;
@@ -211,7 +378,11 @@ impl MailClient for FakeMailClient {
         uid_validity: u32,
         destination: &str,
     ) -> Result<(), MailError> {
+        self.move_to_count.fetch_add(1, Ordering::SeqCst);
         self.call()?;
+        if self.fail_move.load(Ordering::SeqCst) {
+            return Err(MailError::Protocol);
+        }
         let mut data = self.data()?;
         data.check_uid_validity(folder, uid_validity)?;
         if folder == destination {

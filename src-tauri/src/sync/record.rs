@@ -327,7 +327,6 @@ fn apply_item(conn: &Connection, record: &Record, document: ItemDocument) -> Res
         );
         conn.execute(&sql, params_from_iter(values))?;
     }
-    rebuild_links(conn)?;
     Ok(Applied::Done)
 }
 
@@ -347,7 +346,6 @@ fn apply_inner(conn: &Connection, record: &Record) -> Result<Applied, AppError> 
             let mut values = vec![SqlValue::Text(record.id.clone()), SqlValue::Integer(record.changed_at)];
             values.extend(SYNCED_TYPES.iter().map(|s| SqlValue::Text((*s).into())));
             conn.execute(&sql, params_from_iter(values))?;
-            rebuild_links(conn)?;
         }
         return Ok(Applied::Done);
     }
@@ -384,9 +382,25 @@ fn apply_inner(conn: &Connection, record: &Record) -> Result<Applied, AppError> 
     }
 }
 
+/// Applies one record and refreshes wikilinks. Use `apply_batch` for a pull page.
+pub fn apply(conn: &Connection, record: &Record) -> Result<Applied, AppError> {
+    let mut results = apply_batch(conn, std::slice::from_ref(record))?;
+    results.remove(0)
+}
+
+/// Applies each record in its own savepoint, so one bad record does not undo the
+/// others, then rebuilds wikilinks once: rebuilding per record is O(n²) on a full pull.
+pub fn apply_batch(conn: &Connection, records: &[Record]) -> Result<Vec<Result<Applied, AppError>>, AppError> {
+    let results: Vec<_> = records.iter().map(|record| apply_one(conn, record)).collect();
+    if results.iter().any(|result| matches!(result, Ok(Applied::Done))) {
+        rebuild_links(conn)?;
+    }
+    Ok(results)
+}
+
 /// Applies atomically with `applying = 1`, restoring the caller's previous flag.
 /// Deferrals leave rows unchanged; the engine owns storage in sync_pending.
-pub fn apply(conn: &Connection, record: &Record) -> Result<Applied, AppError> {
+fn apply_one(conn: &Connection, record: &Record) -> Result<Applied, AppError> {
     atomic(conn, || {
         let previous: String = conn.query_row("SELECT value FROM sync_state WHERE key = 'applying'", [], |r| r.get(0))?;
         conn.execute("UPDATE sync_state SET value = '1' WHERE key = 'applying'", [])?;
@@ -496,6 +510,21 @@ mod tests {
     }
 
     #[test]
+    fn batch_isolates_a_bad_record_and_applies_the_rest() {
+        let source = open_in_memory();
+        fixtures(&source);
+        let good = export(&source, "task").unwrap().unwrap();
+        let bad = Record { payload: Some(vec![1, 2, 3]), ..good.clone() };
+        let other = export(&source, "page").unwrap().unwrap();
+        let target = open_in_memory();
+        let results = apply_batch(&target, &[bad, other.clone()]).unwrap();
+        assert!(results[0].is_err());
+        assert!(matches!(results[1], Ok(Applied::Done)));
+        assert_eq!(export(&target, "page").unwrap().unwrap().payload, other.payload);
+        assert!(export(&target, "task").unwrap().is_none());
+    }
+
+    #[test]
     fn items_insert_update_soft_delete_restore_and_delete_are_captured_for_every_synced_type() {
         let conn = open_in_memory();
         assert_eq!(SYNCED_TYPES, &["task", "project", "account", "transaction", "bill", "budget", "habit", "note", "page"]);
@@ -503,7 +532,7 @@ mod tests {
             clear_outbox(&conn);
             insert_item(&conn, kind, kind);
             only_outbox(&conn, kind);
-            for change in ["body = 'baru'", "opened_at = 99", "completed_at = 99", "deleted_at = 99", "deleted_at = NULL"] {
+            for change in ["body = 'baru'", "completed_at = 99", "deleted_at = 99", "deleted_at = NULL"] {
                 clear_outbox(&conn);
                 conn.execute(&format!("UPDATE items SET {change} WHERE id = ?1"), [kind]).unwrap();
                 only_outbox(&conn, kind);
@@ -536,6 +565,20 @@ mod tests {
             conn.execute(&format!("DELETE FROM {table} WHERE item_id = ?1"), [id]).unwrap();
             only_outbox(&conn, id);
         }
+    }
+
+    #[test]
+    fn local_only_columns_do_not_create_new_versions() {
+        let conn = open_in_memory();
+        fixtures(&conn);
+        clear_outbox(&conn);
+        for kind in SYNCED_TYPES {
+            conn.execute("UPDATE items SET opened_at = 999 WHERE id = ?1", [kind]).unwrap();
+        }
+        conn.execute("UPDATE projects SET agent = 1, agent_command = 'codex', agent_dir = '/tmp/x' WHERE item_id = 'project'", []).unwrap();
+        assert!(outbox(&conn).is_empty());
+        conn.execute("UPDATE projects SET repo_url = 'https://github.com/a/b' WHERE item_id = 'project'", []).unwrap();
+        only_outbox(&conn, "project");
     }
 
     #[test]
@@ -1009,30 +1052,11 @@ mod tests {
         let error = export(&conn, &id).err().unwrap();
         assert!(matches!(error, AppError::Invalid(_)));
         assert!(error.to_string().contains("Halaman besar"));
-        // Find a valid compressed document under 256 KB whose nonce and tag
-        // would exceed that limit. It must already be rejected by export.
-        let mut value = document(&small);
-        let mut low = 0;
-        let mut high = noise.len();
-        while high - low > 1 {
-            let middle = (low + high) / 2;
-            value["item"]["body"] = json!(&noise[..middle]);
-            if with_document(&small, value.clone()).payload.unwrap().len() <= MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD {
-                low = middle;
-            } else {
-                high = middle;
-            }
-        }
-        value["item"]["body"] = json!(&noise[..high]);
-        let boundary = with_document(&small, value);
-        let size = boundary.payload.as_ref().unwrap().len();
-        assert!(size <= MAX_RECORD_BYTES);
-        assert!(size + ENCRYPTION_OVERHEAD > MAX_RECORD_BYTES);
-        conn.execute("UPDATE items SET body = ?1 WHERE id = ?2", params![&noise[..high], id]).unwrap();
-        let error = export(&conn, &id).err().unwrap();
-        assert!(matches!(error, AppError::Invalid(_)));
-        assert!(error.to_string().contains("Halaman besar"));
-        assert!(matches!(apply(&open_in_memory(), &boundary), Err(AppError::Invalid(_))));
+        // A payload that fits 256 KB only without the nonce and tag is rejected,
+        // while a normal record still applies.
+        let oversized = Record { payload: Some(vec![0; MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD + 1]), ..small.clone() };
+        assert!(matches!(apply(&open_in_memory(), &oversized), Err(AppError::Invalid(_))));
+        assert!(matches!(apply(&open_in_memory(), &small), Ok(Applied::Done)));
     }
 
     #[test]

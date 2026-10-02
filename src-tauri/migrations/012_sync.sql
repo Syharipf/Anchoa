@@ -40,7 +40,9 @@ BEGIN
   ON CONFLICT(record_id) DO UPDATE SET changed_at = excluded.changed_at;
 END;
 
-CREATE TRIGGER sync_items_update AFTER UPDATE ON items
+-- Local-only columns (opened_at) must not create a newer version with stale content.
+CREATE TRIGGER sync_items_update
+AFTER UPDATE OF type, title, body, parent_id, due_at, completed_at, created_at, updated_at, deleted_at ON items
 WHEN (SELECT value FROM sync_state WHERE key = 'applying') = '0'
   AND new.type IN ('task', 'project', 'account', 'transaction', 'bill', 'budget', 'habit', 'note', 'page')
 BEGIN
@@ -90,7 +92,8 @@ BEGIN
   ON CONFLICT(record_id) DO UPDATE SET changed_at = excluded.changed_at;
 END;
 
-CREATE TRIGGER sync_projects_update AFTER UPDATE ON projects
+-- agent, agent_command and agent_dir are per-device and stay local.
+CREATE TRIGGER sync_projects_update AFTER UPDATE OF item_id, kind, deadline_at, repo_url ON projects
 WHEN (SELECT value FROM sync_state WHERE key = 'applying') = '0'
 BEGIN
   INSERT INTO sync_outbox (record_id, changed_at)

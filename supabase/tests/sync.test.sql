@@ -169,7 +169,7 @@ select throws_ok($$select public.push_records('[
 ]')$$, '22023', 'payload must be a hex bytea string', 'payload must use hex bytea encoding');
 select throws_ok($$select public.push_records('[
   {"id":"badhex","changed_at":1,"device_id":"10000000-0000-0000-0000-000000000001","deleted":false,"payload":"\\xzz"}
-]')$$, '22P02', null, 'malformed hex is rejected');
+]')$$, '22023', null, 'malformed hex is rejected');
 select throws_ok($$select public.push_records('{}')$$, '22023', 'rows must be a JSON array',
   'non-array input is rejected');
 select throws_ok($$select public.push_records(null)$$, '22023', 'rows must be a JSON array',

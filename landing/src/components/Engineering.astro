@@ -102,33 +102,31 @@ import { id as copy } from '../content/translations';
       </div>
       <div class="reveal">
         <div class="code">
-          <div class="code-head">supabase/tests/tasks_rls.test.sql</div>
-          <pre tabindex="0"><span class="k">begin</span>;
-<span class="k">select</span> plan(<span class="n">2</span>);
+          <div class="code-head">src-tauri/src/security.rs</div>
+          <pre tabindex="0"><span class="c">#[test]</span>
+<span class="k">fn</span> guard_allows_only_listed_commands_while_locked() &#123;
+  assert!(is_allowed_while_locked(
+    <span class="s">"security_status"</span>
+  ));
+  assert!(is_allowed_while_locked(
+    <span class="s">"unlock"</span>
+  ));
 
-<span class="c">-- masuk sebagai pengguna B</span>
-<span class="k">set local</span> role authenticated;
-<span class="k">set local</span> request.jwt.claims <span class="k">to</span>
-  <span class="s">'&#123;"sub":"0000…0002"&#125;'</span>;
-
-<span class="k">select</span> is_empty(
-  <span class="s">$$select * from tasks where user_id = '0000…0001'$$</span>,
-  <span class="s">'B tidak bisa melihat tugas A'</span>
-);
-<span class="k">select</span> throws_ok(
-  <span class="s">$$update tasks set title = 'x' where user_id = '0000…0001'$$</span>
-);
-
-<span class="k">select</span> * <span class="k">from</span> finish();
-<span class="k">rollback</span>;</pre>
+  assert!(!is_allowed_while_locked(
+    <span class="s">"get_dashboard"</span>
+  ));
+  assert!(!is_allowed_while_locked(
+    <span class="s">"capture_note"</span>
+  ));
+&#125;</pre>
         </div>
         <div class="chips">
-          <span class="chip">supabase db lint</span>
-          <span class="chip">supabase test db</span>
-          <span class="chip">svelte-check</span>
-          <span class="chip">cargo clippy -D warnings</span>
-          <span class="chip">cargo audit</span>
-          <span class="chip">deno test</span>
+          <span class="chip">bun run typecheck</span>
+          <span class="chip">bun run test</span>
+          <span class="chip">cargo test</span>
+          <span class="chip">cargo clippy --all-targets -- -D warnings</span>
+          <span class="chip">bun tauri build</span>
+          <span class="chip">bun run build</span>
         </div>
       </div>
     </div>

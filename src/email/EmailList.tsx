@@ -30,9 +30,12 @@ export function EmailList({ messages, folder, filter, loading, selectedId, busy,
         {!loading && messages.length === 0 && <p className="m-0 p-6 text-center text-sm text-muted">{filter === "unread" ? "Semua sudah dibaca." : "Belum ada email."}</p>}
         {messages.map((message) => (
           <div key={message.id} className={`relative mb-1 rounded-lg border ${selectedId === message.id ? "border-field-focus bg-surface-2" : "border-transparent"}`}>
-            <button type="button" onClick={() => onOpen(message.id)} aria-label={`Buka email ${message.subject}`} aria-pressed={selectedId === message.id}
+            <button type="button" onClick={() => onOpen(message.id)} aria-pressed={selectedId === message.id}
               className="flex w-full flex-col gap-1 rounded-lg py-3 pr-10 pl-6 text-left transition-colors hover:bg-surface-2">
-              {message.unread && <span aria-label="Belum dibaca" className="absolute top-4 left-2 h-1.5 w-1.5 rounded-full bg-accent" />}
+              {message.unread && <>
+                <span aria-hidden="true" className="absolute top-4 left-2 h-1.5 w-1.5 rounded-full bg-accent" />
+                <span className="sr-only">Belum dibaca</span>
+              </>}
               <span className="flex w-full items-baseline gap-2">
                 <span className={`min-w-0 flex-1 truncate text-[13px] ${message.unread ? "font-semibold text-ink" : "text-muted"}`}>{sender(message)}</span>
                 <time dateTime={new Date(message.sentAt).toISOString()} className="shrink-0 font-mono text-[10px] text-muted">{relativeTime(message.sentAt, now)}</time>

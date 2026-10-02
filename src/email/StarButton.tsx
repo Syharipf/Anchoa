@@ -4,7 +4,7 @@ export function StarButton({ message, busy, onStar }: Readonly<{
   message: EmailMessage; busy: boolean; onStar: (message: EmailMessage) => void;
 }>) {
   return (
-    <button type="button" disabled={busy} aria-label={`${message.starred ? "Hapus bintang" : "Bintangi"} ${message.subject}`}
+    <button type="button" disabled={busy} aria-label={`Bintangi ${message.subject || "(Tanpa subjek)"}`}
       aria-pressed={message.starred} onClick={() => onStar(message)}
       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 disabled:opacity-50 ${message.starred ? "text-cat-bill" : "text-muted"}`}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill={message.starred ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">

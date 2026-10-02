@@ -12,11 +12,12 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
   const [reply, setReply] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
   const sending = useEmailSend();
+  const recipients = message.folder === "[Gmail]/Sent Mail" ? message.toAddrs : [message.fromAddr];
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
-    await sending.send({ to: [message.fromAddr], subject: replySubject(message.subject), body: reply, replyToId: message.id }, () => {
+    await sending.send({ to: recipients, subject: replySubject(message.subject), body: reply, replyToId: message.id }, () => {
       setReply("");
       onSent();
     });
@@ -42,14 +43,14 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
           {textParts(message.body).map((part) => part.url ? (
             <button key={part.offset} type="button" aria-label={`Buka ${part.url}`} className="inline text-left text-accent underline hover:text-accent-hover"
               onClick={() => { setLinkError(null); void api.openLink(part.url!).catch((e) => setLinkError(errorMessage(e))); }}>{part.text}</button>
-          ) : part.text)}
+          ) : <span key={part.offset}>{part.text}</span>)}
         </div>
         {linkError && <p role="alert" className="m-0 text-sm text-danger">{linkError}</p>}
       </div>
       <form onSubmit={submit} className="flex shrink-0 flex-col gap-2 border-t border-line bg-stage py-3 pr-[88px] pl-5">
-        <label htmlFor="email-reply" className="text-xs text-muted">Balas ke {message.fromAddr}</label>
+        <label htmlFor="email-reply" className="text-xs text-muted">Balas ke {recipients.join(", ")}</label>
         <div className="flex items-end gap-2">
-          <textarea id="email-reply" aria-label="Tulis balasan" rows={2} required disabled={busy || sending.busy} value={reply}
+          <textarea id="email-reply" rows={2} required disabled={busy || sending.busy} value={reply}
             onChange={(e) => setReply(e.target.value)} placeholder="Tulis balasan…" className={`${FIELD} min-w-0 flex-1 resize-y`} />
           <button type="submit" aria-label="Kirim balasan" disabled={busy || sending.busy || !reply.trim()} className={PRIMARY}>{sending.busy ? "Mengirim…" : "Kirim"}</button>
         </div>

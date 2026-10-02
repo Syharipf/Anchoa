@@ -34,7 +34,7 @@ export function ConnectionForm({ onConnected }: Readonly<{ onConnected: (status:
         <li>Aktifkan 2-Step Verification di akun Google.</li>
         <li>
           Buka {" "}
-          <button type="button" aria-label="Buka Google App Password" className="text-accent underline hover:text-accent-hover"
+          <button type="button" className="text-accent underline hover:text-accent-hover"
             onClick={() => void api.openLink("https://myaccount.google.com/apppasswords").catch((e) => setError(errorMessage(e)))}>
             myaccount.google.com/apppasswords
           </button> dan buat App Password untuk Anchoa.

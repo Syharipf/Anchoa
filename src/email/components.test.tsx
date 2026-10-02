@@ -9,6 +9,8 @@ import { ComposeDialog } from "./ComposeDialog";
 import { EmailList } from "./EmailList";
 import { EmailPage } from "./EmailPage";
 import { ReadingPane } from "./ReadingPane";
+import { StarButton } from "./StarButton";
+import { textParts } from "./view";
 
 const message: EmailMessage = {
   id: "mail-1", folder: "INBOX", uid: 1, subject: "Halo", body: "Pesan pertama",
@@ -83,7 +85,9 @@ describe("email UI", () => {
     const open = spyOn(api, "openLink").mockResolvedValue(undefined);
     spies.push(open);
     start(() => ConnectionForm({ onConnected() {} }));
-    (element("button", "aria-label", "Buka Google App Password").props.onClick as () => void)();
+    const link = element("button", "children", "myaccount.google.com/apppasswords");
+    expect(link.props["aria-label"]).toBeUndefined();
+    (link.props.onClick as () => void)();
     await harness.settle();
     expect(open).toHaveBeenCalledWith("https://myaccount.google.com/apppasswords");
     const html = renderToStaticMarkup(harness.render());
@@ -100,7 +104,20 @@ describe("email UI", () => {
     expect(html).toContain("bg-accent");
     expect(html).toContain("Siti");
     expect(html).toContain("Halo");
+    expect(html).toContain("<time");
+    expect(html).not.toContain('aria-label="Buka email');
+    expect(html).not.toContain('aria-label="Belum dibaca"');
+    expect(html).toContain('aria-hidden="true" class="absolute top-4 left-2');
+    expect(html).toContain('<span class="sr-only">Belum dibaca</span>');
     expect(html).toContain('aria-label="Bintangi Halo"');
+  });
+
+  it.each(["Halo", ""])("keeps the star toggle name constant for subject '%s'", (subject) => {
+    for (const starred of [false, true]) {
+      const button = StarButton({ message: { ...message, subject, starred }, busy: false, onStar() {} });
+      expect(button.props["aria-label"]).toBe(`Bintangi ${subject || "(Tanpa subjek)"}`);
+      expect(button.props["aria-pressed"]).toBe(starred);
+    }
   });
 
   it("renders malicious markup as text, no images, and opens only detected web links", async () => {
@@ -113,6 +130,11 @@ describe("email UI", () => {
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<script");
     expect(html).toContain("pr-[88px]");
+    for (const part of textParts(body)) {
+      const rendered = elements(harness.render()).find((el) => el.key === String(part.offset));
+      expect(rendered?.type).toBe(part.url ? "button" : "span");
+      expect(rendered?.props.children).toBe(part.text);
+    }
     (element("button", "aria-label", "Buka https://example.com/info").props.onClick as () => void)();
     await harness.settle();
     expect(open).toHaveBeenCalledWith("https://example.com/info");
@@ -126,13 +148,27 @@ describe("email UI", () => {
     spies.push(send);
     const onSent = mock(() => {});
     start(() => ReadingPane({ message: { ...message, subject: "re: Re: Halo" }, busy: false, onStar() {}, onArchive() {}, onSent }));
-    const reply = () => element("textarea", "aria-label", "Tulis balasan");
+    const reply = () => element("textarea", "id", "email-reply");
+    expect(reply().props["aria-label"]).toBeUndefined();
+    expect(element("label", "htmlFor", "email-reply").props.children).toEqual(["Balas ke ", "siti@example.com"]);
     (reply().props.onChange as (event: unknown) => void)({ target: { value: "Terima kasih" } });
     await submit();
     expect(send).toHaveBeenCalledWith({ to: ["siti@example.com"], subject: "Re: Halo", body: "Terima kasih", replyToId: "mail-1" });
     expect(reply().props.value).toBe(success ? "" : "Terima kasih");
     expect(onSent).toHaveBeenCalledTimes(success ? 1 : 0);
     if (!success) expect(element("p", "role", "alert").props.children).toBe("Kirim gagal");
+  });
+
+  it("replies to the original recipients of sent mail and labels them", async () => {
+    const send = spyOn(api, "emailSend").mockResolvedValue(undefined);
+    spies.push(send);
+    const toAddrs = ["siti@example.com", "dewi@example.com"];
+    start(() => ReadingPane({ message: { ...message, folder: "[Gmail]/Sent Mail", fromAddr: "anchoa@gmail.com", toAddrs },
+      busy: false, onStar() {}, onArchive() {}, onSent() {} }));
+    expect(element("label", "htmlFor", "email-reply").props.children).toEqual(["Balas ke ", toAddrs.join(", ")]);
+    (element("textarea", "id", "email-reply").props.onChange as (event: unknown) => void)({ target: { value: "Kabar lagi" } });
+    await submit();
+    expect(send).toHaveBeenCalledWith({ to: toAddrs, subject: "Re: Halo", body: "Kabar lagi", replyToId: "mail-1" });
   });
 
   it.each([true, false])("uses Dialog for compose and preserves the draft on send errors (%s)", async (success) => {
@@ -196,6 +232,7 @@ describe("email UI", () => {
     expect(open).toHaveBeenCalledWith("mail-1");
     expect((element(EmailList).props.messages as EmailMessage[])[0].unread).toBe(false);
     expect((element(ReadingPane).props.message as EmailMessage).bodyCached).toBe(true);
+    list.mockResolvedValue([{ ...message, unread: false, starred: true, bodyCached: true }]);
     await (element(ReadingPane).props.onStar as (mail: EmailMessage) => Promise<void>)({ ...message, unread: false });
     expect(flag).toHaveBeenCalledWith("mail-1", "starred", true);
     expect((element(ReadingPane).props.message as EmailMessage).starred).toBe(true);
@@ -204,6 +241,57 @@ describe("email UI", () => {
     await harness.settle();
     expect(archive).toHaveBeenCalledWith("mail-1");
     expect(elements(harness.render()).some((el) => el.type === ReadingPane)).toBe(false);
+  });
+
+  it.each(["sync", "filter"])("refreshes the reading pane flags on %s and toggles the latest star", async (reload) => {
+    const list = connectedPage();
+    const opened = { ...message, unread: false, bodyCached: true };
+    spies.push(spyOn(api, "emailOpen").mockResolvedValue(opened));
+    const flag = spyOn(api, "emailSetFlag").mockResolvedValue(undefined);
+    spies.push(flag);
+    await harness.settle();
+    await (element(EmailList).props.onOpen as (id: string) => Promise<void>)(message.id);
+    const refreshed = { ...opened, unread: true, starred: true };
+    list.mockResolvedValue([refreshed]);
+    if (reload === "sync") (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    else (element(EmailList).props.onFilter as (filter: string) => void)("unread");
+    await harness.settle();
+    const pane = element(ReadingPane);
+    expect(pane.props.message).toEqual(refreshed);
+    list.mockResolvedValue([{ ...refreshed, starred: false }]);
+    await (pane.props.onStar as (mail: EmailMessage) => Promise<void>)(pane.props.message as EmailMessage);
+    expect(flag).toHaveBeenCalledWith(message.id, "starred", false);
+  });
+
+  it.each([true, false])("queues one follow-up sync when sends finish during sync (success=%s)", async (success) => {
+    const list = connectedPage();
+    await harness.settle();
+    list.mockResolvedValue([]);
+    (element("button", "aria-label", "Terkirim").props.onClick as () => void)();
+    await harness.settle();
+    (element("button", "children", "Tulis").props.onClick as () => void)();
+    const onSent = element(ComposeDialog).props.onSent as () => void;
+    const pending = deferred<{ headers: number }>();
+    const followUp = deferred<{ headers: number }>();
+    const sync = api.emailSync as unknown as ReturnType<typeof mock>;
+    sync.mockReturnValueOnce(pending.promise).mockReturnValueOnce(followUp.promise);
+    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    onSent();
+    onSent();
+    expect(sync).toHaveBeenCalledTimes(2);
+    if (success) pending.resolve({ headers: 1 });
+    else pending.reject(new Error("Offline"));
+    await harness.settle();
+    expect(sync).toHaveBeenCalledTimes(3);
+    expect(element("button", "aria-label", "Sinkronkan").props.disabled).toBe(true);
+    expect(element(EmailList).props.messages).toEqual([]);
+    const sent = { ...message, id: "sent-1", folder: "[Gmail]/Sent Mail", fromAddr: "anchoa@gmail.com", unread: false };
+    list.mockResolvedValue([sent]);
+    followUp.resolve({ headers: 1 });
+    await harness.settle();
+    expect(element(EmailList).props.messages).toEqual([sent]);
+    expect(sync).toHaveBeenCalledTimes(3);
+    expect(element("button", "aria-label", "Sinkronkan").props.disabled).toBe(false);
   });
 
   it("shows sync errors while keeping cached mail available", async () => {
@@ -265,6 +353,10 @@ describe("email UI", () => {
     await harness.settle();
     expect(element(EmailList).props.messages).toEqual([]);
     expect(element(ReadingPane)).toBeDefined();
+    (api.emailList as unknown as ReturnType<typeof mock>).mockResolvedValue([]);
+    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    await harness.settle();
+    expect(element(ReadingPane).props.message).toEqual({ ...message, unread: false });
   });
 
   it("keeps the latest selected message when opens complete out of order", async () => {
@@ -285,7 +377,7 @@ describe("email UI", () => {
     const send = spyOn(api, "emailSend").mockReturnValue(pending.promise);
     spies.push(send);
     start(() => ReadingPane({ message, busy: false, onStar() {}, onArchive() {}, onSent() {} }));
-    (element("textarea", "aria-label", "Tulis balasan").props.onChange as (event: unknown) => void)({ target: { value: "Balasan" } });
+    (element("textarea", "id", "email-reply").props.onChange as (event: unknown) => void)({ target: { value: "Balasan" } });
     const handler = element("form").props.onSubmit as (event: unknown) => Promise<void>;
     const event = { preventDefault() {} };
     const first = handler(event);

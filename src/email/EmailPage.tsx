@@ -23,6 +23,7 @@ export function EmailPage() {
   const lists = useRef(0);
   const opens = useRef(0);
   const syncPending = useRef(false);
+  const syncQueued = useRef(false);
   const actionPending = useRef(false);
   const query = useRef({ folder, filter });
   query.current = { folder, filter };
@@ -50,7 +51,10 @@ export function EmailPage() {
     setLoading(true);
     try {
       const next = await api.emailList(current.folder, current.filter);
-      if (active.current && request === lists.current) setMessages(next);
+      if (active.current && request === lists.current) {
+        setMessages(next);
+        setSelected((current) => current ? next.find((message) => message.id === current.id) ?? current : null);
+      }
     } catch (e) {
       if (active.current && request === lists.current) setError(errorMessage(e));
     } finally {
@@ -59,8 +63,12 @@ export function EmailPage() {
   }, []);
 
   const sync = useCallback(async () => {
-    if (syncPending.current) return;
+    if (syncPending.current) {
+      syncQueued.current = true;
+      return;
+    }
     syncPending.current = true;
+    syncQueued.current = false;
     setSyncing(true);
     setError(null);
     try {
@@ -70,7 +78,8 @@ export function EmailPage() {
       if (active.current) setError(errorMessage(e));
     } finally {
       syncPending.current = false;
-      if (active.current) setSyncing(false);
+      if (active.current && syncQueued.current) void sync();
+      else if (active.current) setSyncing(false);
     }
   }, [loadList]);
 

@@ -369,7 +369,7 @@ Periksa yt-dlp dan ffmpeg di panel mesin Unduhan. Petunjuk aplikasi: `sudo dnf i
 
 ### Gmail tidak tersambung
 
-Gunakan App Password 16 huruf, bukan password login biasa. Pastikan 2-Step Verification aktif dan layanan keyring tersedia. Jika kredensial hilang setelah pemulihan/pindah perangkat, sambungkan Gmail kembali. Sinkron, membuka email yang belum dicache, serta mengirim email memerlukan koneksi.
+Gunakan App Password 16 huruf, bukan password login biasa. Pastikan 2-Step Verification aktif dan layanan keyring tersedia. Jika kredensial hilang setelah pemulihan/pindah perangkat, sambungkan Gmail kembali. Sinkron, membuka email (juga yang sudah dicache, karena status dibaca dikirim ke Gmail), serta mengirim email memerlukan koneksi.
 
 ## Pintasan keyboard
 
@@ -383,7 +383,7 @@ Gunakan App Password 16 huruf, bukan password login biasa. Pastikan 2-Step Verif
 | Judul tugas baru di Kanban / sub-tugas | Enter | Buat tugas. |
 | Judul tugas baru di Kanban | Escape | Batalkan penambahan. |
 | Kolom Tambah tag di Jurnal | Enter | Tambahkan tag yang valid. |
-| Editor blok Catatan | Enter / Shift+Enter | Pecah blok / baris baru dalam blok. |
+| Editor blok Catatan | Enter / Shift+Enter | Pecah blok (di daftar: item baru; di blok kode: baris baru) / baris baru dalam blok. |
 | Editor blok Catatan | Ctrl+Enter atau Escape | Keluar dari edit blok (Escape menutup saran lebih dulu). |
 | Saran `/` atau `[[` di Catatan | Panah atas/bawah, Enter atau Tab, Escape | Pilih saran, terapkan, tutup. |
 | Berkas, saat fokus tidak di formulir/dialog | Backspace / Enter | Naik satu folder / buka item terpilih. |

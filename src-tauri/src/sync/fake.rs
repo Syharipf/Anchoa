@@ -32,6 +32,7 @@ struct Control {
     calls: usize,
     refreshes: usize,
     offline: bool,
+    fake_session: bool,
     hook: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
 }
 
@@ -92,11 +93,11 @@ impl Store {
     }
     fn usage(&self, session: &Session) -> Result<Usage, AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
-        Ok(self.conn()?.query_row("SELECT count(*),coalesce(sum(length(payload)),0) FROM fake_records WHERE user_id=?1", [user], |r| Ok(Usage { rows:r.get(0)?,bytes:r.get(1)? }))?)
+        Ok(self.conn()?.query_row("SELECT count(*),coalesce(sum(length(payload)),0) FROM fake_records WHERE user_id=?1", [user], |r| Ok(Usage { rows:r.get::<_,i64>(0)? as u64,bytes:r.get::<_,i64>(1)? as u64 }))?)
     }
     fn get_vault(&self, session: &Session) -> Result<Option<Vault>, AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
-        server::stored_vault(&self.conn()?, &user)
+        server::stored_vault(&*self.conn()?, &user)
     }
     fn put_vault(&self, session: &Session, vault: &Vault) -> Result<(), AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
@@ -143,6 +144,7 @@ impl FileServer {
 impl MemoryServer {
     pub fn set_hook(&self, hook: std::sync::Arc<dyn Fn() + Send + Sync>) { self.store.control.lock().unwrap().hook=Some(hook) }
     pub fn set_offline(&self, offline: bool) { self.store.control.lock().unwrap().offline=offline }
+    pub fn set_fake_session(&self, enabled: bool) { self.store.control.lock().unwrap().fake_session = enabled; }
     pub fn call_count(&self) -> usize { self.store.control.lock().unwrap().calls }
     pub fn refresh_count(&self) -> usize { self.store.control.lock().unwrap().refreshes }
     pub fn tamper(&self, operation: impl FnOnce(&mut Vec<WireRecord>)) {
@@ -150,6 +152,33 @@ impl MemoryServer {
         operation(&mut rows);
         let conn = self.store.conn.lock().unwrap();
         for row in rows { conn.execute("UPDATE fake_records SET payload=?1,deleted=?2 WHERE user_id=?3 AND id=?4",params![row.payload,row.deleted,FAKE_USER_ID,row.id]).unwrap(); }
+    }
+    pub fn tamper_seq(&self, id_a: &str, id_b: &str) {
+        let conn = self.store.conn.lock().unwrap();
+        let seq_a: i64 = conn.query_row("SELECT seq FROM fake_records WHERE id=?1", [id_a], |r| r.get(0)).unwrap();
+        let seq_b: i64 = conn.query_row("SELECT seq FROM fake_records WHERE id=?1", [id_b], |r| r.get(0)).unwrap();
+        conn.execute("UPDATE fake_records SET seq=?1 WHERE id=?2", params![seq_b, id_a]).unwrap();
+        conn.execute("UPDATE fake_records SET seq=?1 WHERE id=?2", params![seq_a, id_b]).unwrap();
+    }
+    pub fn db_conn(&self) -> std::sync::MutexGuard<'_, rusqlite::Connection> {
+        self.store.conn.lock().unwrap()
+    }
+}
+
+impl MemoryServer {
+    fn store_fake_session(&self) -> Option<Session> {
+        #[cfg(test)]
+        if self.store.control.lock().unwrap().fake_session {
+            return Some(fake_session());
+        }
+        None
+    }
+}
+
+#[cfg(debug_assertions)]
+impl FileServer {
+    fn store_fake_session(&self) -> Option<Session> {
+        Some(fake_session())
     }
 }
 
@@ -172,9 +201,11 @@ macro_rules! implement_server {
             fn pull(&self, session: &Session, after: i64, max: u32) -> Result<Vec<WireRecord>,AppError> { self.store.pull(session,after,max) }
             fn usage(&self, session: &Session) -> Result<Usage,AppError> { self.store.usage(session) }
             fn delete_my_data(&self, session: &Session) -> Result<(),AppError> { self.store.delete_my_data(session) }
+            fn fake_session(&self) -> Option<Session> { self.store_fake_session() }
         }
     }
 }
 implement_server!(MemoryServer);
 #[cfg(debug_assertions)]
 implement_server!(FileServer);
+

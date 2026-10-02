@@ -588,14 +588,14 @@ pub fn check_habit(conn: &Connection, id: &str, done: bool, now: i64, tz: &TimeZ
         match existing {
             None => {
                 conn.execute(
-                    "INSERT INTO habit_checks (habit_id, date, created_at, deleted_at) VALUES (?1, ?2, ?3, NULL)",
+                    "INSERT INTO habit_checks (habit_id, date, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?3, NULL)",
                     params![id, today_str, now],
                 )?;
             }
             Some(Some(_)) => {
                 conn.execute(
-                    "UPDATE habit_checks SET deleted_at = NULL WHERE habit_id = ?1 AND date = ?2",
-                    params![id, today_str],
+                    "UPDATE habit_checks SET deleted_at = NULL, updated_at = ?3 WHERE habit_id = ?1 AND date = ?2",
+                    params![id, today_str, now],
                 )?;
             }
             Some(None) => {}
@@ -603,7 +603,7 @@ pub fn check_habit(conn: &Connection, id: &str, done: bool, now: i64, tz: &TimeZ
     } else {
         if let Some(None) = existing {
             conn.execute(
-                "UPDATE habit_checks SET deleted_at = ?1 WHERE habit_id = ?2 AND date = ?3",
+                "UPDATE habit_checks SET deleted_at = ?1, updated_at = ?1 WHERE habit_id = ?2 AND date = ?3",
                 params![now, id, today_str],
             )?;
         }

@@ -125,6 +125,10 @@ pub async fn email_open(app: AppHandle, id: String) -> Result<Email, AppError> {
         let item_id = id.clone();
         tauri::async_runtime::spawn_blocking(move || {
             let Some(db) = app_bg.try_state::<Db>() else { return };
+            let Some(state) = app_bg.try_state::<EmailState>() else { return };
+            // Same order as every other mail operation, so a later "mark unread" or
+            // sync cannot interleave between the read-state check and the STORE.
+            let _operation = state.operation.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Err(e) = actions::run_background_seen(
                 &db,
                 &*client,

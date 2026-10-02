@@ -3,7 +3,10 @@ use std::collections::{HashMap, HashSet};
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 
-use super::{ALL_MAIL, HEADER_LIMIT, INBOX, SENT, client::MailClient};
+use super::{
+    ALL_MAIL, HEADER_LIMIT, INBOX, SENT,
+    client::{MailClient, MailError},
+};
 use crate::{db::Db, error::AppError, items, time};
 
 #[derive(Debug, Serialize)]
@@ -155,7 +158,9 @@ pub fn sync(db: &Db, client: &dyn MailClient) -> Result<SyncResult, AppError> {
                 })?
                 .collect::<Result<Vec<_>, _>>()?;
             for (item_id, uid) in &stored {
-                if let Some((unread, starred)) = flags_map.get(uid) {
+                if let Some((server_unread, starred)) = flags_map.get(uid) {
+                    // The server has not seen our background \Seen yet: keep it read.
+                    let unread = &(*server_unread && !super::actions::is_pending_seen(item_id));
                     tx.execute(
                         "UPDATE emails SET unread = ?2, starred = ?3 WHERE item_id = ?1 AND folder = ?4",
                         params![item_id, unread, starred, folder],
@@ -243,6 +248,12 @@ pub fn prefetch_with_cancel(
         // Fetch body without holding the DB lock.
         let raw = match client.fetch_body(INBOX, uid, uid_validity) {
             Ok(raw) => raw,
+            // Prefetch is best effort: a failed login or connection would fail for
+            // every remaining body too, so stop instead of hammering Gmail.
+            Err(e @ (MailError::Login | MailError::Network)) => {
+                log::warn!("Prefetch dihentikan: {e}");
+                return;
+            }
             Err(e) => {
                 log::warn!("Prefetch body UID {uid} gagal: {e}");
                 continue;

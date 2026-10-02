@@ -256,7 +256,9 @@ impl GmailClient {
         match first_attempt {
             Ok(value) => Ok(value),
             Err(first_error) => {
-                if !retry {
+                // Only a broken connection is worth one fresh login; a rejected login or a
+                // missing message would fail again, and repeated logins can lock the account.
+                if !retry || !matches!(first_error, MailError::Network) {
                     return Err(first_error);
                 }
                 self.run(self.execute_with_session(&operation))

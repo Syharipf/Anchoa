@@ -331,7 +331,7 @@ impl MailClient for FakeMailClient {
         // Mark as read (non-PEEK sets \Seen)
         for messages in data.messages.values_mut() {
             for message in messages.values_mut() {
-                if message.same_message(&selected) || (message.header.uid == uid) {
+                if message.same_message(&selected) {
                     message.header.unread = false;
                 }
             }

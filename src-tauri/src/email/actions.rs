@@ -40,6 +40,13 @@ pub fn cancel_pending_seen(id: &str) {
     }
 }
 
+/// True while a background \Seen for this email has not been sent yet; sync keeps
+/// the local read state for it instead of copying the server's stale unread flag.
+pub fn is_pending_seen(id: &str) -> bool {
+    let guard = PENDING_SEEN.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard.as_ref().is_some_and(|set| set.contains(id))
+}
+
 pub fn take_pending_seen(id: &str) -> bool {
     let mut guard = PENDING_SEEN.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     guard.as_mut().is_some_and(|set| set.remove(id))

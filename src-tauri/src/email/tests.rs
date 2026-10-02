@@ -1205,3 +1205,34 @@ fn a_failing_move_is_called_exactly_once() {
     assert!(matches!(err, AppError::Other(_)));
     assert_eq!(f.client.move_to_count.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn prefetch_stops_at_the_first_connection_failure_instead_of_retrying_every_body() {
+    let f = Fixture::new();
+    f.connect();
+    for uid in 1..=5 {
+        f.seed(uid);
+    }
+    sync::sync(&f.db, &f.client).unwrap();
+    // A hung connection surfaces as MailError::Network after the timeout.
+    f.client.set_timeout(std::time::Duration::from_millis(10));
+    f.client.set_hang(true);
+    f.client.fetch_body_peek_count.store(0, Ordering::SeqCst);
+    sync::prefetch(&f.db, &f.client, 20);
+    assert_eq!(f.client.fetch_body_peek_count.load(Ordering::SeqCst), 1, "prefetch must stop after the first connection failure");
+    assert!(list(&f.db, Folder::Inbox, Filter::All, 200).unwrap().iter().all(|e| !e.body_cached));
+}
+
+#[test]
+fn sync_keeps_an_opened_email_read_while_its_background_seen_is_pending() {
+    let f = Fixture::new();
+    f.connect();
+    f.seed(1);
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+    f.db.conn().unwrap().execute("UPDATE emails SET unread = 0 WHERE item_id = ?1", [&id]).unwrap();
+    actions::mark_pending_seen(&id);
+    sync::sync(&f.db, &f.client).unwrap();
+    assert!(!list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].unread);
+    assert!(actions::take_pending_seen(&id));
+}

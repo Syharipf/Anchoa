@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { api, type EmailMessage } from "../api";
+import { api, type EmailAssistance, type EmailMessage } from "../api";
+import { ProposalCard } from "../assistant/ProposalCard";
 import { deferred, elements, hookHarness } from "../test/hookHarness";
 import { Dialog } from "../shell/Dialog";
 import { ConnectionForm } from "./ConnectionForm";
@@ -17,6 +18,12 @@ const message: EmailMessage = {
   messageId: "welcome@example.com", fromName: "Siti", fromAddr: "siti@example.com",
   toAddrs: ["anchoa@gmail.com"], sentAt: new Date(2026, 9, 2, 9).getTime(),
   unread: true, starred: false, hasHtml: false, bodyCached: false,
+};
+
+const assistance: EmailAssistance = {
+  summary: ["Siti meminta laporan.", "Kirim sebelum Jumat."],
+  replies: ["Baik, saya siapkan.", "Laporan segera saya kirim.", "Bisa kita diskusikan dulu?"],
+  action: { id: "proposal-1", name: "create_task", summary: "Buat tugas laporan", args: { title: "Siapkan laporan" } },
 };
 
 describe("email UI", () => {
@@ -47,9 +54,116 @@ describe("email UI", () => {
     spies.push(spyOn(api, "emailSync").mockResolvedValue({ headers: 1 }));
     const list = spyOn(api, "emailList").mockResolvedValue([message]);
     spies.push(list);
-    start(EmailPage);
+    start(() => EmailPage({}));
     return list;
   }
+
+  function readingPane(onChanged?: () => void) {
+    start(() => ReadingPane({ message, busy: false, onStar() {}, onArchive() {}, onSent() {}, onChanged }));
+  }
+
+  async function assist() {
+    await (element("button", "aria-label", "Ringkas email").props.onClick as () => Promise<void>)();
+    await harness.settle();
+  }
+
+  it("requests a summary on demand, shows loading, and queues an action for approval", async () => {
+    const pending = deferred<EmailAssistance>();
+    const generate = spyOn(api, "emailAssist").mockReturnValue(pending.promise);
+    const decide = spyOn(api, "assistantDecide").mockResolvedValue(null);
+    spies.push(generate, decide);
+    readingPane();
+    expect(renderToStaticMarkup(harness.render())).toContain("Ringkasan asisten");
+    expect(generate).not.toHaveBeenCalled();
+    const handler = element("button", "aria-label", "Ringkas email").props.onClick as () => Promise<void>;
+    const request = handler();
+    await handler();
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenCalledWith(message.id);
+    expect(element("button", "aria-label", "Ringkas email").props.disabled).toBe(true);
+    expect(element("p", "role", "status").props.children).toBe("Asisten sedang merangkum…");
+    pending.resolve(assistance);
+    await request;
+    await harness.settle();
+    expect(elements(harness.render()).filter((el) => el.type === "li").map((el) => el.props.children)).toEqual(assistance.summary);
+    expect(element(ProposalCard).props.proposal).toEqual(assistance.action);
+    expect(decide).not.toHaveBeenCalled();
+  });
+
+  it("fills the reply from a suggestion without sending or approving anything", async () => {
+    const send = spyOn(api, "emailSend").mockResolvedValue(undefined);
+    const decide = spyOn(api, "assistantDecide").mockResolvedValue(null);
+    spies.push(send, decide, spyOn(api, "emailAssist").mockResolvedValue(assistance));
+    readingPane();
+    await assist();
+    for (const reply of assistance.replies) {
+      const suggestion = element("button", "children", reply);
+      expect(suggestion.props.type).toBe("button");
+      (suggestion.props.onClick as () => void)();
+      expect(element("textarea", "id", "email-reply").props.value).toBe(reply);
+    }
+    expect(send).not.toHaveBeenCalled();
+    expect(decide).not.toHaveBeenCalled();
+  });
+
+  it("shows assistant errors and allows retry", async () => {
+    spies.push(spyOn(api, "emailAssist").mockRejectedValueOnce({ message: "Jawaban model tidak valid" })
+      .mockResolvedValue({ ...assistance, action: null }));
+    readingPane();
+    await assist();
+    expect(element("p", "role", "alert").props.children).toBe("Jawaban model tidak valid");
+    expect(element("button", "aria-label", "Ringkas email").props.disabled).toBe(false);
+    await assist();
+    expect(elements(harness.render()).some((el) => el.props.role === "alert")).toBe(false);
+    expect(elements(harness.render()).some((el) => el.type === ProposalCard)).toBe(false);
+  });
+
+  it.each([true, false])("uses the existing approval command and clears a decided proposal (%s)", async (approve) => {
+    const decide = spyOn(api, "assistantDecide").mockRejectedValueOnce(new Error("Coba keputusan lagi"))
+      .mockResolvedValue(null);
+    spies.push(decide, spyOn(api, "emailAssist").mockResolvedValue(assistance));
+    const changed = mock(() => {});
+    readingPane(changed);
+    await assist();
+    const handler = element(ProposalCard).props.onDecide as (id: string, approve: boolean) => Promise<void>;
+    await expect(handler("proposal-1", approve)).rejects.toThrow("Coba keputusan lagi");
+    expect(element("p", "role", "alert").props.children).toBe("Coba keputusan lagi");
+    expect(element(ProposalCard)).toBeDefined();
+    await handler("proposal-1", approve);
+    await harness.settle();
+    expect(decide).toHaveBeenLastCalledWith("proposal-1", approve);
+    expect(changed).toHaveBeenCalledTimes(approve ? 1 : 0);
+    expect(elements(harness.render()).some((el) => el.type === ProposalCard)).toBe(false);
+  });
+
+  it("rejects a shown proposal when another email is selected", async () => {
+    const decide = spyOn(api, "assistantDecide").mockResolvedValue(null);
+    spies.push(decide, spyOn(api, "emailAssist").mockResolvedValue(assistance));
+    let selected = message;
+    start(() => ReadingPane({ message: selected, busy: false, onStar() {}, onArchive() {}, onSent() {} }));
+    await assist();
+    selected = { ...message, id: "mail-2" };
+    harness.render();
+    await harness.settle();
+    expect(decide).toHaveBeenCalledWith("proposal-1", false);
+  });
+
+  it("discards a summary that finishes after selecting another email", async () => {
+    const pending = deferred<EmailAssistance>();
+    const decide = spyOn(api, "assistantDecide").mockResolvedValue(null);
+    spies.push(decide, spyOn(api, "emailAssist").mockReturnValue(pending.promise));
+    let selected = message;
+    start(() => ReadingPane({ message: selected, busy: false, onStar() {}, onArchive() {}, onSent() {} }));
+    const request = (element("button", "aria-label", "Ringkas email").props.onClick as () => Promise<void>)();
+    selected = { ...message, id: "mail-2" };
+    harness.render();
+    pending.resolve(assistance);
+    await request;
+    await harness.settle();
+    expect(elements(harness.render()).some((el) => el.type === "li" || el.type === ProposalCard)).toBe(false);
+    expect(element("button", "aria-label", "Ringkas email").props.disabled).toBe(false);
+    expect(decide).toHaveBeenCalledWith("proposal-1", false);
+  });
 
   it.each([true, false])("clears the App Password immediately on submit (success=%s)", async (success) => {
     const pending = deferred<{ connected: boolean; address: string | null }>();
@@ -194,7 +308,7 @@ describe("email UI", () => {
     spies.push(spyOn(api, "emailStatus").mockResolvedValue({ connected: false, address: null }));
     const sync = spyOn(api, "emailSync").mockResolvedValue({ headers: 1 });
     spies.push(sync, spyOn(api, "emailList").mockResolvedValue([message]));
-    start(EmailPage);
+    start(() => EmailPage({}));
     await harness.settle();
     expect(element(ConnectionForm)).toBeDefined();
     expect(sync).not.toHaveBeenCalled();
@@ -308,7 +422,7 @@ describe("email UI", () => {
     const status = spyOn(api, "emailStatus").mockRejectedValueOnce(new Error("DB gagal"))
       .mockResolvedValue({ connected: false, address: null });
     spies.push(status);
-    start(EmailPage);
+    start(() => EmailPage({}));
     expect(element("span", "role", "status").props.children).toBe("Memuat akun email…");
     await harness.settle();
     expect(element("p", "role", "alert").props.children).toBe("DB gagal");

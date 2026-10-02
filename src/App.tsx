@@ -204,7 +204,7 @@ export function App() {
         {page.name === "unduhan" && (
           <DownloadsPage key={assistantDataVersion} onReveal={onReveal} />
         )}
-        {page.name === "email" && <EmailPage />}
+        {page.name === "email" && <EmailPage onChanged={reload} />}
         {page.name === "item" && <ItemPage key={`${page.id}:${assistantDataVersion}`} id={page.id} onBack={back} onOpenItem={openItem} />}
         {page.name === "profil" && (
           <ProfilePage

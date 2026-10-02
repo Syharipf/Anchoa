@@ -11,7 +11,7 @@ Anchoa is an all-in-one personal management desktop app in the style of Notion a
 - Design: `docs/design/DESIGN.md`, `docs/design/tokens.css`, and one artboard per page in `docs/design/artboards/`. Artboards use design-tool syntax (`{{…}}`, `<sc-for>`, `DCLogic`); translate them to React, never copy them.
 - `docs/reference/anchoa-final/` is the original design package, kept for reference. Its SvelteKit + Supabase stack does not apply here. Its `ARCHITECTURE.md` is the starting point for Fase 9 sync.
 
-Status: PIN lock built (spec `2026-10-02-anchoa-pin-design.md`, Argon2id, enforced in Rust; DB encryption later). Fase 5 assistant is built (local brain on Ollama, approval-gated tools, chat, whisper.cpp + Piper voice). Avatar stays static until the Live2D licence check. Fase 8 email E-2 is built: Gmail App Password connection, three-column inbox, compose/reply, and connection status in Integrasi and Profil. Email assistant features follow in E-3.
+Status: PIN lock built (spec `2026-10-02-anchoa-pin-design.md`, Argon2id, enforced in Rust; DB encryption later). Fase 5 assistant is built (local brain on Ollama, approval-gated tools, chat, whisper.cpp + Piper voice). Avatar stays static until the Live2D licence check. Fase 8 email is built: Gmail App Password connection, three-column inbox, compose/reply, connection status in Integrasi and Profil, and a local-only email assistant (summary, reply suggestions, approval-gated task proposal).
 
 ## Commands
 

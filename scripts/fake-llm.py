@@ -4,6 +4,8 @@
 GET  /api/tags              -> one model, qwen2.5:3b
 POST /v1/chat/completions   -> SSE stream. The first turn asks for create_task("Beli teri");
                                after the tool result comes back it answers with plain text.
+                               An email-assistant request gets a JSON summary, 3 replies and
+                               a create_task action.
 Usage: fake-llm.py <port>
 """
 import json
@@ -36,7 +38,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         last = request["messages"][-1]
-        if last["role"] == "tool":
+        if "asisten email" in request["messages"][0]["content"]:
+            answer = {
+                "summary": ["Siti menyambut Anda di Email Anchoa.", "Belum ada yang perlu dibalas segera."],
+                "replies": ["Terima kasih, Siti!", "Sudah saya terima.", "Nanti saya kabari."],
+                "action": {"name": "create_task", "args": {"title": "Balas Siti"}},
+            }
+            parts = [chunk({"role": "assistant", "content": json.dumps(answer)})]
+        elif last["role"] == "tool":
             parts = [chunk({"role": "assistant", "content": "Siap, "}), chunk({"content": "tugasnya sudah dibuat."})]
         else:
             call = {

@@ -130,6 +130,7 @@ pub fn run() {
             email::commands::email_set_flag,
             email::commands::email_archive,
             email::commands::email_send,
+            assistant::email::email_assist,
             security::security_status,
             security::unlock,
             security::set_pin,

@@ -1046,6 +1046,39 @@ check_email() {
   stop_app
 }
 
+check_email_assist() {
+  fresh
+  python3 "$(dirname "$0")/fake-llm.py" 18434 &
+  SERVER=$!
+  sleep 1
+  ANCHOA_FAKE_MAIL=1 ANCHOA_AI_BASE=http://127.0.0.1:18434/v1 start_app
+  click 36 256                 # nav: Email
+  xdotool type --delay 20 'anchoa@gmail.com'
+  xdotool key Tab
+  xdotool type --delay 20 'abcdefghijklmnop'
+  xdotool key Return
+  sql_becomes "SELECT count(*) FROM emails WHERE folder = 'INBOX' AND uid = 1" 1 \
+    || fail "fake inbox did not sync for the assistant check"
+  sleep 1
+  click 450 260               # welcome row
+  sleep 1
+  click 1190 290              # Ringkas email
+  sleep 2
+  shot 26-email-assist        # expect: two summary points, three reply chips, task proposal card
+  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'Balas Siti'")" = 0 ]] || fail "email assistant wrote before approval"
+  click 732 649              # first reply suggestion fills the reply field only
+  sleep 0.5
+  [[ "$(sql "SELECT count(*) FROM emails WHERE folder = '[Gmail]/Sent Mail'")" = 0 ]] || fail "reply suggestion sent an email"
+  shot 26-email-suggestion    # expect: reply field holds "Terima kasih, Siti!"
+  click 1171 439             # Setujui
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'Balas Siti' AND type = 'task' AND deleted_at IS NULL" 1 \
+    || fail "approved email proposal did not create the task"
+  shot 26-email-approved
+  stop_app
+  kill "$SERVER" 2>/dev/null || true
+  SERVER=
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -1079,4 +1112,5 @@ check_assistant_ai
 check_voice_settings
 check_pin
 check_email
+check_email_assist
 echo "PASS. Screenshots in $WORK"

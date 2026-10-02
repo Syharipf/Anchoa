@@ -32,6 +32,11 @@ const ROLES: readonly {
     label: "Rekap harian",
     description: "Ringkasan agenda, tagihan, dan habit harian",
   },
+  {
+    id: "email",
+    label: "Asisten email",
+    description: "Ringkasan, saran balasan, dan usulan aksi email (wajib model lokal)",
+  },
 ] as const;
 
 export function AiSection({ onChanged }: Readonly<AiSectionProps>) {

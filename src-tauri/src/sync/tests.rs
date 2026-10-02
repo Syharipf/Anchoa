@@ -340,3 +340,43 @@ fn oauth_fake_server_bypasses_browser() {
     assert_eq!(sess.user_id, fake::FAKE_USER_ID);
 }
 
+
+/// Delegates to a MemoryServer and runs a local edit while a push is in flight.
+struct EditDuringPush<'a> {
+    inner: MemoryServer,
+    edit: Box<dyn Fn() + Send + Sync + 'a>,
+}
+
+impl SyncServer for EditDuringPush<'_> {
+    fn authorize_url(&self, provider: Provider, redirect: &str, challenge: &str, state: &str) -> String {
+        self.inner.authorize_url(provider, redirect, challenge, state)
+    }
+    fn exchange_code(&self, code: &str, verifier: &str) -> Result<Session, crate::error::AppError> { self.inner.exchange_code(code, verifier) }
+    fn refresh(&self, session: &Session) -> Result<Session, crate::error::AppError> { self.inner.refresh(session) }
+    fn sign_out(&self, session: &Session) -> Result<(), crate::error::AppError> { self.inner.sign_out(session) }
+    fn get_vault(&self, session: &Session) -> Result<Option<super::server::Vault>, crate::error::AppError> { self.inner.get_vault(session) }
+    fn put_vault(&self, session: &Session, vault: &super::server::Vault) -> Result<(), crate::error::AppError> { self.inner.put_vault(session, vault) }
+    fn push(&self, session: &Session, rows: &[super::server::WireRecord]) -> Result<Vec<super::server::Rejected>, crate::error::AppError> {
+        let result = self.inner.push(session, rows);
+        (self.edit)();
+        result
+    }
+    fn pull(&self, session: &Session, after: i64, max: u32) -> Result<Vec<super::server::WireRecord>, crate::error::AppError> { self.inner.pull(session, after, max) }
+    fn usage(&self, session: &Session) -> Result<super::server::Usage, crate::error::AppError> { self.inner.usage(session) }
+    fn delete_my_data(&self, session: &Session) -> Result<(), crate::error::AppError> { self.inner.delete_my_data(session) }
+}
+
+#[test]
+fn an_edit_made_while_its_push_is_in_flight_stays_queued_and_syncs_next_time() {
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p1", "Versi pertama", 100);
+    let server = EditDuringPush { inner: MemoryServer::default(), edit: Box::new(|| a.write("p1", "Versi kedua", 200)) };
+    a.sync(&server);
+    let queued: i64 = a.db.conn().unwrap().query_row("SELECT count(*) FROM sync_outbox WHERE record_id='p1'", [], |r| r.get(0)).unwrap();
+    assert_eq!(queued, 1, "the newer local edit must not be dropped with the pushed version");
+    let plain = EditDuringPush { inner: server.inner, edit: Box::new(|| {}) };
+    a.sync(&plain);
+    b.sync(&plain);
+    assert_eq!(b.title("p1"), "Versi kedua");
+}

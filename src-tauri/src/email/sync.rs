@@ -39,8 +39,10 @@ pub fn sync(db: &Db, client: &dyn MailClient) -> Result<SyncResult, AppError> {
                 .as_deref()
                 .is_some_and(|value| value != batch.uid_validity.to_string())
             {
-                // All UIDs are new after a UIDVALIDITY change.
-                let all: Vec<u32> = batch.entries.iter().map(|e| e.uid).collect();
+                // All UIDs are new after a UIDVALIDITY change, capped at HEADER_LIMIT.
+                let mut all: Vec<u32> = batch.entries.iter().map(|e| e.uid).collect();
+                all.sort_unstable_by(|a, b| b.cmp(a));
+                all.truncate(HEADER_LIMIT);
                 new_uid_sets.push(all);
                 continue;
             }
@@ -57,14 +59,13 @@ pub fn sync(db: &Db, client: &dyn MailClient) -> Result<SyncResult, AppError> {
                 }
             }
 
-            // New UIDs: in server but not in local DB.
+            // New UIDs: take newest HEADER_LIMIT first, then filter not stored locally.
             let mut server_uids: Vec<u32> = batch.entries.iter().map(|e| e.uid).collect();
             server_uids.sort_unstable_by(|a, b| b.cmp(a));
             let new_uids: Vec<u32> = server_uids
-                .iter()
-                .filter(|uid| !stored.contains(uid))
+                .into_iter()
                 .take(HEADER_LIMIT)
-                .copied()
+                .filter(|uid| !stored.contains(uid))
                 .collect();
             new_uid_sets.push(new_uids);
         }
@@ -183,7 +184,20 @@ pub fn sync(db: &Db, client: &dyn MailClient) -> Result<SyncResult, AppError> {
 
 /// Prefetch bodies for the N newest INBOX messages that are not yet cached.
 /// Uses BODY.PEEK[] to avoid marking them as read. Failures are logged.
+#[allow(dead_code)]
 pub fn prefetch(db: &Db, client: &dyn MailClient, limit: usize) {
+    prefetch_with_cancel(db, client, limit, || false);
+}
+
+pub fn prefetch_with_cancel(
+    db: &Db,
+    client: &dyn MailClient,
+    limit: usize,
+    should_stop: impl Fn() -> bool,
+) {
+    if should_stop() {
+        return;
+    }
     // Phase 1: collect uncached message info under a short DB lock.
     let uncached = {
         let Ok(conn) = db.conn() else { return };
@@ -219,7 +233,13 @@ pub fn prefetch(db: &Db, client: &dyn MailClient, limit: usize) {
     // DB lock released here.
 
     let (uid_validity, messages) = uncached;
+    let client_address = client.address();
+
     for (item_id, uid) in messages {
+        if should_stop() {
+            return;
+        }
+
         // Fetch body without holding the DB lock.
         let raw = match client.fetch_body(INBOX, uid, uid_validity) {
             Ok(raw) => raw,
@@ -228,6 +248,10 @@ pub fn prefetch(db: &Db, client: &dyn MailClient, limit: usize) {
                 continue;
             }
         };
+
+        if should_stop() {
+            return;
+        }
 
         // Parse body.
         let body = match super::body::parse(&raw) {
@@ -238,17 +262,42 @@ pub fn prefetch(db: &Db, client: &dyn MailClient, limit: usize) {
             }
         };
 
-        // Store under a short DB lock.
+        // Before each write, re-check in one DB statement that the row still exists,
+        // is not deleted, belongs to the same folder+uid+uid_validity,
+        // and that settings email.address still equals the client's address; otherwise skip.
         let now = time::now_ms();
-        if let Ok(conn) = db.conn() {
-            let _ = conn.execute(
+        if let Ok(mut conn) = db.conn() {
+            let Ok(tx) = conn.transaction() else { continue };
+            let valid: bool = tx
+                .query_row(
+                    "SELECT 1 FROM emails e \
+                     JOIN items i ON i.id = e.item_id \
+                     JOIN settings s_addr ON s_addr.key = 'email.address' \
+                     JOIN settings s_val ON s_val.key = ('email.uidvalidity.' || e.folder) \
+                     WHERE e.item_id = ?1 \
+                       AND i.deleted_at IS NULL \
+                       AND e.folder = ?2 \
+                       AND e.uid = ?3 \
+                       AND s_val.value = ?4 \
+                       AND s_addr.value = ?5",
+                    params![item_id, INBOX, uid, uid_validity.to_string(), client_address],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+
+            if !valid {
+                continue;
+            }
+
+            let _ = tx.execute(
                 "UPDATE items SET body = ?2, updated_at = ?3 WHERE id = ?1 AND deleted_at IS NULL",
                 params![item_id, body.text, now],
             );
-            let _ = conn.execute(
+            let _ = tx.execute(
                 "UPDATE emails SET body_cached = 1, has_html = ?2 WHERE item_id = ?1",
                 params![item_id, body.has_html],
             );
+            let _ = tx.commit();
         }
     }
 }

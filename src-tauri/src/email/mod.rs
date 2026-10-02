@@ -31,14 +31,45 @@ pub fn allows_log_target(target: &str) -> bool {
         })
 }
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct ClientCacheKey {
+    pub address: String,
+    pub fingerprint: [u8; 32],
+}
+
+impl std::fmt::Debug for ClientCacheKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ClientCacheKey {{ address: {:?}, fingerprint: \"", self.address)?;
+        for byte in &self.fingerprint[..4] {
+            write!(f, "{:02x}", byte)?;
+        }
+        write!(f, "...\" }}")
+    }
+}
+
+impl ClientCacheKey {
+    pub fn new(credentials: &account::Credentials) -> Self {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(credentials.password.as_str().as_bytes());
+        let hash: [u8; 32] = hasher.finalize().into();
+        Self {
+            address: credentials.address.clone(),
+            fingerprint: hash,
+        }
+    }
+}
 
 pub struct EmailState {
     operation: Mutex<()>,
     keys: account::KeyringStore,
+    generation: AtomicUsize,
     #[cfg(debug_assertions)]
     fake: Option<Arc<fake::FakeMailClient>>,
-    client: Mutex<Option<(String, Arc<client::GmailClient>)>>,
+    client: Mutex<Option<(ClientCacheKey, Arc<dyn client::MailClient>)>>,
 }
 
 impl Default for EmailState {
@@ -50,6 +81,7 @@ impl Default for EmailState {
                 keys: account::KeyringStore::with_builder(
                     keyring::mock::default_credential_builder(),
                 ),
+                generation: AtomicUsize::new(0),
                 fake: Some(Arc::new(fake::FakeMailClient::default())),
                 client: Mutex::new(None),
             };
@@ -57,6 +89,7 @@ impl Default for EmailState {
         Self {
             operation: Mutex::new(()),
             keys: account::KeyringStore::default(),
+            generation: AtomicUsize::new(0),
             #[cfg(debug_assertions)]
             fake: None,
             client: Mutex::new(None),
@@ -65,26 +98,66 @@ impl Default for EmailState {
 }
 
 impl EmailState {
-    pub fn get_client(&self, credentials: account::Credentials) -> Arc<dyn client::MailClient> {
+    pub fn generation(&self) -> usize {
+        self.generation.load(Ordering::SeqCst)
+    }
+
+    pub fn create_client(&self, credentials: &account::Credentials) -> Arc<dyn client::MailClient> {
         #[cfg(debug_assertions)]
         if let Some(fake) = &self.fake {
-            return fake.clone();
+            return fake.with_credentials(credentials);
         }
+        Arc::new(client::GmailClient::new(credentials.clone()))
+    }
+
+    pub fn get_client(&self, credentials: account::Credentials) -> Arc<dyn client::MailClient> {
+        let key = ClientCacheKey::new(&credentials);
         let mut guard = self.client.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some((addr, client)) = guard.as_ref()
-            && addr == &credentials.address
+        if let Some((cached_key, client)) = guard.as_ref()
+            && cached_key == &key
         {
             return client.clone();
         }
-        let addr = credentials.address.clone();
-        let client = Arc::new(client::GmailClient::new(credentials));
-        *guard = Some((addr, client.clone()));
+        let client = self.create_client(&credentials);
+        *guard = Some((key, client.clone()));
         client
     }
 
+    pub fn set_client(&self, credentials: &account::Credentials, client: Arc<dyn client::MailClient>) {
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        let key = ClientCacheKey::new(credentials);
+        let mut guard = self.client.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        *guard = Some((key, client));
+    }
+
     pub fn clear_client(&self) {
-        if let Ok(mut guard) = self.client.lock() {
-            *guard = None;
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        let mut guard = self.client.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        *guard = None;
+    }
+
+    #[cfg(test)]
+    pub fn has_cached_client(&self) -> bool {
+        let guard = self.client.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        guard.is_some()
+    }
+
+    #[cfg(test)]
+    pub fn cached_client_key(&self) -> Option<ClientCacheKey> {
+        let guard = self.client.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        guard.as_ref().map(|(k, _)| k.clone())
+    }
+
+    #[cfg(test)]
+    pub fn with_fake(fake: Arc<fake::FakeMailClient>) -> Self {
+        Self {
+            operation: Mutex::new(()),
+            keys: account::KeyringStore::with_builder(
+                keyring::mock::default_credential_builder(),
+            ),
+            generation: AtomicUsize::new(0),
+            fake: Some(fake),
+            client: Mutex::new(None),
         }
     }
 

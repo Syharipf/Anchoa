@@ -44,8 +44,13 @@ impl Data {
     }
 }
 
+use std::sync::Arc;
+
 pub struct FakeMailClient {
-    data: Mutex<Data>,
+    data: Arc<Mutex<Data>>,
+    pub address: String,
+    #[allow(dead_code)]
+    pub credentials: Mutex<Option<Credentials>>,
     /// Counts of login calls for retry testing.
     pub login_count: AtomicUsize,
     /// Counts of fetched headers.
@@ -56,8 +61,14 @@ pub struct FakeMailClient {
     pub fetch_body_peek_count: AtomicUsize,
     /// Counts of fetch_body_and_mark_read calls (non-PEEK).
     pub fetch_body_mark_read_count: AtomicUsize,
+    /// Counts of move_to calls.
+    pub move_to_count: AtomicUsize,
     /// Flag indicating whether the simulated session was dropped.
     pub session_dropped: std::sync::atomic::AtomicBool,
+    pub session_active: std::sync::atomic::AtomicBool,
+    pub hang: std::sync::atomic::AtomicBool,
+    pub timeout: Mutex<Option<std::time::Duration>>,
+    pub fail_move: std::sync::atomic::AtomicBool,
 }
 
 impl Default for FakeMailClient {
@@ -96,21 +107,65 @@ impl FakeMailClient {
 
     pub fn empty() -> Self {
         Self {
-            data: Mutex::new(Data::default()),
+            data: Arc::new(Mutex::new(Data::default())),
+            address: "anchoa@gmail.com".into(),
+            credentials: Mutex::new(None),
             login_count: AtomicUsize::new(0),
             fetched_headers_count: AtomicUsize::new(0),
             set_flag_count: AtomicUsize::new(0),
             fetch_body_peek_count: AtomicUsize::new(0),
             fetch_body_mark_read_count: AtomicUsize::new(0),
+            move_to_count: AtomicUsize::new(0),
             session_dropped: std::sync::atomic::AtomicBool::new(false),
+            session_active: std::sync::atomic::AtomicBool::new(true),
+            hang: std::sync::atomic::AtomicBool::new(false),
+            timeout: Mutex::new(None),
+            fail_move: std::sync::atomic::AtomicBool::new(false),
         }
     }
+
+    pub fn with_credentials(&self, credentials: &Credentials) -> Arc<Self> {
+        Arc::new(Self {
+            data: self.data.clone(),
+            address: credentials.address.clone(),
+            credentials: Mutex::new(Some(credentials.clone())),
+            login_count: AtomicUsize::new(0),
+            fetched_headers_count: AtomicUsize::new(0),
+            set_flag_count: AtomicUsize::new(0),
+            fetch_body_peek_count: AtomicUsize::new(0),
+            fetch_body_mark_read_count: AtomicUsize::new(0),
+            move_to_count: AtomicUsize::new(0),
+            session_dropped: std::sync::atomic::AtomicBool::new(false),
+            session_active: std::sync::atomic::AtomicBool::new(true),
+            hang: std::sync::atomic::AtomicBool::new(false),
+            timeout: Mutex::new(None),
+            fail_move: std::sync::atomic::AtomicBool::new(false),
+        })
+    }
+
     fn data(&self) -> Result<MutexGuard<'_, Data>, MailError> {
         self.data.lock().map_err(|_| MailError::Protocol)
     }
+
     #[cfg(test)]
     pub fn drop_session(&self) {
         self.session_dropped.store(true, Ordering::SeqCst);
+        self.session_active.store(false, Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    pub fn set_hang(&self, hang: bool) {
+        self.hang.store(hang, Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    pub fn set_timeout(&self, timeout: std::time::Duration) {
+        *self.timeout.lock().unwrap() = Some(timeout);
+    }
+
+    #[cfg(test)]
+    pub fn has_session(&self) -> bool {
+        self.session_active.load(Ordering::SeqCst) && !self.session_dropped.load(Ordering::SeqCst)
     }
 
     fn call(&self) -> Result<(), MailError> {
@@ -121,7 +176,15 @@ impl FakeMailClient {
                 hook();
             }
         }
+        if self.hang.load(Ordering::SeqCst) {
+            let timeout = self.timeout.lock().unwrap().unwrap_or(std::time::Duration::from_millis(50));
+            std::thread::sleep(timeout + std::time::Duration::from_millis(10));
+            self.session_active.store(false, Ordering::SeqCst);
+            self.session_dropped.store(true, Ordering::SeqCst);
+            return Err(MailError::Network);
+        }
         if self.session_dropped.swap(false, Ordering::SeqCst) {
+            self.session_active.store(true, Ordering::SeqCst);
             self.login_count.fetch_add(1, Ordering::SeqCst);
         }
         Ok(())
@@ -180,6 +243,10 @@ impl FakeMailClient {
 }
 
 impl MailClient for FakeMailClient {
+    fn address(&self) -> &str {
+        &self.address
+    }
+
     fn login(&self, _credentials: &Credentials) -> Result<(), MailError> {
         self.login_count.fetch_add(1, Ordering::SeqCst);
         self.call()?;
@@ -311,7 +378,11 @@ impl MailClient for FakeMailClient {
         uid_validity: u32,
         destination: &str,
     ) -> Result<(), MailError> {
+        self.move_to_count.fetch_add(1, Ordering::SeqCst);
         self.call()?;
+        if self.fail_move.load(Ordering::SeqCst) {
+            return Err(MailError::Protocol);
+        }
         let mut data = self.data()?;
         data.check_uid_validity(folder, uid_validity)?;
         if folder == destination {

@@ -1,7 +1,8 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
 import * as core from "@tauri-apps/api/core";
+import * as events from "@tauri-apps/api/event";
 import * as dialog from "@tauri-apps/plugin-dialog";
-import { api, assetUrl, errorMessage, type AssistantEvent, type VoiceInstallProgress } from "./api";
+import { api, assetUrl, errorMessage, onSyncChanged, type AssistantEvent, type VoiceInstallProgress } from "./api";
 
 type Case = readonly [keyof typeof api, () => Promise<unknown>, string, Record<string, unknown>?];
 
@@ -129,6 +130,14 @@ const cases: Case[] = [
   ["setVoice", () => api.setVoice("id_ID-news_tts-medium"), "set_voice", { id: "id_ID-news_tts-medium", params: undefined }],
   ["setVoice", () => api.setVoice("id_ID-news_tts-medium", { lengthScale: 1, noiseScale: 0.5, noiseW: 0.8 }), "set_voice", { id: "id_ID-news_tts-medium", params: { lengthScale: 1, noiseScale: 0.5, noiseW: 0.8 } }],
   ["voiceSpeak", () => api.voiceSpeak("Halo"), "voice_speak", { text: "Halo" }],
+  ["syncStatus", () => api.syncStatus(), "sync_status"],
+  ["syncSignIn", () => api.syncSignIn("google"), "sync_sign_in", { provider: "google" }],
+  ["syncCancelSignIn", () => api.syncCancelSignIn(), "sync_cancel_sign_in"],
+  ["syncCreateKey", () => api.syncCreateKey("frasa sandi panjang"), "sync_create_key", { passphrase: "frasa sandi panjang" }],
+  ["syncUnlockKey", () => api.syncUnlockKey("frasa"), "sync_unlock_key", { passphraseOrRecovery: "frasa" }],
+  ["syncChangePassphrase", () => api.syncChangePassphrase("lama", "baru"), "sync_change_passphrase", { old: "lama", new: "baru" }],
+  ["syncNow", () => api.syncNow(), "sync_now"],
+  ["syncSignOut", () => api.syncSignOut(true), "sync_sign_out", { deleteCloud: true }],
   ["setPin", () => api.setPin(undefined, "1234"), "set_pin", { old: null, new: "1234" }],
 ];
 
@@ -181,6 +190,18 @@ describe("API IPC contract", () => {
       if (previous) Object.defineProperty(globalThis, "window", previous);
       else Reflect.deleteProperty(globalThis, "window");
     }
+  });
+
+  it("subscribes to sync-changed and calls the handler without the event payload", async () => {
+    const unlisten = () => {};
+    const spy = spyOn(events, "listen").mockResolvedValue(unlisten);
+    try {
+      const handler = mock(() => {});
+      expect(await onSyncChanged(handler)).toBe(unlisten);
+      expect(spy.mock.calls[0][0]).toBe("sync-changed");
+      (spy.mock.calls[0][1] as (event: unknown) => void)({ payload: null });
+      expect(handler).toHaveBeenCalledWith();
+    } finally { spy.mockRestore(); }
   });
 
   it("uses a single ONNX file picker and handles cancellation", async () => {

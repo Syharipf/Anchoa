@@ -36,6 +36,12 @@ describe("dates", () => {
     expect(dateInputToMs("2028-02-29")).toBe(at("2028-02-29T00:00:00+07:00"));
   });
 
+  test("dates before year 1000 round-trip through the date input", () => {
+    const value = msToDateInput(dateInputToMs("0999-01-01"));
+    expect(value).toBe("0999-01-01");
+    expect(dateInputToMs(value)).not.toBeNull();
+  });
+
   test("date inputs follow Jakarta midnight even while UTC remains on the previous day", () => {
     const midnight = at("2026-10-01T00:00:00+07:00");
     expect(msToDateInput(midnight - 1)).toBe("2026-09-30");

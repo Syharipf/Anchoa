@@ -61,7 +61,7 @@ export function msToDateInput(ms: number | null): string {
   if (ms === null) return "";
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${String(d.getFullYear()).padStart(4, "0")}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** "2026-10-01" (a local date from the backend) to { weekday: "Kam", day: 1 }. */

@@ -42,7 +42,7 @@ describe("dashboard branches", () => {
     const node = FinanceCard({ finance, onSelect });
     const html = renderToStaticMarkup(node);
     expect(html).toContain("−Rp 1");
-    expect(html).toContain("Keluar bulan ini Rp 1");
+    expect(html).toMatch(/Keluar bulan ini Rp 1(?![\d.])/);
     expect(html).toContain("Tagihan aman");
     (elements(node)[0].props.onClick as () => void)();
     expect(onSelect).toHaveBeenCalledWith("keuangan");
@@ -51,7 +51,7 @@ describe("dashboard branches", () => {
   it.each([["ok", "text-muted"], ["warn", "text-warn"], ["over", "text-danger"]] as const)("renders the %s budget warning without rescaling money", (level, style) => {
     const html = renderToStaticMarkup(<FinanceCard finance={{ ...finance, balance: 1, budget: { amount: 2, level } }} onSelect={() => {}} />);
     expect(html).toContain(`text-xs ${style}`);
-    expect(html).toContain("dari Rp 2");
+    expect(html).toMatch(/dari Rp 2(?![\d.])/);
   });
 
   it("handles empty upcoming days and caps dots while keeping the first task's ID", () => {

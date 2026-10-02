@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { api, errorMessage, type EmailMessage } from "../api";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { api, errorMessage, type EmailAssistance, type EmailMessage } from "../api";
+import { ProposalCard } from "../assistant/ProposalCard";
 import { FIELD, PRIMARY, SECONDARY } from "../shell/ui";
 import { StarButton } from "./StarButton";
 import { emailDate, replySubject, sender, textParts } from "./view";
@@ -11,8 +12,58 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
 }>) {
   const [reply, setReply] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [assistance, setAssistance] = useState<EmailAssistance | null>(null);
+  const [assisting, setAssisting] = useState(false);
+  const [assistError, setAssistError] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const generation = useRef(0);
+  const requesting = useRef(false);
   const sending = useEmailSend();
   const recipients = message.folder === "[Gmail]/Sent Mail" ? message.toAddrs : [message.fromAddr];
+
+  useEffect(() => {
+    setAssistance(null);
+    setAssisting(false);
+    setAssistError(null);
+    setActionStatus(null);
+    setReply("");
+    requesting.current = false;
+    return () => { generation.current++; };
+  }, [message.id]);
+
+  async function assist() {
+    if (busy || requesting.current || assistance?.action) return;
+    const token = generation.current;
+    requesting.current = true;
+    setAssisting(true);
+    setAssistError(null);
+    setActionStatus(null);
+    try {
+      const result = await api.emailAssist(message.id);
+      if (generation.current === token) setAssistance(result);
+    } catch (e) {
+      if (generation.current === token) setAssistError(errorMessage(e));
+    } finally {
+      if (generation.current === token) {
+        requesting.current = false;
+        setAssisting(false);
+      }
+    }
+  }
+
+  async function decide(id: string, approve: boolean) {
+    const token = generation.current;
+    setAssistError(null);
+    try {
+      await api.assistantDecide(id, approve);
+      if (generation.current !== token) return;
+      setAssistance((current) => current ? { ...current, action: null } : current);
+      setActionStatus(approve ? "Usulan disetujui." : "Usulan ditolak.");
+    } catch (e) {
+      if (generation.current === token) setAssistError(errorMessage(e));
+      throw e;
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -39,6 +90,20 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
           </div>
           <time dateTime={new Date(message.sentAt).toISOString()} className="text-xs text-muted">{emailDate(message.sentAt)}</time>
         </div>
+        <section aria-labelledby="email-assistant-heading" aria-busy={assisting} className="flex flex-col gap-2 rounded-xl border border-line bg-stage px-3.5 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="email-assistant-heading" className="m-0 text-xs font-semibold tracking-wider text-accent uppercase">Ringkasan asisten</h3>
+            <button type="button" aria-label="Ringkas email" disabled={busy || assisting || !!assistance?.action} onClick={assist}
+              className={`${SECONDARY} min-h-8 px-3 text-xs disabled:opacity-50`}>{assistance ? "Ringkas lagi" : "Ringkas email"}</button>
+          </div>
+          {assisting && <p role="status" className="m-0 text-xs text-muted">Asisten sedang merangkum…</p>}
+          {assistance && <ul className="m-0 flex list-disc flex-col gap-1 pl-[18px] text-[13px] leading-relaxed text-ink">
+            {assistance.summary.map((point, index) => <li key={index}>{point}</li>)}
+          </ul>}
+          {assistance?.action && <ProposalCard proposal={assistance.action} onDecide={decide} />}
+          {actionStatus && <p role="status" className="m-0 text-xs text-muted">{actionStatus}</p>}
+          {assistError && <p role="alert" className="m-0 text-sm text-danger">{assistError}</p>}
+        </section>
         <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink">
           {textParts(message.body).map((part) => part.url ? (
             <button key={part.offset} type="button" aria-label={`Buka ${part.url}`} className="inline text-left text-accent underline hover:text-accent-hover"
@@ -48,6 +113,10 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
         {linkError && <p role="alert" className="m-0 text-sm text-danger">{linkError}</p>}
       </div>
       <form onSubmit={submit} className="flex shrink-0 flex-col gap-2 border-t border-line bg-stage py-3 pr-[88px] pl-5">
+        {assistance && <div role="group" aria-label="Saran balasan" className="flex flex-wrap gap-1.5">
+          {assistance.replies.map((suggestion, index) => <button key={index} type="button" disabled={busy || sending.busy}
+            onClick={() => setReply(suggestion)} className={`${SECONDARY} min-h-7 px-2.5 text-xs disabled:opacity-50`}>{suggestion}</button>)}
+        </div>}
         <label htmlFor="email-reply" className="text-xs text-muted">Balas ke {recipients.join(", ")}</label>
         <div className="flex items-end gap-2">
           <textarea id="email-reply" rows={2} required disabled={busy || sending.busy} value={reply}

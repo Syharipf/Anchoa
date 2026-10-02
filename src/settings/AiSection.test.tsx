@@ -28,6 +28,7 @@ describe("AiSection", () => {
       chat: { provider: "ollama", model: "qwen2.5:3b" },
       journal: { provider: "ollama", model: "qwen2.5:3b" },
       recap: { provider: "ollama", model: "qwen2.5:3b" },
+      email: { provider: "ollama", model: "qwen2.5:3b" },
     };
     spies.push(spyOn(api, "aiStatus").mockResolvedValue(status));
     spies.push(spyOn(api, "aiRoles").mockResolvedValue(roles));
@@ -44,6 +45,7 @@ describe("AiSection", () => {
       chat: { provider: "ollama", model: "qwen2.5:3b" },
       journal: { provider: "ollama", model: "qwen2.5:3b" },
       recap: { provider: "ollama", model: "qwen2.5:3b" },
+      email: { provider: "ollama", model: "qwen2.5:3b" },
     };
     spies.push(spyOn(api, "aiStatus").mockResolvedValue(status));
     spies.push(spyOn(api, "aiRoles").mockResolvedValue(roles));
@@ -75,7 +77,7 @@ describe("AiSection", () => {
     expect(html).toContain("sudo systemctl start ollama");
   });
 
-  it("renders model pickers for chat, journal, and recap roles", async () => {
+  it("renders model pickers for chat, journal, recap, and email roles", async () => {
     mockOnlineAi();
     harness = hookHarness<ReactNode>(() => AiSection({}));
     harness.render();
@@ -86,6 +88,7 @@ describe("AiSection", () => {
     expect(html).toContain("Percakapan &amp; aksi");
     expect(html).toContain("Tanggapan jurnal");
     expect(html).toContain("Rekap harian");
+    expect(html).toContain("Asisten email");
     expect(html).toContain("qwen2.5:3b");
     expect(html).toContain("llama3.1:8b");
   });
@@ -121,7 +124,7 @@ describe("AiSection", () => {
     await harness.settle();
 
     const selects = elements(harness.render()).filter((el) => el.type === "select");
-    expect(selects.length).toBe(3);
+    expect(selects.length).toBe(4);
 
     const chatSelect = selects[0];
     (chatSelect.props.onChange as (e: unknown) => void)({ target: { value: "llama3.1:8b" } });

@@ -1,4 +1,5 @@
 pub mod context;
+pub mod email;
 pub mod llm;
 pub mod roles;
 pub mod tools;
@@ -28,7 +29,8 @@ pub struct AssistantState {
 #[derive(Default)]
 struct Conversation {
     history: Vec<ChatMessage>,
-    pending: std::collections::HashMap<String, (Proposal, String)>,
+    // Email proposals have no chat tool call and must never enter chat history.
+    pending: std::collections::HashMap<String, (Proposal, Option<String>)>,
     running: bool,
     generation: u64,
 }
@@ -97,11 +99,15 @@ impl AssistantState {
                     return Err(AppError::Invalid("Asisten masih menjawab".into()));
                 }
                 let pending = std::mem::take(&mut state.pending);
-                for (_, call_id) in pending.into_values() {
-                    state.history.push(tool_message(
-                        &call_id,
-                        json!({"ok":false,"reason":"diabaikan, user mengirim pesan baru"}),
-                    ));
+                for (id, (proposal, call_id)) in pending {
+                    if let Some(call_id) = call_id {
+                        state.history.push(tool_message(
+                            &call_id,
+                            json!({"ok":false,"reason":"diabaikan, user mengirim pesan baru"}),
+                        ));
+                    } else {
+                        state.pending.insert(id, (proposal, None));
+                    }
                 }
                 state.running = true;
                 self.cancel.store(false, Ordering::Relaxed);
@@ -197,9 +203,10 @@ impl AssistantState {
                             }
                             // A stop after delivery still leaves a visible proposal
                             // for the user to approve or reject.
-                            state
-                                .pending
-                                .insert(proposal.id.clone(), (proposal.clone(), call_id.clone()));
+                            state.pending.insert(
+                                proposal.id.clone(),
+                                (proposal.clone(), Some(call_id.clone())),
+                            );
                         }
                         self.emit(epoch, AssistantEvent::Done(message.clone()), &mut on_event)
                     })();
@@ -280,10 +287,23 @@ impl AssistantState {
             Some(value) => json!({"ok":true,"id":value.get("id")}),
             None => json!({"ok":false,"reason":"ditolak user"}),
         };
-        let message = tool_message(call_id, result);
-        state.history.push(message);
+        if let Some(call_id) = call_id {
+            let message = tool_message(call_id, result);
+            state.history.push(message);
+        }
         state.pending.remove(id);
         Ok(item)
+    }
+
+    fn queue_proposal(&self, proposal: Proposal, generation: u64) -> Result<Proposal, AppError> {
+        let mut state = self.lock()?;
+        if state.generation != generation {
+            return Err(cancelled());
+        }
+        state
+            .pending
+            .insert(proposal.id.clone(), (proposal.clone(), None));
+        Ok(proposal)
     }
 
     fn pending(&self) -> Result<Vec<Proposal>, AppError> {
@@ -405,6 +425,7 @@ pub struct AiRoles {
     pub chat: roles::RoleConfig,
     pub journal: roles::RoleConfig,
     pub recap: roles::RoleConfig,
+    pub email: roles::RoleConfig,
 }
 
 #[tauri::command]
@@ -414,6 +435,7 @@ pub fn ai_roles(db: State<'_, Db>) -> Result<AiRoles, AppError> {
         chat: roles::get_role(&conn, "chat")?,
         journal: roles::get_role(&conn, "journal")?,
         recap: roles::get_role(&conn, "recap")?,
+        email: roles::get_role(&conn, "email")?,
     })
 }
 
@@ -541,12 +563,10 @@ mod tests {
         let (_dir, db) = db();
         let state = AssistantState::default();
         let proposal = tools::propose("create_task", &json!({"title":"Beli teri"})).unwrap();
-        state
-            .conversation
-            .lock()
-            .unwrap()
-            .pending
-            .insert(proposal.id.clone(), (proposal.clone(), "write".into()));
+        state.conversation.lock().unwrap().pending.insert(
+            proposal.id.clone(),
+            (proposal.clone(), Some("write".into())),
+        );
         let before = db.conn().unwrap().total_changes();
         assert_eq!(
             state

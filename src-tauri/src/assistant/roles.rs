@@ -8,16 +8,16 @@ pub struct RoleConfig {
     pub model: String,
 }
 
-pub const ROLES: [&str; 3] = ["chat", "journal", "recap"];
+pub const ROLES: [&str; 4] = ["chat", "journal", "recap", "email"];
 const DEFAULT_MODEL: &str = "qwen2.5:3b";
 
 fn validate(role: &str, provider: &str, model: &str) -> Result<(), AppError> {
     if !ROLES.contains(&role) {
         return Err(AppError::Invalid("Peran AI tidak dikenal".into()));
     }
-    if role == "journal" && provider != "ollama" {
+    if matches!(role, "journal" | "email") && provider != "ollama" {
         return Err(AppError::Invalid(
-            "Jurnal hanya boleh memakai penyedia lokal (Ollama)".into(),
+            "Jurnal dan email hanya boleh memakai penyedia lokal (Ollama)".into(),
         ));
     }
     if provider != "ollama" {
@@ -79,17 +79,19 @@ mod tests {
     use crate::db::open_in_memory;
 
     #[test]
-    fn journal_role_rejects_remote_provider() {
+    fn private_roles_reject_remote_provider() {
         let conn = open_in_memory();
-        let error = set_role(&conn, "journal", "openrouter", "remote").unwrap_err();
-        assert!(error.to_string().contains("lokal"));
-        assert_eq!(get_role(&conn, "journal").unwrap().provider, "ollama");
+        for role in ["journal", "email"] {
+            let error = set_role(&conn, role, "openrouter", "remote").unwrap_err();
+            assert!(error.to_string().contains("lokal"));
+            assert_eq!(get_role(&conn, role).unwrap().provider, "ollama");
+        }
     }
 
     #[test]
     fn roles_default_and_round_trip_with_validation() {
         let conn = open_in_memory();
-        for role in ["chat", "journal", "recap"] {
+        for role in ["chat", "journal", "recap", "email"] {
             assert_eq!(
                 get_role(&conn, role).unwrap(),
                 RoleConfig {
@@ -109,11 +111,13 @@ mod tests {
         }
         assert!(get_role(&conn, "invalid").is_err());
         assert!(set_role(&conn, "invalid", "ollama", "model").is_err());
-        conn.execute(
-            "UPDATE settings SET value = 'remote' WHERE key = 'ai.journal.provider'",
-            [],
-        )
-        .unwrap();
-        assert!(get_role(&conn, "journal").is_err());
+        for role in ["journal", "email"] {
+            conn.execute(
+                "UPDATE settings SET value = 'remote' WHERE key = ?1",
+                [format!("ai.{role}.provider")],
+            )
+            .unwrap();
+            assert!(get_role(&conn, role).is_err());
+        }
     }
 }

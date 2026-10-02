@@ -734,7 +734,7 @@ export interface DownloadSettings {
   limit: number;
 }
 
-export type AiRole = "chat" | "journal" | "recap";
+export type AiRole = "chat" | "journal" | "recap" | "email";
 
 export interface RoleConfig {
   provider: "ollama";
@@ -867,7 +867,14 @@ export interface EmailSyncResult {
   headers: number;
 }
 
+export interface EmailAssistance {
+  summary: string[];
+  replies: string[];
+  action: AssistantProposal | null;
+}
+
 export const api = {
+  emailAssist: (id: string) => invoke<EmailAssistance>("email_assist", { id }),
   emailStatus: () => invoke<EmailStatus>("email_status"),
   emailConnect: (address: string, appPassword: string) =>
     invoke<EmailStatus>("email_connect", { address, appPassword }),

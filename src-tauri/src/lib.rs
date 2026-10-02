@@ -18,6 +18,7 @@ mod gpu;
 mod habits;
 mod items;
 pub mod journal;
+pub mod keystore;
 pub mod links;
 pub mod notes;
 pub mod search;
@@ -27,6 +28,7 @@ mod projects;
 mod schedule;
 pub mod security;
 mod settings;
+pub mod sync;
 mod tasks;
 mod time;
 

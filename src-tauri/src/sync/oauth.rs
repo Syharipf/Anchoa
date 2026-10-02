@@ -2,7 +2,10 @@
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
@@ -42,6 +45,11 @@ impl OAuthFlow {
     /// Waits for a single valid callback `GET /callback?code=…&state=…`.
     /// Invalid requests receive a 404 without terminating the listener.
     pub fn wait(&self, timeout: Duration) -> Result<Session, AppError> {
+        self.wait_cancellable(timeout, &AtomicBool::new(false))
+    }
+
+    /// Like `wait`, but gives up as soon as `cancel` is set (checked about every 50 ms).
+    pub fn wait_cancellable(&self, timeout: Duration, cancel: &AtomicBool) -> Result<Session, AppError> {
         if let Some(session) = &self.fake_session {
             return Ok(Session {
                 user_id: session.user_id.clone(),
@@ -61,6 +69,9 @@ impl OAuthFlow {
 
         let start = std::time::Instant::now();
         loop {
+            if cancel.load(Ordering::SeqCst) {
+                return Err(AppError::Other("Login sync dibatalkan".into()));
+            }
             if start.elapsed() >= timeout {
                 return Err(AppError::Other("Batas waktu login sync habis (timeout)".into()));
             }

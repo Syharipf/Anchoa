@@ -32,6 +32,10 @@ security invoker
 set search_path = ''
 as $$
 begin
+  -- Serialize each user's writes until commit, so seq order equals commit order
+  -- per user and a pull cursor can never skip a row committed later with a
+  -- smaller seq. Different users do not block each other.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(new.user_id::text, 0));
   -- Never retain a client-supplied seq, including on an accepted UPDATE.
   new.seq := pg_catalog.nextval('public.records_seq'::pg_catalog.regclass);
   new.updated_at := pg_catalog.now();
@@ -195,11 +199,11 @@ grant usage on sequence public.records_seq to authenticated;
 grant execute on function public.push_records(jsonb), public.pull_records(bigint, integer),
   public.usage(), public.delete_my_data(), anchoa_private.delete_my_data() to authenticated;
 
--- Explicitly run as postgres so cleanup bypasses forced RLS for every user.
-select cron.schedule_in_database(
+-- Runs as the migration role (postgres), which bypasses RLS on Supabase, so the
+-- cleanup reaches every user's tombstones. schedule_in_database with an explicit
+-- user needs a superuser, which Supabase migrations are not.
+select cron.schedule(
   'anchoa-prune-tombstones',
   '0 3 * * *',
-  $job$delete from public.records where deleted and updated_at < now() - interval '90 days'$job$,
-  pg_catalog.current_database(),
-  'postgres'
+  $job$delete from public.records where deleted and updated_at < now() - interval '90 days'$job$
 );

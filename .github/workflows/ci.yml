@@ -41,9 +41,9 @@ jobs:
       ANCHOA_GITHUB_CLIENT_SECRET: local-test-github
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: latest
       - run: supabase start -x studio,imgproxy,storage,edge-runtime,logflare,vector,realtime,inbucket
       - run: supabase test db
-      - run: supabase db lint --level error
+      - run: supabase db lint --level error --fail-on error

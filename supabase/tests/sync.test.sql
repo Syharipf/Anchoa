@@ -20,13 +20,13 @@ select ok((select relrowsecurity and relforcerowsecurity from pg_class
            where oid = 'public.vault'::regclass), 'vault enables and forces RLS');
 select ok((select relrowsecurity and relforcerowsecurity from pg_class
            where oid = 'public.records'::regclass), 'records enables and forces RLS');
-select ok((select count(*) = 4 and bool_and(not prosecdef) from pg_proc
+select ok((select count(*) = 4 and bool_and(coalesce(not prosecdef, false)) from pg_proc
            where oid in ('public.push_records(jsonb)'::regprocedure,
                          'public.pull_records(bigint,integer)'::regprocedure,
                          'public.usage()'::regprocedure,
                          'public.delete_my_data()'::regprocedure)),
           'all four public RPCs are security invoker');
-select ok((select bool_and(proconfig @> array['search_path=""']) from pg_proc
+select ok((select count(*) = 4 and bool_and(coalesce(proconfig @> array['search_path=""'], false)) from pg_proc
            where oid in ('public.push_records(jsonb)'::regprocedure,
                          'public.pull_records(bigint,integer)'::regprocedure,
                          'public.usage()'::regprocedure,
@@ -54,16 +54,16 @@ select is(public.push_records('[
 select lives_ok($$insert into public.vault (kdf, dek_by_passphrase, dek_by_recovery)
   values ('{"alg":"argon2id"}', '\x02', '\x03')$$, 'B can create a vault');
 
-set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000000000a1","role":"authenticated"}';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}';
 
 select is(auth.uid(), '00000000-0000-0000-0000-0000000000a1'::uuid, 'JWT authenticates A');
 select is((select count(*) from public.records), 0::bigint, 'A cannot read B records');
 select is((select count(*) from public.vault), 0::bigint, 'A cannot read B vault');
-select results_empty($$update public.records set payload = '\xdead'
+select is_empty($$update public.records set payload = '\xdead'
   where user_id = '00000000-0000-0000-0000-0000000000b2' returning id$$,
   'A cannot update B records directly');
-select results_empty($$update public.vault set dek_by_passphrase = '\xdead'
-  where user_id = '00000000-0000-0000-0000000000b2' returning user_id$$,
+select is_empty($$update public.vault set dek_by_passphrase = '\xdead'
+  where user_id = '00000000-0000-0000-0000-0000000000b2' returning user_id$$,
   'A cannot update B vault directly');
 select throws_ok($$insert into public.records (user_id, id, changed_at, device_id, deleted, payload)
   values ('00000000-0000-0000-0000-0000000000b2', 'shared', 900,
@@ -254,10 +254,10 @@ set local role anon;
 set local request.jwt.claims = '{"role":"anon"}';
 select throws_ok($$select * from public.records$$, '42501', null, 'anon cannot read records');
 select throws_ok($$select * from public.vault$$, '42501', null, 'anon cannot read vault');
-select throws_ok($$select public.push_records('[]')$$, '42501', null, 'anon cannot call push_records');
+select ok(not has_function_privilege('anon', 'public.push_records(jsonb)', 'execute'), 'anon has no EXECUTE on push_records (directly or via PUBLIC)');
 select throws_ok($$select * from public.pull_records(0, 500)$$, '42501', null, 'anon cannot call pull_records');
 select throws_ok($$select * from public.usage()$$, '42501', null, 'anon cannot call usage');
-select throws_ok($$select public.delete_my_data()$$, '42501', null, 'anon cannot call delete_my_data');
+select ok(not has_function_privilege('anon', 'public.delete_my_data()', 'execute'), 'anon has no EXECUTE on delete_my_data (directly or via PUBLIC)');
 select throws_ok($$select anchoa_private.delete_my_data()$$, '42501', null, 'anon cannot call the private helper');
 
 reset role;

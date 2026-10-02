@@ -191,7 +191,7 @@
   - `sync_change_passphrase(old, new)`;
   - `sync_now() -> SyncReport`;
   - `sync_sign_out(delete_cloud: bool)`.
-- Jadwal latar: sync saat start (setelah unlock PIN), setiap 5 menit, dan 10 detik setelah outbox berubah (debounce). Tidak berjalan saat terkunci, belum login, atau DEK belum ada. Satu sync aktif dalam satu waktu.
+- Jadwal latar: sync saat start (setelah unlock PIN), saat jendela kembali fokus, setiap 60 detik selama jendela aktif (5 menit di latar), dan 2 detik setelah outbox berubah (debounce). Tidak berjalan saat terkunci, belum login, atau DEK belum ada. Satu sync aktif dalam satu waktu.
 - Event `sync-changed` ke frontend setelah pull menerapkan record, supaya halaman memuat ulang.
 - Wrapper `src/api.ts`: `syncStatus`, `syncSignIn`, `syncCancelSignIn`, `syncCreateKey`, `syncUnlockKey`, `syncChangePassphrase`, `syncNow`, `syncSignOut`, dan `onSyncChanged`.
 

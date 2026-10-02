@@ -962,6 +962,44 @@ check_voice_settings() {
   stop_app
 }
 
+check_pin() {
+  fresh
+  local hash
+  start_app
+  click 36 706                 # nav: Profil
+  click 434 569                # Kunci dengan PIN
+  click 640 198                # PIN
+  xdotool type --delay 30 1234
+  click 640 274                # Konfirmasi PIN
+  xdotool type --delay 30 1234
+  click 815 335                # Simpan
+  sleep 1
+  hash=$(sql "SELECT value FROM settings WHERE key = 'security.pin_hash'")
+  [[ $hash == '$argon2id$'* ]] || fail "PIN not stored as an Argon2id hash"
+  stop_app
+
+  start_app                    # opens on the lock screen
+  sleep 1
+  shot 24-pin-locked
+  xdotool type --delay 30 9999
+  xdotool key Return
+  sleep 1.5
+  shot 24-pin-wrong             # expect: "PIN salah"
+  click 1212 224               # where the Profil Tugas switch would be: must not reach the DB
+  sleep 1
+  [[ -z "$(sql "SELECT value FROM settings WHERE key = 'notify.task'")" ]] || fail "locked app changed data"
+  click 640 469                # PIN field (the probe click above took focus)
+  xdotool key ctrl+a
+  xdotool type --delay 30 1234
+  xdotool key Return
+  sleep 2
+  click 36 706                 # nav: Profil, reachable only after unlocking
+  click 1212 224               # Tugas switch
+  sql_becomes "SELECT value FROM settings WHERE key = 'notify.task'" 0 || fail "correct PIN did not unlock the app"
+  shot 24-pin-unlocked
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -993,4 +1031,5 @@ check_settings
 check_profile
 check_assistant_ai
 check_voice_settings
+check_pin
 echo "PASS. Screenshots in $WORK"

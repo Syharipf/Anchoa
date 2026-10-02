@@ -89,7 +89,7 @@ export function AssistantStage({
           <span aria-live="polite">{status.text}</span>
         </div>
         <span className="absolute top-4 right-3.5 text-[11px] text-muted">
-          Avatar Live2D
+          Avatar statis
         </span>
 
         <div className="absolute right-3 bottom-3 left-3 flex flex-col gap-1.5 rounded-[14px] border border-line bg-sidebar/90 px-3.5 py-3">

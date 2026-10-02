@@ -138,6 +138,10 @@ fn queued_at(conn: &Connection, id: &str) -> Result<Option<i64>, AppError> {
 
 fn compressed<T: Serialize>(document: &T, title: &str) -> Result<Vec<u8>, AppError> {
     let json = serde_json::to_vec(document).map_err(|_| invalid_record())?;
+    // Other devices refuse to inflate past this limit, so refuse to export it too.
+    if json.len() > MAX_DECOMPRESSED_BYTES {
+        return Err(AppError::Invalid(format!("\"{title}\" terlalu besar untuk sync (batas 8 MB)")));
+    }
     let payload = compress_to_vec(&json, 6);
     if payload.len() > MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD {
         return Err(AppError::Invalid(format!("\"{title}\" terlalu besar untuk sync (batas 256 KB)")));
@@ -518,6 +522,14 @@ mod tests {
 
     fn applying(conn: &Connection) -> String {
         conn.query_row("SELECT value FROM sync_state WHERE key = 'applying'", [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn export_refuses_documents_that_would_inflate_past_the_limit() {
+        let conn = open_in_memory();
+        let id = items::insert(&conn, "page", "Halaman raksasa", &"a".repeat(MAX_DECOMPRESSED_BYTES + 1), 10).unwrap();
+        let error = export(&conn, &id).err().unwrap();
+        assert!(error.to_string().contains("Halaman raksasa"));
     }
 
     #[test]

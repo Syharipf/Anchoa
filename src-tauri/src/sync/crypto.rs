@@ -204,7 +204,13 @@ pub fn seal(dek: &Dek, aad: &[u8], plain: &[u8]) -> Vec<u8> {
     encrypt(dek.as_bytes(), aad, plain)
 }
 
+/// Largest ciphertext accepted from the server (spec S9), checked before any work.
+pub const MAX_CIPHERTEXT_BYTES: usize = 262_144;
+
 pub fn open(dek: &Dek, aad: &[u8], blob: &[u8]) -> Result<Vec<u8>, AppError> {
+    if blob.len() > MAX_CIPHERTEXT_BYTES {
+        return Err(AppError::Invalid("Data sync tidak dapat didekripsi".into()));
+    }
     decrypt(dek.as_bytes(), aad, blob)
         .map_err(|_| AppError::Invalid("Data sync tidak dapat didekripsi".into()))
 }
@@ -254,6 +260,13 @@ pub fn aad(user_id: &str, record_id: &str, changed_at: i64, device_id: &str) -> 
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn open_rejects_oversized_ciphertext_before_decrypting() {
+        let dek = Dek::from_bytes([3; 32]);
+        let blob = vec![0; MAX_CIPHERTEXT_BYTES + 1];
+        assert!(matches!(open(&dek, b"aad", &blob), Err(AppError::Invalid(_))));
+    }
+
     #[test]
     fn rejects_out_of_range_kdf_parameters_from_the_server() {
         for (m_kib, t, p) in [(4_194_304, 3, 1), (65_536, 0, 1), (65_536, 100, 1), (65_536, 3, 64)] {

@@ -1,6 +1,6 @@
 # Anchoa Fase 9a Sync: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh Sol dan Sonnet (Gemini sedang habis kuota), lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh agy (Opus 4.6 Thinking di akun syharipf, Gemini 3.8 Flash High di akun lain) dan Sol, lalu dicek sesi Opus.
 
 **Goal:** sync local-first ke Supabase, terenkripsi end-to-end, hemat ruang, siap dipakai HP nanti.
 
@@ -234,7 +234,7 @@
   4. Ubah status di B, lalu sync di B dan A. Status baru harus ada di A.
   5. Hapus di A. `deleted_at` harus terisi di B.
   6. Di `sync.db` server palsu, payload tidak memuat "Tugas sync" dalam bentuk teks.
-- **Review keamanan wajib sebelum rilis:** Sol dan Sonnet (read-only, paralel), memakai tabel §11 "Model ancaman" di spec sebagai checklist baris per baris. Setiap baris harus punya bukti (test atau kode). Temuan diverifikasi lalu diperbaiki sebelum merge.
+- **Review keamanan wajib sebelum rilis:** Sol dan agy (read-only, paralel), memakai tabel §11 "Model ancaman" di spec sebagai checklist baris per baris. Setiap baris harus punya bukti (test atau kode). Temuan diverifikasi lalu diperbaiki sebelum merge.
 - Versi 0.18.0 dan status di `CLAUDE.md`. README dan MANUAL mendapat bagian Sync, dengan bagian Privasi diperbarui.
 - **Langkah user sebelum rilis:**
   - buat proyek Supabase (region Singapura);
@@ -247,5 +247,5 @@
 ## Menjalankan task
 
 - **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "<task>" < /dev/null`. Sandbox Sol tidak bisa commit dan tidak punya jaringan, jadi sesi Opus mengambil crate (`cargo fetch`) dan commit.
-- **Sonnet:** agent `implementer` untuk bantuan implementasi; agent read-only dengan model `sonnet` untuk review.
+- **agy:** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions -p "<task>" < /dev/null`. Di akun syharipf, `agy-multi` otomatis memakai `claude-opus-4-6-thinking`.
 - Task 3 butuh Docker atau Podman untuk `supabase start`. Kalau tidak tersedia di laptop, cukup verifikasi lewat job CI.

@@ -7,7 +7,7 @@ import { EmailList } from "./EmailList";
 import { ReadingPane } from "./ReadingPane";
 import { FOLDERS } from "./view";
 
-export function EmailPage() {
+export function EmailPage({ onChanged }: Readonly<{ onChanged?: () => void }>) {
   const [status, setStatus] = useState<EmailStatus | null>(null);
   const [folder, setFolder] = useState<EmailFolder>("inbox");
   const [filter, setFilter] = useState<EmailFilter>("all");
@@ -184,7 +184,7 @@ export function EmailPage() {
         </nav>
         <EmailList messages={messages} folder={folder} filter={filter} loading={loading} selectedId={openingId ?? selected?.id ?? null}
           busy={busy} onFilter={selectFilter} onOpen={open} onStar={star} />
-        {selected ? <ReadingPane key={selected.id} message={selected} busy={busy} onStar={star} onArchive={archive} onSent={() => void sync()} /> : (
+        {selected ? <ReadingPane key={selected.id} message={selected} busy={busy} onStar={star} onArchive={archive} onSent={() => void sync()} onChanged={onChanged} /> : (
           <div className="flex min-w-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-surface p-5 text-sm text-muted">
             <span role="status">{openingId ? "Membuka email…" : "Pilih email untuk dibaca."}</span>
           </div>

@@ -6,9 +6,14 @@ import { StarButton } from "./StarButton";
 import { emailDate, replySubject, sender, textParts } from "./view";
 import { useEmailSend } from "./useEmailSend";
 
-export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readonly<{
+// A proposal the user can no longer see must not stay queued in the backend.
+function dropProposal(id: string) {
+  api.assistantDecide(id, false).catch(() => undefined);
+}
+
+export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChanged }: Readonly<{
   message: EmailMessage; busy: boolean; onStar: (message: EmailMessage) => void;
-  onArchive: (message: EmailMessage) => void; onSent: () => void;
+  onArchive: (message: EmailMessage) => void; onSent: () => void; onChanged?: () => void;
 }>) {
   const [reply, setReply] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -18,6 +23,7 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const generation = useRef(0);
   const requesting = useRef(false);
+  const shownAction = useRef<string | null>(null);
   const sending = useEmailSend();
   const recipients = message.folder === "[Gmail]/Sent Mail" ? message.toAddrs : [message.fromAddr];
 
@@ -28,7 +34,11 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
     setActionStatus(null);
     setReply("");
     requesting.current = false;
-    return () => { generation.current++; };
+    return () => {
+      generation.current++;
+      if (shownAction.current) dropProposal(shownAction.current);
+      shownAction.current = null;
+    };
   }, [message.id]);
 
   async function assist() {
@@ -40,7 +50,12 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
     setActionStatus(null);
     try {
       const result = await api.emailAssist(message.id);
-      if (generation.current === token) setAssistance(result);
+      if (generation.current !== token) {
+        if (result.action) dropProposal(result.action.id);
+        return;
+      }
+      shownAction.current = result.action?.id ?? null;
+      setAssistance(result);
     } catch (e) {
       if (generation.current === token) setAssistError(errorMessage(e));
     } finally {
@@ -56,6 +71,8 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
     setAssistError(null);
     try {
       await api.assistantDecide(id, approve);
+      if (shownAction.current === id) shownAction.current = null;
+      if (approve) onChanged?.();
       if (generation.current !== token) return;
       setAssistance((current) => current ? { ...current, action: null } : current);
       setActionStatus(approve ? "Usulan disetujui." : "Usulan ditolak.");

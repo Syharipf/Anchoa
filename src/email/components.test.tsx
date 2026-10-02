@@ -54,12 +54,12 @@ describe("email UI", () => {
     spies.push(spyOn(api, "emailSync").mockResolvedValue({ headers: 1 }));
     const list = spyOn(api, "emailList").mockResolvedValue([message]);
     spies.push(list);
-    start(EmailPage);
+    start(() => EmailPage({}));
     return list;
   }
 
-  function readingPane() {
-    start(() => ReadingPane({ message, busy: false, onStar() {}, onArchive() {}, onSent() {} }));
+  function readingPane(onChanged?: () => void) {
+    start(() => ReadingPane({ message, busy: false, onStar() {}, onArchive() {}, onSent() {}, onChanged }));
   }
 
   async function assist() {
@@ -122,7 +122,8 @@ describe("email UI", () => {
     const decide = spyOn(api, "assistantDecide").mockRejectedValueOnce(new Error("Coba keputusan lagi"))
       .mockResolvedValue(null);
     spies.push(decide, spyOn(api, "emailAssist").mockResolvedValue(assistance));
-    readingPane();
+    const changed = mock(() => {});
+    readingPane(changed);
     await assist();
     const handler = element(ProposalCard).props.onDecide as (id: string, approve: boolean) => Promise<void>;
     await expect(handler("proposal-1", approve)).rejects.toThrow("Coba keputusan lagi");
@@ -131,12 +132,26 @@ describe("email UI", () => {
     await handler("proposal-1", approve);
     await harness.settle();
     expect(decide).toHaveBeenLastCalledWith("proposal-1", approve);
+    expect(changed).toHaveBeenCalledTimes(approve ? 1 : 0);
     expect(elements(harness.render()).some((el) => el.type === ProposalCard)).toBe(false);
+  });
+
+  it("rejects a shown proposal when another email is selected", async () => {
+    const decide = spyOn(api, "assistantDecide").mockResolvedValue(null);
+    spies.push(decide, spyOn(api, "emailAssist").mockResolvedValue(assistance));
+    let selected = message;
+    start(() => ReadingPane({ message: selected, busy: false, onStar() {}, onArchive() {}, onSent() {} }));
+    await assist();
+    selected = { ...message, id: "mail-2" };
+    harness.render();
+    await harness.settle();
+    expect(decide).toHaveBeenCalledWith("proposal-1", false);
   });
 
   it("discards a summary that finishes after selecting another email", async () => {
     const pending = deferred<EmailAssistance>();
-    spies.push(spyOn(api, "emailAssist").mockReturnValue(pending.promise));
+    const decide = spyOn(api, "assistantDecide").mockResolvedValue(null);
+    spies.push(decide, spyOn(api, "emailAssist").mockReturnValue(pending.promise));
     let selected = message;
     start(() => ReadingPane({ message: selected, busy: false, onStar() {}, onArchive() {}, onSent() {} }));
     const request = (element("button", "aria-label", "Ringkas email").props.onClick as () => Promise<void>)();
@@ -147,6 +162,7 @@ describe("email UI", () => {
     await harness.settle();
     expect(elements(harness.render()).some((el) => el.type === "li" || el.type === ProposalCard)).toBe(false);
     expect(element("button", "aria-label", "Ringkas email").props.disabled).toBe(false);
+    expect(decide).toHaveBeenCalledWith("proposal-1", false);
   });
 
   it.each([true, false])("clears the App Password immediately on submit (success=%s)", async (success) => {
@@ -292,7 +308,7 @@ describe("email UI", () => {
     spies.push(spyOn(api, "emailStatus").mockResolvedValue({ connected: false, address: null }));
     const sync = spyOn(api, "emailSync").mockResolvedValue({ headers: 1 });
     spies.push(sync, spyOn(api, "emailList").mockResolvedValue([message]));
-    start(EmailPage);
+    start(() => EmailPage({}));
     await harness.settle();
     expect(element(ConnectionForm)).toBeDefined();
     expect(sync).not.toHaveBeenCalled();
@@ -406,7 +422,7 @@ describe("email UI", () => {
     const status = spyOn(api, "emailStatus").mockRejectedValueOnce(new Error("DB gagal"))
       .mockResolvedValue({ connected: false, address: null });
     spies.push(status);
-    start(EmailPage);
+    start(() => EmailPage({}));
     expect(element("span", "role", "status").props.children).toBe("Memuat akun email…");
     await harness.settle();
     expect(element("p", "role", "alert").props.children).toBe("DB gagal");

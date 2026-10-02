@@ -36,6 +36,7 @@ pub async fn email_connect(
     app_password: String,
 ) -> Result<account::Status, AppError> {
     run(app, move |db, state| {
+        state.clear_client();
         let credentials = account::Credentials::new(&address, &app_password)?;
         state.with_client(credentials, |client| {
             account::connect(db, &state.keys, &address, &app_password, client)
@@ -46,17 +47,30 @@ pub async fn email_connect(
 
 #[tauri::command]
 pub async fn email_disconnect(app: AppHandle) -> Result<(), AppError> {
-    run(app, |db, state| account::disconnect(db, &state.keys)).await
+    run(app, |db, state| {
+        state.clear_client();
+        account::disconnect(db, &state.keys)
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn email_sync(app: AppHandle) -> Result<sync::SyncResult, AppError> {
-    run(app, |db, state| {
-        state.with_client(account::credentials(db, &state.keys)?, |client| {
-            sync::sync(db, client)
-        })
+    let (result, client) = run(app.clone(), |db, state| {
+        let credentials = account::credentials(db, &state.keys)?;
+        let client = state.get_client(credentials);
+        let res = sync::sync(db, &*client)?;
+        Ok((res, client))
     })
-    .await
+    .await?;
+
+    let app_bg = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(db) = app_bg.try_state::<Db>() else { return };
+        sync::prefetch(&db, &*client, 20);
+    });
+
+    Ok(result)
 }
 
 #[tauri::command]
@@ -79,12 +93,37 @@ pub async fn email_list(
 
 #[tauri::command]
 pub async fn email_open(app: AppHandle, id: String) -> Result<Email, AppError> {
-    run(app, move |db, state| {
-        state.with_client(account::credentials(db, &state.keys)?, |client| {
-            actions::open(db, client, &id)
-        })
+    let (email, bg_seen) = run(app.clone(), {
+        let id = id.clone();
+        move |db, state| {
+            let (orig, uid_validity) = actions::get_with_uid_validity(db, &id)?;
+            let was_cached = orig.body_cached;
+            let was_unread = orig.unread;
+            let folder = orig.folder.clone();
+            let uid = orig.uid;
+
+            let credentials = account::credentials(db, &state.keys)?;
+            let client = state.get_client(credentials);
+            let opened = actions::open(db, &*client, &id)?;
+            let bg_seen = if was_cached && was_unread {
+                Some((client, folder, uid, uid_validity))
+            } else {
+                None
+            };
+            Ok((opened, bg_seen))
+        }
     })
-    .await
+    .await?;
+
+    if let Some((client, folder, uid, uid_validity)) = bg_seen {
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Err(e) = client.set_flag(&folder, uid, uid_validity, Flag::Seen, true) {
+                log::warn!("Background set_flag Seen UID {uid} gagal: {e}");
+            }
+        });
+    }
+
+    Ok(email)
 }
 
 #[tauri::command]

@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{db::Db, error::AppError, items, time};
 
-fn get_with_uid_validity(db: &Db, id: &str) -> Result<(Email, u32), AppError> {
+pub fn get_with_uid_validity(db: &Db, id: &str) -> Result<(Email, u32), AppError> {
     let conn = db.conn()?;
     let email = get(&conn, id)?;
     let validity: Option<String> = conn
@@ -28,13 +28,12 @@ pub fn open(db: &Db, client: &dyn MailClient, id: &str) -> Result<Email, AppErro
     let body = if email.body_cached {
         None
     } else {
-        Some(body::parse(&client.fetch_body(
+        Some(body::parse(&client.fetch_body_and_mark_read(
             &email.folder,
             email.uid,
             uid_validity,
         )?)?)
     };
-    client.set_flag(&email.folder, email.uid, uid_validity, Flag::Seen, true)?;
     let now = time::now_ms();
     let mut conn = db.conn()?;
     let tx = conn.transaction()?;

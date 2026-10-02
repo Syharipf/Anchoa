@@ -31,11 +31,14 @@ pub fn allows_log_target(target: &str) -> bool {
         })
 }
 
+use std::sync::Arc;
+
 pub struct EmailState {
     operation: Mutex<()>,
     keys: account::KeyringStore,
     #[cfg(debug_assertions)]
-    fake: Option<fake::FakeMailClient>,
+    fake: Option<Arc<fake::FakeMailClient>>,
+    client: Mutex<Option<(String, Arc<client::GmailClient>)>>,
 }
 
 impl Default for EmailState {
@@ -47,7 +50,8 @@ impl Default for EmailState {
                 keys: account::KeyringStore::with_builder(
                     keyring::mock::default_credential_builder(),
                 ),
-                fake: Some(fake::FakeMailClient::default()),
+                fake: Some(Arc::new(fake::FakeMailClient::default())),
+                client: Mutex::new(None),
             };
         }
         Self {
@@ -55,21 +59,42 @@ impl Default for EmailState {
             keys: account::KeyringStore::default(),
             #[cfg(debug_assertions)]
             fake: None,
+            client: Mutex::new(None),
         }
     }
 }
 
 impl EmailState {
+    pub fn get_client(&self, credentials: account::Credentials) -> Arc<dyn client::MailClient> {
+        #[cfg(debug_assertions)]
+        if let Some(fake) = &self.fake {
+            return fake.clone();
+        }
+        let mut guard = self.client.lock().unwrap();
+        if let Some((addr, client)) = guard.as_ref()
+            && addr == &credentials.address
+        {
+            return client.clone();
+        }
+        let addr = credentials.address.clone();
+        let client = Arc::new(client::GmailClient::new(credentials));
+        *guard = Some((addr, client.clone()));
+        client
+    }
+
+    pub fn clear_client(&self) {
+        if let Ok(mut guard) = self.client.lock() {
+            *guard = None;
+        }
+    }
+
     fn with_client<T>(
         &self,
         credentials: account::Credentials,
         action: impl FnOnce(&dyn client::MailClient) -> Result<T, AppError>,
     ) -> Result<T, AppError> {
-        #[cfg(debug_assertions)]
-        if let Some(fake) = &self.fake {
-            return action(fake);
-        }
-        action(&client::GmailClient::new(credentials))
+        let client = self.get_client(credentials);
+        action(&*client)
     }
 }
 

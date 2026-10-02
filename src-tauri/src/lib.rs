@@ -120,6 +120,11 @@ pub fn run() {
             app.manage(assistant::AssistantState::default());
             app.manage(email::EmailState::default());
             app.manage(assistant::voice::VoiceState::new(data_dir));
+            let sync_server = sync::server::configured_server()?;
+            app.manage(sync::commands::SyncState::new(
+                sync_server,
+                keystore::KeyringStore::default(),
+            ));
             Ok(())
         })
         .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
@@ -250,6 +255,14 @@ pub fn run() {
             commands::search_items,
             commands::export_pages,
             commands::open_link,
+            sync::commands::sync_status,
+            sync::commands::sync_sign_in,
+            sync::commands::sync_cancel_sign_in,
+            sync::commands::sync_create_key,
+            sync::commands::sync_unlock_key,
+            sync::commands::sync_change_passphrase,
+            sync::commands::sync_now,
+            sync::commands::sync_sign_out,
         ]))
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

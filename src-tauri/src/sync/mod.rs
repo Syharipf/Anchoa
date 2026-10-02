@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod crypto;
 pub mod engine;
 pub mod fake;

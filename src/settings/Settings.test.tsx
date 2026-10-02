@@ -52,7 +52,6 @@ describe("DataSection", () => {
   it("renders database, ringkasan data, and backup sections with buttons", () => {
     const html = renderToStaticMarkup(<DataSection />);
     expect(html).toContain("Database lokal");
-    expect(html).toContain("Sinkron antarperangkat belum tersedia");
     expect(html).toContain("Backup sekarang");
     expect(html).toContain("Buka folder backup");
     expect(html).toContain("Buka folder data");

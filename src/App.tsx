@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
+import { api, errorMessage, onSyncChanged, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import type { AssistantRequest, OpenAssistant } from "./assistant/useAssistantRequest";
 import { LockScreen } from "./security/LockScreen";
@@ -97,6 +97,20 @@ export function App() {
   useEffect(() => {
     if (ready) reload();
   }, [ready, stack, reload]);
+
+  // Records pulled from another device change what every page shows.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let active = true;
+    onSyncChanged(onAssistantChanged).then(
+      (stop) => (active ? (unlisten = stop) : stop()),
+      () => {},
+    );
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [onAssistantChanged]);
 
   // The Unduhan card shows live progress: refresh every second while it lists downloads.
   const downloading = page.name === "dashboard" && (dashboard.data?.downloads.items.length ?? 0) > 0;

@@ -14,6 +14,7 @@ import { AvatarSection } from "./AvatarSection";
 import { DataSection } from "./DataSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { SettingsNav } from "./SettingsNav";
+import { SyncSection } from "./SyncSection";
 import { VoiceSection } from "./VoiceSection";
 import { normalizeSection, type SettingsSection } from "./view";
 
@@ -95,7 +96,12 @@ export function Settings({
           {section === "ai" && <AiSection onChanged={loadAi} />}
           {section === "avatar" && <AvatarSection />}
           {section === "suara" && <VoiceSection onChanged={loadVoice} />}
-          {section === "data" && <DataSection />}
+          {section === "data" && (
+            <div className="flex flex-col gap-4">
+              <SyncSection />
+              <DataSection />
+            </div>
+          )}
           {section === "integrations" && (
             <IntegrationsSection onChanged={handleGithubChanged} />
           )}

@@ -1,4 +1,5 @@
 import { GithubSection } from "./GithubSection";
+import { EmailSection } from "./EmailSection";
 import { H2, PANEL } from "../shell/ui";
 
 export function IntegrationsSection({
@@ -7,6 +8,7 @@ export function IntegrationsSection({
   return (
     <div className="flex flex-col gap-4">
       <GithubSection onChanged={onChanged} />
+      <EmailSection onChanged={onChanged} />
       <section className={`${PANEL} flex flex-col items-start gap-2`}>
         <div className="flex items-center gap-2">
           <h2 className={H2}>Laptop dari HP (SFTP)</h2>

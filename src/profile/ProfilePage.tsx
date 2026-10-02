@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import {
   api,
   errorMessage,
+  type EmailStatus,
   type GithubStatus,
   type NotifyPrefs,
   type Profile,
@@ -10,6 +11,7 @@ import {
 import { School } from "../assistant/School";
 import { PinDialog } from "../security/PinDialog";
 import type { PinFormMode } from "../security/PinFields";
+import { connectionLabel } from "../email/view";
 import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { FIELD, H1, H2, PANEL } from "../shell/ui";
@@ -39,6 +41,7 @@ export function ProfilePage({
   const toast = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [github, setGithub] = useState<GithubStatus | null>(null);
+  const [email, setEmail] = useState<EmailStatus | null>(null);
   const [prefs, setPrefs] = useState<NotifyPrefs>(initialPrefs ?? DEFAULT_PREFS);
   const [isEditing, setIsEditing] = useState(false);
   const [nameInput, setNameInput] = useState("");
@@ -81,6 +84,7 @@ export function ProfilePage({
       (e) => toast(errorMessage(e), "error"),
     );
     api.githubStatus().then(setGithub).catch(() => {});
+    api.emailStatus().then(setEmail).catch((e) => toast(errorMessage(e), "error"));
   }, [toast]);
 
   const handleStartEdit = () => {
@@ -351,11 +355,8 @@ export function ProfilePage({
               </span>
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-sm font-medium text-ink">Email</span>
-                <span className="text-xs text-muted">Kotak masuk IMAP</span>
+                <span className="break-all text-xs text-muted">{connectionLabel(email)}</span>
               </div>
-              <span className="shrink-0 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">
-                Menyusul
-              </span>
             </div>
 
             <div className="flex items-center gap-3 border-t border-line pt-3">

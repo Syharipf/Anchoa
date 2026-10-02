@@ -94,7 +94,7 @@ fn finance_summary(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Finance
         bills::list_bills(conn, now, tz)?.into_iter().filter(|b| matches!(b.status, BillStatus::Overdue | BillStatus::DueToday)).collect();
     Ok(FinanceSummary {
         has_accounts: !accounts.is_empty(),
-        balance: accounts.iter().map(|a| a.balance).sum(),
+        balance: finance::total_balance(&accounts)?,
         expense,
         budget: overview::budget_view(conn, expense)?,
         due_bills,
@@ -338,6 +338,51 @@ mod tests {
         let b = capture_note(&conn, "b", 2).unwrap();
         delete(&conn, &b.id, 3).unwrap();
         assert_eq!(get_test(&conn, 4, &jakarta()).unwrap().inbox_count, 1);
+    }
+
+    #[test]
+    fn today_and_overdue_change_at_the_exact_jakarta_midnight() {
+        let conn = open_in_memory();
+        let last = task_due(&conn, "akhir hari", "2026-09-29T23:59:59.999+07:00");
+        let next = task_due(&conn, "awal hari", "2026-09-30T00:00:00+07:00");
+        let midnight = ms("2026-09-30T00:00:00+07:00");
+        let before = get_test(&conn, midnight - 1, &jakarta()).unwrap();
+        assert_eq!(before.today.iter().map(|task| (task.id.as_str(), task.overdue)).collect::<Vec<_>>(), [(last.as_str(), false)]);
+        assert_eq!(before.upcoming[0].tasks[0].id, next);
+        let after = get_test(&conn, midnight, &jakarta()).unwrap();
+        assert_eq!(after.today.iter().map(|task| (task.id.as_str(), task.overdue)).collect::<Vec<_>>(), [(last.as_str(), true), (next.as_str(), false)]);
+        assert!(after.upcoming.iter().all(|day| day.tasks.is_empty()));
+    }
+
+    #[test]
+    fn completion_at_midnight_belongs_only_to_the_new_day() {
+        let conn = open_in_memory();
+        let midnight = ms("2026-09-30T00:00:00+07:00");
+        let done = task_due(&conn, "selesai tepat tengah malam", "2026-09-27T00:00:00+07:00");
+        complete_task(&conn, &done, midnight);
+        assert!(get_test(&conn, midnight - 1, &jakarta()).unwrap().today.is_empty());
+        assert_eq!(get_test(&conn, midnight, &jakarta()).unwrap().today[0].id, done);
+    }
+
+    #[test]
+    fn deleted_notes_do_not_take_recent_slots() {
+        let conn = open_in_memory();
+        let live = capture_note(&conn, "masih ada", 1).unwrap();
+        let gone = capture_note(&conn, "dihapus", 2).unwrap();
+        open(&conn, &gone.id, 100).unwrap();
+        delete(&conn, &gone.id, 101).unwrap();
+        let dashboard = get_test(&conn, 102, &jakarta()).unwrap();
+        assert_eq!(dashboard.recent.len(), 1);
+        assert_eq!(dashboard.recent[0].id, live.id);
+    }
+
+    #[test]
+    fn dashboard_returns_app_error_when_total_balance_overflows() {
+        use crate::finance::testing::{account, now};
+        let conn = open_in_memory();
+        account(&conn, "BCA", i64::MAX);
+        account(&conn, "Tunai", 1);
+        assert!(matches!(get_test(&conn, now(), &jakarta()), Err(AppError::Invalid(_))));
     }
 
     #[test]

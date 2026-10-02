@@ -1000,4 +1000,48 @@ mod tests {
         // when label: "Selasa, 29 Sep · 21.10"
         assert_eq!(format_when(t_today, &tz).unwrap(), "Selasa, 29 Sep · 21.10");
     }
+
+    #[test]
+    fn deleted_entries_leave_lists_search_moods_and_ideas() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let live = create_entry(&conn, EntryKind::Idea, Some("Ide hidup"), now(), &tz).unwrap();
+        let gone = create_entry(&conn, EntryKind::Idea, Some("Ide dihapus"), now(), &tz).unwrap();
+        update_entry(&conn, &live.id, &EntryPatch { mood: Some(Some(5)), ..Default::default() }, now(), &tz).unwrap();
+        update_entry(&conn, &gone.id, &EntryPatch { mood: Some(Some(1)), ..Default::default() }, now(), &tz).unwrap();
+        let yesterday = create_entry(&conn, EntryKind::Vent, Some("Kemarin dihapus"), ms("2026-09-28T23:59:59.999+07:00"), &tz).unwrap();
+        for id in [&gone.id, &yesterday.id] {
+            items::delete(&conn, id, now()).unwrap();
+            assert!(matches!(journal_entry(&conn, id, now(), &tz), Err(AppError::NotFound)));
+            assert!(matches!(update_entry(&conn, id, &EntryPatch::default(), now(), &tz), Err(AppError::NotFound)));
+            assert!(matches!(entry_to_task(&conn, id, now(), &tz), Err(AppError::NotFound)));
+        }
+        let groups = journal_list(&conn, &ListQuery::default(), now(), &tz).unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].entries.iter().map(|entry| entry.id.as_str()).collect::<Vec<_>>(), [live.id.as_str()]);
+        for kind in [None, Some(EntryKind::Idea), Some(EntryKind::Vent)] {
+            let query = ListQuery { query: Some("dihapus".into()), kind };
+            assert!(journal_list(&conn, &query, now(), &tz).unwrap().is_empty());
+        }
+        let side = journal_side(&conn, now(), &tz).unwrap();
+        assert_eq!(side.write_days, 1);
+        assert_eq!(side.trend.last().unwrap().mood, Some(5));
+        assert!(!side.trend[28].wrote);
+        assert_eq!(side.ideas.iter().map(|entry| entry.id.as_str()).collect::<Vec<_>>(), [live.id.as_str()]);
+    }
+
+    #[test]
+    fn journal_groups_and_trend_cross_jakarta_midnight_together() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let midnight = ms("2026-10-01T00:00:00+07:00");
+        let before = create_entry(&conn, EntryKind::Note, Some("Sebelum"), midnight - 1, &tz).unwrap();
+        let after = create_entry(&conn, EntryKind::Note, Some("Sesudah"), midnight, &tz).unwrap();
+        let groups = journal_list(&conn, &ListQuery::default(), midnight, &tz).unwrap();
+        assert_eq!(groups.iter().map(|group| (group.key.as_str(), group.entries[0].id.as_str())).collect::<Vec<_>>(), [("today", after.id.as_str()), ("yesterday", before.id.as_str())]);
+        let side = journal_side(&conn, midnight, &tz).unwrap();
+        assert_eq!(side.trend[28].date, "2026-09-30");
+        assert_eq!(side.trend[29].date, "2026-10-01");
+        assert_eq!(side.write_days, 2);
+    }
 }

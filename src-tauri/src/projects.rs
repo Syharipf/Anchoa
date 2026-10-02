@@ -528,10 +528,9 @@ mod tests {
     #[test]
     fn agent_dir_must_be_under_home() {
         let conn = open_in_memory();
-        let dir = tempfile::tempdir().unwrap();
         let input: ProjectInput = serde_json::from_value(serde_json::json!({
             "name": "Agen", "kind": "app", "description": "", "agent": true,
-            "agentDir": dir.path().canonicalize().unwrap()
+            "agentDir": std::path::MAIN_SEPARATOR.to_string()
         })).unwrap();
         assert!(matches!(save_project(&conn, &input, now(), &jakarta()), Err(AppError::Invalid(_))));
         assert!(projects_overview(&conn, now(), &jakarta()).unwrap().projects.is_empty());
@@ -567,9 +566,8 @@ mod tests {
         let conn = open_in_memory();
         let dir = tempfile::tempdir_in(".").unwrap();
         let file = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
-        let outside = tempfile::tempdir().unwrap();
         #[cfg(unix)]
-        std::os::unix::fs::symlink(outside.path(), dir.path().join("escape")).unwrap();
+        std::os::unix::fs::symlink("/", dir.path().join("escape")).unwrap();
         for path in [file.path().to_path_buf(), dir.path().join("missing"), dir.path().join("escape")] {
             let input: ProjectInput = serde_json::from_value(serde_json::json!({
                 "name": "Agen", "kind": "app", "description": "", "agent": true, "agentDir": path
@@ -877,5 +875,41 @@ mod tests {
         assert_eq!(top2[0].id, p1.summary.id);
         assert_eq!(top2[1].id, p2.summary.id);
         assert!(!top2.iter().any(|p| p.id == p_done.summary.id || p.id == p3.summary.id));
+    }
+
+    #[test]
+    fn deleted_tasks_leave_progress_boards_loose_counts_and_upcoming() {
+        let conn = open_in_memory();
+        let project = save_project(&conn, &ProjectInput { name: "Anchoa".into(), ..Default::default() }, now(), &jakarta()).unwrap();
+        let live = create_task(&conn, &NewTask { title: "Ada".into(), project_id: Some(project.summary.id.clone()), ..Default::default() }, now(), &jakarta()).unwrap();
+        for (project_id, status) in [(Some(project.summary.id.clone()), TaskStatus::Done), (Some(project.summary.id.clone()), TaskStatus::Plan), (None, TaskStatus::Done), (None, TaskStatus::Plan)] {
+            let gone = create_task(&conn, &NewTask { title: "Dihapus".into(), project_id, status, ..Default::default() }, now(), &jakarta()).unwrap();
+            crate::items::update(&conn, &gone.id, &crate::items::ItemPatch { due_at: Some(Some(now())), ..Default::default() }, now()).unwrap();
+            crate::tasks::delete_task(&conn, &gone.id, now()).unwrap();
+        }
+        let overview = projects_overview(&conn, now(), &jakarta()).unwrap();
+        assert_eq!((overview.projects[0].done, overview.projects[0].total, overview.active_count), (0, 1, 1));
+        assert_eq!((overview.loose.done, overview.loose.total), (0, 0));
+        assert!(overview.upcoming.is_empty());
+        let board = project_board(&conn, Some(&project.summary.id), now(), &jakarta()).unwrap();
+        assert_eq!(board.columns.plan, [live]);
+        assert!(board.columns.done.is_empty());
+        let loose = project_board(&conn, None, now(), &jakarta()).unwrap();
+        assert!(loose.columns.plan.is_empty() && loose.columns.done.is_empty());
+    }
+
+    #[test]
+    fn deleted_projects_leave_overview_active_list_board_and_repo_lookup() {
+        let conn = open_in_memory();
+        let project = save_project(&conn, &ProjectInput { name: "Anchoa".into(), repo_url: Some("https://github.com/user/repo".into()), ..Default::default() }, now(), &jakarta()).unwrap();
+        let id = project.summary.id;
+        delete_project(&conn, &id, now()).unwrap();
+        assert!(projects_overview(&conn, now(), &jakarta()).unwrap().projects.is_empty());
+        assert!(active_projects(&conn, now(), &jakarta(), 2).unwrap().is_empty());
+        assert!(matches!(get_project(&conn, &id, now(), &jakarta()), Err(AppError::NotFound)));
+        assert!(matches!(project_board(&conn, Some(&id), now(), &jakarta()), Err(AppError::NotFound)));
+        assert!(matches!(repo_url(&conn, &id), Err(AppError::NotFound)));
+        let edit = ProjectInput { id: Some(id), name: "Ubah".into(), ..Default::default() };
+        assert!(matches!(save_project(&conn, &edit, now(), &jakarta()), Err(AppError::NotFound)));
     }
 }

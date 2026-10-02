@@ -406,6 +406,20 @@ mod tests {
     }
 
     #[test]
+    fn deleted_subtasks_leave_detail_and_progress_counts() {
+        let conn = open_in_memory();
+        let parent = create_task(&conn, &NewTask { title: "Induk".into(), ..Default::default() }, now(), &jakarta()).unwrap();
+        let live = create_task(&conn, &NewTask { title: "Ada".into(), parent_id: Some(parent.id.clone()), ..Default::default() }, now(), &jakarta()).unwrap();
+        let gone = create_task(&conn, &NewTask { title: "Dihapus".into(), parent_id: Some(parent.id.clone()), status: TaskStatus::Done, ..Default::default() }, now(), &jakarta()).unwrap();
+        delete_task(&conn, &gone.id, now()).unwrap();
+        let detail = get_task(&conn, &parent.id, now(), &jakarta()).unwrap();
+        assert_eq!((detail.card.sub_done, detail.card.sub_total), (0, 1));
+        assert_eq!(detail.subtasks, [live]);
+        assert!(matches!(get_task(&conn, &gone.id, now(), &jakarta()), Err(AppError::NotFound)));
+        assert!(matches!(update_task(&conn, &gone.id, &TaskPatch::default(), now(), &jakarta()), Err(AppError::NotFound)));
+    }
+
+    #[test]
     fn update_task_status_writes_activity_as_kamu_only_when_changed() {
         let conn = open_in_memory();
         let project = make_project(&conn, "Agen");

@@ -383,6 +383,38 @@ mod tests {
     }
 
     #[test]
+    fn bill_status_and_payments_follow_exact_jakarta_day_boundaries() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 10);
+        let due = bill(&conn, &bca, "Air", 1, Repeat::Monthly, "2026-09-30T00:00:00+07:00");
+        let midnight = due.due_at;
+        assert_eq!(get_bill(&conn, &due.id, midnight - 1, &jakarta()).unwrap().status, BillStatus::Upcoming);
+        assert_eq!(get_bill(&conn, &due.id, midnight, &jakarta()).unwrap().status, BillStatus::DueToday);
+        assert_eq!(get_bill(&conn, &due.id, midnight + DAY - 1, &jakarta()).unwrap().status, BillStatus::DueToday);
+        let late = get_bill(&conn, &due.id, midnight + DAY, &jakarta()).unwrap();
+        assert_eq!((late.status, late.days_late), (BillStatus::Overdue, 1));
+        let paid = pay_bill(&conn, &due.id, midnight + DAY, &jakarta()).unwrap();
+        assert_eq!(paid.amount, -1);
+        assert_eq!(get_bill(&conn, &due.id, midnight + DAY - 1, &jakarta()).unwrap().status, BillStatus::Upcoming);
+        assert_eq!(get_bill(&conn, &due.id, midnight + DAY, &jakarta()).unwrap().status, BillStatus::PaidToday);
+        assert_eq!(get_bill(&conn, &due.id, midnight + 2 * DAY, &jakarta()).unwrap().status, BillStatus::Upcoming);
+    }
+
+    #[test]
+    fn deleted_bills_are_not_found_by_read_write_or_payment_paths() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 10);
+        let gone = bill(&conn, &bca, "Air", 1, Repeat::Monthly, "2026-09-29T00:00:00+07:00");
+        delete_bill(&conn, &gone.id, now(), &jakarta()).unwrap();
+        assert!(list_bills(&conn, now(), &jakarta()).unwrap().is_empty());
+        assert!(matches!(get_bill(&conn, &gone.id, now(), &jakarta()), Err(AppError::NotFound)));
+        assert!(matches!(pay_bill(&conn, &gone.id, now(), &jakarta()), Err(AppError::NotFound)));
+        let edit = BillInput { id: Some(gone.id), name: "Air".into(), account_id: bca.clone(), amount: 1, ..Default::default() };
+        assert!(matches!(save_bill(&conn, &edit, now(), &jakarta()), Err(AppError::NotFound)));
+        assert_eq!(get_account(&conn, &bca, now(), &jakarta()).unwrap().balance, 10);
+    }
+
+    #[test]
     fn wire_names_match_the_frontend() {
         let input: BillInput =
             serde_json::from_str(r#"{"name":"Air","amount":1,"accountId":"a","repeat":"once","dueAt":0}"#).unwrap();

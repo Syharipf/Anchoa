@@ -29,6 +29,19 @@ describe("relativeTime", () => {
 });
 
 describe("dates", () => {
+  test("rejects malformed or impossible calendar dates without rolling into another day", () => {
+    for (const bad of ["bad-date", "2026-02-30", "1900-02-29", "2026-13-01", "2026-00-01", "2026-09-00", "2026-9-01", "2026-09-1", "2026-09-29T00:00", "0000-01-01"]) {
+      expect(dateInputToMs(bad)).toBeNull();
+    }
+    expect(dateInputToMs("2028-02-29")).toBe(at("2028-02-29T00:00:00+07:00"));
+  });
+
+  test("date inputs follow Jakarta midnight even while UTC remains on the previous day", () => {
+    const midnight = at("2026-10-01T00:00:00+07:00");
+    expect(msToDateInput(midnight - 1)).toBe("2026-09-30");
+    expect(msToDateInput(midnight)).toBe("2026-10-01");
+  });
+
   test("short Indonesian date", () => {
     expect(shortDate(at("2026-09-12T08:00:00+07:00"))).toBe("12 Sep");
   });
@@ -87,4 +100,3 @@ describe("formatBytes", () => {
     expect(formatBytes(Math.round(2.5 * 1024 * 1024 * 1024))).toBe("2,5 GB");
   });
 });
-

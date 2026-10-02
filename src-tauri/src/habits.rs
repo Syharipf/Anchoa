@@ -677,6 +677,47 @@ mod tests {
     use crate::db::open_in_memory;
     use crate::finance::testing::{jakarta, ms, now};
 
+    #[test]
+    fn deleted_checks_leave_today_history_streaks_and_reminders() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let habit = save_habit(&conn, &HabitInput { name: "Jurnal".into(), days: 127, remind_at: Some("00:00".into()), remind_on: true, ..Default::default() }, now(), &tz).unwrap();
+        check_habit(&conn, &habit.id, true, now(), &tz).unwrap();
+        let unchecked = check_habit(&conn, &habit.id, false, now(), &tz).unwrap();
+        assert!(!unchecked.done_today);
+        assert_eq!((unchecked.streak, unchecked.best, unchecked.rate30), (0, 0, 0));
+        let overview = habits_overview(&conn, now(), &tz).unwrap();
+        assert_eq!((overview.today_done, overview.consistency.done), (0, 0));
+        let history = habit_history(&conn, &habit.id, "2026-09", now(), &tz).unwrap();
+        assert_eq!(history.cells.iter().find(|cell| cell.date == "2026-09-29").unwrap().state, DayState::Todo);
+        assert_eq!(due_reminders(&conn, now(), &tz).unwrap()[0].id, habit.id);
+    }
+
+    #[test]
+    fn checks_and_reminders_reset_at_jakarta_midnight() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let midnight = ms("2026-09-30T00:00:00+07:00");
+        let habit = save_habit(&conn, &HabitInput { name: "Minum".into(), days: 127, remind_at: Some("00:00".into()), remind_on: true, ..Default::default() }, midnight - 1, &tz).unwrap();
+        check_habit(&conn, &habit.id, true, midnight - 1, &tz).unwrap();
+        assert!(due_reminders(&conn, midnight - 1, &tz).unwrap().is_empty());
+        let overview = habits_overview(&conn, midnight, &tz).unwrap();
+        assert_eq!((overview.today.as_str(), overview.today_done), ("2026-09-30", 0));
+        assert!(!overview.habits[0].done_today);
+        assert_eq!(due_reminders(&conn, midnight, &tz).unwrap()[0].id, habit.id);
+    }
+
+    #[test]
+    fn auto_journal_does_not_check_deleted_habits() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let habit = save_habit(&conn, &HabitInput { name: "Jurnal".into(), days: 127, auto_journal: true, ..Default::default() }, now(), &tz).unwrap();
+        delete_habit(&conn, &habit.id, now()).unwrap();
+        auto_check_journal(&conn, now(), &tz).unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM habit_checks WHERE habit_id = ?1", [&habit.id], |row| row.get(0)).unwrap();
+        assert_eq!(count, 0);
+    }
+
     fn date(s: &str) -> Date {
         s.parse::<Date>().unwrap()
     }

@@ -40,6 +40,11 @@ pub fn balance_cutoff(now: i64, tz: &TimeZone) -> Result<i64, AppError> {
     Ok(day_bounds(now, tz)?.1)
 }
 
+pub fn total_balance(accounts: &[AccountView]) -> Result<i64, AppError> {
+    let total: i128 = accounts.iter().map(|account| i128::from(account.balance)).sum();
+    i64::try_from(total).map_err(|_| invalid("Total saldo di luar batas bilangan bulat"))
+}
+
 // ---------- accounts ----------
 
 // ?1 = balance cutoff
@@ -788,5 +793,87 @@ mod tests {
         assert_eq!(c.expense.len(), EXPENSE_CATEGORIES.len() + 1);
         assert_eq!(c.expense.last().map(String::as_str), Some("Kopi"));
         assert_eq!(c.income, INCOME_CATEGORIES.map(String::from).to_vec());
+    }
+
+    #[test]
+    fn deleted_transactions_disappear_from_every_flow_and_custom_categories() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 0);
+        let live = spend(&conn, &bca, 1, "Kopi", TODAY);
+        let expense = spend(&conn, &bca, 99, "Kategori dihapus", TODAY);
+        let income = earn(&conn, &bca, 100, TODAY);
+        conn.execute("UPDATE transactions SET category = 'Bonus dihapus' WHERE item_id = ?1", [&income.id]).unwrap();
+        for id in [&expense.id, &income.id] {
+            delete_transaction(&conn, id, now(), &jakarta()).unwrap();
+            assert!(matches!(get_transaction(&conn, id, now(), &jakarta()), Err(AppError::NotFound)));
+        }
+        for flow in [Flow::All, Flow::Out] {
+            assert_eq!(page(&conn, "2026-09", flow, 0).items.as_slice(), std::slice::from_ref(&live));
+        }
+        assert!(page(&conn, "2026-09", Flow::In, 0).items.is_empty());
+        let categories = categories(&conn).unwrap();
+        assert!(!categories.expense.contains(&"Kategori dihapus".into()));
+        assert!(!categories.income.contains(&"Bonus dihapus".into()));
+    }
+
+    #[test]
+    fn deleted_accounts_and_transfers_cannot_be_reused_or_edited() {
+        let conn = open_in_memory();
+        let from = account(&conn, "BCA", 0);
+        let to = account(&conn, "GoPay", 0);
+        let out = transfer(&conn, &from, &to, 1, TODAY);
+        let incoming = transfer_legs(&conn, out.transfer_id.as_deref().unwrap()).unwrap().unwrap().1;
+        delete_transaction(&conn, &incoming, now(), &jakarta()).unwrap();
+        assert!(page(&conn, "2026-09", Flow::All, 0).items.is_empty());
+        let edit = TransferInput { transfer_id: out.transfer_id, from_account_id: from.clone(), to_account_id: to.clone(), amount: 1, ..Default::default() };
+        assert!(matches!(save_transfer(&conn, &edit, now(), &jakarta()), Err(AppError::NotFound)));
+        delete_account(&conn, &to, now(), &jakarta()).unwrap();
+        assert!(matches!(get_account(&conn, &to, now(), &jakarta()), Err(AppError::NotFound)));
+        assert!(matches!(require_live_account(&conn, &to), Err(AppError::Invalid(_))));
+        let edit = AccountInput { id: Some(to.clone()), name: "GoPay".into(), kind: "bank".into(), ..Default::default() };
+        assert!(matches!(save_account(&conn, &edit, now(), &jakarta()), Err(AppError::NotFound)));
+        let input = TransactionInput { account_id: to, amount: 1, ..Default::default() };
+        assert!(matches!(save_transaction(&conn, &input, now(), &jakarta()), Err(AppError::Invalid(_))));
+        assert_eq!(list_accounts(&conn, now(), &jakarta()).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn scheduled_money_enters_the_balance_at_jakarta_midnight() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 10);
+        let last = earn(&conn, &bca, 1, "2026-09-29T23:59:59.999+07:00");
+        let next = earn(&conn, &bca, 2, "2026-09-30T00:00:00+07:00");
+        let midnight = next.occurred_at;
+        assert_eq!(get_account(&conn, &bca, midnight - 1, &jakarta()).unwrap().balance, 11);
+        assert!(!get_transaction(&conn, &last.id, midnight - 1, &jakarta()).unwrap().scheduled);
+        assert!(get_transaction(&conn, &next.id, midnight - 1, &jakarta()).unwrap().scheduled);
+        assert_eq!(get_account(&conn, &bca, midnight, &jakarta()).unwrap().balance, 13);
+        assert!(!get_transaction(&conn, &next.id, midnight, &jakarta()).unwrap().scheduled);
+    }
+
+    #[test]
+    fn integer_money_survives_json_storage_transfers_and_aggregation() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 0);
+        let cash = account(&conn, "Tunai", 0);
+        let amount = 9_007_199_254_740_991_i64; // Largest exact integer in the frontend.
+        let input: TransactionInput = serde_json::from_value(serde_json::json!({
+            "kind": "income", "amount": amount, "accountId": bca, "occurredAt": ms(TODAY), "title": "Gaji"
+        })).unwrap();
+        let saved = save_transaction(&conn, &input, now(), &jakarta()).unwrap();
+        assert_eq!(serde_json::to_value(&saved).unwrap()["amount"].as_i64(), Some(amount));
+        let stored: (i64, String) = conn.query_row("SELECT amount, typeof(amount) FROM transactions WHERE item_id = ?1", [&saved.id], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
+        assert_eq!(stored, (amount, "integer".into()));
+        transfer(&conn, &bca, &cash, 1, TODAY);
+        spend(&conn, &cash, 1, "Kopi", TODAY);
+        assert_eq!((balance(&conn, &bca), balance(&conn, &cash)), (amount - 1, 0));
+        let overview = crate::overview::overview(&conn, None, now(), &jakarta()).unwrap();
+        assert_eq!((overview.income, overview.expense, overview.net, overview.balance), (amount, 1, amount - 1, amount - 1));
+        for bad in [serde_json::json!(1.5), serde_json::json!("1"), serde_json::json!(null)] {
+            let mut json = serde_json::to_value(&saved).unwrap();
+            json["kind"] = serde_json::json!("income");
+            json["amount"] = bad;
+            assert!(serde_json::from_value::<TransactionInput>(json).is_err());
+        }
     }
 }

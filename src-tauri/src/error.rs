@@ -55,3 +55,30 @@ impl Serialize for AppError {
         s.end()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_app_error_serializes_to_a_code_and_message() {
+        let time_error = jiff::Timestamp::from_millisecond(i64::MAX).unwrap_err();
+        for (error, code) in [
+            (AppError::Empty, "empty"),
+            (AppError::NotFound, "not_found"),
+            (AppError::Invalid("Masukan salah".into()), "invalid"),
+            (AppError::AccountInUse, "account_in_use"),
+            (AppError::DbUnavailable, "db_unavailable"),
+            (AppError::DbTooNew(99), "db_too_new"),
+            (AppError::Locked, "locked"),
+            (rusqlite::Error::InvalidQuery.into(), "db"),
+            (std::io::Error::from(std::io::ErrorKind::PermissionDenied).into(), "io"),
+            (time_error.into(), "time"),
+            (AppError::Tauri(tauri::Error::AssetNotFound("missing".into())), "other"),
+            (AppError::Other("Gagal".into()), "other"),
+        ] {
+            let json = serde_json::to_value(&error).unwrap();
+            assert_eq!(json, serde_json::json!({ "code": code, "message": error.to_string() }));
+        }
+    }
+}

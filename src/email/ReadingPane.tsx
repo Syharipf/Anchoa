@@ -98,7 +98,7 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
           </div>
           {assisting && <p role="status" className="m-0 text-xs text-muted">Asisten sedang merangkum…</p>}
           {assistance && <ul className="m-0 flex list-disc flex-col gap-1 pl-[18px] text-[13px] leading-relaxed text-ink">
-            {assistance.summary.map((point, index) => <li key={index}>{point}</li>)}
+            {assistance.summary.map((point) => <li key={point}>{point}</li>)}
           </ul>}
           {assistance?.action && <ProposalCard proposal={assistance.action} onDecide={decide} />}
           {actionStatus && <p role="status" className="m-0 text-xs text-muted">{actionStatus}</p>}
@@ -114,7 +114,7 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent }: Readon
       </div>
       <form onSubmit={submit} className="flex shrink-0 flex-col gap-2 border-t border-line bg-stage py-3 pr-[88px] pl-5">
         {assistance && <div role="group" aria-label="Saran balasan" className="flex flex-wrap gap-1.5">
-          {assistance.replies.map((suggestion, index) => <button key={index} type="button" disabled={busy || sending.busy}
+          {assistance.replies.map((suggestion) => <button key={suggestion} type="button" disabled={busy || sending.busy}
             onClick={() => setReply(suggestion)} className={`${SECONDARY} min-h-7 px-2.5 text-xs disabled:opacity-50`}>{suggestion}</button>)}
         </div>}
         <label htmlFor="email-reply" className="text-xs text-muted">Balas ke {recipients.join(", ")}</label>

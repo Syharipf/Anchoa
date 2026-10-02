@@ -1,6 +1,6 @@
 //! Item records contain deflated plaintext JSON. The sync engine encrypts them
 //! later and owns version comparisons; applying a record never queues it again.
-use miniz_oxide::{deflate::compress_to_vec, inflate::decompress_to_vec};
+use miniz_oxide::{deflate::compress_to_vec, inflate::decompress_to_vec_with_limit};
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter, types::Value as SqlValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -9,6 +9,7 @@ use crate::error::AppError;
 
 pub const SYNCED_TYPES: &[&str] = &["task", "project", "account", "transaction", "bill", "budget", "habit", "note", "page"];
 pub const MAX_RECORD_BYTES: usize = 262_144;
+pub const MAX_DECOMPRESSED_BYTES: usize = 8 * 1024 * 1024;
 // crypto::seal adds a 24-byte nonce and a 16-byte Poly1305 tag.
 const ENCRYPTION_OVERHEAD: usize = 40;
 
@@ -87,11 +88,19 @@ struct CheckDocument {
     habit_check: CheckData,
 }
 
+#[derive(Serialize)]
+struct TombstoneDocument<'a> {
+    schema: i64,
+    tombstone: bool,
+    id: &'a str,
+}
+
 #[derive(Clone)]
 pub struct Record {
     pub id: String,
     pub changed_at: i64,
     pub deleted: bool,
+    /// Export always supplies a payload, including for tombstones; apply rejects `None`.
     pub payload: Option<Vec<u8>>,
 }
 
@@ -136,6 +145,11 @@ fn compressed<T: Serialize>(document: &T, title: &str) -> Result<Vec<u8>, AppErr
     Ok(payload)
 }
 
+fn export_tombstone(conn: &Connection, id: &str, changed_at: i64) -> Result<Record, AppError> {
+    let document = TombstoneDocument { schema: schema(conn)?, tombstone: true, id };
+    Ok(Record { id: id.into(), changed_at, deleted: true, payload: Some(compressed(&document, id)?) })
+}
+
 fn export_extension(conn: &Connection, ext: &Extension, id: &str) -> Result<Option<Map<String, Value>>, AppError> {
     let sql = format!("SELECT {} FROM {} WHERE item_id = ?1", ext.columns.join(", "), ext.table);
     Ok(conn
@@ -156,10 +170,11 @@ fn export_extension(conn: &Connection, ext: &Extension, id: &str) -> Result<Opti
 }
 
 /// Exports live rows, soft deletions, or hard deletions retained in the outbox.
-/// A missing/excluded record without an outgoing tombstone returns `None`.
+/// Soft deletions retain the full row; only missing rows queued in the outbox
+/// become tombstones. Missing unqueued rows and excluded types return `None`.
 pub fn export(conn: &Connection, record_id: &str) -> Result<Option<Record>, AppError> {
     let queued = queued_at(conn, record_id)?;
-    let (deleted, updated_at, payload) = if let Some((habit, date)) = check_key(record_id)? {
+    let (updated_at, payload) = if let Some((habit, date)) = check_key(record_id)? {
         let check = conn
             .query_row(
                 "SELECT habit_id, date, created_at, updated_at, deleted_at FROM habit_checks WHERE habit_id = ?1 AND date = ?2",
@@ -176,17 +191,12 @@ pub fn export(conn: &Connection, record_id: &str) -> Result<Option<Record>, AppE
             )
             .optional()?;
         let Some(check) = check else {
-            return Ok(queued.map(|changed_at| Record { id: record_id.into(), changed_at, deleted: true, payload: None }));
+            return queued.map(|changed_at| export_tombstone(conn, record_id, changed_at)).transpose();
         };
-        let deleted = check.deleted_at.is_some();
         let updated = check.updated_at.max(check.deleted_at.unwrap_or(0));
-        let payload = if deleted {
-            None
-        } else {
-            let title: String = conn.query_row("SELECT title FROM items WHERE id = ?1", [habit], |r| r.get(0))?;
-            Some(compressed(&CheckDocument { schema: schema(conn)?, habit_check: check }, &title)?)
-        };
-        (deleted, updated, payload)
+        let title: String = conn.query_row("SELECT title FROM items WHERE id = ?1", [habit], |r| r.get(0))?;
+        let payload = compressed(&CheckDocument { schema: schema(conn)?, habit_check: check }, &title)?;
+        (updated, payload)
     } else {
         let item = conn.query_row(
             "SELECT id, type, title, body, parent_id, due_at, created_at, updated_at, deleted_at, completed_at FROM items WHERE id = ?1",
@@ -194,23 +204,18 @@ pub fn export(conn: &Connection, record_id: &str) -> Result<Option<Record>, AppE
             |r| Ok(ItemData { id: r.get(0)?, kind: r.get(1)?, title: r.get(2)?, body: r.get(3)?, parent_id: r.get(4)?, due_at: r.get(5)?, created_at: r.get(6)?, updated_at: r.get(7)?, deleted_at: r.get(8)?, completed_at: r.get(9)? }),
         ).optional()?;
         let Some(item) = item else {
-            return Ok(queued.map(|changed_at| Record { id: record_id.into(), changed_at, deleted: true, payload: None }));
+            return queued.map(|changed_at| export_tombstone(conn, record_id, changed_at)).transpose();
         };
         if !SYNCED_TYPES.contains(&item.kind.as_str()) {
             return Ok(None);
         }
-        let deleted = item.deleted_at.is_some();
         let updated = item.updated_at.max(item.deleted_at.unwrap_or(0));
-        let payload = if deleted {
-            None
-        } else {
-            let ext = extension(&item.kind).map(|ext| export_extension(conn, ext, record_id)).transpose()?.flatten();
-            let title = item.title.clone();
-            Some(compressed(&ItemDocument { schema: schema(conn)?, item, ext }, &title)?)
-        };
-        (deleted, updated, payload)
+        let ext = extension(&item.kind).map(|ext| export_extension(conn, ext, record_id)).transpose()?.flatten();
+        let title = item.title.clone();
+        let payload = compressed(&ItemDocument { schema: schema(conn)?, item, ext }, &title)?;
+        (updated, payload)
     };
-    Ok(Some(Record { id: record_id.into(), changed_at: queued.unwrap_or(updated_at), deleted, payload }))
+    Ok(Some(Record { id: record_id.into(), changed_at: queued.unwrap_or(updated_at), deleted: false, payload: Some(payload) }))
 }
 
 // A savepoint works both on its own and inside the engine's pull transaction.
@@ -269,7 +274,7 @@ fn rebuild_links(conn: &Connection) -> Result<(), AppError> {
 
 fn apply_item(conn: &Connection, record: &Record, document: ItemDocument) -> Result<Applied, AppError> {
     let item = document.item;
-    if item.id != record.id || !SYNCED_TYPES.contains(&item.kind.as_str()) || item.deleted_at.is_some() {
+    if item.id != record.id || !SYNCED_TYPES.contains(&item.kind.as_str()) {
         return Err(invalid_record());
     }
     let ext = extension(&item.kind);
@@ -332,40 +337,46 @@ fn apply_item(conn: &Connection, record: &Record, document: ItemDocument) -> Res
 
 fn apply_inner(conn: &Connection, record: &Record) -> Result<Applied, AppError> {
     let key = check_key(&record.id)?;
+    let payload = record.payload.as_ref().ok_or_else(invalid_record)?;
+    if payload.len() > MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD {
+        return Err(invalid_record());
+    }
+    let plain = decompress_to_vec_with_limit(payload, MAX_DECOMPRESSED_BYTES).map_err(|_| invalid_record())?;
+    let document: Value = serde_json::from_slice(&plain).map_err(|_| invalid_record())?;
+    let incoming_schema = document.get("schema").and_then(Value::as_i64).ok_or_else(invalid_record)?;
+    if incoming_schema < 1 {
+        return Err(invalid_record());
+    }
+    if record.deleted
+        && (document.get("tombstone").and_then(Value::as_bool) != Some(true)
+            || document.get("id").and_then(Value::as_str) != Some(record.id.as_str()))
+    {
+        return Err(invalid_record());
+    }
+    if incoming_schema > schema(conn)? {
+        return Ok(Applied::NewerSchema);
+    }
     if record.deleted {
-        if record.payload.is_some() {
-            return Err(invalid_record());
-        }
         if let Some((habit, date)) = key {
             conn.execute(
-                "UPDATE habit_checks SET deleted_at = ?3, updated_at = ?3 WHERE habit_id = ?1 AND date = ?2",
+                "UPDATE habit_checks SET deleted_at = COALESCE(deleted_at, ?3), updated_at = ?3 WHERE habit_id = ?1 AND date = ?2",
                 params![habit, date, record.changed_at],
             )?;
         } else {
-            let sql = format!("UPDATE items SET deleted_at = ?2 WHERE id = ?1 AND type IN ({})", vec!["?"; SYNCED_TYPES.len()].join(", "));
+            let sql = format!(
+                "UPDATE items SET deleted_at = COALESCE(deleted_at, ?2) WHERE id = ?1 AND type IN ({})",
+                vec!["?"; SYNCED_TYPES.len()].join(", "),
+            );
             let mut values = vec![SqlValue::Text(record.id.clone()), SqlValue::Integer(record.changed_at)];
             values.extend(SYNCED_TYPES.iter().map(|s| SqlValue::Text((*s).into())));
             conn.execute(&sql, params_from_iter(values))?;
         }
         return Ok(Applied::Done);
     }
-    let payload = record.payload.as_ref().ok_or_else(invalid_record)?;
-    if payload.len() > MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD {
-        return Err(invalid_record());
-    }
-    let plain = decompress_to_vec(payload).map_err(|_| invalid_record())?;
-    let document: Value = serde_json::from_slice(&plain).map_err(|_| invalid_record())?;
-    let incoming_schema = document.get("schema").and_then(Value::as_i64).ok_or_else(invalid_record)?;
-    if incoming_schema > schema(conn)? {
-        return Ok(Applied::NewerSchema);
-    }
-    if incoming_schema < 1 {
-        return Err(invalid_record());
-    }
     if let Some((habit, date)) = key {
         let document: CheckDocument = serde_json::from_value(document).map_err(|_| invalid_record())?;
         let check = document.habit_check;
-        if check.habit_id != habit || check.date != date || check.deleted_at.is_some() {
+        if check.habit_id != habit || check.date != date {
             return Err(invalid_record());
         }
         if let Some(parent) = missing_parent(conn, &record.id, Some(habit))? {
@@ -410,7 +421,7 @@ fn apply_one(conn: &Connection, record: &Record) -> Result<Applied, AppError> {
     })
 }
 
-/// First mapping includes soft deletions and habit-check tombstones. Preserve
+/// First mapping includes soft-deleted items and habit checks. Preserve
 /// any newer queued version; the engine further advances versions before push.
 pub fn enqueue_all(conn: &Connection) -> Result<(), AppError> {
     atomic(conn, || {
@@ -542,7 +553,7 @@ mod tests {
             only_outbox(&conn, kind);
             let record = export(&conn, kind).unwrap().unwrap();
             assert!(record.deleted);
-            assert!(record.payload.is_none());
+            assert_eq!(document(&record), json!({"schema":12,"tombstone":true,"id":kind}));
         }
     }
 
@@ -579,6 +590,62 @@ mod tests {
         assert!(outbox(&conn).is_empty());
         conn.execute("UPDATE projects SET repo_url = 'https://github.com/a/b' WHERE item_id = 'project'", []).unwrap();
         only_outbox(&conn, "project");
+    }
+
+    #[test]
+    fn project_saves_with_only_local_changes_or_identical_values_do_not_enqueue() {
+        use crate::projects::{ProjectInput, save_project};
+        let conn = open_in_memory();
+        let tz = jiff::tz::TimeZone::get("Asia/Jakarta").unwrap();
+        let dir = tempfile::tempdir_in(".").unwrap();
+        let mut input = ProjectInput { name: "Project".into(), ..Default::default() };
+        let project = save_project(&conn, &input, 100, &tz).unwrap();
+        input.id = Some(project.summary.id.clone());
+        clear_outbox(&conn);
+        for index in 0..4 {
+            match index {
+                1 => input.agent = true,
+                2 => input.agent_command = Some("codex".into()),
+                3 => input.agent_dir = Some(dir.path().to_str().unwrap().into()),
+                _ => {}
+            }
+            save_project(&conn, &input, 200 + index, &tz).unwrap();
+            assert!(outbox(&conn).is_empty(), "local change {index}");
+        }
+        input.description = "Changed content".into();
+        save_project(&conn, &input, 300, &tz).unwrap();
+        only_outbox(&conn, &project.summary.id);
+        clear_outbox(&conn);
+        save_project(&conn, &input, 400, &tz).unwrap();
+        assert!(outbox(&conn).is_empty());
+        input.repo_url = Some("https://github.com/example/repo".into());
+        save_project(&conn, &input, 500, &tz).unwrap();
+        only_outbox(&conn, &project.summary.id);
+    }
+
+    #[test]
+    fn identical_updates_on_every_synced_table_and_item_timestamp_bumps_do_not_enqueue() {
+        let conn = open_in_memory();
+        fixtures(&conn);
+        clear_outbox(&conn);
+        conn.execute_batch(
+            "UPDATE items SET type = type, title = title, body = body, parent_id = parent_id,
+             due_at = due_at, completed_at = completed_at, created_at = created_at,
+             updated_at = updated_at + 1, deleted_at = deleted_at;
+             UPDATE habit_checks SET habit_id = habit_id, date = date, created_at = created_at,
+             updated_at = updated_at, deleted_at = deleted_at;",
+        ).unwrap();
+        assert!(outbox(&conn).is_empty());
+        for ext in super::EXTENSIONS {
+            let assignments = ext.columns.iter().map(|column| format!("{column} = {column}")).collect::<Vec<_>>().join(", ");
+            conn.execute(&format!("UPDATE {} SET {assignments}", ext.table), []).unwrap();
+            assert!(outbox(&conn).is_empty(), "{}", ext.table);
+        }
+        conn.execute("UPDATE items SET parent_id = 'page' WHERE id = 'budget'", []).unwrap();
+        only_outbox(&conn, "budget");
+        clear_outbox(&conn);
+        conn.execute("UPDATE items SET parent_id = NULL WHERE id = 'budget'", []).unwrap();
+        only_outbox(&conn, "budget");
     }
 
     #[test]
@@ -635,8 +702,8 @@ mod tests {
             assert_eq!(created, now + 1);
             assert_eq!(updated, timestamp);
             let record = export(&conn, &check_id).unwrap().unwrap();
-            assert_eq!(record.deleted, !done);
-            assert_eq!(record.payload.is_none(), !done);
+            assert!(!record.deleted);
+            assert_eq!(document(&record)["habit_check"]["deleted_at"], if done { Value::Null } else { json!(timestamp) });
         }
         clear_outbox(&conn);
         habits::delete_habit(&conn, &habit.id, now + 9).unwrap();
@@ -651,7 +718,9 @@ mod tests {
         clear_outbox(&conn);
         conn.execute("DELETE FROM habit_checks", []).unwrap();
         only_outbox(&conn, "hc:habit:2026-10-02");
-        assert!(export(&conn, "hc:habit:2026-10-02").unwrap().unwrap().deleted);
+        let record = export(&conn, "hc:habit:2026-10-02").unwrap().unwrap();
+        assert!(record.deleted);
+        assert_eq!(document(&record), json!({"schema":12,"tombstone":true,"id":record.id}));
     }
 
     #[test]
@@ -1005,13 +1074,144 @@ mod tests {
             apply(&destination, &export(&source, id).unwrap().unwrap()).unwrap();
         }
         for id in ["habit", "hc:habit:2026-10-02"] {
-            let record = Record { id: id.into(), changed_at: 100, deleted: true, payload: None };
-            assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
-            assert_eq!(apply(&open_in_memory(), &record).unwrap(), Applied::Done);
-            assert!(export(&destination, id).unwrap().unwrap().deleted);
+            let live = export(&source, id).unwrap().unwrap();
+            let record = with_document(
+                &Record { changed_at: 100, deleted: true, ..live.clone() },
+                json!({"schema":12,"tombstone":true,"id":id}),
+            );
+            let missing = open_in_memory();
+            assert_eq!(apply(&missing, &record).unwrap(), Applied::Done);
+            assert!(export(&missing, id).unwrap().is_none());
+            for changed_at in [100, 200] {
+                assert_eq!(apply(&destination, &Record { changed_at, ..record.clone() }).unwrap(), Applied::Done);
+                let soft_deleted = export(&destination, id).unwrap().unwrap();
+                assert!(!soft_deleted.deleted);
+                let value = document(&soft_deleted);
+                let row = if id.starts_with("hc:") { &value["habit_check"] } else { &value["item"] };
+                assert_eq!(row["deleted_at"], 100);
+            }
             assert!(outbox(&destination).is_empty());
-            apply(&destination, &export(&source, id).unwrap().unwrap()).unwrap();
-            assert!(!export(&destination, id).unwrap().unwrap().deleted);
+            assert_eq!(applying(&destination), "0");
+            apply(&destination, &live).unwrap();
+            assert_eq!(document(&export(&destination, id).unwrap().unwrap()), document(&live));
+        }
+    }
+
+    #[test]
+    fn soft_deleted_items_and_checks_round_trip_exact_deletion_timestamps() {
+        let source = open_in_memory();
+        fixtures(&source);
+        let existing = open_in_memory();
+        let empty = open_in_memory();
+        let ids = ["project", "account", "bill", "transaction", "budget", "habit", "task", "note", "page", "hc:habit:2026-10-02"];
+        for id in ids {
+            apply(&existing, &export(&source, id).unwrap().unwrap()).unwrap();
+        }
+        source.execute("UPDATE items SET deleted_at = 123, updated_at = 456", []).unwrap();
+        source.execute("UPDATE habit_checks SET deleted_at = 321, updated_at = 654", []).unwrap();
+        for (index, id) in ids.into_iter().enumerate() {
+            let record = Record { changed_at: 1000 + index as i64, ..export(&source, id).unwrap().unwrap() };
+            assert!(!record.deleted, "{id}");
+            let value = document(&record);
+            let row = if id.starts_with("hc:") { &value["habit_check"] } else { &value["item"] };
+            assert_eq!(row["deleted_at"], if id.starts_with("hc:") { 321 } else { 123 });
+            for target in [&existing, &empty] {
+                assert_eq!(apply(target, &record).unwrap(), Applied::Done, "{id}");
+                assert_eq!(document(&export(target, id).unwrap().unwrap()), value, "{id}");
+                assert!(outbox(target).is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn synced_page_subtree_keeps_trash_grouping_and_restores_together() {
+        use crate::notes;
+        let source = open_in_memory();
+        let root = notes::create(&source, None, "Root", 100).unwrap();
+        let child = notes::create(&source, Some(&root.id), "Child", 100).unwrap();
+        let grandchild = notes::create(&source, Some(&child.id), "Grandchild", 100).unwrap();
+        let earlier = notes::create(&source, Some(&root.id), "Earlier deletion", 100).unwrap();
+        notes::delete(&source, &earlier.id, 500).unwrap();
+        notes::delete(&source, &root.id, 600).unwrap();
+        let records: Vec<_> = [&root.id, &child.id, &grandchild.id, &earlier.id].into_iter().enumerate()
+            .map(|(index, id)| Record { changed_at: 1000 + index as i64, ..export(&source, id).unwrap().unwrap() })
+            .collect();
+        let target = open_in_memory();
+        assert!(apply_batch(&target, &records).unwrap().into_iter().all(|result| matches!(result, Ok(Applied::Done))));
+        let trash = notes::trash(&target).unwrap();
+        assert_eq!(trash.len(), 2);
+        assert_eq!((trash[0].id.as_str(), trash[0].deleted_at, trash[0].descendants), (root.id.as_str(), 600, 2));
+        notes::restore(&target, &root.id, 2000).unwrap();
+        for id in [&root.id, &child.id, &grandchild.id] {
+            assert_eq!(target.query_row("SELECT deleted_at FROM items WHERE id = ?1", [id], |r| r.get::<_, Option<i64>>(0)).unwrap(), None);
+            let restored = export(&target, id).unwrap().unwrap();
+            assert_eq!(apply(&source, &restored).unwrap(), Applied::Done);
+        }
+        let trash = notes::trash(&target).unwrap();
+        assert_eq!(trash.len(), 1);
+        assert_eq!((trash[0].id.as_str(), trash[0].deleted_at), (earlier.id.as_str(), 500));
+        assert_eq!(notes::trash(&source).unwrap(), trash);
+        assert_eq!(target.query_row("SELECT parent_id FROM items WHERE id = ?1", [&grandchild.id], |r| r.get::<_, String>(0)).unwrap(), child.id);
+    }
+
+    #[test]
+    fn live_transaction_referencing_a_soft_deleted_bill_applies_on_an_empty_database() {
+        let source = open_in_memory();
+        fixtures(&source);
+        source.execute("UPDATE items SET deleted_at = 123 WHERE id = 'bill'", []).unwrap();
+        let target = open_in_memory();
+        for id in ["account", "bill", "transaction"] {
+            let record = export(&source, id).unwrap().unwrap();
+            assert!(!record.deleted);
+            assert_eq!(apply(&target, &record).unwrap(), Applied::Done, "{id}");
+        }
+        let payment: (String, Option<i64>, Option<i64>) = target.query_row(
+            "SELECT t.bill_id, bill.deleted_at, payment.deleted_at FROM transactions t
+             JOIN items bill ON bill.id = t.bill_id JOIN items payment ON payment.id = t.item_id",
+            [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        ).unwrap();
+        assert_eq!(payment, ("bill".into(), Some(123), None));
+        assert!(outbox(&target).is_empty());
+    }
+
+    #[test]
+    fn invalid_tombstones_are_rejected_without_changing_rows_or_caches() {
+        let conn = open_in_memory();
+        fixtures(&conn);
+        conn.execute("UPDATE items SET body = '[[page]]' WHERE id = 'habit'", []).unwrap();
+        crate::links::refresh(&conn, "habit", "[[page]]").unwrap();
+        clear_outbox(&conn);
+        let snapshot = || {
+            ["SELECT * FROM items ORDER BY id", "SELECT * FROM habit_checks ORDER BY habit_id, date",
+             "SELECT * FROM links ORDER BY from_id, to_id", "SELECT * FROM items_fts ORDER BY item_id",
+             "SELECT * FROM sync_state ORDER BY key", "SELECT * FROM sync_outbox ORDER BY record_id"]
+                .map(|sql| {
+                    let mut statement = conn.prepare(sql).unwrap();
+                    let count = statement.column_count();
+                    statement.query_map([], |r| (0..count).map(|index| r.get::<_, SqlValue>(index)).collect::<rusqlite::Result<Vec<_>>>())
+                        .unwrap().collect::<Result<Vec<_>, _>>().unwrap()
+                })
+        };
+        for id in ["habit", "hc:habit:2026-10-02"] {
+            let original = export(&conn, id).unwrap().unwrap();
+            let deleted = Record { changed_at: 100, deleted: true, ..original.clone() };
+            let invalid_records = [
+                Record { payload: None, ..deleted.clone() },
+                deleted.clone(), // A normal row document cannot authorize a tombstone.
+                with_document(&deleted, json!({"schema":12,"tombstone":true,"id":"different"})),
+                with_document(&deleted, json!({"schema":12,"tombstone":false,"id":id})),
+                with_document(&deleted, json!({"schema":12,"id":id})),
+                with_document(&deleted, json!({"schema":0,"tombstone":true,"id":id})),
+                Record { payload: Some(vec![255, 255]), ..deleted.clone() },
+            ];
+            for invalid in invalid_records {
+                let before = snapshot();
+                assert!(matches!(apply(&conn, &invalid), Err(AppError::Invalid(_))));
+                assert_eq!(snapshot(), before);
+                assert_eq!(document(&export(&conn, id).unwrap().unwrap()), document(&original));
+                assert_eq!(applying(&conn), "0");
+                assert!(outbox(&conn).is_empty());
+            }
         }
     }
 
@@ -1057,6 +1257,25 @@ mod tests {
         let oversized = Record { payload: Some(vec![0; MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD + 1]), ..small.clone() };
         assert!(matches!(apply(&open_in_memory(), &oversized), Err(AppError::Invalid(_))));
         assert!(matches!(apply(&open_in_memory(), &small), Ok(Applied::Done)));
+    }
+
+    #[test]
+    fn small_compressed_payload_exceeding_eight_mib_is_rejected_atomically() {
+        let source = open_in_memory();
+        let id = items::insert(&source, "page", "Large expansion", "Original", 10).unwrap();
+        let record = export(&source, &id).unwrap().unwrap();
+        let mut value = document(&record);
+        value["item"]["body"] = json!("x".repeat(8 * 1024 * 1024));
+        let json = serde_json::to_vec(&value).unwrap();
+        assert!(json.len() > 8 * 1024 * 1024);
+        let bomb = with_document(&record, value);
+        assert!(bomb.payload.as_ref().unwrap().len() < MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD);
+        let target = open_in_memory();
+        apply(&target, &record).unwrap();
+        assert!(matches!(apply(&target, &bomb), Err(AppError::Invalid(_))));
+        assert_eq!(document(&export(&target, &id).unwrap().unwrap()), document(&record));
+        assert_eq!(applying(&target), "0");
+        assert!(outbox(&target).is_empty());
     }
 
     #[test]

@@ -829,7 +829,57 @@ export interface VoiceInstallProgress {
   stage: "downloading" | "verified" | "installed";
 }
 
+export type EmailFolder = "inbox" | "starred" | "sent";
+export type EmailFilter = "all" | "unread";
+export type EmailFlag = "seen" | "starred";
+
+export interface EmailStatus {
+  connected: boolean;
+  address: string | null;
+}
+
+export interface EmailMessage {
+  id: string;
+  folder: string;
+  uid: number;
+  subject: string;
+  /** Plain text only, including when the source MIME part was HTML. */
+  body: string;
+  messageId: string | null;
+  fromName: string;
+  fromAddr: string;
+  toAddrs: string[];
+  sentAt: number;
+  unread: boolean;
+  starred: boolean;
+  hasHtml: boolean;
+  bodyCached: boolean;
+}
+
+export interface EmailDraft {
+  to: string[];
+  subject: string;
+  body: string;
+  replyToId?: string | null;
+}
+
+export interface EmailSyncResult {
+  headers: number;
+}
+
 export const api = {
+  emailStatus: () => invoke<EmailStatus>("email_status"),
+  emailConnect: (address: string, appPassword: string) =>
+    invoke<EmailStatus>("email_connect", { address, appPassword }),
+  emailDisconnect: () => invoke<void>("email_disconnect"),
+  emailSync: () => invoke<EmailSyncResult>("email_sync"),
+  emailList: (folder: EmailFolder, filter: EmailFilter = "all", limit = 200) =>
+    invoke<EmailMessage[]>("email_list", { folder, filter, limit }),
+  emailOpen: (id: string) => invoke<EmailMessage>("email_open", { id }),
+  emailSetFlag: (id: string, flag: EmailFlag, on: boolean) =>
+    invoke<void>("email_set_flag", { id, flag, on }),
+  emailArchive: (id: string) => invoke<void>("email_archive", { id }),
+  emailSend: (draft: EmailDraft) => invoke<void>("email_send", { draft }),
   voiceStatus: () => invoke<VoiceStatus>("voice_status"),
   voiceInstall: (component: VoiceComponent, onEvent: (event: VoiceInstallProgress) => void = () => {}) => {
     const channel = new Channel<VoiceInstallProgress>();

@@ -17,6 +17,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/008_downloads.sql"),
     include_str!("../migrations/009_notes.sql"),
     include_str!("../migrations/010_activities.sql"),
+    include_str!("../migrations/011_emails.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -39,6 +40,11 @@ impl Db {
     pub fn conn(&self) -> Result<MutexGuard<'_, Connection>, AppError> {
         let conn = self.conn.as_ref().ok_or(AppError::DbUnavailable)?;
         conn.lock().map_err(|_| AppError::DbUnavailable)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_unlocked_for_test(&self) -> bool {
+        self.conn.as_ref().is_some_and(|conn| conn.try_lock().is_ok())
     }
 }
 
@@ -375,7 +381,7 @@ mod tests {
 
         let conn = open(&path).unwrap();
 
-        assert_eq!(version(&conn), 10);
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
         let backup = Connection::open(dir.path().join("anchoa.db.bak-v9")).unwrap();
         assert_eq!(version(&backup), 9);
         let project: (String, bool, Option<String>, Option<String>) = conn
@@ -396,6 +402,31 @@ mod tests {
                 .unwrap();
             assert!(exists, "{index}");
         }
+    }
+
+    #[test]
+    fn version_10_database_upgrades_to_email_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..10], Some(&path)).unwrap();
+        conn.execute("INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('n1', 'note', 'lama', 1, 1)", []).unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+        assert_eq!(version(&conn), 11);
+        assert_eq!(conn.query_row("SELECT title FROM items WHERE id = 'n1'", [], |r| r.get::<_, String>(0)).unwrap(), "lama");
+        conn.prepare("SELECT item_id, folder, uid, message_id, from_name, from_addr, to_addrs, sent_at, unread, starred, has_html, body_cached, refs FROM emails").unwrap();
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v10")).unwrap();
+        assert_eq!(version(&backup), 10);
+        for index in ["emails_folder_sent", "emails_folder_uid"] {
+            assert!(conn.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?1)", [index], |r| r.get::<_, bool>(0)).unwrap());
+        }
+        conn.execute("INSERT INTO items (id, type, created_at, updated_at) VALUES ('e1', 'email', 1, 1)", []).unwrap();
+        conn.execute("INSERT INTO emails (item_id, folder, uid) VALUES ('e1', 'INBOX', 1)", []).unwrap();
+        conn.execute("INSERT INTO items (id, type, created_at, updated_at) VALUES ('e2', 'email', 1, 1)", []).unwrap();
+        assert!(conn.execute("INSERT INTO emails (item_id, folder, uid) VALUES ('e2', 'INBOX', 1)", []).is_err());
+        assert!(conn.execute("INSERT INTO emails (item_id, folder, uid) VALUES ('missing', 'INBOX', 2)", []).is_err());
     }
 
     #[test]

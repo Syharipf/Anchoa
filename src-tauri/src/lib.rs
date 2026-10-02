@@ -10,6 +10,7 @@ mod db;
 pub mod downloads;
 pub mod downloader;
 mod error;
+mod email;
 pub mod files;
 mod finance;
 mod github;
@@ -76,6 +77,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
+                .filter(|metadata| email::allows_log_target(metadata.target()))
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
@@ -114,10 +116,20 @@ pub fn run() {
             app.manage(downloader::Downloader::default());
             app.manage(agent_runner::AgentRunner::default());
             app.manage(assistant::AssistantState::default());
+            app.manage(email::EmailState::default());
             app.manage(assistant::voice::VoiceState::new(data_dir));
             Ok(())
         })
         .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
+            email::commands::email_status,
+            email::commands::email_connect,
+            email::commands::email_disconnect,
+            email::commands::email_sync,
+            email::commands::email_list,
+            email::commands::email_open,
+            email::commands::email_set_flag,
+            email::commands::email_archive,
+            email::commands::email_send,
             security::security_status,
             security::unlock,
             security::set_pin,

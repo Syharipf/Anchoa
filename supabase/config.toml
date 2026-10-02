@@ -36,7 +36,7 @@ enabled = false
 [auth]
 enabled = true
 site_url = "http://127.0.0.1/callback"
-additional_redirect_urls = ["http://127.0.0.1:*/callback"]
+additional_redirect_urls = ["http://127.0.0.1:*/callback**"]
 enable_anonymous_sign_ins = false
 
 [auth.email]

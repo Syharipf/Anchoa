@@ -11,6 +11,7 @@ use std::{
 
 use chacha20poly1305::aead::rand_core::{OsRng, RngCore};
 use sha2::{Digest, Sha256};
+use zeroize::Zeroizing;
 
 use super::server::{self, Provider, Session, SyncServer};
 use crate::error::AppError;
@@ -19,7 +20,7 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
 
 pub struct OAuthFlow {
     server: Arc<dyn SyncServer>,
-    verifier: String,
+    verifier: Zeroizing<String>,
     state: String,
     listener: Mutex<Option<TcpListener>>,
     authorize_url: String,
@@ -49,7 +50,11 @@ impl OAuthFlow {
     }
 
     /// Like `wait`, but gives up as soon as `cancel` is set (checked about every 50 ms).
-    pub fn wait_cancellable(&self, timeout: Duration, cancel: &AtomicBool) -> Result<Session, AppError> {
+    pub fn wait_cancellable(
+        &self,
+        timeout: Duration,
+        cancel: &AtomicBool,
+    ) -> Result<Session, AppError> {
         if let Some(session) = &self.fake_session {
             return Ok(Session {
                 user_id: session.user_id.clone(),
@@ -65,7 +70,9 @@ impl OAuthFlow {
             .lock()
             .map_err(|_| AppError::Other("OAuth lock poisoned".into()))?
             .take()
-            .ok_or_else(|| AppError::Other("Alur login OAuth sudah ditutup atau dibatalkan".into()))?;
+            .ok_or_else(|| {
+                AppError::Other("Alur login OAuth sudah ditutup atau dibatalkan".into())
+            })?;
 
         let start = std::time::Instant::now();
         loop {
@@ -73,7 +80,9 @@ impl OAuthFlow {
                 return Err(AppError::Other("Login sync dibatalkan".into()));
             }
             if start.elapsed() >= timeout {
-                return Err(AppError::Other("Batas waktu login sync habis (timeout)".into()));
+                return Err(AppError::Other(
+                    "Batas waktu login sync habis (timeout)".into(),
+                ));
             }
 
             let (mut stream, _) = match listener.accept() {
@@ -86,13 +95,13 @@ impl OAuthFlow {
             };
 
             let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-            let mut buf = [0u8; 4096];
-            let n = match stream.read(&mut buf) {
+            let mut buf = Zeroizing::new([0u8; 4096]);
+            let n = match stream.read(buf.as_mut()) {
                 Ok(n) if n > 0 => n,
                 _ => continue,
             };
 
-            let request = String::from_utf8_lossy(&buf[..n]);
+            let request = Zeroizing::new(String::from_utf8_lossy(&buf[..n]).into_owned());
             let Some(first_line) = request.lines().next() else {
                 send_404(&mut stream);
                 continue;
@@ -104,36 +113,68 @@ impl OAuthFlow {
                 continue;
             }
 
-            let (path, query) = parts[1].split_once('?').unwrap_or((parts[1], ""));
-            if path != "/callback" {
+            let Some(result) = callback_code(parts[1], &self.state) else {
                 send_404(&mut stream);
                 continue;
-            }
-
-            let mut code: Option<String> = None;
-            let mut state: Option<String> = None;
-            for param in query.split('&') {
-                if let Some((k, v)) = param.split_once('=') {
-                    if k == "code" {
-                        code = Some(v.to_string());
-                    } else if k == "state" {
-                        state = Some(v.to_string());
-                    }
+            };
+            let code = match result {
+                Ok(code) => code,
+                Err(error) => {
+                    send_login_error(&mut stream);
+                    return Err(error);
                 }
-            }
-
-            if state.as_deref() != Some(&self.state) || code.is_none() {
-                send_404(&mut stream);
-                continue;
-            }
-
-            let code = code.unwrap();
+            };
             send_success(&mut stream);
             drop(listener);
 
             return self.server.exchange_code(&code, &self.verifier);
         }
     }
+}
+
+/// None means an unrelated or invalid request; a provider error is a valid
+/// terminal callback only after the expected state has been checked.
+fn callback_code(
+    target: &str,
+    expected_state: &str,
+) -> Option<Result<Zeroizing<String>, AppError>> {
+    let (path, query) = target.split_once('?')?;
+    if path != "/callback" {
+        return None;
+    }
+    let mut code = None;
+    let mut state = None;
+    let mut error = false;
+    for param in query.split('&') {
+        let Some((key, value)) = param.split_once('=') else {
+            continue;
+        };
+        match key {
+            "state" => {
+                if state.is_some() {
+                    return None;
+                }
+                state = Some(value);
+            }
+            "code" => {
+                if code.is_some() || value.is_empty() {
+                    return None;
+                }
+                code = Some(value);
+            }
+            "error" => error = true,
+            _ => (),
+        }
+    }
+    if state != Some(expected_state) {
+        return None;
+    }
+    if error {
+        return Some(Err(AppError::Invalid(
+            "Login sync gagal atau dibatalkan oleh penyedia akun; coba lagi".into(),
+        )));
+    }
+    Some(Ok(Zeroizing::new(code?.to_string())))
 }
 
 fn send_404(stream: &mut TcpStream) {
@@ -156,17 +197,18 @@ fn send_success(stream: &mut TcpStream) {
     let _ = stream.flush();
 }
 
+fn send_login_error(stream: &mut TcpStream) {
+    let body = "Login sync gagal, kembali ke Anchoa untuk mencoba lagi";
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let _ = stream.write_all(response.as_bytes());
+}
+
 fn default_opener(url: &str) -> Result<(), AppError> {
-    #[cfg(target_os = "linux")]
-    {
-        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-        Ok(())
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = url;
-        Ok(())
-    }
+    tauri_plugin_opener::open_url(url, None::<&str>)
+        .map_err(|_| AppError::Other("Browser tidak dapat dibuka untuk login sync".into()))
 }
 
 pub fn begin(server: Arc<dyn SyncServer>, provider: Provider) -> Result<OAuthFlow, AppError> {
@@ -184,7 +226,7 @@ where
     if let Some(session) = server.fake_session() {
         return Ok(OAuthFlow {
             server,
-            verifier: String::new(),
+            verifier: Zeroizing::new(String::new()),
             state: String::new(),
             listener: Mutex::new(None),
             authorize_url: String::new(),
@@ -199,15 +241,15 @@ where
         .local_addr()
         .map_err(|e| AppError::Other(e.to_string()))?
         .port();
-    let redirect_uri = format!("http://127.0.0.1:{port}/callback");
 
-    let mut verifier_bytes = [0u8; 32];
-    OsRng.fill_bytes(&mut verifier_bytes);
-    let verifier = server::base64_encode(&verifier_bytes, true);
+    let mut verifier_bytes = Zeroizing::new([0u8; 32]);
+    OsRng.fill_bytes(verifier_bytes.as_mut());
+    let verifier = Zeroizing::new(server::base64_encode(verifier_bytes.as_ref(), true));
 
     let mut state_bytes = [0u8; 32];
     OsRng.fill_bytes(&mut state_bytes);
     let state = server::base64_encode(&state_bytes, true);
+    let redirect_uri = format!("http://127.0.0.1:{port}/callback?state={state}");
 
     let challenge_hash = Sha256::digest(verifier.as_bytes());
     let challenge = server::base64_encode(&challenge_hash, true);
@@ -229,4 +271,47 @@ where
         redirect_uri,
         fake_session: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn callback_parser_requires_exact_path_and_state_and_handles_provider_errors() {
+        for target in [
+            "/wrong?state=expected&code=abc",
+            "/callback?state=wrong&code=abc",
+            "/callback?state=expected",
+            "/callback?state=expected&state=wrong&code=abc",
+        ] {
+            assert!(callback_code(target, "expected").is_none());
+        }
+        let err = callback_code(
+            "/callback?state=expected&error=access_denied&error_description=secret",
+            "expected",
+        )
+        .unwrap()
+        .unwrap_err();
+        assert!(matches!(err,AppError::Invalid(ref m) if m.contains("Login sync gagal")));
+        assert!(!err.to_string().contains("secret"));
+        let code: Zeroizing<String> =
+            callback_code("/callback?state=expected&code=abc", "expected")
+                .unwrap()
+                .unwrap();
+        assert_eq!(code.as_str(), "abc");
+    }
+
+    #[test]
+    fn oauth_verifier_and_received_code_use_zeroizing_strings() {
+        let server = Arc::new(super::super::fake::MemoryServer::default());
+        server.set_fake_session(true);
+        let flow = begin_with_opener(server, Provider::Google, |_| Ok(())).unwrap();
+        fn zeroizing(_: &Zeroizing<String>) {}
+        zeroizing(&flow.verifier);
+        let code = callback_code("/callback?state=expected&code=sensitive-code", "expected")
+            .unwrap()
+            .unwrap();
+        zeroizing(&code);
+    }
 }

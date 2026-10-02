@@ -6,7 +6,7 @@ pub mod tools;
 pub mod voice;
 
 #[cfg(test)]
-mod test_server;
+pub(crate) mod test_server;
 
 use crate::{db::Db, error::AppError, time};
 use jiff::tz::TimeZone;

@@ -5,7 +5,7 @@
 use std::{
     sync::{
         Arc, Mutex, TryLockError,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -13,6 +13,7 @@ use std::{
 use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
+use zeroize::Zeroizing;
 
 use super::{
     crypto::{self, Dek, Kdf, RecoveryKey},
@@ -20,6 +21,8 @@ use super::{
     server::{DEFAULT_QUOTA_BYTES, Provider, Session, SyncReport, SyncServer, Vault},
 };
 use crate::{db::Db, error::AppError, keystore::KeyringStore, security::SecurityState, time};
+
+type SecretInput = Zeroizing<String>;
 
 const MIN_PASSPHRASE_CHARS: usize = 12;
 const DEBOUNCE: Duration = Duration::from_secs(2);
@@ -44,7 +47,6 @@ pub struct SyncState {
     /// Asks the scheduler to sync on its next tick (focus regained, key just unlocked).
     wake: AtomicBool,
     last_error: Mutex<Option<String>>,
-    bytes_used: AtomicU64,
 }
 
 impl SyncState {
@@ -57,7 +59,6 @@ impl SyncState {
             focused: AtomicBool::new(true),
             wake: AtomicBool::new(false),
             last_error: Mutex::new(None),
-            bytes_used: AtomicU64::new(0),
         }
     }
 
@@ -101,8 +102,7 @@ fn get_state(conn: &Connection, key: &str) -> Result<String, AppError> {
 }
 
 fn set_state(conn: &Connection, key: &str, value: &str) -> Result<(), AppError> {
-    conn.execute("UPDATE sync_state SET value = ?1 WHERE key = ?2", [value, key])?;
-    Ok(())
+    engine::set_state(conn,key,value)
 }
 
 fn signed_in_user(db: &Db) -> Result<Option<String>, AppError> {
@@ -121,7 +121,7 @@ fn session_for(sync: &SyncState, user_id: &str) -> Result<Session, AppError> {
     if time::now_ms() < session.expires_at {
         return Ok(session);
     }
-    let fresh = sync.server()?.refresh(&session)?;
+    let fresh = super::server::clear_expired_session(&sync.keys,user_id,sync.server()?.refresh(&session))?;
     fresh.store(&sync.keys)?;
     Ok(fresh)
 }
@@ -160,16 +160,23 @@ pub(crate) fn status(sync: &SyncState, db: &Db) -> Result<SyncStatus, AppError> 
         let conn = db.conn()?;
         out.last_sync_at = get_state(&conn, "last_sync_at")?.parse().ok().filter(|&t| t > 0);
         out.quota_bytes = get_state(&conn, "quota_bytes")?.parse().unwrap_or(DEFAULT_QUOTA_BYTES);
+        out.bytes_used = get_state(&conn,"bytes_used")?.parse().unwrap_or(0);
+        let persisted_error = get_state(&conn,"last_error")?;
+        out.last_error = lock(&sync.last_error).clone().or(Some(persisted_error).filter(|s|!s.is_empty()));
+        if out.last_error.is_none() {
+            let mut stmt = conn.prepare("SELECT value FROM sync_state WHERE key LIKE 'warning:%' ORDER BY key")?;
+            let warnings = stmt.query_map([],|r|r.get::<_,String>(0))?.collect::<Result<Vec<_>,_>>()?;
+            if !warnings.is_empty() { out.last_error = Some(warnings.join("; ")); }
+        }
     }
-    out.signed_in = true;
-    out.email = Session::load(&sync.keys, &user_id)?.map(|s| s.email.clone());
-    out.last_error = lock(&sync.last_error).clone();
-    out.bytes_used = sync.bytes_used.load(Ordering::SeqCst);
+    let session = Session::load(&sync.keys, &user_id)?;
+    out.signed_in = session.is_some();
+    out.email = session.map(|s|s.email.clone());
     out.needs_unlock_key = engine::load_dek(&sync.keys, &user_id)?.is_none();
     if out.needs_unlock_key {
         // Network: an unreachable server leaves this unknown instead of failing the card.
         out.vault_exists = session_for(sync, &user_id)
-            .and_then(|s| sync.server()?.get_vault(&s))
+            .and_then(|s| super::server::clear_expired_session(&sync.keys,&user_id,sync.server()?.get_vault(&s)))
             .ok()
             .map(|v| v.is_some());
     }
@@ -183,7 +190,8 @@ pub(crate) fn sign_in(sync: &SyncState, db: &Db, provider: &str) -> Result<(), A
         "github" => Provider::GitHub,
         _ => return Err(AppError::Invalid("Provider login sync tidak dikenal".into())),
     };
-    if signed_in_user(db)?.is_some() {
+    if let Some(user) = signed_in_user(db)?
+        && Session::load(&sync.keys,&user)?.is_some() {
         return Err(AppError::Invalid("Sudah masuk sync; keluar dulu untuk ganti akun".into()));
     }
     sync.cancel_sign_in.store(false, Ordering::SeqCst);
@@ -203,11 +211,12 @@ pub(crate) fn create_key(
     passphrase: &str,
     kdf: Kdf,
 ) -> Result<CreateKeyResult, AppError> {
+    let _running = lock(&sync.running);
     let server = sync.server()?;
     let user_id = require_user(db)?;
     check_passphrase(passphrase)?;
     let session = session_for(sync, &user_id)?;
-    if server.get_vault(&session)?.is_some() {
+    if super::server::clear_expired_session(&sync.keys,&user_id,server.get_vault(&session))?.is_some() {
         return Err(AppError::Invalid(
             "Kunci sync sudah ada di akun ini; buka dengan frasa sandi atau recovery key".into(),
         ));
@@ -219,8 +228,9 @@ pub(crate) fn create_key(
         dek_by_recovery: crypto::wrap(&dek, &crypto::kek_from_recovery(&recovery)),
         kdf,
     };
-    server.put_vault(&session, &vault)?;
+    super::server::clear_expired_session(&sync.keys,&user_id,server.put_vault(&session, &vault))?;
     engine::store_dek(&sync.keys, &user_id, &dek)?;
+    set_state(&*db.conn()?,"vault_fingerprint",&engine::vault_fingerprint(&vault))?;
     enqueue_if_never_synced(db)?;
     sync.wake.store(true, Ordering::SeqCst);
     // Shown once by the UI; never stored here.
@@ -228,11 +238,11 @@ pub(crate) fn create_key(
 }
 
 pub(crate) fn unlock_key(sync: &SyncState, db: &Db, secret: &str) -> Result<(), AppError> {
+    let _running = lock(&sync.running);
     let server = sync.server()?;
     let user_id = require_user(db)?;
     let session = session_for(sync, &user_id)?;
-    let vault = server
-        .get_vault(&session)?
+    let vault = super::server::clear_expired_session(&sync.keys,&user_id,server.get_vault(&session))?
         .ok_or_else(|| AppError::Invalid("Belum ada kunci sync di akun ini; buat kunci dulu".into()))?;
     let by_passphrase = crypto::kek_from_passphrase(secret, &vault.kdf)
         .and_then(|kek| crypto::unwrap(&vault.dek_by_passphrase, &kek));
@@ -244,6 +254,7 @@ pub(crate) fn unlock_key(sync: &SyncState, db: &Db, secret: &str) -> Result<(), 
         },
     };
     engine::store_dek(&sync.keys, &user_id, &dek)?;
+    set_state(&*db.conn()?,"vault_fingerprint",&engine::vault_fingerprint(&vault))?;
     enqueue_if_never_synced(db)?;
     sync.wake.store(true, Ordering::SeqCst);
     Ok(())
@@ -256,12 +267,12 @@ pub(crate) fn change_passphrase(
     new: &str,
     kdf: Kdf,
 ) -> Result<(), AppError> {
+    let _running = lock(&sync.running);
     let server = sync.server()?;
     let user_id = require_user(db)?;
     check_passphrase(new)?;
     let session = session_for(sync, &user_id)?;
-    let vault = server
-        .get_vault(&session)?
+    let vault = super::server::clear_expired_session(&sync.keys,&user_id,server.get_vault(&session))?
         .ok_or_else(|| AppError::Invalid("Belum ada kunci sync di akun ini".into()))?;
     let dek = crypto::unwrap(
         &vault.dek_by_passphrase,
@@ -272,7 +283,8 @@ pub(crate) fn change_passphrase(
         kdf,
         dek_by_recovery: vault.dek_by_recovery,
     };
-    server.put_vault(&session, &updated)
+    super::server::clear_expired_session(&sync.keys,&user_id,server.update_vault(&session,&updated))?;
+    set_state(&*db.conn()?,"vault_fingerprint",&engine::vault_fingerprint(&updated))
 }
 
 /// `None` when another sync is already running.
@@ -287,16 +299,19 @@ pub(crate) fn run_sync(sync: &SyncState, db: &Db) -> Result<Option<SyncReport>, 
     match &result {
         Ok(report) => {
             *lock(&sync.last_error) = None;
-            if report.bytes_used > 0 {
-                sync.bytes_used.store(report.bytes_used, Ordering::SeqCst);
-            }
+            set_state(&*db.conn()?,"last_error","")?;
+            set_state(&*db.conn()?,"bytes_used",&report.bytes_used.to_string())?;
         }
-        Err(e) => *lock(&sync.last_error) = Some(e.to_string()),
+        Err(e) => {
+            *lock(&sync.last_error) = Some(e.to_string());
+            set_state(&*db.conn()?,"last_error",&e.to_string())?;
+        }
     }
     result.map(Some)
 }
 
 pub(crate) fn sign_out(sync: &SyncState, db: &Db, delete_cloud: bool) -> Result<(), AppError> {
+    let _running = lock(&sync.running);
     let server = sync.server()?;
     let user_id = require_user(db)?;
     let session = session_for(sync, &user_id);
@@ -305,7 +320,7 @@ pub(crate) fn sign_out(sync: &SyncState, db: &Db, delete_cloud: bool) -> Result<
         let session = session.as_ref().map_err(|_| {
             AppError::Other("Sesi sync tidak tersedia; masuk kembali untuk menghapus data cloud".into())
         })?;
-        server.delete_my_data(session)?;
+        super::server::clear_expired_session(&sync.keys,&user_id,server.delete_my_data(session))?;
     }
     if let Ok(session) = &session {
         let _ = server.sign_out(session);
@@ -316,13 +331,12 @@ pub(crate) fn sign_out(sync: &SyncState, db: &Db, delete_cloud: bool) -> Result<
         // Local data stays. Versions and cursor belong to the account, so the next
         // sign-in starts clean (and queues everything again).
         let conn = db.conn()?;
-        for (key, value) in [("user_id", ""), ("cursor", "0"), ("last_sync_at", "0")] {
+        for (key, value) in [("user_id", ""), ("cursor", "0"), ("last_sync_at", "0"), ("bytes_used","0"), ("last_error",""), ("vault_fingerprint","")] {
             set_state(&conn, key, value)?;
         }
         conn.execute_batch("DELETE FROM sync_versions; DELETE FROM sync_pending;")?;
     }
     *lock(&sync.last_error) = None;
-    sync.bytes_used.store(0, Ordering::SeqCst);
     Ok(())
 }
 
@@ -437,16 +451,20 @@ pub fn sync_cancel_sign_in(sync: State<'_, SyncState>) {
 
 #[tauri::command]
 pub async fn sync_create_key(app: AppHandle, passphrase: String) -> Result<CreateKeyResult, AppError> {
+    let passphrase = SecretInput::new(passphrase);
     run(app, move |sync, db| create_key(sync, db, &passphrase, Kdf::default())).await
 }
 
 #[tauri::command]
 pub async fn sync_unlock_key(app: AppHandle, passphrase_or_recovery: String) -> Result<(), AppError> {
+    let passphrase_or_recovery = SecretInput::new(passphrase_or_recovery);
     run(app, move |sync, db| unlock_key(sync, db, &passphrase_or_recovery)).await
 }
 
 #[tauri::command]
 pub async fn sync_change_passphrase(app: AppHandle, old: String, new: String) -> Result<(), AppError> {
+    let old = SecretInput::new(old);
+    let new = SecretInput::new(new);
     run(app, move |sync, db| change_passphrase(sync, db, &old, &new, Kdf::default())).await
 }
 
@@ -743,4 +761,124 @@ mod tests {
 
         assert!(s.due(t + sec(5), true, true, (2, 6)), "wake (focus regained)");
     }
+
+    #[test]
+    fn sign_out_waits_for_inflight_sync_then_clears_all_account_state() {
+        let f = fixture();
+        sign_in(&f.sync,&f.db,"google").unwrap();
+        create_key(&f.sync,&f.db,PASS,cheap_kdf()).unwrap();
+        f.db.conn().unwrap().execute("INSERT INTO items(id,type,title,created_at,updated_at) VALUES('p','page','Queued',1,1)",[]).unwrap();
+        let (entered_tx,entered_rx) = std::sync::mpsc::channel();
+        let (release_tx,release_rx) = std::sync::mpsc::channel();
+        let release_rx = Mutex::new(release_rx);
+        let once = AtomicBool::new(false);
+        f.server.set_hook(Arc::new(move || {
+            if !once.swap(true,Ordering::SeqCst) {
+                entered_tx.send(()).unwrap();
+                release_rx.lock().unwrap().recv_timeout(Duration::from_secs(5)).unwrap();
+            }
+        }));
+        std::thread::scope(|scope| {
+            let syncing = scope.spawn(|| run_sync(&f.sync,&f.db));
+            entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            let (done_tx,done_rx) = std::sync::mpsc::channel();
+            let fixture = &f;
+            let signing_out = scope.spawn(move || { let result = sign_out(&fixture.sync,&fixture.db,false); done_tx.send(()).unwrap(); result });
+            let waited = done_rx.recv_timeout(Duration::from_millis(100)).is_err();
+            release_tx.send(()).unwrap();
+            syncing.join().unwrap().unwrap();
+            signing_out.join().unwrap().unwrap();
+            assert!(waited,"sign-out must wait for the running sync");
+        });
+        let conn = f.db.conn().unwrap();
+        assert_eq!(get_state(&conn,"cursor").unwrap(),"0");
+        assert_eq!(get_state(&conn,"last_sync_at").unwrap(),"0");
+        assert_eq!(conn.query_row("SELECT count(*) FROM sync_versions",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert!(Session::load(&f.sync.keys,&fake_session(&f).user_id).unwrap().is_none());
+    }
+
+    #[test]
+    fn reenabling_sync_keeps_stale_local_copy_older_than_other_device_edit() {
+        let f = fixture();
+        sign_in(&f.sync,&f.db,"google").unwrap();
+        create_key(&f.sync,&f.db,PASS,cheap_kdf()).unwrap();
+        f.db.conn().unwrap().execute("INSERT INTO items(id,type,title,created_at,updated_at) VALUES('p','page','Base',1,10)",[]).unwrap();
+        f.db.conn().unwrap().execute("UPDATE sync_outbox SET changed_at=10",[]).unwrap();
+        run_sync(&f.sync,&f.db).unwrap();
+        let other = SyncState::new(Some(f.server.clone()),KeyringStore::with_builder(keyring::mock::default_credential_builder()));
+        let dir = tempfile::tempdir_in(".").unwrap();
+        let db = Db::open_at(dir.path().join("app.db"));
+        sign_in(&other,&db,"google").unwrap();
+        unlock_key(&other,&db,PASS).unwrap();
+        run_sync(&other,&db).unwrap();
+        sign_out(&f.sync,&f.db,false).unwrap();
+        db.conn().unwrap().execute("UPDATE items SET title='B edit', updated_at=20 WHERE id='p'",[]).unwrap();
+        db.conn().unwrap().execute("UPDATE sync_outbox SET changed_at=20",[]).unwrap();
+        run_sync(&other,&db).unwrap();
+        sign_in(&f.sync,&f.db,"google").unwrap();
+        unlock_key(&f.sync,&f.db,PASS).unwrap();
+        run_sync(&f.sync,&f.db).unwrap();
+        let title: String = f.db.conn().unwrap().query_row("SELECT title FROM items WHERE id='p'",[],|r|r.get(0)).unwrap();
+        assert_eq!(title,"B edit");
+    }
+
+    #[test]
+    fn warnings_and_usage_survive_sync_state_restart_and_usage_can_return_to_zero() {
+        let f = fixture();
+        sign_in(&f.sync,&f.db,"google").unwrap();
+        create_key(&f.sync,&f.db,PASS,cheap_kdf()).unwrap();
+        f.db.conn().unwrap().execute("INSERT INTO items(id,type,title,body,created_at,updated_at) VALUES('large','page','Catatan besar',?1,1,1)",["x".repeat(record::MAX_DECOMPRESSED_BYTES+1)]).unwrap();
+        f.db.conn().unwrap().execute("INSERT INTO items(id,type,title,created_at,updated_at) VALUES('small','page','Kecil',1,1)",[]).unwrap();
+        run_sync(&f.sync,&f.db).unwrap();
+        assert!(status(&f.sync,&f.db).unwrap().last_error.unwrap().contains("Catatan besar"));
+        let expected = f.server.usage(&fake_session(&f)).unwrap().bytes;
+        assert!(expected>0);
+        // A fresh SyncState has no in-memory error or usage cache.
+        let restarted = SyncState::new(Some(f.server.clone()),KeyringStore::with_builder(keyring::mock::default_credential_builder()));
+        fake_session(&f).store(&restarted.keys).unwrap();
+        let status = status(&restarted,&f.db).unwrap();
+        assert_eq!(status.bytes_used,expected);
+        assert!(status.last_error.unwrap().contains("Catatan besar"));
+        f.server.db_conn().execute("DELETE FROM fake_records",[]).unwrap();
+        run_sync(&f.sync,&f.db).unwrap();
+        assert_eq!(super::status(&f.sync,&f.db).unwrap().bytes_used,0);
+    }
+
+    #[test]
+    fn replaced_vault_reports_needs_unlock_key_before_any_records_are_sent() {
+        let f = fixture();
+        sign_in(&f.sync,&f.db,"google").unwrap();
+        create_key(&f.sync,&f.db,PASS,cheap_kdf()).unwrap();
+        let session = fake_session(&f);
+        let mut vault = f.server.get_vault(&session).unwrap().unwrap();
+        f.server.delete_my_data(&session).unwrap();
+        vault.dek_by_passphrase[0] ^= 1;
+        f.server.put_vault(&session,&vault).unwrap();
+        assert!(run_sync(&f.sync,&f.db).is_err());
+        let status = status(&f.sync,&f.db).unwrap();
+        assert!(status.needs_unlock_key);
+        assert_eq!(status.last_error.as_deref(),Some("Kunci sync berubah atau dihapus di perangkat lain; buka kunci lagi"));
+    }
+
+    #[test]
+    fn command_secret_storage_zeroizes_on_drop() {
+        fn requires_zeroize<T: zeroize::Zeroize + zeroize::ZeroizeOnDrop>() {}
+        requires_zeroize::<SecretInput>();
+    }
+
+    #[test]
+    fn expired_sync_session_is_cleared_and_sign_in_can_retry() {
+        let f = fixture();
+        sign_in(&f.sync,&f.db,"google").unwrap();
+        create_key(&f.sync,&f.db,PASS,cheap_kdf()).unwrap();
+        f.server.set_auth_expired(true);
+        let err = run_sync(&f.sync,&f.db).unwrap_err();
+        assert_eq!(err.to_string(),"Sesi sync berakhir; masuk lagi");
+        assert!(Session::load(&f.sync.keys,&fake_session(&f).user_id).unwrap().is_none());
+        assert!(!status(&f.sync,&f.db).unwrap().signed_in);
+        f.server.set_auth_expired(false);
+        sign_in(&f.sync,&f.db,"google").unwrap();
+        assert!(status(&f.sync,&f.db).unwrap().signed_in);
+    }
+
 }

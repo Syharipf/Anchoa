@@ -20,9 +20,12 @@ pub fn load_dek(keys: &KeyringStore, user_id: &str) -> Result<Option<Dek>, AppEr
     let Some(secret) = keys.get(&format!("sync-dek:{user_id}"))? else {
         return Ok(None);
     };
+    let secret = Zeroizing::new(secret);
     let bytes = Zeroizing::new(server::hex_decode(&secret)?);
     if bytes.len() != 32 {
-        return Err(AppError::Invalid("Format kunci sync (DEK) tidak valid".into()));
+        return Err(AppError::Invalid(
+            "Format kunci sync (DEK) tidak valid".into(),
+        ));
     }
     let mut array = [0u8; 32];
     array.copy_from_slice(&bytes);
@@ -52,23 +55,67 @@ fn is_tombstone_payload(payload: &[u8]) -> bool {
 }
 
 fn call_server<T>(
-    server: &dyn SyncServer,
-    session: &mut Session,
+    session: &Session,
     keys: &KeyringStore,
-    refreshed_already: &mut bool,
-    f: impl Fn(&Session) -> Result<T, AppError>,
+    f: impl FnOnce(&Session) -> Result<T, AppError>,
 ) -> Result<T, AppError> {
-    match f(session) {
-        Ok(val) => Ok(val),
-        Err(AppError::Other(ref msg)) if msg.contains("kedaluwarsa") && !*refreshed_already => {
-            let new_session = server.refresh(session)?;
-            new_session.store(keys)?;
-            *session = new_session;
-            *refreshed_already = true;
-            f(session)
-        }
-        Err(e) => Err(e),
+    server::clear_expired_session(keys, &session.user_id, f(session))
+}
+
+pub(crate) fn set_state(conn: &Connection, key: &str, value: &str) -> Result<(), AppError> {
+    conn.execute("INSERT INTO sync_state(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,value])?;
+    Ok(())
+}
+
+pub(crate) fn vault_fingerprint(vault: &server::Vault) -> String {
+    use sha2::Digest;
+    server::hex_encode(&sha2::Sha256::digest(&vault.dek_by_passphrase))
+}
+
+fn known_version(conn: &Connection, id: &str) -> Result<Option<String>, AppError> {
+    Ok(conn
+        .query_row(
+            "SELECT version FROM sync_versions WHERE record_id=?1",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()?)
+}
+
+fn effective_changed_at(queued: i64, known: Option<&str>) -> i64 {
+    let received = known.and_then(parse_version).map_or(0, |(ts, _)| ts);
+    queued.max(received.saturating_add(1))
+}
+
+/// Deferred records already have a known version, so equality is allowed only
+/// when retrying that exact pending payload. Outgoing changes always use the
+/// same clock adjustment here and at export.
+fn wins_lww(
+    conn: &Connection,
+    id: &str,
+    remote: (i64, &str),
+    device: &str,
+    retry: bool,
+) -> Result<bool, AppError> {
+    let known = known_version(conn, id)?;
+    if let Some(version) = known.as_deref().and_then(parse_version)
+        && (remote < version || (!retry && remote == version))
+    {
+        return Ok(false);
     }
+    let queued: Option<i64> = conn
+        .query_row(
+            "SELECT changed_at FROM sync_outbox WHERE record_id=?1",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if let Some(ts) = queued
+        && remote <= (effective_changed_at(ts, known.as_deref()), device)
+    {
+        return Ok(false);
+    }
+    Ok(true)
 }
 
 pub fn sync_once(
@@ -77,407 +124,339 @@ pub fn sync_once(
     server: &dyn SyncServer,
     now: i64,
 ) -> Result<SyncReport, AppError> {
-    let (device_id, user_id, cursor, quota_bytes) = {
+    let (device_id, user_id, mut cursor, quota_bytes, last_sync, fingerprint) = {
         let conn = db.conn()?;
-        let get_state = |k: &str| -> Result<String, AppError> {
+        let get = |key: &str| -> Result<String, AppError> {
             Ok(conn
-                .query_row("SELECT value FROM sync_state WHERE key = ?1", [k], |r| r.get(0))
+                .query_row("SELECT value FROM sync_state WHERE key=?1", [key], |r| {
+                    r.get(0)
+                })
                 .optional()?
                 .unwrap_or_default())
         };
-        let device_id = get_state("device_id")?;
-        let user_id = get_state("user_id")?;
-        let cursor_str = get_state("cursor")?;
-        let cursor = cursor_str.parse::<i64>().unwrap_or(0);
-        let quota_str = get_state("quota_bytes")?;
-        let quota_bytes = quota_str
-            .parse::<u64>()
-            .unwrap_or(server::DEFAULT_QUOTA_BYTES);
-        (device_id, user_id, cursor, quota_bytes)
+        (
+            get("device_id")?,
+            get("user_id")?,
+            get("cursor")?.parse::<i64>().unwrap_or(0),
+            get("quota_bytes")?
+                .parse::<u64>()
+                .unwrap_or(server::DEFAULT_QUOTA_BYTES),
+            get("last_sync_at")?.parse::<i64>().unwrap_or(0),
+            get("vault_fingerprint")?,
+        )
     };
-
     if user_id.is_empty() {
-        return Err(AppError::Invalid("Sync belum dikonfigurasi: belum login".into()));
+        return Err(AppError::Invalid(
+            "Sync belum dikonfigurasi: belum login".into(),
+        ));
     }
     if device_id.is_empty() {
-        return Err(AppError::Invalid("Sync belum dikonfigurasi: device_id kosong".into()));
+        return Err(AppError::Invalid(
+            "Sync belum dikonfigurasi: device_id kosong".into(),
+        ));
     }
-
-    let mut session = Session::load(keys, &user_id)?
-        .ok_or_else(|| AppError::Other("Sesi sync tidak ditemukan; masuk kembali".into()))?;
+    let mut session = Session::load(keys, &user_id)?.ok_or_else(server::session_ended)?;
     let dek = load_dek(keys, &user_id)?
         .ok_or_else(|| AppError::Other("Kunci sync (DEK) belum dibuka".into()))?;
-
-    let mut refreshed_already = false;
     if now >= session.expires_at {
-        let refreshed = server.refresh(&session)?;
+        let refreshed = server::clear_expired_session(keys, &user_id, server.refresh(&session))?;
         refreshed.store(keys)?;
         session = refreshed;
-        refreshed_already = true;
     }
 
-    let mut total_pulled: usize = 0;
-    let mut current_cursor = cursor;
+    let vault = call_server(&session, keys, |s| server.get_vault(s))?;
+    if vault
+        .as_ref()
+        .is_none_or(|v| vault_fingerprint(v) != fingerprint)
+    {
+        delete_dek(keys, &user_id)?;
+        let message = "Kunci sync berubah atau dihapus di perangkat lain; buka kunci lagi";
+        set_state(&*db.conn()?, "last_error", message)?;
+        return Err(AppError::Invalid(message.into()));
+    }
 
-    // --- PULL PHASE ---
+    let usage = call_server(&session, keys, |s| server.usage(s))?;
+    let mut bytes_used = usage.bytes;
+    set_state(&*db.conn()?, "bytes_used", &bytes_used.to_string())?;
+    const NINETY_DAYS: i64 = 90 * 24 * 60 * 60 * 1000;
+    if last_sync != 0 && now.saturating_sub(last_sync) > NINETY_DAYS {
+        cursor = 0;
+        set_state(&*db.conn()?, "cursor", "0")?;
+    }
+
+    let mut pulled = 0;
+    pull_all(
+        db,
+        keys,
+        server,
+        &session,
+        &device_id,
+        &dek,
+        &mut cursor,
+        &mut pulled,
+    )?;
+
+    let mut pushed = 0;
+    let mut stopped_by_quota = false;
     loop {
-        let wire_records = call_server(server, &mut session, keys, &mut refreshed_already, |s| {
-            server.pull(s, current_cursor, PAGE_SIZE)
-        })?;
-
-        if wire_records.is_empty() {
+        let outbox_rows: Vec<(String, i64)> = {
+            let conn = db.conn()?;
+            let mut stmt = conn.prepare("SELECT record_id,changed_at FROM sync_outbox ORDER BY changed_at,record_id LIMIT ?1")?;
+            stmt.query_map([PAGE_SIZE], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<Result<_, _>>()?
+        };
+        if outbox_rows.is_empty() {
             break;
         }
-
+        let mut batch = Vec::new();
+        let mut exported_at = Vec::new();
+        {
+            let conn = db.conn()?;
+            for (id, queued) in &outbox_rows {
+                let rec = match record::export(&conn, id) {
+                    Ok(Some(rec)) => rec,
+                    Ok(None) => {
+                        conn.execute(
+                            "DELETE FROM sync_outbox WHERE record_id=?1 AND changed_at=?2",
+                            params![id, queued],
+                        )?;
+                        continue;
+                    }
+                    Err(e) if record::is_too_large(&e) => {
+                        set_state(&conn, &format!("warning:{id}"), &e.to_string())?;
+                        conn.execute(
+                            "DELETE FROM sync_outbox WHERE record_id=?1 AND changed_at=?2",
+                            params![id, queued],
+                        )?;
+                        continue;
+                    }
+                    Err(e) => return Err(e),
+                };
+                conn.execute(
+                    "DELETE FROM sync_state WHERE key=?1",
+                    [format!("warning:{id}")],
+                )?;
+                let known = known_version(&conn, id)?;
+                let changed_at = effective_changed_at(*queued, known.as_deref());
+                let aad = crypto::aad(&user_id, id, changed_at, &device_id);
+                let payload = crypto::seal(&dek, &aad, rec.payload.as_deref().unwrap_or(&[]));
+                exported_at.push(*queued);
+                batch.push(WireRecord {
+                    id: id.clone(),
+                    changed_at,
+                    device_id: device_id.clone(),
+                    deleted: rec.deleted,
+                    payload: Some(payload),
+                    seq: 0,
+                });
+            }
+        }
+        if batch.is_empty() {
+            continue;
+        }
+        let batch_bytes: u64 = batch
+            .iter()
+            .map(|r| r.payload.as_ref().map_or(0, |p| p.len() as u64))
+            .sum();
+        // Conservatively count new ciphertext even when it replaces an existing
+        // record, and carry accepted bytes across every batch in this cycle.
+        if bytes_used.saturating_add(batch_bytes) > quota_bytes {
+            stopped_by_quota = true;
+            break;
+        }
+        let rejected = call_server(&session, keys, |s| server.push(s, &batch))?;
+        let rejected_ids: HashSet<&str> = rejected.iter().map(|r| r.id.as_str()).collect();
         {
             let mut conn = db.conn()?;
             let tx = conn.transaction()?;
-            apply_page(&tx, &wire_records, &user_id, &device_id, &dek, &mut current_cursor, &mut total_pulled)?;
+            for (wire, queued) in batch.iter().zip(&exported_at) {
+                if rejected_ids.contains(wire.id.as_str()) {
+                    continue;
+                }
+                tx.execute(
+                    "DELETE FROM sync_outbox WHERE record_id=?1 AND changed_at=?2",
+                    params![wire.id, queued],
+                )?;
+                tx.execute("DELETE FROM sync_pending WHERE record_id=?1", [&wire.id])?;
+                tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version",params![wire.id,format_version(wire.changed_at,&wire.device_id)])?;
+                pushed += 1;
+                bytes_used =
+                    bytes_used.saturating_add(wire.payload.as_ref().map_or(0, |p| p.len() as u64));
+            }
+            set_state(&tx, "bytes_used", &bytes_used.to_string())?;
             tx.commit()?;
         }
-
-        if wire_records.len() < PAGE_SIZE as usize {
+        // Rejection versions are unauthenticated. Only decrypted pull content
+        // can decide LWW or modify this record's local version and outbox.
+        if !rejected.is_empty() {
+            pull_all(
+                db,
+                keys,
+                server,
+                &session,
+                &device_id,
+                &dek,
+                &mut cursor,
+                &mut pulled,
+            )?;
+        }
+        if rejected_ids.len() == batch.len() || outbox_rows.len() < PAGE_SIZE as usize {
             break;
         }
     }
-
-    // --- PUSH PHASE ---
-    let mut total_pushed: usize = 0;
-    let mut stopped_by_quota = false;
-    let mut bytes_used = 0u64;
-
-    let outbox_count: usize = {
+    let pending = {
         let conn = db.conn()?;
-        conn.query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get::<_, i64>(0))
-            .map(|c| c as usize)?
+        set_state(&conn, "last_sync_at", &now.to_string())?;
+        conn.query_row("SELECT count(*) FROM sync_pending", [], |r| {
+            r.get::<_, i64>(0)
+        })? as usize
     };
-
-    if outbox_count > 0 {
-        let usage = call_server(server, &mut session, keys, &mut refreshed_already, |s| {
-            server.usage(s)
-        })?;
-        bytes_used = usage.bytes;
-
-        if usage.bytes >= quota_bytes {
-            stopped_by_quota = true;
-        } else {
-            loop {
-                let outbox_rows: Vec<(String, i64)> = {
-                    let conn = db.conn()?;
-                    let mut stmt = conn.prepare(
-                        "SELECT record_id, changed_at FROM sync_outbox ORDER BY changed_at LIMIT ?1",
-                    )?;
-                    let rows = stmt.query_map([PAGE_SIZE], |r| Ok((r.get(0)?, r.get(1)?)))?;
-                    rows.collect::<Result<_, _>>()?
-                };
-
-                if outbox_rows.is_empty() {
-                    break;
-                }
-
-                let mut wire_batch = Vec::new();
-                // Outbox timestamp seen at export: a newer local edit made while the
-                // push is in flight must stay queued.
-                let mut exported_at = std::collections::HashMap::new();
-                let mut missing_rows = Vec::new();
-
-                {
-                    let conn = db.conn()?;
-                    for (record_id, outbox_changed_at) in &outbox_rows {
-                        let exported = record::export(&conn, record_id)?;
-                        let Some(rec) = exported else {
-                            missing_rows.push(record_id.clone());
-                            continue;
-                        };
-
-                        let last_rx: Option<String> = conn
-                            .query_row(
-                                "SELECT version FROM sync_versions WHERE record_id = ?1",
-                                [record_id],
-                                |r| r.get(0),
-                            )
-                            .optional()?;
-                        let last_rx_changed_at =
-                            last_rx.and_then(|v| parse_version(&v).map(|(t, _)| t)).unwrap_or(0);
-                        let effective_changed_at = (*outbox_changed_at).max(last_rx_changed_at + 1);
-
-                        let payload_plain = rec.payload.as_deref().unwrap_or(&[]);
-                        let aad = crypto::aad(&user_id, &rec.id, effective_changed_at, &device_id);
-                        let ciphertext = crypto::seal(&dek, &aad, payload_plain);
-
-                        exported_at.insert(rec.id.clone(), *outbox_changed_at);
-                        wire_batch.push(WireRecord {
-                            id: rec.id,
-                            changed_at: effective_changed_at,
-                            device_id: device_id.clone(),
-                            deleted: rec.deleted,
-                            payload: Some(ciphertext),
-                            seq: 0,
-                        });
-                    }
-                }
-
-                if !missing_rows.is_empty() {
-                    let conn = db.conn()?;
-                    for id in missing_rows {
-                        conn.execute("DELETE FROM sync_outbox WHERE record_id = ?1", [&id])?;
-                    }
-                }
-
-                if wire_batch.is_empty() {
-                    break;
-                }
-
-                let rejected = call_server(server, &mut session, keys, &mut refreshed_already, |s| {
-                    server.push(s, &wire_batch)
-                })?;
-
-                let rejected_ids: HashSet<String> = rejected.iter().map(|r| r.id.clone()).collect();
-
-                {
-                    let mut conn = db.conn()?;
-                    let tx = conn.transaction()?;
-                    for wire in &wire_batch {
-                        if !rejected_ids.contains(&wire.id) {
-                            tx.execute(
-                                "DELETE FROM sync_outbox WHERE record_id = ?1 AND changed_at = ?2",
-                                params![wire.id, exported_at.get(&wire.id).copied().unwrap_or(i64::MIN)],
-                            )?;
-                            let v_str = format_version(wire.changed_at, &wire.device_id);
-                            tx.execute(
-                                "INSERT INTO sync_versions (record_id, version) VALUES (?1, ?2) ON CONFLICT(record_id) DO UPDATE SET version = excluded.version",
-                                params![wire.id, v_str],
-                            )?;
-                            total_pushed += 1;
-                        }
-                    }
-
-                    // For rejected records where server has a newer version, resolve outbox and record server version
-                    for rej in &rejected {
-                        let outbox_ts: Option<i64> = tx
-                            .query_row(
-                                "SELECT changed_at FROM sync_outbox WHERE record_id = ?1",
-                                [&rej.id],
-                                |r| r.get(0),
-                            )
-                            .optional()?;
-                        if let Some(local_ts) = outbox_ts
-                            && (rej.changed_at, rej.device_id.as_str()) >= (local_ts, device_id.as_str())
-                        {
-                            tx.execute("DELETE FROM sync_outbox WHERE record_id = ?1", [&rej.id])?;
-                            let v_str = format_version(rej.changed_at, &rej.device_id);
-                            tx.execute(
-                                "INSERT INTO sync_versions (record_id, version) VALUES (?1, ?2) ON CONFLICT(record_id) DO UPDATE SET version = excluded.version",
-                                params![rej.id, v_str],
-                            )?;
-                        }
-                    }
-
-                    tx.commit()?;
-                }
-
-                // If some rows were rejected, re-pull them from server
-                if !rejected.is_empty() {
-                    let pull_again =
-                        call_server(server, &mut session, keys, &mut refreshed_already, |s| {
-                            server.pull(s, current_cursor, PAGE_SIZE)
-                        })?;
-
-                    if !pull_again.is_empty() {
-                        let mut conn = db.conn()?;
-                        let tx = conn.transaction()?;
-                        apply_page(&tx, &pull_again, &user_id, &device_id, &dek, &mut current_cursor, &mut total_pulled)?;
-                        tx.commit()?;
-                    }
-                }
-
-                if rejected.len() == wire_batch.len() || wire_batch.len() < PAGE_SIZE as usize {
-                    break;
-                }
-            }
-        }
-    }
-
-    let pending_count: usize = {
-        let conn = db.conn()?;
-        conn.execute(
-            "UPDATE sync_state SET value = ?1 WHERE key = 'last_sync_at'",
-            [now.to_string()],
-        )?;
-        conn.query_row("SELECT count(*) FROM sync_pending", [], |r| r.get::<_, i64>(0))
-            .map(|c| c as usize)?
-    };
-
     Ok(SyncReport {
-        pulled: total_pulled,
-        pushed: total_pushed,
-        pending: pending_count,
+        pulled,
+        pushed,
+        pending,
         bytes_used,
         quota_bytes,
         stopped_by_quota,
     })
 }
 
-/// Decrypts one page of server records and applies those that win LWW against both
-/// the last known version and any unpushed local change, then advances the cursor.
-/// Shared by the pull loop and the re-pull after rejected pushes so both follow
-/// the same rules.
-fn apply_page(
-    tx: &Connection,
-    page: &[WireRecord],
-    user_id: &str,
-    device_id: &str,
+#[allow(clippy::too_many_arguments)]
+fn pull_all(
+    db: &Db,
+    keys: &KeyringStore,
+    server: &dyn SyncServer,
+    session: &Session,
+    device: &str,
     dek: &Dek,
     cursor: &mut i64,
     pulled: &mut usize,
 ) -> Result<(), AppError> {
-        let mut to_apply: Vec<(Record, i64, String, Vec<u8>)> = Vec::new();
-
-        for wire in page {
-            if wire.seq > *cursor {
-                *cursor = wire.seq;
-            }
-
-            let Some(ciphertext) = &wire.payload else {
-                continue;
-            };
-            let aad = crypto::aad(user_id, &wire.id, wire.changed_at, &wire.device_id);
-            let decrypted = match crypto::open(dek, &aad, ciphertext) {
-                Ok(plain) => plain,
-                Err(_) => {
-                    log::warn!("Record {}: gagal didekripsi, dilewati", wire.id);
-                    continue;
-                }
-            };
-
-            // LWW against sync_versions
-            let stored_version: Option<String> = tx
-                .query_row(
-                    "SELECT version FROM sync_versions WHERE record_id = ?1",
-                    [&wire.id],
-                    |r| r.get(0),
-                )
-                .optional()?;
-            if let Some(v_str) = stored_version
-                && let Some((stored_ts, stored_dev)) = parse_version(&v_str)
-                && (wire.changed_at, wire.device_id.as_str()) <= (stored_ts, stored_dev)
-            {
-                continue;
-            }
-
-            // LWW against local outbox
-            let outbox_changed_at: Option<i64> = tx
-                .query_row(
-                    "SELECT changed_at FROM sync_outbox WHERE record_id = ?1",
-                    [&wire.id],
-                    |r| r.get(0),
-                )
-                .optional()?;
-            if let Some(local_ts) = outbox_changed_at
-                && (wire.changed_at, wire.device_id.as_str()) <= (local_ts, device_id)
-            {
-                continue;
-            }
-
-            let rec = Record {
-                id: wire.id.clone(),
-                changed_at: wire.changed_at,
-                deleted: wire.deleted,
-                payload: Some(decrypted.clone()),
-            };
-            to_apply.push((rec, wire.changed_at, wire.device_id.clone(), decrypted));
+    loop {
+        let page = call_server(session, keys, |s| server.pull(s, *cursor, PAGE_SIZE))?;
+        {
+            let mut conn = db.conn()?;
+            let tx = conn.transaction()?;
+            // Empty pages also retry pending records after an app upgrade.
+            apply_page(&tx, &page, &session.user_id, device, dek, cursor, pulled)?;
+            tx.commit()?;
         }
-
-        if !to_apply.is_empty() {
-            let records_slice: Vec<Record> = to_apply.iter().map(|(r, _, _, _)| r.clone()).collect();
-            let results = record::apply_batch(tx, &records_slice)?;
-
-            for (idx, res) in results.into_iter().enumerate() {
-                let (rec, changed_at, wire_dev, plain) = &to_apply[idx];
-                let version_str = format_version(*changed_at, wire_dev);
-
-                match res {
-                    Ok(Applied::Done) => {
-                        *pulled += 1;
-                        tx.execute(
-                            "INSERT INTO sync_versions (record_id, version) VALUES (?1, ?2) ON CONFLICT(record_id) DO UPDATE SET version = excluded.version",
-                            params![rec.id, version_str],
-                        )?;
-                        tx.execute("DELETE FROM sync_pending WHERE record_id = ?1", [&rec.id])?;
-                        tx.execute("DELETE FROM sync_outbox WHERE record_id = ?1", [&rec.id])?;
-                    }
-                    Ok(Applied::NeedsParent(_)) | Ok(Applied::NewerSchema) => {
-                        tx.execute(
-                            "INSERT INTO sync_pending (record_id, version, payload) VALUES (?1, ?2, ?3) ON CONFLICT(record_id) DO UPDATE SET version = excluded.version, payload = excluded.payload",
-                            params![rec.id, version_str, plain],
-                        )?;
-                        tx.execute(
-                            "INSERT INTO sync_versions (record_id, version) VALUES (?1, ?2) ON CONFLICT(record_id) DO UPDATE SET version = excluded.version",
-                            params![rec.id, version_str],
-                        )?;
-                    }
-                    Err(e) => {
-                        log::warn!("Record {}: gagal diterapkan: {e}", rec.id);
-                    }
-                }
-            }
+        if page.len() < PAGE_SIZE as usize {
+            break;
         }
-
-        // Retry pending records
-        retry_pending(tx, pulled)?;
-
-        tx.execute(
-            "UPDATE sync_state SET value = ?1 WHERE key = 'cursor'",
-            [cursor.to_string()],
-        )?;
+    }
     Ok(())
 }
 
-fn retry_pending(conn: &Connection, total_pulled: &mut usize) -> Result<(), AppError> {
-    let mut retry_progress = true;
-    let mut iterations = 0;
-    while retry_progress && iterations < 10 {
-        iterations += 1;
-        retry_progress = false;
-
-        let pending_rows: Vec<(String, String, Vec<u8>)> = {
-            let mut stmt = conn.prepare("SELECT record_id, version, payload FROM sync_pending")?;
-            let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-            rows.collect::<Result<_, _>>()?
+fn apply_page(
+    tx: &Connection,
+    page: &[WireRecord],
+    user: &str,
+    device: &str,
+    dek: &Dek,
+    cursor: &mut i64,
+    pulled: &mut usize,
+) -> Result<(), AppError> {
+    let mut to_apply = Vec::new();
+    for wire in page {
+        *cursor = (*cursor).max(wire.seq);
+        let Some(ciphertext) = &wire.payload else {
+            continue;
         };
-
-        if pending_rows.is_empty() {
-            break;
+        let aad = crypto::aad(user, &wire.id, wire.changed_at, &wire.device_id);
+        let plain = match crypto::open(dek, &aad, ciphertext) {
+            Ok(plain) => plain,
+            Err(_) => {
+                log::warn!("Record {}: gagal didekripsi, dilewati", wire.id);
+                continue;
+            }
+        };
+        if !wins_lww(
+            tx,
+            &wire.id,
+            (wire.changed_at, &wire.device_id),
+            device,
+            false,
+        )? {
+            continue;
         }
+        to_apply.push((
+            Record {
+                id: wire.id.clone(),
+                changed_at: wire.changed_at,
+                deleted: wire.deleted,
+                payload: Some(plain),
+            },
+            format_version(wire.changed_at, &wire.device_id),
+        ));
+    }
+    let records: Vec<Record> = to_apply.iter().map(|(r, _)| r.clone()).collect();
+    let results = record::apply_batch(tx, &records)?;
+    for ((rec, version), result) in to_apply.iter().zip(results) {
+        match result {
+            Ok(applied) => {
+                tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version",params![rec.id,version])?;
+                // This authenticated version won against the effective outgoing
+                // version. Deferral must also prevent pushing older content.
+                tx.execute("DELETE FROM sync_outbox WHERE record_id=?1", [&rec.id])?;
+                tx.execute(
+                    "DELETE FROM sync_state WHERE key=?1",
+                    [format!("warning:{}", rec.id)],
+                )?;
+                if applied == Applied::Done {
+                    *pulled += 1;
+                    tx.execute("DELETE FROM sync_pending WHERE record_id=?1", [&rec.id])?;
+                } else {
+                    tx.execute("INSERT INTO sync_pending VALUES(?1,?2,?3) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version,payload=excluded.payload",params![rec.id,version,rec.payload])?;
+                }
+            }
+            Err(e) => log::warn!("Record {}: gagal diterapkan: {e}", rec.id),
+        }
+    }
+    retry_pending(tx, device, pulled)?;
+    set_state(tx, "cursor", &cursor.to_string())
+}
 
-        let mut pending_records = Vec::new();
-        let mut pending_meta = Vec::new();
-
-        for (id, ver_str, payload) in pending_rows {
-            let (ts, _) = parse_version(&ver_str).unwrap_or((0, ""));
-            let deleted = is_tombstone_payload(&payload);
-            pending_records.push(Record {
-                id: id.clone(),
+fn retry_pending(conn: &Connection, device: &str, pulled: &mut usize) -> Result<(), AppError> {
+    for _ in 0..10 {
+        let rows: Vec<(String, String, Vec<u8>)> = {
+            let mut stmt = conn.prepare("SELECT record_id,version,payload FROM sync_pending")?;
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .collect::<Result<_, _>>()?
+        };
+        let mut records = Vec::new();
+        let mut versions = Vec::new();
+        for (id, version, payload) in rows {
+            let Some(remote) = parse_version(&version) else {
+                conn.execute("DELETE FROM sync_pending WHERE record_id=?1", [&id])?;
+                continue;
+            };
+            if !wins_lww(conn, &id, remote, device, true)? {
+                conn.execute("DELETE FROM sync_pending WHERE record_id=?1", [&id])?;
+                continue;
+            }
+            let ts = remote.0;
+            records.push(Record {
+                id,
                 changed_at: ts,
-                deleted,
+                deleted: is_tombstone_payload(&payload),
                 payload: Some(payload),
             });
-            pending_meta.push((id, ver_str));
+            versions.push(version);
         }
-
-        let results = record::apply_batch(conn, &pending_records)?;
-        for (idx, res) in results.into_iter().enumerate() {
-            if let Ok(Applied::Done) = res {
-                let (id, ver_str) = &pending_meta[idx];
-                *total_pulled += 1;
-                conn.execute("DELETE FROM sync_pending WHERE record_id = ?1", [id])?;
-                conn.execute(
-                    "INSERT INTO sync_versions (record_id, version) VALUES (?1, ?2) ON CONFLICT(record_id) DO UPDATE SET version = excluded.version",
-                    params![id, ver_str],
-                )?;
-                conn.execute("DELETE FROM sync_outbox WHERE record_id = ?1", [id])?;
-                retry_progress = true;
+        let results = record::apply_batch(conn, &records)?;
+        let mut progress = false;
+        for ((rec, version), result) in records.iter().zip(versions).zip(results) {
+            if let Ok(Applied::Done) = result {
+                *pulled += 1;
+                conn.execute("DELETE FROM sync_pending WHERE record_id=?1", [&rec.id])?;
+                conn.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version",params![rec.id,version])?;
+                conn.execute("DELETE FROM sync_outbox WHERE record_id=?1", [&rec.id])?;
+                progress = true;
             }
+        }
+        if !progress {
+            break;
         }
     }
     Ok(())

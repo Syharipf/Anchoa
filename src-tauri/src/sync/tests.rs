@@ -8,11 +8,12 @@ use std::{
 use rusqlite::params;
 
 use super::{
-    crypto::Dek,
+    crypto::{self, Dek, Kdf},
+    record,
     engine,
     fake::{self, MemoryServer},
     oauth,
-    server::{Provider, Session, SyncServer},
+    server::{Provider, Session, SyncServer, Vault, WireRecord},
 };
 use crate::{db::Db, keystore::KeyringStore};
 
@@ -33,6 +34,7 @@ impl Client {
         let keys = KeyringStore::with_builder(keyring::mock::default_credential_builder());
         db.conn().unwrap().execute("UPDATE sync_state SET value=?1 WHERE key='device_id'", [device]).unwrap();
         db.conn().unwrap().execute("UPDATE sync_state SET value=?1 WHERE key='user_id'", [USER]).unwrap();
+        db.conn().unwrap().execute("INSERT INTO sync_state VALUES('vault_fingerprint',?1)", [fingerprint()]).unwrap();
         session().store(&keys).unwrap();
         engine::store_dek(&keys, USER, &Dek::from_bytes([7; 32])).unwrap();
         Self { db, keys, _dir: dir }
@@ -72,7 +74,7 @@ fn session() -> Session {
 
 #[test]
 fn two_clients_converge_for_create_conflict_and_soft_delete() {
-    let server = MemoryServer::default();
+    let server = test_server();
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
     a.write("page", "created", 100);
@@ -97,7 +99,7 @@ fn two_clients_converge_for_create_conflict_and_soft_delete() {
 
 #[test]
 fn local_newer_edit_survives_pull_and_clock_is_advanced() {
-    let server = MemoryServer::default();
+    let server = test_server();
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
     a.write("p", "initial", 1_000);
@@ -117,8 +119,8 @@ fn local_newer_edit_survives_pull_and_clock_is_advanced() {
 }
 
 #[test]
-fn quota_stops_push_but_allows_pull_and_idle_uses_one_call() {
-    let server = MemoryServer::default();
+fn quota_stops_push_but_allows_pull_and_idle_refreshes_vault_and_usage() {
+    let server = test_server();
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
     a.write("remote", "remote", 1);
@@ -133,16 +135,16 @@ fn quota_stops_push_but_allows_pull_and_idle_uses_one_call() {
     assert_eq!(server.usage(&session()).unwrap().rows, 1);
     let before = server.call_count();
     a.sync(&server);
-    // A first consumes its own server echo; a second idle cycle still only pulls.
+    // Idle cycles check the vault, refresh usage, and pull.
     let middle = server.call_count();
     a.sync(&server);
-    assert_eq!(server.call_count() - middle, 1);
-    assert_eq!(middle - before, 1);
+    assert_eq!(server.call_count() - middle, 3);
+    assert_eq!(middle - before, 3);
 }
 
 #[test]
 fn offline_preserves_outbox_and_server_calls_never_hold_database() {
-    let server = MemoryServer::default();
+    let server = test_server();
     let a = Client::new(DEVICE_A);
     a.write("p", "private content", 5);
     let db = Arc::clone(&a.db);
@@ -159,7 +161,7 @@ fn offline_preserves_outbox_and_server_calls_never_hold_database() {
 
 #[test]
 fn expired_session_is_refreshed_once_and_persisted_only_in_keyring() {
-    let server = MemoryServer::default();
+    let server = test_server();
     let a = Client::new(DEVICE_A);
     let mut expired = session();
     expired.expires_at = 0;
@@ -176,7 +178,7 @@ fn expired_session_is_refreshed_once_and_persisted_only_in_keyring() {
 
 #[test]
 fn child_arrives_before_parent_goes_to_pending_and_applies_after_parent() {
-    let server = MemoryServer::default();
+    let server = test_server();
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
 
@@ -225,7 +227,7 @@ fn child_arrives_before_parent_goes_to_pending_and_applies_after_parent() {
 
 #[test]
 fn tampered_payload_is_skipped_and_cursor_advances() {
-    let server = MemoryServer::default();
+    let server = test_server();
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
 
@@ -274,9 +276,12 @@ fn oauth_rejects_invalid_state_and_wrong_path_and_completes_on_valid_callback() 
     assert!(auth_url.contains("redirect_to="));
 
     let redirect_uri = flow.redirect_uri().to_string();
-    let addr = redirect_uri.strip_prefix("http://").unwrap().strip_suffix("/callback").unwrap().to_string();
+    let (base, state) = redirect_uri.split_once("/callback?state=").unwrap();
+    let addr = base.strip_prefix("http://").unwrap().to_string();
+    let state = state.to_string();
+    assert!(auth_url.contains(&super::server::percent_encode(&redirect_uri)));
+    assert!(!auth_url.contains("&state="));
 
-    let state = auth_url.split("state=").nth(1).unwrap().split('&').next().unwrap().to_string();
 
     let handle = std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(50));
@@ -356,6 +361,7 @@ impl SyncServer for EditDuringPush<'_> {
     fn sign_out(&self, session: &Session) -> Result<(), crate::error::AppError> { self.inner.sign_out(session) }
     fn get_vault(&self, session: &Session) -> Result<Option<super::server::Vault>, crate::error::AppError> { self.inner.get_vault(session) }
     fn put_vault(&self, session: &Session, vault: &super::server::Vault) -> Result<(), crate::error::AppError> { self.inner.put_vault(session, vault) }
+    fn update_vault(&self, session: &Session, vault: &super::server::Vault) -> Result<(), crate::error::AppError> { self.inner.update_vault(session,vault) }
     fn push(&self, session: &Session, rows: &[super::server::WireRecord]) -> Result<Vec<super::server::Rejected>, crate::error::AppError> {
         let result = self.inner.push(session, rows);
         (self.edit)();
@@ -371,7 +377,7 @@ fn an_edit_made_while_its_push_is_in_flight_stays_queued_and_syncs_next_time() {
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
     a.write("p1", "Versi pertama", 100);
-    let server = EditDuringPush { inner: MemoryServer::default(), edit: Box::new(|| a.write("p1", "Versi kedua", 200)) };
+    let server = EditDuringPush { inner: test_server(), edit: Box::new(|| a.write("p1", "Versi kedua", 200)) };
     a.sync(&server);
     let queued: i64 = a.db.conn().unwrap().query_row("SELECT count(*) FROM sync_outbox WHERE record_id='p1'", [], |r| r.get(0)).unwrap();
     assert_eq!(queued, 1, "the newer local edit must not be dropped with the pushed version");
@@ -379,4 +385,342 @@ fn an_edit_made_while_its_push_is_in_flight_stays_queued_and_syncs_next_time() {
     a.sync(&plain);
     b.sync(&plain);
     assert_eq!(b.title("p1"), "Versi kedua");
+}
+
+
+fn test_vault() -> Vault {
+    Vault {
+        kdf: Kdf { m_kib: 32, t: 1, p: 1, salt: *b"0123456789abcdef" },
+        dek_by_passphrase: vec![7; 72],
+        dek_by_recovery: vec![8; 72],
+    }
+}
+
+fn fingerprint() -> String {
+    use sha2::Digest;
+    super::server::hex_encode(&sha2::Sha256::digest(test_vault().dek_by_passphrase))
+}
+
+fn test_server() -> MemoryServer {
+    let server = MemoryServer::default();
+    server.put_vault(&session(), &test_vault()).unwrap();
+    server
+}
+
+fn state(client: &Client, key: &str) -> String {
+    client.db.conn().unwrap().query_row("SELECT value FROM sync_state WHERE key=?1", [key], |r| r.get(0)).unwrap()
+}
+
+fn set_state(client: &Client, key: &str, value: &str) {
+    client.db.conn().unwrap().execute("INSERT INTO sync_state VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value", params![key,value]).unwrap();
+}
+
+fn version(client: &Client, id: &str) -> String {
+    client.db.conn().unwrap().query_row("SELECT version FROM sync_versions WHERE record_id=?1", [id], |r| r.get(0)).unwrap()
+}
+
+fn queue_pending(client: &Client, source: &Client, id: &str, ts: i64) {
+    let payload = record::export(&source.db.conn().unwrap(), id).unwrap().unwrap().payload.unwrap();
+    client.db.conn().unwrap().execute("INSERT INTO sync_pending VALUES(?1,?2,?3)", params![id,engine::format_version(ts,DEVICE_B),payload]).unwrap();
+}
+
+#[test]
+fn rejected_push_repulls_and_applies_authenticated_winner() {
+    let server = Arc::new(test_server());
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "A loses", 8);
+    b.write("p", "B wins", 10);
+    let racing = server.clone();
+    server.set_before_push(move || { b.sync(racing.as_ref()); });
+    let report = a.sync(server.as_ref());
+    assert_eq!(report.pushed, 0);
+    assert_eq!(a.title("p"), "B wins");
+    assert_eq!(version(&a, "p"), engine::format_version(10, DEVICE_B));
+}
+
+#[test]
+fn oversized_exports_warn_per_record_and_continue_sync() {
+    use sha2::Digest;
+    let noise: String = (0_u64..12_000).map(|i| super::server::hex_encode(&sha2::Sha256::digest(i.to_le_bytes()))).collect();
+    for body in [noise, "x".repeat(record::MAX_DECOMPRESSED_BYTES + 1)] {
+        let server = test_server();
+        let a = Client::new(DEVICE_A);
+        let b = Client::new(DEVICE_B);
+        a.write("large", "Halaman terlalu besar", 1);
+        a.db.conn().unwrap().execute("UPDATE items SET body=?1 WHERE id='large'", [body]).unwrap();
+        a.db.conn().unwrap().execute("UPDATE sync_outbox SET changed_at=1 WHERE record_id='large'", []).unwrap();
+        a.write("small", "Still syncs", 2);
+        assert_eq!(a.sync(&server).pushed, 1);
+        b.sync(&server);
+        assert_eq!(b.title("small"), "Still syncs");
+        assert!(b.title_opt("large").is_none());
+        let conn = a.db.conn().unwrap();
+        let warning: String = conn.query_row("SELECT value FROM sync_state WHERE key='warning:large'", [], |r| r.get(0)).unwrap();
+        assert!(warning.contains("Halaman terlalu besar"));
+        assert_eq!(conn.query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+    }
+}
+
+#[test]
+fn pending_older_than_known_version_is_dropped_on_empty_pull() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "Current", 20);
+    a.sync(&server);
+    a.sync(&server); // consume echo, next pull is empty
+    b.write("p", "Old pending", 10);
+    queue_pending(&a, &b, "p", 10);
+    let report = a.sync(&server);
+    assert_eq!(a.title("p"), "Current");
+    assert_eq!(report.pending, 0);
+    assert_eq!(version(&a, "p"), engine::format_version(20, DEVICE_A));
+}
+
+#[test]
+fn pending_cannot_overwrite_newer_outbox_or_downgrade_version() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "Local newer", 20);
+    b.write("p", "Pending older", 10);
+    queue_pending(&a, &b, "p", 10);
+    set_state(&a, "quota_bytes", "0");
+    a.db.conn().unwrap().execute("INSERT INTO sync_versions VALUES('p',?1)", [engine::format_version(10,DEVICE_B)]).unwrap();
+    b.write("other", "A pull triggers retry", 1);
+    b.sync(&server);
+    let report = a.sync(&server);
+    assert_eq!(report.pending, 0);
+    assert_eq!(a.title("p"), "Local newer");
+    assert_eq!(version(&a,"p"), engine::format_version(10,DEVICE_B));
+    assert_eq!(a.db.conn().unwrap().query_row("SELECT changed_at FROM sync_outbox WHERE record_id='p'", [], |r| r.get::<_,i64>(0)).unwrap(), 20);
+}
+
+#[test]
+fn pending_equal_known_version_retries_after_upgrade_with_empty_pull() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    b.write("p", "Now supported", 10);
+    queue_pending(&a, &b, "p", 10);
+    a.db.conn().unwrap().execute("INSERT INTO sync_versions VALUES('p',?1)", [engine::format_version(10,DEVICE_B)]).unwrap();
+    let report = a.sync(&server);
+    assert_eq!(report.pulled, 1);
+    assert_eq!(report.pending, 0);
+    assert_eq!(a.title("p"), "Now supported");
+}
+
+#[test]
+fn accepted_push_clears_pending_for_that_record() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    a.write("p", "Accepted", 20);
+    let db = a.db.clone();
+    server.set_before_push(move || { db.conn().unwrap().execute("INSERT INTO sync_pending VALUES('p','10:old',X'00')", []).unwrap(); });
+    let report = a.sync(&server);
+    assert_eq!(report.pushed, 1);
+    assert_eq!(report.pending, 0);
+}
+
+#[test]
+fn newer_schema_deferral_drops_older_local_outbox() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "Old schema", 8);
+    b.write("p", "Future content", 10);
+    let compressed = record::export(&b.db.conn().unwrap(), "p").unwrap().unwrap().payload.unwrap();
+    let mut doc: serde_json::Value = serde_json::from_slice(&miniz_oxide::inflate::decompress_to_vec(&compressed).unwrap()).unwrap();
+    doc["schema"] = serde_json::json!(999);
+    let plain = miniz_oxide::deflate::compress_to_vec(&serde_json::to_vec(&doc).unwrap(),6);
+    let payload = crypto::seal(&Dek::from_bytes([7;32]), &crypto::aad(USER,"p",10,DEVICE_B), &plain);
+    server.push(&session(), &[WireRecord { id:"p".into(),changed_at:10,device_id:DEVICE_B.into(),deleted:false,payload:Some(payload),seq:0 }]).unwrap();
+    let report = a.sync(&server);
+    assert_eq!(report.pending, 1);
+    assert_eq!(report.pushed, 0);
+    assert_eq!(a.db.conn().unwrap().query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+    assert_eq!(server.pull(&session(),0,500).unwrap()[0].changed_at,10);
+}
+
+#[test]
+fn pull_compares_effective_outgoing_version_with_slow_local_clock() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    b.write("p", "Base", 100);
+    b.sync(&server);
+    a.sync(&server);
+    a.write("p", "Local clock behind", 1); // effective version is (101,A)
+    b.write("p", "Concurrent B", 1); // effective version is (101,B)
+    // Make A the tie winner by using B as A's device id and A as B's.
+    set_state(&a,"device_id",DEVICE_B);
+    set_state(&b,"device_id",DEVICE_A);
+    b.sync(&server);
+    a.sync(&server);
+    b.sync(&server);
+    assert_eq!(a.title("p"), "Local clock behind");
+    assert_eq!(b.title("p"), "Local clock behind");
+}
+
+#[test]
+fn vault_missing_or_replaced_stops_before_pull_and_deletes_local_dek() {
+    for recreate in [false,true] {
+        let server = test_server();
+        let a = Client::new(DEVICE_A);
+        let b = Client::new(DEVICE_B);
+        a.write("p", "Must stay local", 20);
+        b.sync(&server);
+        server.delete_my_data(&session()).unwrap();
+        if recreate {
+            let mut replacement = test_vault();
+            replacement.dek_by_passphrase[0] ^= 1;
+            server.put_vault(&session(),&replacement).unwrap();
+        }
+        let before = server.call_count();
+        let err = engine::sync_once(&a.db,&a.keys,&server,1000).unwrap_err();
+        assert_eq!(err.to_string(), "Kunci sync berubah atau dihapus di perangkat lain; buka kunci lagi");
+        assert_eq!(server.call_count()-before,1);
+        assert!(engine::load_dek(&a.keys,USER).unwrap().is_none());
+        assert_eq!(state(&a,"cursor"),"0");
+        assert_eq!(server.usage(&session()).unwrap().rows,0);
+    }
+}
+
+#[test]
+fn ninety_day_gap_resets_cursor_for_full_pull_but_zero_does_not() {
+    const DAY: i64 = 24*60*60*1000;
+    for (last_sync, full) in [(1,true),(0,false),(2*DAY,false)] {
+        let server = test_server();
+        let a = Client::new(DEVICE_A);
+        let b = Client::new(DEVICE_B);
+        b.write("p","Remote",10);
+        b.sync(&server);
+        set_state(&a,"cursor","999");
+        set_state(&a,"last_sync_at",&last_sync.to_string());
+        let report = engine::sync_once(&a.db,&a.keys,&server,91*DAY).unwrap();
+        assert_eq!(report.pulled,usize::from(full));
+        assert_eq!(state(&a,"cursor"),if full {"1"} else {"999"});
+    }
+}
+
+#[test]
+fn quota_is_checked_before_each_batch_including_bytes_pushed_this_cycle() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    for i in 0..501 { a.write(&format!("p{i:03}"),"Quota",i+1); }
+    let first_batch_bytes: u64 = (0..500).map(|i| record::export(&a.db.conn().unwrap(), &format!("p{i:03}")).unwrap().unwrap().payload.unwrap().len() as u64+40).sum();
+    set_state(&a,"quota_bytes", &(first_batch_bytes+1).to_string());
+    let report = a.sync(&server);
+    assert_eq!(report.pushed,500);
+    assert!(report.stopped_by_quota);
+    assert_eq!(report.bytes_used,first_batch_bytes);
+    assert_eq!(state(&a,"bytes_used"),first_batch_bytes.to_string());
+    assert_eq!(server.usage(&session()).unwrap().rows,500);
+    let idle = a.sync(&server);
+    assert_eq!(idle.bytes_used,first_batch_bytes);
+    assert_eq!(idle.pushed,0);
+}
+
+#[test]
+fn quota_rejects_a_first_batch_that_would_exceed_remaining_space() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    a.write("p","Too much for quota",1);
+    set_state(&a,"quota_bytes","1");
+    let report = a.sync(&server);
+    assert_eq!(report.pushed,0);
+    assert!(report.stopped_by_quota);
+    assert_eq!(server.usage(&session()).unwrap().rows,0);
+}
+
+#[test]
+fn concurrent_vault_creation_is_insert_only() {
+    let server = MemoryServer::default();
+    let barrier = std::sync::Barrier::new(2);
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..2).map(|i| {
+            let barrier = &barrier;
+            let server = &server;
+            scope.spawn(move || {
+                let mut vault = test_vault();
+                vault.dek_by_passphrase[0] = i;
+                barrier.wait();
+                (i,server.put_vault(&session(),&vault))
+            })
+        }).collect();
+        let results: Vec<_> = handles.into_iter().map(|t| t.join().unwrap()).collect();
+        let winner = results.iter().find(|(_,r)| r.is_ok()).unwrap().0;
+        assert_eq!(results.iter().filter(|(_,r)| r.is_ok()).count(),1);
+        let err = results.into_iter().find(|(_,r)| r.is_err()).unwrap().1.unwrap_err();
+        assert_eq!(err.to_string(),"Kunci sync sudah dibuat dari perangkat lain; buka dengan frasa sandi atau recovery key");
+        assert_eq!(server.get_vault(&session()).unwrap().unwrap().dek_by_passphrase[0],winner);
+    });
+}
+
+#[test]
+fn oauth_error_callback_fails_immediately() {
+    let server = Arc::new(MemoryServer::default());
+    let flow = oauth::begin_with_opener(server,Provider::Google,|_| Ok(())).unwrap();
+    let (base,state) = flow.redirect_uri().split_once("/callback?state=").unwrap();
+    let addr = base.strip_prefix("http://").unwrap().to_owned();
+    let request = format!("GET /callback?state={state}&error=access_denied&error_description=User+denied HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+    let sender = std::thread::spawn(move || {
+        let mut stream = TcpStream::connect(addr).unwrap();
+        stream.write_all(request.as_bytes()).unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+    });
+    let start = std::time::Instant::now();
+    let err = flow.wait(Duration::from_secs(2)).err().unwrap();
+    sender.join().unwrap();
+    assert!(matches!(err, crate::error::AppError::Invalid(ref m) if m.contains("Login sync gagal")));
+    assert!(start.elapsed()<Duration::from_secs(1));
+}
+
+#[test]
+fn oauth_opener_failure_returns_immediately() {
+    let start = std::time::Instant::now();
+    let result = oauth::begin_with_opener(Arc::new(MemoryServer::default()),Provider::Google,|_| Err(crate::error::AppError::Other("Browser tidak dapat dibuka".into())));
+    assert!(matches!(result, Err(crate::error::AppError::Other(m)) if m.contains("Browser")));
+    assert!(start.elapsed()<Duration::from_secs(1));
+}
+
+
+#[test]
+fn rejection_metadata_cannot_clear_outbox_or_record_an_unauthenticated_version() {
+    let server = Arc::new(test_server());
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p","Local survives unauthenticated winner",8);
+    b.write("p","Remote",10);
+    let racing = server.clone();
+    server.set_before_push(move || {
+        b.sync(racing.as_ref());
+        racing.tamper(|rows|rows[0].payload.as_mut().unwrap()[0] ^= 1);
+    });
+    a.sync(server.as_ref());
+    assert_eq!(a.title("p"),"Local survives unauthenticated winner");
+    let conn = a.db.conn().unwrap();
+    assert_eq!(conn.query_row("SELECT changed_at FROM sync_outbox WHERE record_id='p'",[],|r|r.get::<_,i64>(0)).unwrap(),8);
+    assert_eq!(conn.query_row("SELECT count(*) FROM sync_versions WHERE record_id='p'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn file_server_vault_create_and_update_match_memory_server() {
+    let dir = tempfile::tempdir_in(".").unwrap();
+    let server = fake::FileServer::open(&dir.path().join("cloud.db")).unwrap();
+    let other = fake::FileServer::open(&dir.path().join("cloud.db")).unwrap();
+    let vault = test_vault();
+    server.put_vault(&session(),&vault).unwrap();
+    let mut updated = test_vault();
+    updated.dek_by_passphrase[0] = 9;
+    assert!(matches!(other.put_vault(&session(),&updated),Err(crate::error::AppError::Invalid(_))));
+    assert_eq!(other.get_vault(&session()).unwrap().unwrap().dek_by_passphrase[0],7);
+    other.update_vault(&session(),&updated).unwrap();
+    assert_eq!(server.get_vault(&session()).unwrap().unwrap().dek_by_passphrase[0],9);
+    other.delete_my_data(&session()).unwrap();
+    server.update_vault(&session(),&vault).unwrap();
+    assert!(server.get_vault(&session()).unwrap().is_none());
 }

@@ -98,6 +98,7 @@ pub trait SyncServer: Send + Sync {
     fn sign_out(&self, session: &Session) -> Result<(), AppError>;
     fn get_vault(&self, session: &Session) -> Result<Option<Vault>, AppError>;
     fn put_vault(&self, session: &Session, vault: &Vault) -> Result<(), AppError>;
+    fn update_vault(&self, session: &Session, vault: &Vault) -> Result<(), AppError>;
     fn push(&self, session: &Session, rows: &[WireRecord]) -> Result<Vec<Rejected>, AppError>;
     fn pull(&self, session: &Session, after: i64, max: u32) -> Result<Vec<WireRecord>, AppError>;
     fn usage(&self, session: &Session) -> Result<Usage, AppError>;
@@ -108,6 +109,25 @@ pub trait SyncServer: Send + Sync {
 
 pub(crate) fn invalid_response() -> AppError { AppError::Invalid("Respons server sync tidak valid".into()) }
 pub(crate) fn unreachable() -> AppError { AppError::Other("Tidak dapat menghubungi server sync; periksa koneksi atau konfigurasi".into()) }
+
+pub(crate) const SESSION_ENDED: &str = "Sesi sync berakhir; masuk lagi";
+pub(crate) fn session_ended() -> AppError { AppError::Invalid(SESSION_ENDED.into()) }
+pub(crate) fn vault_conflict() -> AppError { AppError::Invalid("Kunci sync sudah dibuat dari perangkat lain; buka dengan frasa sandi atau recovery key".into()) }
+
+pub(crate) fn clear_expired_session<T>(keys: &KeyringStore, user: &str, result: Result<T,AppError>) -> Result<T,AppError> {
+    if matches!(&result, Err(AppError::Invalid(message)) if message == SESSION_ENDED) {
+        Session::delete(keys,user)?;
+    }
+    result
+}
+
+fn classify_http_error(path: &str, error: ureq::Error) -> AppError {
+    match error {
+        ureq::Error::StatusCode(status) if status == 401 || status == 403 || (status == 400 && path.split('?').next() == Some("/auth/v1/token")) => session_ended(),
+        ureq::Error::StatusCode(400..=499) => AppError::Invalid("Server sync menolak permintaan".into()),
+        _ => unreachable(),
+    }
+}
 
 pub(crate) fn canonical_uuid(value: &str) -> Result<String, AppError> {
     uuid::Uuid::parse_str(value).map(|id| id.to_string()).map_err(|_| invalid_response())
@@ -145,21 +165,25 @@ impl HttpServer {
     }
 
     fn request(&self, path: &str, session: Option<&Session>, body: Option<Value>, prefer: Option<&str>) -> Result<Value, AppError> {
+        self.request_method(if body.is_some() { "POST" } else { "GET" }, path, session, body, prefer)
+    }
+
+    fn request_method(&self, method: &str, path: &str, session: Option<&Session>, body: Option<Value>, prefer: Option<&str>) -> Result<Value, AppError> {
         let token = session.map_or(self.anon_key.as_str(), |s| s.access_token.as_str());
         let authorization = Zeroizing::new(format!("Bearer {token}"));
         let url = format!("{}{}", self.url, path);
         let response = if let Some(body) = body {
-            let mut request = self.agent.post(&url).header("apikey", &self.anon_key).header("Authorization", authorization.as_str());
+            let mut request = (if method == "PATCH" { self.agent.patch(&url) } else { self.agent.post(&url) }).header("apikey", &self.anon_key).header("Authorization", authorization.as_str());
             if let Some(prefer) = prefer { request = request.header("Prefer", prefer) }
             request.send_json(body)
         } else {
             self.agent.get(&url).header("apikey", &self.anon_key).header("Authorization", authorization.as_str()).call()
         };
-        let mut response = response.map_err(|error| match error {
-            ureq::Error::StatusCode(401) => AppError::Other("Sesi sync kedaluwarsa; masuk kembali".into()),
-            _ => unreachable(),
+        let mut response = response.map_err(|error| {
+            if method == "POST" && path == "/rest/v1/vault" && matches!(error,ureq::Error::StatusCode(409)) { vault_conflict() }
+            else { classify_http_error(path,error) }
         })?;
-        let bytes = Zeroizing::new(response.body_mut().with_config().limit(300 * 1024 * 1024).read_to_vec().map_err(|_| invalid_response())?);
+        let bytes = Zeroizing::new(response.body_mut().with_config().limit(300 * 1024 * 1024).read_to_vec().map_err(|_| unreachable())?);
         if bytes.is_empty() { return Ok(Value::Null) }
         serde_json::from_slice(&bytes).map_err(|_| invalid_response())
     }
@@ -190,8 +214,8 @@ impl HttpServer {
 impl SyncServer for HttpServer {
     fn authorize_url(&self, provider: Provider, redirect: &str, challenge: &str, state: &str) -> String {
         // Only a loopback URL produced by oauth::begin is allowed here.
-        if !valid_redirect(redirect) { return String::new() }
-        format!("{}/auth/v1/authorize?provider={}&redirect_to={}&code_challenge={}&code_challenge_method=s256&state={}", self.url, provider.as_str(), percent_encode(redirect), percent_encode(challenge), percent_encode(state))
+        if !valid_redirect(redirect,state) { return String::new() }
+        format!("{}/auth/v1/authorize?provider={}&redirect_to={}&code_challenge={}&code_challenge_method=s256", self.url, provider.as_str(), percent_encode(redirect), percent_encode(challenge))
     }
     fn exchange_code(&self, code: &str, verifier: &str) -> Result<Session, AppError> {
         self.token("pkce", json!({"auth_code":code,"code_verifier":verifier}))
@@ -213,7 +237,11 @@ impl SyncServer for HttpServer {
     fn put_vault(&self, session: &Session, vault: &Vault) -> Result<(), AppError> {
         let mut value = vault_json(vault);
         value["user_id"] = Value::String(canonical_uuid(&session.user_id)?);
-        self.request("/rest/v1/vault?on_conflict=user_id", Some(session), Some(value), Some("resolution=merge-duplicates,return=minimal")).map(|_| ())
+        self.request("/rest/v1/vault", Some(session), Some(value), Some("return=minimal")).map(|_| ())
+    }
+    fn update_vault(&self, session: &Session, vault: &Vault) -> Result<(), AppError> {
+        let user = canonical_uuid(&session.user_id)?;
+        self.request_method("PATCH", &format!("/rest/v1/vault?user_id=eq.{user}"), Some(session), Some(vault_json(vault)), Some("return=minimal")).map(|_| ())
     }
     fn push(&self, session: &Session, rows: &[WireRecord]) -> Result<Vec<Rejected>, AppError> {
         if rows.len() > PAGE_SIZE as usize { return Err(invalid_response()) }
@@ -250,8 +278,11 @@ pub fn configured_server() -> Result<Option<std::sync::Arc<dyn SyncServer>>, App
     Ok(HttpServer::from_config()?.map(|server| std::sync::Arc::new(server) as std::sync::Arc<dyn SyncServer>))
 }
 
-fn valid_redirect(redirect: &str) -> bool {
-    redirect.strip_prefix("http://127.0.0.1:").and_then(|s| s.strip_suffix("/callback")).and_then(|p| p.parse::<u16>().ok()).is_some_and(|port| port != 0)
+pub(crate) fn valid_redirect(redirect: &str, state: &str) -> bool {
+    if state.len() != 43 || !state.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b)) { return false }
+    let Some((base,query)) = redirect.split_once('?') else { return false };
+    let Some(port) = base.strip_prefix("http://127.0.0.1:").and_then(|s|s.strip_suffix("/callback")).and_then(|p|p.parse::<u16>().ok()).filter(|&p|p != 0) else { return false };
+    base == format!("http://127.0.0.1:{port}/callback") && query == format!("state={state}")
 }
 
 pub(crate) fn percent_encode(value: &str) -> String {
@@ -329,4 +360,68 @@ pub(crate) fn vault_from_json(value: &Value) -> Result<Vault, AppError> {
 pub(crate) fn stored_vault(conn: &rusqlite::Connection, user_id: &str) -> Result<Option<Vault>, AppError> {
     let value: Option<String> = conn.query_row("SELECT document FROM fake_vault WHERE user_id=?1", [user_id], |r| r.get(0)).optional()?;
     value.map(|v| serde_json::from_str(&v).map_err(|_| invalid_response()).and_then(|v| vault_from_json(&v))).transpose()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assistant::test_server;
+
+    #[test]
+    fn http_errors_classify_auth_client_and_network_failures_without_leaking_bodies() {
+        for (path,status,code,message) in [
+            ("/rest/v1/rpc/usage",401,"invalid","Sesi sync berakhir; masuk lagi"),
+            ("/rest/v1/vault",403,"invalid","Sesi sync berakhir; masuk lagi"),
+            ("/auth/v1/token?grant_type=refresh_token",400,"invalid","Sesi sync berakhir; masuk lagi"),
+            ("/auth/v1/token?grant_type=pkce",400,"invalid","Sesi sync berakhir; masuk lagi"),
+            ("/rest/v1/rpc/push_records",400,"invalid","Server sync menolak permintaan"),
+            ("/rest/v1/vault",409,"invalid","Server sync menolak permintaan"),
+            ("/rest/v1/rpc/usage",429,"invalid","Server sync menolak permintaan"),
+            ("/rest/v1/rpc/usage",500,"other","Tidak dapat menghubungi server sync; periksa koneksi atau konfigurasi"),
+        ] {
+            let error = classify_http_error(path,ureq::Error::StatusCode(status));
+            assert_eq!(error.code(),code);
+            assert_eq!(error.to_string(),message);
+        }
+        assert_eq!(classify_http_error("/rest/v1/vault",ureq::Error::Timeout(ureq::Timeout::Global)).to_string(),unreachable().to_string());
+    }
+
+    #[test]
+    fn authorize_url_embeds_state_in_exact_loopback_redirect_only() {
+        let server = HttpServer::new("https://example.test","public-key").unwrap();
+        let state = "a".repeat(43);
+        let redirect = format!("http://127.0.0.1:12345/callback?state={state}");
+        let url = server.authorize_url(Provider::Google,&redirect,"challenge",&state);
+        assert!(url.contains(&format!("redirect_to={}",percent_encode(&redirect))));
+        assert!(!url.contains("&state="));
+        for redirect in [
+            "http://127.0.0.1:12345/callback".to_string(),
+            format!("http://127.0.0.1:0/callback?state={state}"),
+            format!("http://localhost:12345/callback?state={state}"),
+            format!("http://127.0.0.1:12345/wrong?state={state}"),
+            format!("http://127.0.0.1:12345/callback?state={state}&next=https://evil.test"),
+            "http://127.0.0.1:12345/callback?state=wrong".into(),
+        ] { assert!(server.authorize_url(Provider::Google,&redirect,"challenge",&state).is_empty(),"{redirect}"); }
+    }
+
+    #[test]
+    fn http_vault_create_uses_insert_and_passphrase_change_uses_patch() {
+        let stub = test_server::Server::new(vec![test_server::response("201 Created",""),test_server::response("204 No Content",""),test_server::response("409 Conflict","secret details")]);
+        let server = HttpServer { url:stub.base.clone(),anon_key:"public".into(),agent:ureq::Agent::new_with_defaults() };
+        let session = Session { user_id:super::super::fake::FAKE_USER_ID.into(),email:String::new(),access_token:"access".into(),refresh_token:"refresh".into(),expires_at:i64::MAX };
+        let vault = Vault { kdf:Kdf { m_kib:32,t:1,p:1,salt:*b"0123456789abcdef" },dek_by_passphrase:vec![7;72],dek_by_recovery:vec![8;72] };
+        server.put_vault(&session,&vault).unwrap();
+        server.update_vault(&session,&vault).unwrap();
+        let err = server.put_vault(&session,&vault).unwrap_err();
+        assert_eq!(err.to_string(),"Kunci sync sudah dibuat dari perangkat lain; buka dengan frasa sandi atau recovery key");
+        let (create,_) = stub.requests.recv().unwrap();
+        assert!(create.starts_with("POST /v1/rest/v1/vault "));
+        assert!(!create.contains("merge-duplicates"));
+        assert!(!create.contains("on_conflict"));
+        let (update,body) = stub.requests.recv().unwrap();
+        assert!(update.starts_with(&format!("PATCH /v1/rest/v1/vault?user_id=eq.{} ",session.user_id)));
+        assert!(body.get("user_id").is_none());
+        stub.requests.recv().unwrap();
+        stub.finish();
+    }
 }

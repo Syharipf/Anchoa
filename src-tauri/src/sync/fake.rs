@@ -32,8 +32,10 @@ struct Control {
     calls: usize,
     refreshes: usize,
     offline: bool,
+    auth_expired: bool,
     fake_session: bool,
     hook: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
+    before_push: Option<Box<dyn FnOnce() + Send>>,
 }
 
 pub struct MemoryServer { store: Store }
@@ -50,13 +52,14 @@ impl Store {
     fn call(&self) -> Result<(), AppError> {
         #[cfg(test)]
         {
-            let (hook, offline) = {
+            let (hook, offline, auth_expired) = {
                 let mut control = self.control.lock().map_err(|_| server::unreachable())?;
                 control.calls += 1;
-                (control.hook.clone(), control.offline)
+                (control.hook.clone(), control.offline, control.auth_expired)
             };
             if let Some(hook) = hook { hook() }
             if offline { return Err(server::unreachable()) }
+            if auth_expired { return Err(server::session_ended()) }
         }
         Ok(())
     }
@@ -65,6 +68,11 @@ impl Store {
         self.conn.lock().map_err(|_| server::unreachable())
     }
     fn push(&self, session: &Session, rows: &[WireRecord]) -> Result<Vec<Rejected>, AppError> {
+        #[cfg(test)]
+        {
+            let hook = self.control.lock().unwrap().before_push.take();
+            if let Some(hook) = hook { hook() }
+        }
         if rows.len() > server::PAGE_SIZE as usize { return Err(server::invalid_response()) }
         let user = server::canonical_uuid(&session.user_id)?;
         let mut normalized = rows.to_vec();
@@ -104,7 +112,18 @@ impl Store {
         let value = server::vault_json(vault);
         // Validate all wrapped data and KDF parameters before persisting.
         server::vault_from_json(&value)?;
-        self.conn()?.execute("INSERT INTO fake_vault VALUES(?1,?2) ON CONFLICT(user_id) DO UPDATE SET document=excluded.document", params![user,value.to_string()])?;
+        let result = self.conn()?.execute("INSERT INTO fake_vault VALUES(?1,?2)", params![user,value.to_string()]);
+        match result {
+            Ok(_) => Ok(()),
+            Err(rusqlite::Error::SqliteFailure(error,_)) if error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY => Err(server::vault_conflict()),
+            Err(e) => Err(e.into()),
+        }
+    }
+    fn update_vault(&self, session: &Session, vault: &Vault) -> Result<(),AppError> {
+        let user = server::canonical_uuid(&session.user_id)?;
+        let value = server::vault_json(vault);
+        server::vault_from_json(&value)?;
+        self.conn()?.execute("UPDATE fake_vault SET document=?1 WHERE user_id=?2",params![value.to_string(),user])?;
         Ok(())
     }
     fn delete_my_data(&self, session: &Session) -> Result<(), AppError> {
@@ -142,7 +161,9 @@ impl FileServer {
 
 #[cfg(test)]
 impl MemoryServer {
+    pub fn set_before_push(&self, hook: impl FnOnce() + Send + 'static) { self.store.control.lock().unwrap().before_push = Some(Box::new(hook)); }
     pub fn set_hook(&self, hook: std::sync::Arc<dyn Fn() + Send + Sync>) { self.store.control.lock().unwrap().hook=Some(hook) }
+    pub fn set_auth_expired(&self, expired: bool) { self.store.control.lock().unwrap().auth_expired=expired }
     pub fn set_offline(&self, offline: bool) { self.store.control.lock().unwrap().offline=offline }
     pub fn set_fake_session(&self, enabled: bool) { self.store.control.lock().unwrap().fake_session = enabled; }
     pub fn call_count(&self) -> usize { self.store.control.lock().unwrap().calls }
@@ -190,13 +211,15 @@ macro_rules! implement_server {
     ($name:ty) => {
         impl SyncServer for $name {
             fn authorize_url(&self, provider: Provider, redirect: &str, challenge: &str, state: &str) -> String {
-                format!("https://fake.invalid/auth/v1/authorize?provider={}&redirect_to={}&code_challenge={}&code_challenge_method=s256&state={}",provider.as_str(),server::percent_encode(redirect),server::percent_encode(challenge),server::percent_encode(state))
+                if !server::valid_redirect(redirect,state) { return String::new() }
+                format!("https://fake.invalid/auth/v1/authorize?provider={}&redirect_to={}&code_challenge={}&code_challenge_method=s256",provider.as_str(),server::percent_encode(redirect),server::percent_encode(challenge))
             }
             fn exchange_code(&self, _code: &str, _verifier: &str) -> Result<Session,AppError> { self.store.call()?; Ok(fake_session()) }
             fn refresh(&self, session: &Session) -> Result<Session,AppError> { self.store.refresh(session) }
             fn sign_out(&self, _session: &Session) -> Result<(),AppError> { self.store.call() }
             fn get_vault(&self, session: &Session) -> Result<Option<Vault>,AppError> { self.store.get_vault(session) }
             fn put_vault(&self, session: &Session, vault: &Vault) -> Result<(),AppError> { self.store.put_vault(session,vault) }
+            fn update_vault(&self, session: &Session, vault: &Vault) -> Result<(),AppError> { self.store.update_vault(session,vault) }
             fn push(&self, session: &Session, rows: &[WireRecord]) -> Result<Vec<Rejected>,AppError> { self.store.push(session,rows) }
             fn pull(&self, session: &Session, after: i64, max: u32) -> Result<Vec<WireRecord>,AppError> { self.store.pull(session,after,max) }
             fn usage(&self, session: &Session) -> Result<Usage,AppError> { self.store.usage(session) }
@@ -208,4 +231,3 @@ macro_rules! implement_server {
 implement_server!(MemoryServer);
 #[cfg(debug_assertions)]
 implement_server!(FileServer);
-

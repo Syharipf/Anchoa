@@ -30,3 +30,20 @@ jobs:
         working-directory: src-tauri
       - run: cargo test
         working-directory: src-tauri
+
+  supabase:
+    runs-on: ubuntu-24.04
+    # Dummy OAuth values let local GoTrue start; these are not provider credentials.
+    env:
+      ANCHOA_GOOGLE_CLIENT_ID: local-test-google
+      ANCHOA_GOOGLE_CLIENT_SECRET: local-test-google
+      ANCHOA_GITHUB_CLIENT_ID: local-test-github
+      ANCHOA_GITHUB_CLIENT_SECRET: local-test-github
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start -x studio,imgproxy,storage,edge-runtime,logflare,vector,realtime,inbucket
+      - run: supabase test db
+      - run: supabase db lint --level error

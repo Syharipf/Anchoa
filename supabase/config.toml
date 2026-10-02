@@ -1,0 +1,56 @@
+project_id = "anchoa"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 500
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = false
+
+[realtime]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1/callback"
+additional_redirect_urls = ["http://127.0.0.1:*/callback"]
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+
+[auth.sms]
+enable_signup = false
+
+[auth.external.google]
+enabled = true
+client_id = "env(ANCHOA_GOOGLE_CLIENT_ID)"
+secret = "env(ANCHOA_GOOGLE_CLIENT_SECRET)"
+
+[auth.external.github]
+enabled = true
+client_id = "env(ANCHOA_GITHUB_CLIENT_ID)"
+secret = "env(ANCHOA_GITHUB_CLIENT_SECRET)"

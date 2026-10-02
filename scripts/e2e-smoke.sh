@@ -84,7 +84,7 @@ check_nav() {
   start_app
   for y in 256 310 364 418 472 526 580 706; do
     click 36 "$y"
-    shot "3-nav-$y"     # expect: Email placeholder, then Jadwal, Habit, Keuangan, Proyek, Berkas, Unduhan, Profil (Catatan at y=202 is covered by check_notes)
+    shot "3-nav-$y"     # expect: Gmail connection, then Jadwal, Habit, Keuangan, Proyek, Berkas, Unduhan, Profil (Catatan at y=202 is covered by check_notes)
   done
   click 36 148          # Jurnal: the mini assistant replaces the side panel
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
@@ -1000,6 +1000,52 @@ check_pin() {
   stop_app
 }
 
+check_email() {
+  fresh
+  ANCHOA_FAKE_MAIL=0 start_app
+  click 36 256                 # nav: Email, no account
+  shot 25-email-connect        # expect: Sambungkan Gmail, App Password steps and fields
+  [[ "$(sql "SELECT count(*) FROM settings WHERE key = 'email.address'")" = 0 ]] \
+    || fail "fresh email check unexpectedly has an account"
+  stop_app
+
+  fresh
+  ANCHOA_FAKE_MAIL=1 start_app  # debug-only fake client and in-memory keyring
+  click 36 256
+  # Alamat Gmail receives focus when the connection form mounts.
+  xdotool type --delay 20 'anchoa@gmail.com'
+  xdotool key Tab
+  xdotool type --delay 20 'abcdefghijklmnop'
+  xdotool key Return
+  sql_becomes "SELECT value FROM settings WHERE key = 'email.address'" anchoa@gmail.com \
+    || fail "fake Gmail account was not connected"
+  sql_becomes "SELECT count(*) FROM emails e JOIN items i ON i.id = e.item_id WHERE e.folder = 'INBOX' AND i.title = 'Selamat datang di Email Anchoa' AND i.deleted_at IS NULL" 1 \
+    || fail "fake inbox did not sync"
+  sleep 1
+  shot 25-email-list           # expect: Siti, Selamat datang di Email Anchoa, lime unread dot
+  click 450 260               # welcome row: email_open also sets Seen
+  sql_becomes "SELECT unread FROM emails WHERE folder = 'INBOX' AND uid = 1" 0 \
+    || fail "opening email did not mark it read"
+  shot 25-email-open           # expect: plain-text welcome body, sender, reply bar
+  click 610 260               # independent star button on the welcome row
+  sql_becomes "SELECT starred FROM emails WHERE folder = 'INBOX' AND uid = 1" 1 \
+    || fail "email star was not saved"
+  shot 25-email-starred
+  click 850 720               # Tulis balasan
+  xdotool type --delay 20 'Terima kasih dari e2e'
+  xdotool key Tab Return      # Kirim balasan
+  sql_becomes "SELECT count(*) FROM emails e JOIN items i ON i.id = e.item_id WHERE e.folder = '[Gmail]/Sent Mail' AND i.title = 'Re: Selamat datang di Email Anchoa' AND i.deleted_at IS NULL" 1 \
+    || fail "email reply did not appear in Sent Mail after sync"
+  shot 25-email-replied        # expect: reply field cleared
+  click 165 230               # Terkirim
+  sleep 1
+  click 450 260               # fetch the sent reply body for a DB assertion
+  sql_becomes "SELECT trim(i.body, char(13) || char(10)) FROM items i JOIN emails e ON e.item_id = i.id WHERE e.folder = '[Gmail]/Sent Mail' AND i.deleted_at IS NULL" 'Terima kasih dari e2e' \
+    || fail "sent reply body did not match"
+  shot 25-email-sent
+  stop_app
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -1032,4 +1078,5 @@ check_profile
 check_assistant_ai
 check_voice_settings
 check_pin
+check_email
 echo "PASS. Screenshots in $WORK"

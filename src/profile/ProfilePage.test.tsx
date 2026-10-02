@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
 import { api, type GithubStatus, type NotifyPrefs, type Profile } from "../api";
 import { PinDialog } from "../security/PinDialog";
@@ -37,6 +37,11 @@ describe("ProfilePage", () => {
   let securityStatusSpy: ReturnType<typeof spyOn<typeof api, "securityStatus">> | undefined;
   let setPinSpy: ReturnType<typeof spyOn<typeof api, "setPin">> | undefined;
   let disablePinSpy: ReturnType<typeof spyOn<typeof api, "disablePin">> | undefined;
+  let emailStatusSpy: ReturnType<typeof spyOn<typeof api, "emailStatus">>;
+
+  beforeEach(() => {
+    emailStatusSpy = spyOn(api, "emailStatus").mockResolvedValue({ connected: false, address: null });
+  });
 
   afterEach(() => {
     harness?.dispose();
@@ -47,6 +52,7 @@ describe("ProfilePage", () => {
     securityStatusSpy?.mockRestore();
     setPinSpy?.mockRestore();
     disablePinSpy?.mockRestore();
+    emailStatusSpy?.mockRestore();
   });
 
   it("renders profile card with name, initials, since date, and 4 stats", async () => {
@@ -414,5 +420,16 @@ describe("ProfilePage", () => {
     );
     expect(recoveredSwitch).toBeDefined();
     expect(recoveredSwitch!.props["aria-checked"]).toBe(false);
+  });
+
+  it.each([true, false])("shows the actual email account status (connected=%s)", async (connected) => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    emailStatusSpy.mockResolvedValue({ connected, address: connected ? "anchoa@gmail.com" : null });
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    harness.render();
+    await harness.settle();
+    const textNodes = elements(harness.render()).map((el) => el.props.children).flat();
+    expect(textNodes).toContain(connected ? "Terhubung sebagai anchoa@gmail.com" : "Belum terhubung");
   });
 });

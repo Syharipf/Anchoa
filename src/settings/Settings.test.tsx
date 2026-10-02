@@ -87,9 +87,10 @@ describe("DataSection", () => {
 });
 
 describe("IntegrationsSection", () => {
-  it("renders GitHub section and SFTP upcoming card", () => {
+  it("renders GitHub, Email and SFTP cards", () => {
     const html = renderToStaticMarkup(<IntegrationsSection onChanged={() => {}} />);
     expect(html).toContain("GitHub");
+    expect(html).toContain("Email");
     expect(html).toContain("Laptop dari HP (SFTP)");
     expect(html).toContain("Menyusul");
     expect(html).toContain("Tailscale");
@@ -268,14 +269,10 @@ describe("Settings interactions", () => {
   });
 });
 
-describe("ComingSoon with sensible settings navigation", () => {
-  it("renders 'Buka Pengaturan' for email and profil", () => {
-    const emailInfo = pageInfo("email");
-    const htmlEmail = renderToStaticMarkup(
-      <ComingSoon page={emailInfo} onOpenSettings={() => {}} />,
-    );
-    expect(htmlEmail).toContain("Buka Pengaturan");
-
+describe("page metadata and settings navigation", () => {
+  it("marks email as built and retains sensible settings navigation", () => {
+    expect(pageInfo("email").about).toBeUndefined();
+    expect(pageInfo("email").fase).toBeUndefined();
     const profilInfo = pageInfo("profil");
     const htmlProfil = renderToStaticMarkup(
       <ComingSoon page={profilInfo} onOpenSettings={() => {}} />,

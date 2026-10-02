@@ -32,8 +32,6 @@ export const PAGES: readonly NavPage[] = [
   {
     id: "email",
     label: "Email",
-    fase: 8,
-    about: "Kotak masuk IMAP dengan ringkasan dari asisten, saran balasan, dan dikte suara.",
   },
   {
     id: "jadwal",

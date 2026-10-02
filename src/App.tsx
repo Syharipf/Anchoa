@@ -6,6 +6,7 @@ import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
 import { FilesPage, type FileClipboard } from "./files/FilesPage";
 import { DownloadsPage } from "./downloads/DownloadsPage";
+import { EmailPage } from "./email/EmailPage";
 import { FinancePage } from "./finance/FinancePage";
 import { HabitsPage } from "./habits/HabitsPage";
 import { JournalPage } from "./journal/JournalPage";
@@ -203,6 +204,7 @@ export function App() {
         {page.name === "unduhan" && (
           <DownloadsPage key={assistantDataVersion} onReveal={onReveal} />
         )}
+        {page.name === "email" && <EmailPage />}
         {page.name === "item" && <ItemPage key={`${page.id}:${assistantDataVersion}`} id={page.id} onBack={back} onOpenItem={openItem} />}
         {page.name === "profil" && (
           <ProfilePage

@@ -161,6 +161,7 @@ User sedang pergi. Semua ini bisa diubah sebelum kode dimulai:
 - **Server bisa menahan update** (tidak mengirim versi baru), tapi tidak bisa memalsukan atau menukar isi. Ini batas wajar untuk server yang tidak dipercaya.
 - **Jam perangkat yang meleset** memengaruhi LWW. Mitigasi: `changed_at` di klien tidak pernah lebih kecil dari versi terakhir yang diterima ditambah 1 ms.
 - **Paket gratis Supabase** dijeda setelah 7 hari tanpa aktivitas. Sync otomatis saat app dibuka menjaga proyek tetap aktif selama app dipakai. Kalau proyek dijeda, sync menampilkan error yang jelas dan data lokal tidak terpengaruh.
+- **Perangkat tidak sync lebih dari 90 hari:** reset 90 hari hanya mengulang pull dari awal, bukan menghapus data lokal. Tombstone hanya dibuat untuk baris yang sudah hilang secara lokal tetapi masih di outbox; app tidak pernah melakukan hard delete. Soft delete dikirim sebagai record lengkap dan tidak pernah dipangkas. Jadi perangkat yang kembali setelah lebih dari 90 hari hanya dapat melewatkan tombstone langka untuk baris yang hilang tersebut, jika tombstone sudah dibersihkan server.
 - **Backup:** backup SQLite harian lokal tetap jadi cadangan utama. Supabase bukan backup karena isinya hanya versi terakhir.
 - **Android:** DEK dan token disimpan di Android Keystore; ini perlu plugin atau implementasi sendiri saat fase Android. Format data dan protokol tidak berubah.
 

@@ -54,12 +54,55 @@ fn is_tombstone_payload(payload: &[u8]) -> bool {
         .unwrap_or(false)
 }
 
-fn call_server<T>(
-    session: &Session,
+fn check_vault(
+    db: &Db,
     keys: &KeyringStore,
-    f: impl FnOnce(&Session) -> Result<T, AppError>,
-) -> Result<T, AppError> {
-    server::clear_expired_session(keys, &session.user_id, f(session))
+    server: &dyn SyncServer,
+    session: &mut Session,
+    fingerprint: &str,
+) -> Result<(), AppError> {
+    let vault = server::call_with_refresh(server, keys, session, |s| server.get_vault(s))?;
+    if vault
+        .as_ref()
+        .is_none_or(|v| vault_fingerprint(v) != fingerprint)
+    {
+        delete_dek(keys, &session.user_id)?;
+        let message = "Kunci sync berubah atau dihapus di perangkat lain; buka kunci lagi";
+        set_state(&*db.conn()?, "last_error", message)?;
+        return Err(AppError::Invalid(message.into()));
+    }
+    Ok(())
+}
+
+fn pending_document(payload: &[u8]) -> Option<serde_json::Value> {
+    let plain =
+        miniz_oxide::inflate::decompress_to_vec_with_limit(payload, record::MAX_DECOMPRESSED_BYTES)
+            .ok()?;
+    serde_json::from_slice(&plain).ok()
+}
+
+fn is_newer_schema(conn: &Connection, payload: &[u8]) -> Result<bool, AppError> {
+    let schema: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    Ok(pending_document(payload)
+        .and_then(|doc| doc["schema"].as_i64())
+        .is_some_and(|incoming| incoming > schema))
+}
+
+fn warn_newer_schema(conn: &Connection, id: &str, payload: &[u8]) -> Result<(), AppError> {
+    let title: Option<String> = conn
+        .query_row("SELECT title FROM items WHERE id=?1", [id], |r| r.get(0))
+        .optional()?;
+    let title = title
+        .or_else(|| {
+            pending_document(payload)
+                .and_then(|doc| doc["item"]["title"].as_str().map(str::to_owned))
+        })
+        .unwrap_or_else(|| id.into());
+    set_state(
+        conn,
+        &format!("warning:{id}"),
+        &format!("Perbarui Anchoa untuk menyinkronkan {title}"),
+    )
 }
 
 pub(crate) fn set_state(conn: &Connection, key: &str, value: &str) -> Result<(), AppError> {
@@ -111,7 +154,17 @@ fn wins_lww(
         )
         .optional()?;
     if let Some(ts) = queued
-        && remote <= (effective_changed_at(ts, known.as_deref()), device)
+        && remote
+            <= (
+                if retry && known.as_deref().and_then(parse_version) == Some(remote) {
+                    // A deferred version has not been applied locally. It must not
+                    // advance an older queued edit past itself just by being known.
+                    ts
+                } else {
+                    effective_changed_at(ts, known.as_deref())
+                },
+                device,
+            )
     {
         return Ok(false);
     }
@@ -158,24 +211,10 @@ pub fn sync_once(
     let mut session = Session::load(keys, &user_id)?.ok_or_else(server::session_ended)?;
     let dek = load_dek(keys, &user_id)?
         .ok_or_else(|| AppError::Other("Kunci sync (DEK) belum dibuka".into()))?;
-    if now >= session.expires_at {
-        let refreshed = server::clear_expired_session(keys, &user_id, server.refresh(&session))?;
-        refreshed.store(keys)?;
-        session = refreshed;
-    }
+    server::refresh_if_expiring(server, keys, &mut session, now)?;
 
-    let vault = call_server(&session, keys, |s| server.get_vault(s))?;
-    if vault
-        .as_ref()
-        .is_none_or(|v| vault_fingerprint(v) != fingerprint)
-    {
-        delete_dek(keys, &user_id)?;
-        let message = "Kunci sync berubah atau dihapus di perangkat lain; buka kunci lagi";
-        set_state(&*db.conn()?, "last_error", message)?;
-        return Err(AppError::Invalid(message.into()));
-    }
-
-    let usage = call_server(&session, keys, |s| server.usage(s))?;
+    check_vault(db, keys, server, &mut session, &fingerprint)?;
+    let usage = server::call_with_refresh(server, keys, &mut session, |s| server.usage(s))?;
     let mut bytes_used = usage.bytes;
     set_state(&*db.conn()?, "bytes_used", &bytes_used.to_string())?;
     const NINETY_DAYS: i64 = 90 * 24 * 60 * 60 * 1000;
@@ -189,7 +228,7 @@ pub fn sync_once(
         db,
         keys,
         server,
-        &session,
+        &mut session,
         &device_id,
         &dek,
         &mut cursor,
@@ -198,11 +237,19 @@ pub fn sync_once(
 
     let mut pushed = 0;
     let mut stopped_by_quota = false;
+    let mut skipped = HashSet::new();
     loop {
         let outbox_rows: Vec<(String, i64)> = {
             let conn = db.conn()?;
-            let mut stmt = conn.prepare("SELECT record_id,changed_at FROM sync_outbox ORDER BY changed_at,record_id LIMIT ?1")?;
-            stmt.query_map([PAGE_SIZE], |r| Ok((r.get(0)?, r.get(1)?)))?
+            let mut stmt = conn.prepare(
+                "SELECT record_id,changed_at FROM sync_outbox ORDER BY changed_at,record_id",
+            )?;
+            stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?
+                .filter(|row| match row {
+                    Ok((id, _)) => !skipped.contains(id),
+                    Err(_) => true,
+                })
+                .take(PAGE_SIZE as usize)
                 .collect::<Result<_, _>>()?
         };
         if outbox_rows.is_empty() {
@@ -213,6 +260,20 @@ pub fn sync_once(
         {
             let conn = db.conn()?;
             for (id, queued) in &outbox_rows {
+                let pending: Option<Vec<u8>> = conn
+                    .query_row(
+                        "SELECT payload FROM sync_pending WHERE record_id=?1",
+                        [id],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if let Some(payload) = pending
+                    && is_newer_schema(&conn, &payload)?
+                {
+                    warn_newer_schema(&conn, id, &payload)?;
+                    skipped.insert(id.clone());
+                    continue;
+                }
                 let rec = match record::export(&conn, id) {
                     Ok(Some(rec)) => rec,
                     Ok(None) => {
@@ -224,18 +285,11 @@ pub fn sync_once(
                     }
                     Err(e) if record::is_too_large(&e) => {
                         set_state(&conn, &format!("warning:{id}"), &e.to_string())?;
-                        conn.execute(
-                            "DELETE FROM sync_outbox WHERE record_id=?1 AND changed_at=?2",
-                            params![id, queued],
-                        )?;
+                        skipped.insert(id.clone());
                         continue;
                     }
                     Err(e) => return Err(e),
                 };
-                conn.execute(
-                    "DELETE FROM sync_state WHERE key=?1",
-                    [format!("warning:{id}")],
-                )?;
                 let known = known_version(&conn, id)?;
                 let changed_at = effective_changed_at(*queued, known.as_deref());
                 let aad = crypto::aad(&user_id, id, changed_at, &device_id);
@@ -264,7 +318,9 @@ pub fn sync_once(
             stopped_by_quota = true;
             break;
         }
-        let rejected = call_server(&session, keys, |s| server.push(s, &batch))?;
+        check_vault(db, keys, server, &mut session, &fingerprint)?;
+        let rejected =
+            server::call_with_refresh(server, keys, &mut session, |s| server.push(s, &batch))?;
         let rejected_ids: HashSet<&str> = rejected.iter().map(|r| r.id.as_str()).collect();
         {
             let mut conn = db.conn()?;
@@ -278,6 +334,10 @@ pub fn sync_once(
                     params![wire.id, queued],
                 )?;
                 tx.execute("DELETE FROM sync_pending WHERE record_id=?1", [&wire.id])?;
+                tx.execute(
+                    "DELETE FROM sync_state WHERE key=?1",
+                    [format!("warning:{}", wire.id)],
+                )?;
                 tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version",params![wire.id,format_version(wire.changed_at,&wire.device_id)])?;
                 pushed += 1;
                 bytes_used =
@@ -293,7 +353,7 @@ pub fn sync_once(
                 db,
                 keys,
                 server,
-                &session,
+                &mut session,
                 &device_id,
                 &dek,
                 &mut cursor,
@@ -326,14 +386,16 @@ fn pull_all(
     db: &Db,
     keys: &KeyringStore,
     server: &dyn SyncServer,
-    session: &Session,
+    session: &mut Session,
     device: &str,
     dek: &Dek,
     cursor: &mut i64,
     pulled: &mut usize,
 ) -> Result<(), AppError> {
     loop {
-        let page = call_server(session, keys, |s| server.pull(s, *cursor, PAGE_SIZE))?;
+        let page = server::call_with_refresh(server, keys, session, |s| {
+            server.pull(s, *cursor, PAGE_SIZE)
+        })?;
         {
             let mut conn = db.conn()?;
             let tx = conn.transaction()?;
@@ -371,6 +433,30 @@ fn apply_page(
                 continue;
             }
         };
+        let queued: Option<i64> = tx
+            .query_row(
+                "SELECT changed_at FROM sync_outbox WHERE record_id=?1",
+                [&wire.id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(queued) = queued
+            && wire.device_id == device
+            && wire.changed_at
+                == effective_changed_at(queued, known_version(tx, &wire.id)?.as_deref())
+        {
+            // The server committed this push even if its response was lost.
+            tx.execute(
+                "DELETE FROM sync_outbox WHERE record_id=?1 AND changed_at=?2",
+                params![wire.id, queued],
+            )?;
+            tx.execute(
+                "DELETE FROM sync_state WHERE key=?1",
+                [format!("warning:{}", wire.id)],
+            )?;
+            tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version", params![wire.id,format_version(wire.changed_at,device)])?;
+            continue;
+        }
         if !wins_lww(
             tx,
             &wire.id,
@@ -393,12 +479,16 @@ fn apply_page(
     let records: Vec<Record> = to_apply.iter().map(|(r, _)| r.clone()).collect();
     let results = record::apply_batch(tx, &records)?;
     for ((rec, version), result) in to_apply.iter().zip(results) {
+        // Even a failed apply advances the authenticated version, allowing a
+        // retained local edit to move past the server's LWW rejection.
+        tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version",params![rec.id,version])?;
         match result {
             Ok(applied) => {
-                tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version",params![rec.id,version])?;
                 // This authenticated version won against the effective outgoing
                 // version. Deferral must also prevent pushing older content.
-                tx.execute("DELETE FROM sync_outbox WHERE record_id=?1", [&rec.id])?;
+                if applied != Applied::NewerSchema {
+                    tx.execute("DELETE FROM sync_outbox WHERE record_id=?1", [&rec.id])?;
+                }
                 tx.execute(
                     "DELETE FROM sync_state WHERE key=?1",
                     [format!("warning:{}", rec.id)],
@@ -408,9 +498,19 @@ fn apply_page(
                     tx.execute("DELETE FROM sync_pending WHERE record_id=?1", [&rec.id])?;
                 } else {
                     tx.execute("INSERT INTO sync_pending VALUES(?1,?2,?3) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version,payload=excluded.payload",params![rec.id,version,rec.payload])?;
+                    if applied == Applied::NewerSchema {
+                        warn_newer_schema(tx, &rec.id, rec.payload.as_deref().unwrap_or_default())?;
+                    }
                 }
             }
-            Err(e) => log::warn!("Record {}: gagal diterapkan: {e}", rec.id),
+            Err(e) => {
+                log::warn!("Record {}: gagal diterapkan: {e}", rec.id);
+                set_state(
+                    tx,
+                    &format!("warning:{}", rec.id),
+                    &format!("Record {}: gagal diterapkan: {e}", rec.id),
+                )?;
+            }
         }
     }
     retry_pending(tx, device, pulled)?;
@@ -427,12 +527,20 @@ fn retry_pending(conn: &Connection, device: &str, pulled: &mut usize) -> Result<
         let mut records = Vec::new();
         let mut versions = Vec::new();
         for (id, version, payload) in rows {
+            if is_newer_schema(conn, &payload)? {
+                warn_newer_schema(conn, &id, &payload)?;
+                continue;
+            }
             let Some(remote) = parse_version(&version) else {
                 conn.execute("DELETE FROM sync_pending WHERE record_id=?1", [&id])?;
                 continue;
             };
             if !wins_lww(conn, &id, remote, device, true)? {
                 conn.execute("DELETE FROM sync_pending WHERE record_id=?1", [&id])?;
+                conn.execute(
+                    "DELETE FROM sync_state WHERE key=?1",
+                    [format!("warning:{id}")],
+                )?;
                 continue;
             }
             let ts = remote.0;
@@ -452,6 +560,10 @@ fn retry_pending(conn: &Connection, device: &str, pulled: &mut usize) -> Result<
                 conn.execute("DELETE FROM sync_pending WHERE record_id=?1", [&rec.id])?;
                 conn.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version",params![rec.id,version])?;
                 conn.execute("DELETE FROM sync_outbox WHERE record_id=?1", [&rec.id])?;
+                conn.execute(
+                    "DELETE FROM sync_state WHERE key=?1",
+                    [format!("warning:{}", rec.id)],
+                )?;
                 progress = true;
             }
         }

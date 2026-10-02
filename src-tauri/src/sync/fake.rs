@@ -36,6 +36,10 @@ struct Control {
     fake_session: bool,
     hook: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
     before_push: Option<Box<dyn FnOnce() + Send>>,
+    after_pull: Option<Box<dyn FnOnce() + Send>>,
+    lose_push_response: bool,
+    pushes: usize,
+    expired_access_token: Option<String>,
 }
 
 pub struct MemoryServer { store: Store }
@@ -59,12 +63,18 @@ impl Store {
             };
             if let Some(hook) = hook { hook() }
             if offline { return Err(server::unreachable()) }
-            if auth_expired { return Err(server::session_ended()) }
+            if auth_expired { return Err(AppError::Invalid(server::ACCESS_EXPIRED.into())) }
         }
         Ok(())
     }
-    fn conn(&self) -> Result<MutexGuard<'_, Connection>, AppError> {
+    fn conn(&self, session: &Session) -> Result<MutexGuard<'_, Connection>, AppError> {
         self.call()?;
+        #[cfg(test)]
+        if self.control.lock().unwrap().expired_access_token.as_deref() == Some(session.access_token.as_str()) {
+            return Err(AppError::Invalid(server::ACCESS_EXPIRED.into()));
+        }
+        #[cfg(not(test))]
+        let _ = session;
         self.conn.lock().map_err(|_| server::unreachable())
     }
     fn push(&self, session: &Session, rows: &[WireRecord]) -> Result<Vec<Rejected>, AppError> {
@@ -77,7 +87,7 @@ impl Store {
         let user = server::canonical_uuid(&session.user_id)?;
         let mut normalized = rows.to_vec();
         for row in &mut normalized { server::validate_record(row)?; row.device_id = server::canonical_uuid(&row.device_id)? }
-        let mut conn = self.conn()?;
+        let mut conn = self.conn(session)?;
         let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let mut rejected = Vec::new();
         for row in normalized {
@@ -92,27 +102,40 @@ impl Store {
             tx.execute("INSERT INTO fake_records(user_id,id,changed_at,device_id,deleted,payload,seq) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(user_id,id) DO UPDATE SET changed_at=excluded.changed_at,device_id=excluded.device_id,deleted=excluded.deleted,payload=excluded.payload,seq=excluded.seq", params![user,row.id,row.changed_at,row.device_id,row.deleted,row.payload,seq])?;
         }
         tx.commit()?;
+        #[cfg(test)]
+        {
+            let mut control = self.control.lock().unwrap();
+            control.pushes += 1;
+            if std::mem::take(&mut control.lose_push_response) { return Err(server::unreachable()) }
+        }
         Ok(rejected)
     }
     fn pull(&self, session: &Session, after: i64, max: u32) -> Result<Vec<WireRecord>, AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
-        let conn = self.conn()?;
-        Ok(conn.prepare("SELECT id,changed_at,device_id,deleted,payload,seq FROM fake_records WHERE user_id=?1 AND seq>?2 ORDER BY seq LIMIT ?3")?.query_map(params![user,after,max.clamp(1,server::PAGE_SIZE)], |r| Ok(WireRecord { id:r.get(0)?, changed_at:r.get(1)?, device_id:r.get(2)?, deleted:r.get(3)?, payload:r.get(4)?, seq:r.get(5)? }))?.collect::<Result<_,_>>()?)
+        let conn = self.conn(session)?;
+        let rows = conn.prepare("SELECT id,changed_at,device_id,deleted,payload,seq FROM fake_records WHERE user_id=?1 AND seq>?2 ORDER BY seq LIMIT ?3")?.query_map(params![user,after,max.clamp(1,server::PAGE_SIZE)], |r| Ok(WireRecord { id:r.get(0)?, changed_at:r.get(1)?, device_id:r.get(2)?, deleted:r.get(3)?, payload:r.get(4)?, seq:r.get(5)? }))?.collect::<Result<_,_>>()?;
+        drop(conn);
+        #[cfg(test)]
+        {
+            let hook = self.control.lock().unwrap().after_pull.take();
+            if let Some(hook) = hook { hook() }
+        }
+        Ok(rows)
     }
     fn usage(&self, session: &Session) -> Result<Usage, AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
-        Ok(self.conn()?.query_row("SELECT count(*),coalesce(sum(length(payload)),0) FROM fake_records WHERE user_id=?1", [user], |r| Ok(Usage { rows:r.get::<_,i64>(0)? as u64,bytes:r.get::<_,i64>(1)? as u64 }))?)
+        Ok(self.conn(session)?.query_row("SELECT count(*),coalesce(sum(length(payload)),0) FROM fake_records WHERE user_id=?1", [user], |r| Ok(Usage { rows:r.get::<_,i64>(0)? as u64,bytes:r.get::<_,i64>(1)? as u64 }))?)
     }
     fn get_vault(&self, session: &Session) -> Result<Option<Vault>, AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
-        server::stored_vault(&*self.conn()?, &user)
+        server::stored_vault(&*self.conn(session)?, &user)
     }
     fn put_vault(&self, session: &Session, vault: &Vault) -> Result<(), AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
         let value = server::vault_json(vault);
         // Validate all wrapped data and KDF parameters before persisting.
         server::vault_from_json(&value)?;
-        let result = self.conn()?.execute("INSERT INTO fake_vault VALUES(?1,?2)", params![user,value.to_string()]);
+        let result = self.conn(session)?.execute("INSERT INTO fake_vault VALUES(?1,?2)", params![user,value.to_string()]);
         match result {
             Ok(_) => Ok(()),
             Err(rusqlite::Error::SqliteFailure(error,_)) if error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY => Err(server::vault_conflict()),
@@ -123,12 +146,12 @@ impl Store {
         let user = server::canonical_uuid(&session.user_id)?;
         let value = server::vault_json(vault);
         server::vault_from_json(&value)?;
-        self.conn()?.execute("UPDATE fake_vault SET document=?1 WHERE user_id=?2",params![value.to_string(),user])?;
+        self.conn(session)?.execute("UPDATE fake_vault SET document=?1 WHERE user_id=?2",params![value.to_string(),user])?;
         Ok(())
     }
     fn delete_my_data(&self, session: &Session) -> Result<(), AppError> {
         let user = server::canonical_uuid(&session.user_id)?;
-        let mut conn = self.conn()?;
+        let mut conn = self.conn(session)?;
         let tx = conn.transaction()?;
         tx.execute("DELETE FROM fake_records WHERE user_id=?1", [&user])?;
         tx.execute("DELETE FROM fake_vault WHERE user_id=?1", [&user])?;
@@ -136,9 +159,13 @@ impl Store {
         Ok(())
     }
     fn refresh(&self, session: &Session) -> Result<Session, AppError> {
-        self.call()?;
         #[cfg(test)]
-        { self.control.lock().map_err(|_| server::unreachable())?.refreshes += 1; }
+        {
+            let mut control = self.control.lock().map_err(|_| server::unreachable())?;
+            control.refreshes += 1;
+            if control.auth_expired { return Err(server::session_ended()) }
+        }
+        self.call()?;
         Ok(Session { user_id: server::canonical_uuid(&session.user_id)?, email: session.email.clone(), access_token: "fake-access".into(), refresh_token: "fake-refresh".into(), expires_at: i64::MAX })
     }
 }
@@ -161,6 +188,10 @@ impl FileServer {
 
 #[cfg(test)]
 impl MemoryServer {
+    pub fn set_after_pull(&self, hook: impl FnOnce() + Send + 'static) { self.store.control.lock().unwrap().after_pull = Some(Box::new(hook)); }
+    pub fn lose_next_push_response(&self) { self.store.control.lock().unwrap().lose_push_response = true; }
+    pub fn push_count(&self) -> usize { self.store.control.lock().unwrap().pushes }
+    pub fn expire_access_token(&self, token: &str) { self.store.control.lock().unwrap().expired_access_token = Some(token.into()); }
     pub fn set_before_push(&self, hook: impl FnOnce() + Send + 'static) { self.store.control.lock().unwrap().before_push = Some(Box::new(hook)); }
     pub fn set_hook(&self, hook: std::sync::Arc<dyn Fn() + Send + Sync>) { self.store.control.lock().unwrap().hook=Some(hook) }
     pub fn set_auth_expired(&self, expired: bool) { self.store.control.lock().unwrap().auth_expired=expired }

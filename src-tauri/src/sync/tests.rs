@@ -282,7 +282,6 @@ fn oauth_rejects_invalid_state_and_wrong_path_and_completes_on_valid_callback() 
     assert!(auth_url.contains(&super::server::percent_encode(&redirect_uri)));
     assert!(!auth_url.contains("&state="));
 
-
     let handle = std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(50));
 
@@ -345,7 +344,6 @@ fn oauth_fake_server_bypasses_browser() {
     assert_eq!(sess.user_id, fake::FAKE_USER_ID);
 }
 
-
 /// Delegates to a MemoryServer and runs a local edit while a push is in flight.
 struct EditDuringPush<'a> {
     inner: MemoryServer,
@@ -386,7 +384,6 @@ fn an_edit_made_while_its_push_is_in_flight_stays_queued_and_syncs_next_time() {
     b.sync(&plain);
     assert_eq!(b.title("p1"), "Versi kedua");
 }
-
 
 fn test_vault() -> Vault {
     Vault {
@@ -458,7 +455,7 @@ fn oversized_exports_warn_per_record_and_continue_sync() {
         let conn = a.db.conn().unwrap();
         let warning: String = conn.query_row("SELECT value FROM sync_state WHERE key='warning:large'", [], |r| r.get(0)).unwrap();
         assert!(warning.contains("Halaman terlalu besar"));
-        assert_eq!(conn.query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+        assert_eq!(conn.query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get::<_,i64>(0)).unwrap(), 1);
     }
 }
 
@@ -524,7 +521,7 @@ fn accepted_push_clears_pending_for_that_record() {
 }
 
 #[test]
-fn newer_schema_deferral_drops_older_local_outbox() {
+fn newer_schema_deferral_keeps_local_outbox_and_warns() {
     let server = test_server();
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
@@ -539,7 +536,7 @@ fn newer_schema_deferral_drops_older_local_outbox() {
     let report = a.sync(&server);
     assert_eq!(report.pending, 1);
     assert_eq!(report.pushed, 0);
-    assert_eq!(a.db.conn().unwrap().query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+    assert_eq!(a.db.conn().unwrap().query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get::<_,i64>(0)).unwrap(), 1);
     assert_eq!(server.pull(&session(),0,500).unwrap()[0].changed_at,10);
 }
 
@@ -686,7 +683,6 @@ fn oauth_opener_failure_returns_immediately() {
     assert!(start.elapsed()<Duration::from_secs(1));
 }
 
-
 #[test]
 fn rejection_metadata_cannot_clear_outbox_or_record_an_unauthenticated_version() {
     let server = Arc::new(test_server());
@@ -723,4 +719,330 @@ fn file_server_vault_create_and_update_match_memory_server() {
     other.delete_my_data(&session()).unwrap();
     server.update_vault(&session(),&vault).unwrap();
     assert!(server.get_vault(&session()).unwrap().is_none());
+}
+
+fn outbox_count(client: &Client) -> i64 {
+    client
+        .db
+        .conn()
+        .unwrap()
+        .query_row("SELECT count(*) FROM sync_outbox", [], |r| r.get(0))
+        .unwrap()
+}
+
+fn push_document(
+    server: &MemoryServer,
+    source: &Client,
+    id: &str,
+    ts: i64,
+    change: impl FnOnce(&mut serde_json::Value),
+) {
+    let compressed = record::export(&source.db.conn().unwrap(), id)
+        .unwrap()
+        .unwrap()
+        .payload
+        .unwrap();
+    let mut doc =
+        serde_json::from_slice(&miniz_oxide::inflate::decompress_to_vec(&compressed).unwrap())
+            .unwrap();
+    change(&mut doc);
+    let plain = miniz_oxide::deflate::compress_to_vec(&serde_json::to_vec(&doc).unwrap(), 6);
+    let payload = crypto::seal(
+        &Dek::from_bytes([7; 32]),
+        &crypto::aad(USER, id, ts, DEVICE_B),
+        &plain,
+    );
+    server
+        .push(
+            &session(),
+            &[WireRecord {
+                id: id.into(),
+                changed_at: ts,
+                device_id: DEVICE_B.into(),
+                deleted: false,
+                payload: Some(payload),
+                seq: 0,
+            }],
+        )
+        .unwrap();
+}
+
+#[test]
+fn lost_push_response_is_acknowledged_by_authenticated_echo_without_another_push() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    b.write("p", "Base", 100);
+    b.sync(&server);
+    a.sync(&server);
+    a.write("p", "Lost response", 1); // effective outgoing version is 101
+    server.lose_next_push_response();
+    assert!(engine::sync_once(&a.db, &a.keys, &server, 1000).is_err());
+    assert_eq!(outbox_count(&a), 1);
+    let pushes = server.push_count();
+    assert_eq!(a.sync(&server).pushed, 0);
+    assert_eq!(server.push_count(), pushes);
+    assert_eq!(outbox_count(&a), 0);
+    assert_eq!(version(&a, "p"), engine::format_version(101, DEVICE_A));
+    b.sync(&server);
+    assert_eq!(b.title("p"), "Lost response");
+}
+
+#[test]
+fn lost_push_echo_preserves_a_newer_local_edit() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "First", 100);
+    server.lose_next_push_response();
+    assert!(engine::sync_once(&a.db, &a.keys, &server, 1000).is_err());
+    a.write("p", "Second", 200);
+    assert_eq!(a.sync(&server).pushed, 1);
+    b.sync(&server);
+    assert_eq!(b.title("p"), "Second");
+}
+
+#[test]
+fn authenticated_apply_failure_records_version_so_local_outbox_can_advance() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "Local", 100);
+    b.write("p", "Invalid remote", 150);
+    push_document(&server, &b, "p", 150, |doc| {
+        doc["item"]["id"] = serde_json::json!("wrong-id")
+    });
+    set_state(&a, "quota_bytes", "0");
+    a.sync(&server);
+    assert_eq!(a.title("p"), "Local");
+    assert_eq!(version(&a, "p"), engine::format_version(150, DEVICE_B));
+    assert_eq!(outbox_count(&a), 1);
+    assert!(!state(&a, "warning:p").is_empty());
+    set_state(
+        &a,
+        "quota_bytes",
+        &super::server::DEFAULT_QUOTA_BYTES.to_string(),
+    );
+    assert_eq!(a.sync(&server).pushed, 1);
+    b.sync(&server);
+    assert_eq!(b.title("p"), "Local");
+    assert_eq!(version(&a, "p"), engine::format_version(151, DEVICE_A));
+}
+
+#[test]
+fn oversized_local_edit_keeps_precedence_over_delayed_remote_edit() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "Large local", 200);
+    a.db.conn()
+        .unwrap()
+        .execute(
+            "UPDATE items SET body=?1 WHERE id='p'",
+            ["x".repeat(record::MAX_DECOMPRESSED_BYTES + 1)],
+        )
+        .unwrap();
+    a.db.conn()
+        .unwrap()
+        .execute(
+            "UPDATE sync_outbox SET changed_at=200 WHERE record_id='p'",
+            [],
+        )
+        .unwrap();
+    a.sync(&server);
+    b.write("p", "Delayed remote", 150);
+    b.sync(&server);
+    a.sync(&server);
+    assert_eq!(a.title("p"), "Large local");
+    assert_eq!(outbox_count(&a), 1);
+}
+
+#[test]
+fn a_full_batch_of_oversized_records_does_not_block_the_next_record() {
+    use sha2::Digest;
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    let body: String = (0_u64..9_000)
+        .map(|i| super::server::hex_encode(&sha2::Sha256::digest(i.to_le_bytes())))
+        .collect();
+    {
+        let mut conn = a.db.conn().unwrap();
+        let tx = conn.transaction().unwrap();
+        for i in 0..500 {
+            tx.execute("INSERT INTO items(id,type,title,body,created_at,updated_at) VALUES(?1,'page','Large',?2,1,1)",params![format!("large{i:03}"),body]).unwrap();
+        }
+        tx.execute("UPDATE sync_outbox SET changed_at=1", [])
+            .unwrap();
+        tx.commit().unwrap();
+    }
+    a.write("small", "Beyond skipped batch", 2);
+    assert_eq!(a.sync(&server).pushed, 1);
+    assert_eq!(outbox_count(&a), 500);
+    b.sync(&server);
+    assert_eq!(b.title("small"), "Beyond skipped batch");
+}
+
+#[test]
+fn newer_schema_pending_survives_edits_and_resolves_by_lww_after_upgrade() {
+    for (local_ts, local_device) in [
+        (90, DEVICE_A),
+        (100, DEVICE_A),
+        (100, "00000000-0000-0000-0000-00000000000c"),
+        (110, DEVICE_A),
+    ] {
+        let server = test_server();
+        let a = Client::new(local_device);
+        let b = Client::new(DEVICE_B);
+        a.write("p", "Old local", 80);
+        b.write("p", "Future content", 100);
+        push_document(&server, &b, "p", 100, |doc| {
+            doc["schema"] = serde_json::json!(13)
+        });
+        assert_eq!(a.sync(&server).pending, 1);
+        a.write("p", "Local edit while deferred", local_ts);
+        a.write("other", "Unblocked", 200);
+        let report = a.sync(&server);
+        assert_eq!(report.pending, 1);
+        assert_eq!(report.pushed, 1);
+        assert_eq!(outbox_count(&a), 1);
+        assert_eq!(
+            state(&a, "warning:p"),
+            "Perbarui Anchoa untuk menyinkronkan Local edit while deferred"
+        );
+        assert_eq!(server.pull(&session(), 0, 500).unwrap()[0].changed_at, 100);
+        a.db.conn()
+            .unwrap()
+            .pragma_update(None, "user_version", 13)
+            .unwrap();
+        let report = a.sync(&server);
+        assert_eq!(report.pending, 0);
+        let expected = if (local_ts, local_device) < (100, DEVICE_B) {
+            "Future content"
+        } else {
+            "Local edit while deferred"
+        };
+        assert_eq!(a.title("p"), expected);
+        b.db.conn()
+            .unwrap()
+            .pragma_update(None, "user_version", 13)
+            .unwrap();
+        b.sync(&server);
+        assert_eq!(b.title("p"), expected);
+    }
+}
+
+#[test]
+fn vault_replaced_or_deleted_after_pull_stops_the_push_and_removes_dek() {
+    for recreate in [false, true] {
+        let server = Arc::new(test_server());
+        let a = Client::new(DEVICE_A);
+        let b = Client::new(DEVICE_B);
+        a.write("p", "Must stay local", 100);
+        let other = server.clone();
+        server.set_after_pull(move || {
+            b.sync(other.as_ref());
+            other.delete_my_data(&session()).unwrap();
+            if recreate {
+                let mut vault = test_vault();
+                vault.dek_by_passphrase[0] ^= 1;
+                other.put_vault(&session(), &vault).unwrap();
+            }
+        });
+        let err = engine::sync_once(&a.db, &a.keys, server.as_ref(), 1000).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Kunci sync berubah atau dihapus di perangkat lain; buka kunci lagi"
+        );
+        assert_eq!(server.push_count(), 0);
+        assert_eq!(outbox_count(&a), 1);
+        assert!(engine::load_dek(&a.keys, USER).unwrap().is_none());
+        assert_eq!(state(&a, "last_error"), err.to_string());
+    }
+}
+
+#[test]
+fn expired_access_token_is_refreshed_once_and_the_data_call_retried() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "After refresh", 100);
+    server.expire_access_token("secret-access");
+    assert_eq!(a.sync(&server).pushed, 1);
+    assert_eq!(server.refresh_count(), 1);
+    assert_eq!(
+        Session::load(&a.keys, USER).unwrap().unwrap().access_token,
+        "fake-access"
+    );
+    b.sync(&server);
+    assert_eq!(b.title("p"), "After refresh");
+    assert_eq!(server.refresh_count(), 2);
+}
+
+#[test]
+fn access_token_expiring_within_sixty_seconds_is_refreshed_proactively() {
+    for expires_at in [60_999, 61_000, 61_001] {
+        let server = test_server();
+        let a = Client::new(DEVICE_A);
+        let b = Client::new(DEVICE_B);
+        let mut expiring = session();
+        expiring.expires_at = expires_at;
+        expiring.store(&a.keys).unwrap();
+        a.write("p", "Refresh boundary", 100);
+        a.sync(&server);
+        assert_eq!(server.refresh_count(), usize::from(expires_at <= 61_000));
+        b.sync(&server);
+        assert_eq!(b.title("p"), "Refresh boundary");
+    }
+}
+
+#[test]
+fn tampered_lost_push_echo_cannot_acknowledge_the_outbox() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    a.write("p", "Unauthenticated echo", 100);
+    server.lose_next_push_response();
+    assert!(engine::sync_once(&a.db, &a.keys, &server, 1000).is_err());
+    server.tamper(|rows| rows[0].payload.as_mut().unwrap()[0] ^= 1);
+    a.sync(&server);
+    assert_eq!(outbox_count(&a), 1);
+    b.sync(&server);
+    assert!(b.title_opt("p").is_none());
+    assert_eq!(
+        a.db.conn()
+            .unwrap()
+            .query_row("SELECT count(*) FROM sync_versions", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn vault_is_rechecked_before_the_second_push_batch() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let server = Arc::new(test_server());
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    for i in 0..501 {
+        a.write(&format!("p{i:03}"), "Queued", i + 1);
+    }
+    let calls = AtomicUsize::new(0);
+    let other = Arc::downgrade(&server);
+    server.set_hook(Arc::new(move || {
+        // Initial vault, usage, pull, first batch's vault, push, second vault.
+        if calls.fetch_add(1, Ordering::SeqCst) == 5 {
+            let other = other.upgrade().unwrap();
+            b.sync(other.as_ref());
+            other.delete_my_data(&session()).unwrap();
+            let mut vault = test_vault();
+            vault.dek_by_passphrase[0] ^= 1;
+            other.put_vault(&session(), &vault).unwrap();
+        }
+    }));
+    assert!(engine::sync_once(&a.db, &a.keys, server.as_ref(), 1000).is_err());
+    assert_eq!(server.push_count(), 1);
+    assert_eq!(outbox_count(&a), 1);
+    assert!(engine::load_dek(&a.keys, USER).unwrap().is_none());
 }

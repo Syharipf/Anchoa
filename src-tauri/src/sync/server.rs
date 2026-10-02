@@ -121,12 +121,64 @@ pub(crate) fn clear_expired_session<T>(keys: &KeyringStore, user: &str, result: 
     result
 }
 
+pub(crate) const ACCESS_EXPIRED: &str = "Token akses sync kedaluwarsa";
+
+pub(crate) fn refresh_session(
+    server: &dyn SyncServer,
+    keys: &KeyringStore,
+    session: &mut Session,
+) -> Result<(), AppError> {
+    let fresh = clear_expired_session(keys, &session.user_id, server.refresh(session))?;
+    fresh.store(keys)?;
+    *session = fresh;
+    Ok(())
+}
+
+pub(crate) fn refresh_if_expiring(
+    server: &dyn SyncServer,
+    keys: &KeyringStore,
+    session: &mut Session,
+    now: i64,
+) -> Result<(), AppError> {
+    if now >= session.expires_at.saturating_sub(60_000) {
+        refresh_session(server, keys, session)?;
+    }
+    Ok(())
+}
+
+/// A rejected access token gets one refresh and one retry. Only a rejected
+/// refresh token ends the session; permission and transport failures preserve it.
+pub(crate) fn call_with_refresh<T>(
+    server: &dyn SyncServer,
+    keys: &KeyringStore,
+    session: &mut Session,
+    mut call: impl FnMut(&Session) -> Result<T, AppError>,
+) -> Result<T, AppError> {
+    let result = call(session);
+    if matches!(&result, Err(AppError::Invalid(message)) if message == ACCESS_EXPIRED) {
+        refresh_session(server, keys, session)?;
+        return call(session);
+    }
+    result
+}
+
 fn classify_http_error(path: &str, error: ureq::Error) -> AppError {
     match error {
-        ureq::Error::StatusCode(status) if status == 401 || status == 403 || (status == 400 && path.split('?').next() == Some("/auth/v1/token")) => session_ended(),
-        ureq::Error::StatusCode(400..=499) => AppError::Invalid("Server sync menolak permintaan".into()),
+        ureq::Error::StatusCode(400 | 401) if path.split('?').next() == Some("/auth/v1/token") => {
+            session_ended()
+        }
+        ureq::Error::StatusCode(401) => AppError::Invalid(ACCESS_EXPIRED.into()),
+        ureq::Error::StatusCode(400..=499) => {
+            AppError::Invalid("Server sync menolak permintaan".into())
+        }
         _ => unreachable(),
     }
+}
+
+fn secret_json(body: &impl Serialize) -> Result<Zeroizing<String>, AppError> {
+    serde_json::to_string(body)
+        .map(Zeroizing::new)
+        .map_err(|_| invalid_response())
 }
 
 pub(crate) fn canonical_uuid(value: &str) -> Result<String, AppError> {
@@ -169,13 +221,18 @@ impl HttpServer {
     }
 
     fn request_method(&self, method: &str, path: &str, session: Option<&Session>, body: Option<Value>, prefer: Option<&str>) -> Result<Value, AppError> {
+        let body = body.as_ref().map(secret_json).transpose()?;
+        self.request_serialized(method, path, session, body.as_deref().map(String::as_str), prefer)
+    }
+
+    fn request_serialized(&self, method: &str, path: &str, session: Option<&Session>, body: Option<&str>, prefer: Option<&str>) -> Result<Value, AppError> {
         let token = session.map_or(self.anon_key.as_str(), |s| s.access_token.as_str());
         let authorization = Zeroizing::new(format!("Bearer {token}"));
         let url = format!("{}{}", self.url, path);
         let response = if let Some(body) = body {
             let mut request = (if method == "PATCH" { self.agent.patch(&url) } else { self.agent.post(&url) }).header("apikey", &self.anon_key).header("Authorization", authorization.as_str());
             if let Some(prefer) = prefer { request = request.header("Prefer", prefer) }
-            request.send_json(body)
+            request.header("Content-Type", "application/json").send(body.as_bytes())
         } else {
             self.agent.get(&url).header("apikey", &self.anon_key).header("Authorization", authorization.as_str()).call()
         };
@@ -188,7 +245,7 @@ impl HttpServer {
         serde_json::from_slice(&bytes).map_err(|_| invalid_response())
     }
 
-    fn token(&self, grant: &str, body: Value) -> Result<Session, AppError> {
+    fn token(&self, grant: &str, body: Zeroizing<String>) -> Result<Session, AppError> {
         // The response and request may contain tokens; never include either in errors.
         #[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
         struct TokenResponse {
@@ -197,7 +254,7 @@ impl HttpServer {
             expires_at: Option<i64>,
             expires_in: Option<i64>,
         }
-        let mut value = self.request(&format!("/auth/v1/token?grant_type={grant}"), None, Some(body), None)?;
+        let mut value = self.request_serialized("POST", &format!("/auth/v1/token?grant_type={grant}"), None, Some(body.as_str()), None)?;
         let result = serde_json::from_value::<TokenResponse>(value.take()).map_err(|_| invalid_response())?;
         let expires_at = match result.expires_at {
             Some(seconds) => seconds.checked_mul(1_000),
@@ -218,15 +275,19 @@ impl SyncServer for HttpServer {
         format!("{}/auth/v1/authorize?provider={}&redirect_to={}&code_challenge={}&code_challenge_method=s256", self.url, provider.as_str(), percent_encode(redirect), percent_encode(challenge))
     }
     fn exchange_code(&self, code: &str, verifier: &str) -> Result<Session, AppError> {
-        self.token("pkce", json!({"auth_code":code,"code_verifier":verifier}))
+        #[derive(Serialize)]
+        struct PkceBody<'a> { auth_code: &'a str, code_verifier: &'a str }
+        self.token("pkce", secret_json(&PkceBody { auth_code: code, code_verifier: verifier })?)
     }
     fn refresh(&self, session: &Session) -> Result<Session, AppError> {
-        let result = self.token("refresh_token", json!({"refresh_token":session.refresh_token}))?;
+        #[derive(Serialize)]
+        struct RefreshBody<'a> { refresh_token: &'a str }
+        let result = self.token("refresh_token", secret_json(&RefreshBody { refresh_token: &session.refresh_token })?)?;
         if result.user_id != session.user_id { return Err(invalid_response()) }
         Ok(result)
     }
     fn sign_out(&self, session: &Session) -> Result<(), AppError> {
-        self.request("/auth/v1/logout", Some(session), Some(json!({})), None).map(|_| ())
+        self.request("/auth/v1/logout?scope=local", Some(session), Some(json!({})), None).map(|_| ())
     }
     fn get_vault(&self, session: &Session) -> Result<Option<Vault>, AppError> {
         let value = self.request("/rest/v1/vault?select=kdf,dek_by_passphrase,dek_by_recovery", Some(session), None, None)?;
@@ -370,9 +431,11 @@ mod tests {
     #[test]
     fn http_errors_classify_auth_client_and_network_failures_without_leaking_bodies() {
         for (path,status,code,message) in [
-            ("/rest/v1/rpc/usage",401,"invalid","Sesi sync berakhir; masuk lagi"),
-            ("/rest/v1/vault",403,"invalid","Sesi sync berakhir; masuk lagi"),
+            ("/rest/v1/rpc/usage",401,"invalid","Token akses sync kedaluwarsa"),
+            ("/rest/v1/vault",403,"invalid","Server sync menolak permintaan"),
             ("/auth/v1/token?grant_type=refresh_token",400,"invalid","Sesi sync berakhir; masuk lagi"),
+            ("/auth/v1/token?grant_type=refresh_token",401,"invalid","Sesi sync berakhir; masuk lagi"),
+            ("/auth/v1/token?grant_type=refresh_token",403,"invalid","Server sync menolak permintaan"),
             ("/auth/v1/token?grant_type=pkce",400,"invalid","Sesi sync berakhir; masuk lagi"),
             ("/rest/v1/rpc/push_records",400,"invalid","Server sync menolak permintaan"),
             ("/rest/v1/vault",409,"invalid","Server sync menolak permintaan"),
@@ -424,4 +487,132 @@ mod tests {
         stub.requests.recv().unwrap();
         stub.finish();
     }
+
+    #[test]
+    fn http_sign_out_revokes_only_the_local_session() {
+        let stub = test_server::Server::new(vec![test_server::response("204 No Content", "")]);
+        let server = HttpServer {
+            url: stub.base.clone(),
+            anon_key: "public".into(),
+            agent: ureq::Agent::new_with_defaults(),
+        };
+        let session = Session {
+            user_id: super::super::fake::FAKE_USER_ID.into(),
+            email: String::new(),
+            access_token: "access".into(),
+            refresh_token: "refresh".into(),
+            expires_at: i64::MAX,
+        };
+        server.sign_out(&session).unwrap();
+        let (request, _) = stub.requests.recv().unwrap();
+        assert!(request.starts_with("POST /v1/auth/v1/logout?scope=local "));
+        stub.finish();
+    }
+
+    #[test]
+    fn http_auth_bodies_preserve_escaped_secrets() {
+        let token = r#"{"access_token":"access","refresh_token":"refresh","expires_in":3600}"#;
+        let user = format!(
+            r#"{{"id":"{}","email":"sync@example.test"}}"#,
+            super::super::fake::FAKE_USER_ID
+        );
+        let stub = test_server::Server::new(vec![
+            test_server::response("200 OK", token),
+            test_server::response("200 OK", &user),
+            test_server::response("200 OK", token),
+            test_server::response("200 OK", &user),
+        ]);
+        let server = HttpServer {
+            url: stub.base.clone(),
+            anon_key: "public".into(),
+            agent: ureq::Agent::new_with_defaults(),
+        };
+        let mut session = server
+            .exchange_code("code\"\\\n", "verifier\"\\\n")
+            .unwrap();
+        session.refresh_token = "refresh\"\\\n".into();
+        server.refresh(&session).unwrap();
+        let (request, body) = stub.requests.recv().unwrap();
+        assert!(request.starts_with("POST /v1/auth/v1/token?grant_type=pkce "));
+        assert_eq!(
+            body,
+            json!({"auth_code":"code\"\\\n","code_verifier":"verifier\"\\\n"})
+        );
+        stub.requests.recv().unwrap();
+        let (request, body) = stub.requests.recv().unwrap();
+        assert!(request.starts_with("POST /v1/auth/v1/token?grant_type=refresh_token "));
+        assert_eq!(body, json!({"refresh_token":session.refresh_token}));
+        stub.requests.recv().unwrap();
+        stub.finish();
+    }
+
+    #[test]
+    fn auth_json_storage_zeroizes_on_drop_and_preserves_escaped_secrets() {
+        fn requires_zeroize<T: Zeroize + ZeroizeOnDrop>(_: &T) {}
+        #[derive(Serialize)]
+        struct Body<'a> {
+            auth_code: &'a str,
+            code_verifier: &'a str,
+            refresh_token: &'a str,
+        }
+        let body = Body {
+            auth_code: "code\"\\\n",
+            code_verifier: "verifier\"\\\n",
+            refresh_token: "refresh\"\\\n",
+        };
+        let encoded = secret_json(&body).unwrap();
+        requires_zeroize(&encoded);
+        assert_eq!(
+            serde_json::from_str::<Value>(&encoded).unwrap(),
+            json!({"auth_code":body.auth_code,"code_verifier":body.code_verifier,"refresh_token":body.refresh_token})
+        );
+    }
+
+    #[test]
+    fn data_errors_preserve_session_except_when_refresh_is_rejected() {
+        use super::super::fake::{FAKE_USER_ID, MemoryServer};
+        for (status, refresh_offline, refresh_rejected) in [
+            (403, false, false),
+            (401, false, false),
+            (401, true, false),
+            (401, false, true),
+        ] {
+            let server = MemoryServer::default();
+            let keys = KeyringStore::with_builder(keyring::mock::default_credential_builder());
+            let mut session = Session {
+                user_id: FAKE_USER_ID.into(),
+                email: String::new(),
+                access_token: "expired".into(),
+                refresh_token: "refresh".into(),
+                expires_at: i64::MAX,
+            };
+            session.store(&keys).unwrap();
+            server.set_offline(refresh_offline);
+            server.set_auth_expired(refresh_rejected);
+            let mut calls = 0;
+            let result: Result<(), AppError> =
+                call_with_refresh(&server, &keys, &mut session, |_| {
+                    calls += 1;
+                    Err(classify_http_error(
+                        "/rest/v1/rpc/usage",
+                        ureq::Error::StatusCode(status),
+                    ))
+                });
+            assert!(result.is_err());
+            assert_eq!(
+                calls,
+                if status == 401 && !refresh_offline && !refresh_rejected {
+                    2
+                } else {
+                    1
+                }
+            );
+            assert_eq!(server.refresh_count(), usize::from(status == 401));
+            assert_eq!(
+                Session::load(&keys, FAKE_USER_ID).unwrap().is_none(),
+                refresh_rejected
+            );
+        }
+    }
+
 }

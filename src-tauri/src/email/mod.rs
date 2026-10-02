@@ -70,7 +70,7 @@ impl EmailState {
         if let Some(fake) = &self.fake {
             return fake.clone();
         }
-        let mut guard = self.client.lock().unwrap();
+        let mut guard = self.client.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some((addr, client)) = guard.as_ref()
             && addr == &credentials.address
         {

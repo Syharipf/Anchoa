@@ -815,11 +815,9 @@ fn second_sync_of_unchanged_mail_fetches_no_headers() {
     assert!(initial_fetches >= 2);
 
     f.client.fetched_headers_count.store(0, Ordering::SeqCst);
-    f.client.list_headers_count.store(0, Ordering::SeqCst);
     sync::sync(&f.db, &f.client).unwrap();
 
     assert_eq!(f.client.fetched_headers_count.load(Ordering::SeqCst), 0);
-    assert_eq!(f.client.list_headers_count.load(Ordering::SeqCst), 0);
 }
 
 #[test]

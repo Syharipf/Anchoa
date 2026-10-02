@@ -55,15 +55,6 @@ pub struct Header {
     pub has_html: bool,
     pub refs: Vec<String>,
 }
-
-#[allow(dead_code)]
-pub struct HeaderBatch {
-    pub headers: Vec<Header>,
-    // Full search result, so falling outside the 200-header window isn't deletion.
-    pub all_uids: Vec<u32>,
-    pub uid_validity: u32,
-}
-
 /// Lightweight batch of UID + FLAGS for incremental sync.
 #[derive(Debug, Clone)]
 pub struct UidFlag {
@@ -79,8 +70,6 @@ pub struct UidFlagBatch {
 
 pub trait MailClient: Send + Sync {
     fn login(&self, credentials: &Credentials) -> Result<(), MailError>;
-    #[allow(dead_code)]
-    fn list_headers(&self, folder: &str, limit: usize) -> Result<HeaderBatch, MailError>;
     /// Fetches headers for specific UIDs in a folder.
     fn fetch_headers(&self, folder: &str, uids: &[u32]) -> Result<Vec<Header>, MailError>;
     /// Returns UIDs and FLAGS for a folder, cheaply (no header/body data).
@@ -155,7 +144,8 @@ pub fn parse_header(
 // No Debug implementation: even transport objects can contain login details.
 pub struct GmailClient {
     credentials: Credentials,
-    runtime: std::sync::Mutex<tokio::runtime::Runtime>,
+    // Built on first use so a failure is an error, not a panic in the constructor.
+    runtime: std::sync::Mutex<Option<tokio::runtime::Runtime>>,
     session: tokio::sync::Mutex<Option<Session>>,
 }
 
@@ -190,13 +180,9 @@ fn html_structure(body: &BodyStructure<'_>) -> bool {
 
 impl GmailClient {
     pub fn new(credentials: Credentials) -> Self {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("tokio runtime");
         Self {
             credentials,
-            runtime: std::sync::Mutex::new(runtime),
+            runtime: std::sync::Mutex::new(None),
             session: tokio::sync::Mutex::new(None),
         }
     }
@@ -206,7 +192,16 @@ impl GmailClient {
         &self,
         operation: impl Future<Output = Result<T, MailError>>,
     ) -> Result<T, MailError> {
-        let rt = self.runtime.lock().map_err(|_| MailError::Network)?;
+        let mut guard = self.runtime.lock().map_err(|_| MailError::Network)?;
+        if guard.is_none() {
+            *guard = Some(
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|_| MailError::Network)?,
+            );
+        }
+        let rt = guard.as_ref().ok_or(MailError::Network)?;
         rt.block_on(async {
             tokio::time::timeout(TIMEOUT, operation)
                 .await
@@ -398,61 +393,6 @@ impl MailClient for GmailClient {
         } else {
             Err(MailError::Login)
         }
-    }
-
-    fn list_headers(&self, folder: &str, limit: usize) -> Result<HeaderBatch, MailError> {
-        mailbox(folder)?;
-        self.with_session(|session| {
-            let folder = folder.to_owned();
-            Box::pin(async move {
-                let selected = session
-                    .select(&folder)
-                    .await
-                    .map_err(|_| MailError::Protocol)?;
-                let uid_validity = selected.uid_validity.ok_or(MailError::Protocol)?;
-                let mut all_uids: Vec<_> = session
-                    .uid_search(if folder == ALL_MAIL { "FLAGGED" } else { "ALL" })
-                    .await
-                    .map_err(|_| MailError::Protocol)?
-                    .into_iter()
-                    .collect();
-                all_uids.sort_unstable_by(|a, b| b.cmp(a));
-                let selected_uids: Vec<_> = all_uids
-                    .iter()
-                    .take(limit.min(super::HEADER_LIMIT))
-                    .map(u32::to_string)
-                    .collect();
-                let mut headers = Vec::new();
-                if !selected_uids.is_empty() {
-                    let query = format!(
-                        "UID FETCH {} (UID FLAGS BODY.PEEK[HEADER] BODYSTRUCTURE)",
-                        selected_uids.join(",")
-                    );
-                    for fetched in Self::fetch(session, &query).await? {
-                        // Unsolicited flag-only responses are not header results.
-                        if let (Some(uid), Some(raw)) = (fetched.uid, fetched.raw) {
-                            let flags = fetched.flags.ok_or(MailError::Protocol)?;
-                            let unread =
-                                !flags.iter().any(|s| s.eq_ignore_ascii_case("\\Seen"));
-                            let starred =
-                                flags.iter().any(|s| s.eq_ignore_ascii_case("\\Flagged"));
-                            headers.push(parse_header(
-                                uid,
-                                &raw,
-                                unread,
-                                starred,
-                                fetched.has_html,
-                            )?);
-                        }
-                    }
-                }
-                Ok(HeaderBatch {
-                    headers,
-                    all_uids,
-                    uid_validity,
-                })
-            })
-        })
     }
 
     fn fetch_headers(&self, folder: &str, uids: &[u32]) -> Result<Vec<Header>, MailError> {

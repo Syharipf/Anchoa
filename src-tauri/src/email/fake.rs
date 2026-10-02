@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use super::{
     ALL_MAIL, Flag, INBOX, SENT,
     account::Credentials,
-    client::{Header, HeaderBatch, MailClient, MailError, UidFlag, UidFlagBatch, parse_header},
+    client::{Header, MailClient, MailError, UidFlag, UidFlagBatch, parse_header},
 };
 
 #[derive(Clone)]
@@ -48,9 +48,6 @@ pub struct FakeMailClient {
     data: Mutex<Data>,
     /// Counts of login calls for retry testing.
     pub login_count: AtomicUsize,
-    /// Counts of list_headers calls.
-    #[allow(dead_code)]
-    pub list_headers_count: AtomicUsize,
     /// Counts of fetched headers.
     pub fetched_headers_count: AtomicUsize,
     /// Counts of set_flag calls.
@@ -74,12 +71,33 @@ impl Default for FakeMailClient {
     }
 }
 
+/// Test helper result: what the fake server holds for a folder.
+#[cfg(test)]
+pub struct ServerFolder {
+    pub headers: Vec<Header>,
+}
+
 impl FakeMailClient {
+    /// Test helper: the server-side view of a folder.
+    #[cfg(test)]
+    pub fn list_headers(&self, folder: &str, limit: usize) -> Result<ServerFolder, MailError> {
+        self.call()?;
+        let data = self.data()?;
+        let headers: Vec<_> = data
+            .messages
+            .get(folder)
+            .into_iter()
+            .flat_map(|m| m.values().rev())
+            .filter(|m| folder != ALL_MAIL || m.header.starred)
+            .map(|m| m.header.clone())
+            .collect();
+        Ok(ServerFolder { headers: headers.into_iter().take(limit).collect() })
+    }
+
     pub fn empty() -> Self {
         Self {
             data: Mutex::new(Data::default()),
             login_count: AtomicUsize::new(0),
-            list_headers_count: AtomicUsize::new(0),
             fetched_headers_count: AtomicUsize::new(0),
             set_flag_count: AtomicUsize::new(0),
             fetch_body_peek_count: AtomicUsize::new(0),
@@ -90,8 +108,7 @@ impl FakeMailClient {
     fn data(&self) -> Result<MutexGuard<'_, Data>, MailError> {
         self.data.lock().map_err(|_| MailError::Protocol)
     }
-
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn drop_session(&self) {
         self.session_dropped.store(true, Ordering::SeqCst);
     }
@@ -171,28 +188,6 @@ impl MailClient for FakeMailClient {
         } else {
             Ok(())
         }
-    }
-
-    fn list_headers(&self, folder: &str, limit: usize) -> Result<HeaderBatch, MailError> {
-        self.list_headers_count.fetch_add(1, Ordering::SeqCst);
-        self.call()?;
-        let data = self.data()?;
-        let headers: Vec<_> = data
-            .messages
-            .get(folder)
-            .into_iter()
-            .flat_map(|m| m.values().rev())
-            .filter(|m| folder != ALL_MAIL || m.header.starred)
-            .map(|m| m.header.clone())
-            .collect();
-        let all_uids: Vec<u32> = headers.iter().map(|h| h.uid).collect();
-        let taken: Vec<_> = headers.into_iter().take(limit).collect();
-        self.fetched_headers_count.fetch_add(taken.len(), Ordering::SeqCst);
-        Ok(HeaderBatch {
-            all_uids,
-            headers: taken,
-            uid_validity: data.validity.get(folder).copied().unwrap_or(1),
-        })
     }
 
     fn fetch_headers(&self, folder: &str, uids: &[u32]) -> Result<Vec<Header>, MailError> {

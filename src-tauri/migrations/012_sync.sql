@@ -26,7 +26,7 @@ CREATE TABLE sync_versions (
 );
 
 ALTER TABLE habit_checks ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-UPDATE habit_checks SET updated_at = COALESCE(deleted_at, created_at);
+UPDATE habit_checks SET updated_at = COALESCE(deleted_at, created_at) WHERE updated_at = 0; -- every row: the column was just added with 0
 
 -- Use wall-clock milliseconds for every write, even when items.updated_at is
 -- unchanged. Repeated writes coalesce to one outgoing record.

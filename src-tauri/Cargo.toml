@@ -26,6 +26,13 @@ sha2 = "0.10"
 serde_json = "1.0.151"
 tauri-plugin-dialog = "2"
 argon2 = { version = "0.5", features = ["std"] }
+async-imap = { version = "0.10", default-features = false, features = ["runtime-tokio"] }
+tokio-rustls = "0.26"
+webpki-roots = "0.26"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "builder", "rustls-tls", "hostname"] }
+mail-parser = "0.11"
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+tokio = { version = "1", features = ["net", "io-util", "rt", "time", "macros"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"

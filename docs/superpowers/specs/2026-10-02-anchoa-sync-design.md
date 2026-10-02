@@ -1,7 +1,7 @@
 # Anchoa Fase 9a — Sync terenkripsi ke Supabase
 
 Tanggal: 2026-10-02
-Status: draf, menunggu persetujuan user sebelum kode. Keputusan user 2026-10-02 13:09–13:10:
+Status: disetujui user 2026-10-02 14:56 ("lanjut, merge kalau sudah hijau"). Keputusan user 2026-10-02 13:09–13:10:
 - tujuan sync adalah menyiapkan HP (Android menyusul), diuji dengan dua instance Fedora;
 - hanya data terstruktur;
 - semua data dienkripsi end-to-end;

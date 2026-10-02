@@ -34,7 +34,9 @@ sql_becomes() {
   done
   return 1
 }
-sql_value() {          # first non-empty result, waiting up to 5 s
+# Prints the first non-empty result, waiting up to 5 s. Always exits 0 so that
+# set -e does not abort silently; callers check [[ -n ]] and fail with a message.
+sql_value() {
   local value
   for _ in $(seq 1 25); do
     value=$(sql "$1")
@@ -408,6 +410,7 @@ check_projects() {
   xdotool key Return
   sleep 1
   tugas_b_id=$(sql_value "SELECT id FROM items WHERE title = 'Tugas B'")
+  [[ -n "$tugas_b_id" ]] || fail "Tugas B not created"
   sql_becomes "SELECT parent_id FROM items WHERE title = 'Sub 1'" "$tugas_b_id" || fail "subtask parent_id not set"
   click 130 95                  # ← Kembali
   sleep 1

@@ -1,19 +1,22 @@
-use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex};
 
-use keyring::{Entry, credential::CredentialBuilder};
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
+use zeroize::{Zeroize, Zeroizing};
 
 use super::client::MailClient;
-use crate::{db::Db, error::AppError, time};
+use crate::{db::Db, error::AppError, keystore, time};
 
-pub const SERVICE: &str = "io.github.syharipf.anchoa";
 const ADDRESS_KEY: &str = "email.address";
 
 #[derive(Clone)]
 pub struct AppPassword(String);
+
+impl Drop for AppPassword {
+    fn drop(&mut self) {
+        self.0.zeroize();
+    }
+}
 
 impl fmt::Debug for AppPassword {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -23,8 +26,9 @@ impl fmt::Debug for AppPassword {
 
 impl AppPassword {
     pub fn parse(value: &str) -> Result<Self, AppError> {
-        let value: String = value.chars().filter(|c| !c.is_whitespace()).collect();
+        let mut value: String = value.chars().filter(|c| !c.is_whitespace()).collect();
         if value.len() != 16 || !value.bytes().all(|c| c.is_ascii_alphabetic()) {
+            value.zeroize();
             return Err(AppError::Invalid(
                 "App Password harus berisi 16 huruf".into(),
             ));
@@ -56,13 +60,9 @@ impl Credentials {
     }
 }
 
-// Entries are cached because keyring's mock builder persists only within an Entry.
-// Never derive Debug: a mock Entry's Debug includes its secret.
+// Preserve email's typed password API and its original error messages.
 #[derive(Default)]
-pub struct KeyringStore {
-    entries: Mutex<HashMap<String, Arc<Entry>>>,
-    builder: Option<Box<CredentialBuilder>>,
-}
+pub struct KeyringStore(keystore::KeyringStore);
 
 fn keyring_error() -> AppError {
     AppError::Other("Keyring email tidak tersedia; periksa layanan penyimpanan kredensial".into())
@@ -70,30 +70,8 @@ fn keyring_error() -> AppError {
 
 impl KeyringStore {
     #[cfg(any(test, debug_assertions))]
-    pub fn with_builder(builder: Box<CredentialBuilder>) -> Self {
-        Self {
-            entries: Mutex::new(HashMap::new()),
-            builder: Some(builder),
-        }
-    }
-
-    fn entry(&self, address: &str) -> Result<Arc<Entry>, AppError> {
-        let mut entries = self.entries.lock().map_err(|_| keyring_error())?;
-        if let Some(entry) = entries.get(address) {
-            return Ok(Arc::clone(entry));
-        }
-        let entry = if let Some(builder) = &self.builder {
-            Entry::new_with_credential(
-                builder
-                    .build(None, SERVICE, address)
-                    .map_err(|_| keyring_error())?,
-            )
-        } else {
-            Entry::new(SERVICE, address).map_err(|_| keyring_error())?
-        };
-        let entry = Arc::new(entry);
-        entries.insert(address.into(), Arc::clone(&entry));
-        Ok(entry)
+    pub fn with_builder(builder: Box<keyring::credential::CredentialBuilder>) -> Self {
+        Self(keystore::KeyringStore::with_builder(builder))
     }
 
     pub fn get(&self, address: &str) -> Result<AppPassword, AppError> {
@@ -103,29 +81,26 @@ impl KeyringStore {
     }
 
     fn optional(&self, address: &str) -> Result<Option<AppPassword>, AppError> {
-        match self.entry(address)?.get_password() {
-            Ok(value) => AppPassword::parse(&value).map(Some),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(_) => Err(keyring_error()),
-        }
+        self.0
+            .get(address)
+            .map_err(|_| keyring_error())?
+            .map(|value| AppPassword::parse(&Zeroizing::new(value)))
+            .transpose()
     }
 
     fn set(&self, address: &str, password: &AppPassword) -> Result<(), AppError> {
-        self.entry(address)?
-            .set_password(password.as_str())
+        self.0
+            .set(address, password.as_str())
             .map_err(|_| keyring_error())
     }
 
     fn delete(&self, address: &str) -> Result<(), AppError> {
-        match self.entry(address)?.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(_) => Err(keyring_error()),
-        }
+        self.0.delete(address).map_err(|_| keyring_error())
     }
 
     #[cfg(test)]
-    pub fn entry_for_test(&self, address: &str) -> Arc<Entry> {
-        self.entry(address).unwrap()
+    pub fn entry_for_test(&self, address: &str) -> std::sync::Arc<keyring::Entry> {
+        self.0.entry_for_test(address)
     }
 }
 

@@ -1,6 +1,6 @@
 # Anchoa Fase 9a Sync: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh Gemini dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh agy (Opus 4.6 Thinking di akun syharipf, Gemini 3.8 Flash High di akun lain) dan Sol, lalu dicek sesi Opus.
 
 **Goal:** sync local-first ke Supabase, terenkripsi end-to-end, hemat ruang, siap dipakai HP nanti.
 
@@ -145,14 +145,16 @@
 
 **Interfaces (produces):**
 - `trait SyncServer: Send + Sync`:
-  - `sign_up(email, password) -> Session`, `sign_in(email, password) -> Session`, `refresh(&Session) -> Session`;
+  - `authorize_url(provider: Provider, redirect: &str, code_challenge: &str, state: &str) -> String`, `exchange_code(code: &str, code_verifier: &str) -> Session`, `refresh(&Session) -> Session`, `sign_out(&Session)`;
   - `get_vault(&Session) -> Option<Vault>`, `put_vault(&Session, &Vault)`;
   - `push(&Session, &[WireRecord]) -> Vec<Rejected>`, `pull(&Session, after: i64, max: u32) -> Vec<WireRecord>`;
   - `usage(&Session) -> Usage`, `delete_my_data(&Session)`.
-- `Session { user_id, access_token, refresh_token, expires_at }` (tanpa `Debug` pada token).
+- `Provider::{Google, GitHub}` (query `provider=google|github`).
+- `Session { user_id, email, access_token, refresh_token, expires_at }` (tanpa `Debug` pada token).
+- `sync/oauth.rs`: `begin(server, provider) -> Result<OAuthFlow, AppError>` (PKCE S256: verifier 32 byte acak, `state` 32 byte acak, listener `std::net::TcpListener` di `127.0.0.1:0`) dan `OAuthFlow::wait(timeout) -> Result<Session, AppError>` (hanya menerima `GET /callback?code=…&state=…` dengan `state` yang cocok; request lain dijawab 404 dan tidak menghentikan listener; satu callback valid lalu listener ditutup; batas waktu 5 menit; halaman balasan statis "Login berhasil, kembali ke Anchoa" tanpa script). Browser dibuka lewat opener yang sudah ada.
 - `WireRecord { id, changed_at, device_id, deleted, payload: Option<Vec<u8>>, seq }`.
 - `HttpServer` memakai `ureq`:
-  - auth lewat GoTrue `/auth/v1/signup` dan `/auth/v1/token?grant_type=password|refresh_token`;
+  - auth lewat GoTrue `/auth/v1/authorize`, `/auth/v1/token?grant_type=pkce|refresh_token`, `/auth/v1/user`, dan `/auth/v1/logout`;
   - data lewat PostgREST `/rest/v1/rpc/<name>` dan `/rest/v1/vault`;
   - header `apikey` dan `Authorization: Bearer`; `bytea` dikirim sebagai hex `\x…`.
 - `MemoryServer` (untuk test) dan `FileServer` (SQLite bersama, untuk E2E dua instance) menerapkan aturan RLS dan LWW yang sama dengan server asli.
@@ -170,6 +172,7 @@
 - kuota penuh → push berhenti, pull tetap jalan, `stopped_by_quota`;
 - server menukar payload antar-record → `open` gagal, record ditolak, sync lanjut untuk record lain;
 - token kedaluwarsa → `refresh` sekali, lalu berhasil;
+- OAuth: `state` salah, path salah, dan request tanpa `code` ditolak tanpa menutup listener; callback valid menghasilkan sesi; timeout → error; `code_challenge` = base64url(SHA-256(verifier)); URL authorize hanya memakai `redirect_to` ke `127.0.0.1`;
 - server tidak terjangkau → error jelas, outbox utuh;
 - DB tidak dipegang saat panggilan server (`is_unlocked_for_test`).
 
@@ -182,18 +185,18 @@
 **Interfaces (produces):**
 - Command:
   - `sync_status() -> SyncStatus { configured, signed_in, email, last_sync_at, last_error, bytes_used, quota_bytes, needs_unlock_key }`;
-  - `sync_sign_up(email, password)`, `sync_sign_in(email, password)`;
+  - `sync_sign_in(provider: "google" | "github")`: membuka browser dan menunggu callback (async, bisa dibatalkan lewat `sync_cancel_sign_in`);
   - `sync_create_key(passphrase) -> { recovery_key }`, hanya kalau `vault` belum ada; frasa sandi minimal 12 karakter;
   - `sync_unlock_key(passphrase_or_recovery)`;
   - `sync_change_passphrase(old, new)`;
   - `sync_now() -> SyncReport`;
   - `sync_sign_out(delete_cloud: bool)`.
-- Jadwal latar: sync saat start (setelah unlock PIN), setiap 5 menit, dan 10 detik setelah outbox berubah (debounce). Tidak berjalan saat terkunci, belum login, atau DEK belum ada. Satu sync aktif dalam satu waktu.
+- Jadwal latar: sync saat start (setelah unlock PIN), saat jendela kembali fokus, setiap 60 detik selama jendela aktif (5 menit di latar), dan 2 detik setelah outbox berubah (debounce). Tidak berjalan saat terkunci, belum login, atau DEK belum ada. Satu sync aktif dalam satu waktu.
 - Event `sync-changed` ke frontend setelah pull menerapkan record, supaya halaman memuat ulang.
-- Wrapper `src/api.ts`: `syncStatus`, `syncSignUp`, `syncSignIn`, `syncCreateKey`, `syncUnlockKey`, `syncChangePassphrase`, `syncNow`, `syncSignOut`, dan `onSyncChanged`.
+- Wrapper `src/api.ts`: `syncStatus`, `syncSignIn`, `syncCancelSignIn`, `syncCreateKey`, `syncUnlockKey`, `syncChangePassphrase`, `syncNow`, `syncSignOut`, dan `onSyncChanged`.
 
 **Test:**
-- urutan status: belum login → login → perlu kunci → siap;
+- urutan status: belum login → login → perlu kunci → siap (dengan server palsu yang melewati browser);
 - `sync_create_key` kedua ditolak;
 - frasa sandi pendek ditolak;
 - `sync_sign_out(false)` menghapus token dan DEK dari keyring tapi data lokal tetap;
@@ -211,12 +214,12 @@
 
 **Isi:**
 - Kartu Sync dengan langkah-langkahnya:
-  1. Akun: tab Daftar / Masuk, isian email dan password akun Supabase.
+  1. Akun: tombol "Masuk dengan Google" dan "Masuk dengan GitHub", status "Menunggu login di browser…" dengan tombol Batal.
   2. Kunci:
      - perangkat pertama: frasa sandi dua kali, lalu recovery key ditampilkan dalam kotak mono dengan tombol Salin dan centang "Sudah saya simpan" sebelum lanjut;
      - perangkat berikutnya: frasa sandi atau recovery key.
   3. Status: terakhir sync, error, bar pemakaian `x MB dari 400 MB`, serta tombol "Sinkronkan sekarang", "Ganti frasa sandi", dan "Matikan sync" (dialog dengan centang "Hapus juga data di cloud").
-- Teks penjelasan singkat: password akun ≠ frasa sandi sync; lupa keduanya berarti salinan cloud tidak bisa dibuka; data lokal tetap aman.
+- Teks penjelasan singkat: login Google/GitHub ≠ frasa sandi sync; lupa frasa sandi dan recovery key berarti salinan cloud tidak bisa dibuka; data lokal tetap aman.
 - Profil: baris status Sync.
 - Token tema, `Readonly<>` props, dan aturan SonarCloud. Tanpa duplikasi dengan `EmailSection`; kalau polanya sama, ambil komponen bersama.
 
@@ -225,15 +228,17 @@
 ### Task 7: E2E dan versi 0.18.0 (sesi Opus)
 
 - `check_sync` di `scripts/e2e-smoke.sh`, dengan dua instance (data dir berbeda) dan `ANCHOA_FAKE_SYNC=$WORK/sync.db`:
-  1. Instance A: daftar, buat kunci dengan frasa sandi tetap dari skrip, lalu centang "Sudah saya simpan". Pastikan recovery key tidak ada di DB A.
+  1. Instance A: "Masuk dengan Google" (server palsu langsung memberi sesi tanpa browser), buat kunci dengan frasa sandi tetap dari skrip, lalu centang "Sudah saya simpan". Pastikan recovery key tidak ada di DB A.
   2. Buat tugas "Tugas sync" di A, lalu Sinkronkan.
-  3. Instance B: masuk, buka kunci dengan frasa sandi, Sinkronkan. Tugasnya harus ada di DB B.
+  3. Instance B: "Masuk dengan GitHub" ke akun yang sama, buka kunci dengan frasa sandi, Sinkronkan. Tugasnya harus ada di DB B.
   4. Ubah status di B, lalu sync di B dan A. Status baru harus ada di A.
   5. Hapus di A. `deleted_at` harus terisi di B.
   6. Di `sync.db` server palsu, payload tidak memuat "Tugas sync" dalam bentuk teks.
+- **Review keamanan wajib sebelum rilis:** Sol dan agy (read-only, paralel), memakai tabel §11 "Model ancaman" di spec sebagai checklist baris per baris. Setiap baris harus punya bukti (test atau kode). Temuan diverifikasi lalu diperbaiki sebelum merge.
 - Versi 0.18.0 dan status di `CLAUDE.md`. README dan MANUAL mendapat bagian Sync, dengan bagian Privasi diperbarui.
 - **Langkah user sebelum rilis:**
   - buat proyek Supabase (region Singapura);
+  - buat OAuth Client Google dan OAuth App GitHub, isi di Supabase › Authentication › Providers, dan batasi redirect ke `http://127.0.0.1:*/callback` (spec §8);
   - `supabase link` lalu `supabase db push`;
   - berikan URL dan anon key untuk build rilis, lewat GitHub secrets `ANCHOA_SUPABASE_URL` dan `ANCHOA_SUPABASE_ANON_KEY` yang dipakai `dnf-repo.yml`/build.
 
@@ -242,5 +247,5 @@
 ## Menjalankan task
 
 - **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "<task>" < /dev/null`. Sandbox Sol tidak bisa commit dan tidak punya jaringan, jadi sesi Opus mengambil crate (`cargo fetch`) dan commit.
-- **Gemini:** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions -p "<task>" < /dev/null`.
+- **agy:** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions -p "<task>" < /dev/null`. Di akun syharipf, `agy-multi` otomatis memakai `claude-opus-4-6-thinking`.
 - Task 3 butuh Docker atau Podman untuk `supabase start`. Kalau tidak tersedia di laptop, cukup verifikasi lewat job CI.

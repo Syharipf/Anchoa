@@ -18,6 +18,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/009_notes.sql"),
     include_str!("../migrations/010_activities.sql"),
     include_str!("../migrations/011_emails.sql"),
+    include_str!("../migrations/012_sync.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -105,6 +106,9 @@ pub fn migrate(conn: &mut Connection, migrations: &[&str], db_path: Option<&Path
     for (i, sql) in migrations.iter().enumerate().skip(current as usize) {
         let tx = conn.transaction()?;
         tx.execute_batch(sql)?;
+        if i == 11 {
+            tx.execute("UPDATE sync_state SET value = ?1 WHERE key = 'device_id'", [uuid::Uuid::now_v7().to_string()])?;
+        }
         tx.pragma_update(None, "user_version", i as i64 + 1)?;
         tx.commit()?;
     }
@@ -414,7 +418,7 @@ mod tests {
         drop(conn);
 
         let conn = open(&path).unwrap();
-        assert_eq!(version(&conn), 11);
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
         assert_eq!(conn.query_row("SELECT title FROM items WHERE id = 'n1'", [], |r| r.get::<_, String>(0)).unwrap(), "lama");
         conn.prepare("SELECT item_id, folder, uid, message_id, from_name, from_addr, to_addrs, sent_at, unread, starred, has_html, body_cached, refs FROM emails").unwrap();
         let backup = Connection::open(dir.path().join("anchoa.db.bak-v10")).unwrap();
@@ -427,6 +431,51 @@ mod tests {
         conn.execute("INSERT INTO items (id, type, created_at, updated_at) VALUES ('e2', 'email', 1, 1)", []).unwrap();
         assert!(conn.execute("INSERT INTO emails (item_id, folder, uid) VALUES ('e2', 'INBOX', 1)", []).is_err());
         assert!(conn.execute("INSERT INTO emails (item_id, folder, uid) VALUES ('missing', 'INBOX', 2)", []).is_err());
+    }
+
+    #[test]
+    fn version_11_database_upgrades_to_sync_schema_without_losing_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchoa.db");
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..11], Some(&path)).unwrap();
+        conn.execute_batch(
+            "INSERT INTO items (id, type, title, body, created_at, updated_at, opened_at) VALUES
+             ('h1', 'habit', 'Baca', '', 10, 20, 30),
+             ('p1', 'project', 'Lama', 'isi dicari', 10, 20, 30);
+             INSERT INTO habits (item_id, days, auto_journal) VALUES ('h1', 127, 1);
+             INSERT INTO projects (item_id, kind, agent, agent_command, agent_dir)
+             VALUES ('p1', 'app', 1, 'codex', '/local/repo');
+             INSERT INTO habit_checks (habit_id, date, created_at, deleted_at) VALUES
+             ('h1', '2026-10-01', 100, NULL), ('h1', '2026-10-02', 200, 300);",
+        ).unwrap();
+        drop(conn);
+
+        let conn = open(&path).unwrap();
+        assert_eq!(version(&conn), 12);
+        let backup = Connection::open(dir.path().join("anchoa.db.bak-v11")).unwrap();
+        assert_eq!(version(&backup), 11);
+        assert_eq!(conn.query_row("SELECT title, opened_at FROM items WHERE id = 'h1'", [], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))).unwrap(), ("Baca".into(), 30));
+        assert_eq!(conn.query_row("SELECT agent, agent_command, agent_dir FROM projects WHERE item_id = 'p1'", [], |r| Ok((r.get::<_, bool>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))).unwrap(), (true, "codex".into(), "/local/repo".into()));
+        let checks: Vec<(i64, i64, Option<i64>)> = conn.prepare("SELECT created_at, updated_at, deleted_at FROM habit_checks ORDER BY date").unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().collect::<Result<_, _>>().unwrap();
+        assert_eq!(checks, vec![(100, 100, None), (200, 300, Some(300))]);
+        assert_eq!(conn.query_row("SELECT COUNT(*) FROM items_fts WHERE items_fts MATCH 'dicari'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+        for sql in [
+            "SELECT key, value FROM sync_state",
+            "SELECT record_id, changed_at FROM sync_outbox",
+            "SELECT record_id, version, payload FROM sync_pending",
+            "SELECT record_id, version FROM sync_versions",
+        ] {
+            conn.prepare(sql).unwrap();
+        }
+        let device_id: String = conn.query_row("SELECT value FROM sync_state WHERE key = 'device_id'", [], |r| r.get(0)).unwrap();
+        assert_eq!(uuid::Uuid::parse_str(&device_id).unwrap().get_version_num(), 7);
+        assert_eq!(conn.query_row("SELECT value FROM sync_state WHERE key = 'applying'", [], |r| r.get::<_, String>(0)).unwrap(), "0");
+        assert_eq!(conn.query_row("SELECT value FROM sync_state WHERE key = 'quota_bytes'", [], |r| r.get::<_, String>(0)).unwrap(), "419430400");
+        drop(conn);
+        let conn = open(&path).unwrap();
+        assert_eq!(conn.query_row("SELECT value FROM sync_state WHERE key = 'device_id'", [], |r| r.get::<_, String>(0)).unwrap(), device_id);
     }
 
     #[test]

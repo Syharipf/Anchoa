@@ -14,6 +14,15 @@ struct Message {
     raw: Vec<u8>,
 }
 
+impl Message {
+    fn same_message(&self, other: &Self) -> bool {
+        self.header.message_id.is_some()
+            && self.header.message_id == other.header.message_id
+            && self.header.from_addr == other.header.from_addr
+            && self.header.sent_at == other.header.sent_at
+    }
+}
+
 #[derive(Default)]
 struct Data {
     messages: HashMap<String, BTreeMap<u32, Message>>,
@@ -23,6 +32,15 @@ struct Data {
     body_fetches: usize,
     #[cfg(test)]
     hook: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
+}
+
+impl Data {
+    fn check_uid_validity(&self, folder: &str, uid_validity: u32) -> Result<(), MailError> {
+        if self.validity.get(folder).copied().unwrap_or(1) != uid_validity {
+            return Err(MailError::Missing);
+        }
+        Ok(())
+    }
 }
 
 pub struct FakeMailClient {
@@ -141,9 +159,10 @@ impl MailClient for FakeMailClient {
         })
     }
 
-    fn fetch_body(&self, folder: &str, uid: u32) -> Result<Vec<u8>, MailError> {
+    fn fetch_body(&self, folder: &str, uid: u32, uid_validity: u32) -> Result<Vec<u8>, MailError> {
         self.call()?;
         let mut data = self.data()?;
+        data.check_uid_validity(folder, uid_validity)?;
         let raw = data
             .messages
             .get(folder)
@@ -155,22 +174,26 @@ impl MailClient for FakeMailClient {
         Ok(raw)
     }
 
-    fn set_flag(&self, folder: &str, uid: u32, flag: Flag, on: bool) -> Result<(), MailError> {
+    fn set_flag(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+        flag: Flag,
+        on: bool,
+    ) -> Result<(), MailError> {
         self.call()?;
         let mut data = self.data()?;
-        let id = data
+        data.check_uid_validity(folder, uid_validity)?;
+        let selected = data
             .messages
             .get(folder)
             .and_then(|m| m.get(&uid))
             .ok_or(MailError::Missing)?
-            .header
-            .message_id
             .clone();
         for (mailbox, messages) in &mut data.messages {
             for (message_uid, message) in messages {
-                if (mailbox == folder && *message_uid == uid)
-                    || (id.is_some() && message.header.message_id == id)
-                {
+                if (mailbox == folder && *message_uid == uid) || message.same_message(&selected) {
                     match flag {
                         Flag::Seen => message.header.unread = !on,
                         Flag::Starred => message.header.starred = on,
@@ -181,9 +204,16 @@ impl MailClient for FakeMailClient {
         Ok(())
     }
 
-    fn move_to(&self, folder: &str, uid: u32, destination: &str) -> Result<(), MailError> {
+    fn move_to(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+        destination: &str,
+    ) -> Result<(), MailError> {
         self.call()?;
         let mut data = self.data()?;
+        data.check_uid_validity(folder, uid_validity)?;
         if folder == destination {
             let message = data
                 .messages
@@ -196,7 +226,7 @@ impl MailClient for FakeMailClient {
             {
                 inbox.retain(|_, m| {
                     if message.header.message_id.is_some() {
-                        m.header.message_id != message.header.message_id
+                        !m.same_message(&message)
                     } else {
                         m.raw != message.raw
                     }
@@ -210,11 +240,7 @@ impl MailClient for FakeMailClient {
             .and_then(|m| m.remove(&uid))
             .ok_or(MailError::Missing)?;
         let dest = data.messages.entry(destination.into()).or_default();
-        if message.header.message_id.is_some()
-            && dest
-                .values()
-                .any(|m| m.header.message_id == message.header.message_id)
-        {
+        if dest.values().any(|m| m.same_message(&message)) {
             return Ok(());
         }
         let next_uid = dest

@@ -182,12 +182,32 @@ pub fn get(conn: &Connection, id: &str) -> Result<Email, AppError> {
 
 pub fn list(db: &Db, folder: Folder, filter: Filter, limit: usize) -> Result<Vec<Email>, AppError> {
     let conn = db.conn()?;
-    let mut stmt = conn.prepare(&format!("SELECT {COLUMNS} FROM emails e JOIN items i ON i.id = e.item_id WHERE i.type = 'email' AND i.deleted_at IS NULL AND e.folder = ?1 AND (?2 = 0 OR e.starred = 1) AND (?3 = 0 OR e.unread = 1) ORDER BY e.sent_at DESC, e.uid DESC LIMIT ?4"))?;
+    let query = match folder {
+        Folder::Starred => format!(
+            "WITH starred AS (
+                SELECT e.item_id, ROW_NUMBER() OVER (
+                    PARTITION BY e.message_id, e.from_addr, e.sent_at,
+                        CASE WHEN e.message_id IS NULL THEN e.item_id END
+                    ORDER BY CASE e.folder WHEN '{INBOX}' THEN 0 WHEN '{SENT}' THEN 1
+                        WHEN ?1 THEN 2 ELSE 3 END, e.uid DESC
+                ) AS rank
+                FROM emails e JOIN items i ON i.id = e.item_id
+                WHERE i.type = 'email' AND i.deleted_at IS NULL AND e.starred = 1
+            )
+            SELECT {COLUMNS} FROM emails e JOIN items i ON i.id = e.item_id
+            JOIN starred s ON s.item_id = e.item_id
+            WHERE s.rank = 1 AND (?2 = 0 OR e.unread = 1)
+            ORDER BY e.sent_at DESC, e.uid DESC LIMIT ?3"
+        ),
+        _ => format!(
+            "SELECT {COLUMNS} FROM emails e JOIN items i ON i.id = e.item_id WHERE i.type = 'email' AND i.deleted_at IS NULL AND e.folder = ?1 AND (?2 = 0 OR e.unread = 1) ORDER BY e.sent_at DESC, e.uid DESC LIMIT ?3"
+        ),
+    };
+    let mut stmt = conn.prepare(&query)?;
     Ok(stmt
         .query_map(
             params![
                 folder.mailbox(),
-                matches!(folder, Folder::Starred),
                 matches!(filter, Filter::Unread),
                 limit.min(HEADER_LIMIT) as i64
             ],

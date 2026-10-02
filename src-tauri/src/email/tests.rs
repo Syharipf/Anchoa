@@ -314,6 +314,77 @@ fn sync_preserves_messages_outside_the_latest_200_and_resets_reused_uids() {
 }
 
 #[test]
+fn actions_reject_reused_uids_before_the_next_sync() {
+    for (folder, view) in [
+        (INBOX, Folder::Inbox),
+        (SENT, Folder::Sent),
+        (ALL_MAIL, Folder::Starred),
+    ] {
+        for cached in [false, true] {
+            let f = Fixture::new();
+            f.client.reset_mailbox(folder, 7).unwrap();
+            let mut h = header(1);
+            h.starred = true;
+            f.client
+                .insert(
+                    folder,
+                    h,
+                    b"Content-Type: text/plain\r\n\r\nOriginal".to_vec(),
+                )
+                .unwrap();
+            sync::sync(&f.db, &f.client).unwrap();
+            let id = list(&f.db, view, Filter::All, 200).unwrap()[0].id.clone();
+            if cached {
+                actions::open(&f.db, &f.client, &id).unwrap();
+            }
+            let before = get(&f.db.conn().unwrap(), &id).unwrap();
+            f.client.reset_mailbox(folder, 8).unwrap();
+            let mut replacement = header(1);
+            replacement.message_id = Some("replacement@example.com".into());
+            replacement.starred = true;
+            f.client
+                .insert(
+                    folder,
+                    replacement,
+                    b"Content-Type: text/plain\r\n\r\nReplacement".to_vec(),
+                )
+                .unwrap();
+            for result in [
+                actions::open(&f.db, &f.client, &id).map(|_| ()),
+                actions::set_flag(&f.db, &f.client, &id, Flag::Seen, true),
+                actions::set_flag(&f.db, &f.client, &id, Flag::Starred, false),
+                actions::archive(&f.db, &f.client, &id),
+            ] {
+                assert_eq!(
+                    result.unwrap_err().to_string(),
+                    client::MailError::Missing.to_string()
+                );
+            }
+            let after = get(&f.db.conn().unwrap(), &id).unwrap();
+            assert_eq!(
+                (after.body, after.body_cached, after.unread, after.starred),
+                (
+                    before.body,
+                    before.body_cached,
+                    before.unread,
+                    before.starred
+                )
+            );
+            assert_eq!(f.client.body_fetches().unwrap(), usize::from(cached));
+            let batch = f.client.list_headers(folder, 200).unwrap();
+            assert_eq!(batch.headers.len(), 1);
+            assert!(batch.headers[0].unread && batch.headers[0].starred);
+            sync::sync(&f.db, &f.client).unwrap();
+            let replacement = list(&f.db, view, Filter::All, 200).unwrap()[0].id.clone();
+            assert_eq!(
+                actions::open(&f.db, &f.client, &replacement).unwrap().body,
+                "Replacement"
+            );
+        }
+    }
+}
+
+#[test]
 fn mime_prefers_plain_text_and_converts_html_to_text() {
     let raw = b"MIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=x\r\n\r\n--x\r\nContent-Type: text/plain\r\n\r\nPlain wins\r\n--x\r\nContent-Type: text/html\r\n\r\n<b>HTML loses</b>\r\n--x--\r\n";
     let parsed = body::parse(raw).unwrap();
@@ -416,6 +487,157 @@ fn flags_and_archive_reach_the_fake_client() {
             .unwrap()
             .len(),
         1
+    );
+}
+
+#[test]
+fn flags_and_archive_do_not_affect_distinct_messages_with_the_same_message_id() {
+    for (from_addr, sent_at) in [("other@example.com", 1000), ("siti@example.com", 2000)] {
+        let f = Fixture::new();
+        let mut original = header(1);
+        original.starred = true;
+        let mut distinct = original.clone();
+        distinct.uid = 2;
+        distinct.from_addr = from_addr.into();
+        distinct.sent_at = sent_at;
+        f.client.insert(INBOX, original, Vec::new()).unwrap();
+        f.client.insert(INBOX, distinct, Vec::new()).unwrap();
+        sync::sync(&f.db, &f.client).unwrap();
+        let inbox = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap();
+        let original = inbox.iter().find(|e| e.uid == 1).unwrap();
+        let distinct = inbox.iter().find(|e| e.uid == 2).unwrap();
+        let all_mail: String =
+            f.db.conn()
+                .unwrap()
+                .query_row(
+                    "SELECT item_id FROM emails WHERE folder = ?1 AND uid = 1",
+                    [ALL_MAIL],
+                    |r| r.get(0),
+                )
+                .unwrap();
+        actions::set_flag(&f.db, &f.client, &all_mail, Flag::Starred, false).unwrap();
+        actions::set_flag(&f.db, &f.client, &all_mail, Flag::Seen, true).unwrap();
+        let changed = get(&f.db.conn().unwrap(), &original.id).unwrap();
+        assert!(!changed.starred && !changed.unread);
+        let unchanged = get(&f.db.conn().unwrap(), &distinct.id).unwrap();
+        assert!(unchanged.starred && unchanged.unread);
+        actions::set_flag(&f.db, &f.client, &all_mail, Flag::Starred, true).unwrap();
+        sync::sync(&f.db, &f.client).unwrap();
+        let unchanged = get(&f.db.conn().unwrap(), &distinct.id).unwrap();
+        assert!(unchanged.starred && unchanged.unread);
+        actions::archive(&f.db, &f.client, &all_mail).unwrap();
+        assert!(get(&f.db.conn().unwrap(), &original.id).is_err());
+        assert!(get(&f.db.conn().unwrap(), &distinct.id).is_ok());
+        let remaining = f.client.list_headers(INBOX, 200).unwrap().headers;
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].uid, 2);
+    }
+}
+
+#[test]
+fn starred_includes_newly_starred_inbox_and_sent_messages_before_sync() {
+    let f = Fixture::new();
+    f.seed(1);
+    f.client.insert(SENT, header(2), Vec::new()).unwrap();
+    sync::sync(&f.db, &f.client).unwrap();
+    let inbox = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0]
+        .id
+        .clone();
+    let sent = list(&f.db, Folder::Sent, Filter::All, 200).unwrap()[0]
+        .id
+        .clone();
+    for id in [&inbox, &sent] {
+        actions::set_flag(&f.db, &f.client, id, Flag::Starred, true).unwrap();
+    }
+    let starred = list(&f.db, Folder::Starred, Filter::All, 200).unwrap();
+    assert_eq!(
+        starred.iter().map(|e| &e.id).collect::<Vec<_>>(),
+        vec![&sent, &inbox]
+    );
+    assert_eq!(
+        list(&f.db, Folder::Starred, Filter::All, 1).unwrap()[0].id,
+        sent
+    );
+    actions::set_flag(&f.db, &f.client, &sent, Flag::Seen, true).unwrap();
+    let unread = list(&f.db, Folder::Starred, Filter::Unread, 200).unwrap();
+    assert_eq!(unread.len(), 1);
+    assert_eq!(unread[0].id, inbox);
+    actions::set_flag(&f.db, &f.client, &sent, Flag::Starred, false).unwrap();
+    assert_eq!(
+        list(&f.db, Folder::Starred, Filter::All, 200)
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn starred_deduplicates_message_identity_and_prefers_inbox_then_sent_then_all_mail() {
+    let f = Fixture::new();
+    let mut original = header(1);
+    original.starred = true;
+    f.client
+        .insert(INBOX, original.clone(), Vec::new())
+        .unwrap();
+    let mut sent_copy = original.clone();
+    sent_copy.uid = 10;
+    f.client.insert(SENT, sent_copy, Vec::new()).unwrap();
+    for folder in [SENT, ALL_MAIL] {
+        let mut h = header(2);
+        h.starred = true;
+        f.client.insert(folder, h, Vec::new()).unwrap();
+    }
+    for uid in 3..=7 {
+        let mut h = header(uid);
+        h.starred = true;
+        if uid == 4 || uid == 5 {
+            h.message_id = original.message_id.clone();
+        }
+        if uid == 4 {
+            h.from_addr = "other@example.com".into();
+            h.sent_at = original.sent_at;
+        }
+        if uid >= 6 {
+            h.message_id = None;
+            h.sent_at = 6000;
+        }
+        f.client.insert(ALL_MAIL, h, Vec::new()).unwrap();
+    }
+    sync::sync(&f.db, &f.client).unwrap();
+    let starred = list(&f.db, Folder::Starred, Filter::All, 200).unwrap();
+    assert_eq!(
+        starred
+            .iter()
+            .map(|e| (e.folder.as_str(), e.uid))
+            .collect::<Vec<_>>(),
+        vec![
+            (ALL_MAIL, 7),
+            (ALL_MAIL, 6),
+            (ALL_MAIL, 5),
+            (ALL_MAIL, 3),
+            (SENT, 2),
+            (ALL_MAIL, 4),
+            (INBOX, 1),
+        ]
+    );
+    for preferred in [INBOX, SENT, ALL_MAIL] {
+        let rows = list(&f.db, Folder::Starred, Filter::All, 200).unwrap();
+        let row = rows
+            .iter()
+            .find(|e| {
+                e.message_id == original.message_id
+                    && e.from_addr == original.from_addr
+                    && e.sent_at == original.sent_at
+            })
+            .unwrap();
+        assert_eq!(row.folder, preferred);
+        crate::items::soft_delete(&f.db.conn().unwrap(), &row.id, 1).unwrap();
+    }
+    assert_eq!(
+        list(&f.db, Folder::Starred, Filter::All, 200)
+            .unwrap()
+            .len(),
+        6
     );
 }
 

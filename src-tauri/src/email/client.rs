@@ -66,9 +66,22 @@ pub struct HeaderBatch {
 pub trait MailClient: Send + Sync {
     fn login(&self, credentials: &Credentials) -> Result<(), MailError>;
     fn list_headers(&self, folder: &str, limit: usize) -> Result<HeaderBatch, MailError>;
-    fn fetch_body(&self, folder: &str, uid: u32) -> Result<Vec<u8>, MailError>;
-    fn set_flag(&self, folder: &str, uid: u32, flag: Flag, on: bool) -> Result<(), MailError>;
-    fn move_to(&self, folder: &str, uid: u32, destination: &str) -> Result<(), MailError>;
+    fn fetch_body(&self, folder: &str, uid: u32, uid_validity: u32) -> Result<Vec<u8>, MailError>;
+    fn set_flag(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+        flag: Flag,
+        on: bool,
+    ) -> Result<(), MailError>;
+    fn move_to(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+        destination: &str,
+    ) -> Result<(), MailError>;
     fn send(&self, raw: &[u8]) -> Result<(), MailError>;
 }
 
@@ -221,6 +234,21 @@ impl GmailClient {
             .build())
     }
 
+    async fn select(
+        session: &mut Session,
+        folder: &str,
+        uid_validity: u32,
+    ) -> Result<(), MailError> {
+        let selected = session
+            .select(folder)
+            .await
+            .map_err(|_| MailError::Protocol)?;
+        if selected.uid_validity != Some(uid_validity) {
+            return Err(MailError::Missing);
+        }
+        Ok(())
+    }
+
     // Use async-imap's tagged response API, avoiding an additional stream crate.
     async fn fetch(session: &mut Session, query: &str) -> Result<Vec<Fetched>, MailError> {
         let id = session
@@ -345,14 +373,11 @@ impl MailClient for GmailClient {
         })
     }
 
-    fn fetch_body(&self, folder: &str, uid: u32) -> Result<Vec<u8>, MailError> {
+    fn fetch_body(&self, folder: &str, uid: u32, uid_validity: u32) -> Result<Vec<u8>, MailError> {
         mailbox(folder)?;
         self.run(async {
             let mut session = self.session().await?;
-            session
-                .select(folder)
-                .await
-                .map_err(|_| MailError::Protocol)?;
+            Self::select(&mut session, folder, uid_validity).await?;
             let rows =
                 Self::fetch(&mut session, &format!("UID FETCH {uid} (UID BODY.PEEK[])")).await?;
             let raw = rows
@@ -365,14 +390,18 @@ impl MailClient for GmailClient {
         })
     }
 
-    fn set_flag(&self, folder: &str, uid: u32, flag: Flag, on: bool) -> Result<(), MailError> {
+    fn set_flag(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+        flag: Flag,
+        on: bool,
+    ) -> Result<(), MailError> {
         mailbox(folder)?;
         self.run(async {
             let mut session = self.session().await?;
-            session
-                .select(folder)
-                .await
-                .map_err(|_| MailError::Protocol)?;
+            Self::select(&mut session, folder, uid_validity).await?;
             session
                 .run_command_and_check_ok(format!(
                     "UID STORE {uid} {}FLAGS.SILENT ({})",
@@ -385,15 +414,18 @@ impl MailClient for GmailClient {
         })
     }
 
-    fn move_to(&self, folder: &str, uid: u32, destination: &str) -> Result<(), MailError> {
+    fn move_to(
+        &self,
+        folder: &str,
+        uid: u32,
+        uid_validity: u32,
+        destination: &str,
+    ) -> Result<(), MailError> {
         mailbox(folder)?;
         mailbox(destination)?;
         self.run(async {
             let mut session = self.session().await?;
-            session
-                .select(folder)
-                .await
-                .map_err(|_| MailError::Protocol)?;
+            Self::select(&mut session, folder, uid_validity).await?;
             if folder == ALL_MAIL && destination == ALL_MAIL {
                 // Archiving from the Starred view removes only Gmail's Inbox label.
                 session

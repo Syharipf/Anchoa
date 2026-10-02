@@ -47,16 +47,21 @@ export function relativeTime(then: number, now: number): string {
 
 /** `<input type="date">` value ("2026-10-01") to local midnight in epoch ms. */
 export function dateInputToMs(value: string): number | null {
-  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day).getTime();
+  if (year === 0) return null;
+  const date = new Date(0);
+  date.setFullYear(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return date.getTime();
 }
 
 export function msToDateInput(ms: number | null): string {
   if (ms === null) return "";
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${String(d.getFullYear()).padStart(4, "0")}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** "2026-10-01" (a local date from the backend) to { weekday: "Kam", day: 1 }. */
@@ -75,4 +80,3 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${BYTE_FMT.format(bytes / (1024 * 1024))} MB`;
   return `${BYTE_FMT.format(bytes / (1024 * 1024 * 1024))} GB`;
 }
-

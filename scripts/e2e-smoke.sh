@@ -34,6 +34,17 @@ sql_becomes() {
   done
   return 1
 }
+# Prints the first non-empty result, waiting up to 5 s. Always exits 0 so that
+# set -e does not abort silently; callers check [[ -n ]] and fail with a message.
+sql_value() {
+  local value
+  for _ in $(seq 1 25); do
+    value=$(sql "$1")
+    [[ -n "$value" ]] && { printf '%s\n' "$value"; return 0; }
+    sleep 0.2
+  done
+  return 0
+}
 click() { xdotool mousemove "$1" "$2" click 1; sleep 0.7; }
 make_task() {
   local title="$1"
@@ -106,7 +117,7 @@ check_items() {
   sleep 1
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT title FROM items")" = "catatan dari e2e" ]] || fail "capture not saved"
+  sql_becomes "SELECT title FROM items" "catatan dari e2e" || fail "capture not saved"
 
   click 36 148          # nav: Jurnal
   shot 4-inbox
@@ -114,7 +125,7 @@ check_items() {
   xdotool type --delay 20 'isi dari e2e'
   sleep 1.5             # autosave fires after 500 ms
   shot 4-item
-  [[ "$(sql "SELECT body FROM items")" = "isi dari e2e" ]] || fail "autosave did not store the body"
+  sql_becomes "SELECT body FROM items" "isi dari e2e" || fail "autosave did not store the body"
   stop_app
 }
 
@@ -134,7 +145,7 @@ check_palette() {
   xdotool key Escape
   sleep 0.3
   shot 4-palette-closed     # expect: palette gone, Keuangan still open
-  [[ "$(sql "SELECT COUNT(*) FROM items")" = 0 ]] || fail "opening a page must not save a note"
+  sql_becomes "SELECT COUNT(*) FROM items" 0 || fail "opening a page must not save a note"
   click 36 148          # Jurnal
   xdotool key ctrl+n
   sleep 0.3
@@ -143,7 +154,7 @@ check_palette() {
   xdotool key Return
   sleep 1
   shot 4-palette-inbox  # expect: the new note listed in the Jurnal
-  [[ "$(sql "SELECT COUNT(*) FROM items")" = 1 ]] || fail "palette capture must save exactly one note"
+  sql_becomes "SELECT COUNT(*) FROM items" 1 || fail "palette capture must save exactly one note"
   stop_app
 }
 
@@ -231,7 +242,7 @@ add_account() {
   sleep 1
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT i.title || ':' || a.kind || ':' || a.opening_balance FROM accounts a JOIN items i ON i.id = a.item_id")" = "BCA:bank:1000000" ]] \
+  sql_becomes "SELECT i.title || ':' || a.kind || ':' || a.opening_balance FROM accounts a JOIN items i ON i.id = a.item_id" "BCA:bank:1000000" \
     || fail "account not saved"
 }
 
@@ -254,7 +265,7 @@ check_finance() {
   sleep 1
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT t.amount || ':' || t.category || ':' || i.title FROM transactions t JOIN items i ON i.id = t.item_id")" = "-25000:Makan & minum:Makan siang" ]] \
+  sql_becomes "SELECT t.amount || ':' || t.category || ':' || i.title FROM transactions t JOIN items i ON i.id = t.item_id" "-25000:Makan & minum:Makan siang" \
     || fail "expense not saved"
 
   click 820 200                # the Pengeluaran card opens the limit form
@@ -262,10 +273,10 @@ check_finance() {
   sleep 1
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT b.amount FROM budgets b JOIN items i ON i.id = b.item_id WHERE i.deleted_at IS NULL")" = 200000 ]] \
+  sql_becomes "SELECT b.amount FROM budgets b JOIN items i ON i.id = b.item_id WHERE i.deleted_at IS NULL" 200000 \
     || fail "limit not saved"
   shot 10-finance              # expect: saldo Rp 975.000, Pengeluaran Rp 25.000 dari Rp 200.000, one row, BCA 100% saldo
-  [[ "$(sql "SELECT COUNT(*) FROM items WHERE type = 'note'")" = 0 ]] || fail "finance forms must not create notes"
+  sql_becomes "SELECT COUNT(*) FROM items WHERE type = 'note'" 0 || fail "finance forms must not create notes"
 
   click 36 94                  # nav: Dashboard
   shot 10-dashboard            # expect: Keuangan card Rp 975.000, "Keluar bulan ini Rp 25.000 dari Rp 200.000", "Tagihan aman"
@@ -287,7 +298,7 @@ check_bills() {
   sleep 1
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT i.title || ':' || b.amount || ':' || b.repeat FROM bills b JOIN items i ON i.id = b.item_id")" = "Listrik:150000:monthly" ]] \
+  sql_becomes "SELECT i.title || ':' || b.amount || ':' || b.repeat FROM bills b JOIN items i ON i.id = b.item_id" "Listrik:150000:monthly" \
     || fail "bill not saved"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE type = 'bill'"
   # Keep due_day in step with the moved date, as saving the bill would (it drives the next monthly due date).
@@ -305,7 +316,7 @@ check_bills() {
   click 1177 508               # Tandai lunas on the first bill row
   sleep 1
   shot 11-bill-paid            # expect: "Lunas hari ini", toast "Tercatat Rp 150.000" with "Ubah"
-  [[ "$(sql "SELECT amount || ':' || category FROM transactions WHERE bill_id IS NOT NULL")" = "-150000:Tagihan" ]] \
+  sql_becomes "SELECT amount || ':' || category FROM transactions WHERE bill_id IS NOT NULL" "-150000:Tagihan" \
     || fail "payment not recorded"
   after=$(sql "SELECT due_at FROM items WHERE type = 'bill'")
   (( after - before >= 28 * 86400000 )) || fail "due date did not move a month ahead"
@@ -383,12 +394,12 @@ check_projects() {
   click 646 445                 # arrow on first card (Tugas A)
   sleep 1
   shot 12-projects
-  proj_id=$(sql "SELECT item_id FROM projects")
+  proj_id=$(sql_value "SELECT item_id FROM projects")
   [[ -n "$proj_id" ]] || fail "project not created"
-  [[ "$(sql "SELECT count(*) FROM projects")" = 1 ]] || fail "expected 1 project"
-  [[ "$(sql "SELECT count(*) FROM tasks WHERE project_id = '$proj_id'")" = 2 ]] || fail "expected 2 tasks in project"
-  [[ "$(sql "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas A')")" = "doing" ]] || fail "Tugas A should be doing"
-  [[ "$(sql "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas B')")" = "plan" ]] || fail "Tugas B should be plan"
+  sql_becomes "SELECT count(*) FROM projects" 1 || fail "expected 1 project"
+  sql_becomes "SELECT count(*) FROM tasks WHERE project_id = '$proj_id'" 2 || fail "expected 2 tasks in project"
+  sql_becomes "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas A')" "doing" || fail "Tugas A should be doing"
+  sql_becomes "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas B')" "plan" || fail "Tugas B should be plan"
   # Task 10: subtask on Tugas B
   click 450 400                 # click Tugas B card
   sleep 1
@@ -398,8 +409,9 @@ check_projects() {
   sleep 1
   xdotool key Return
   sleep 1
-  tugas_b_id=$(sql "SELECT id FROM items WHERE title = 'Tugas B'")
-  [[ "$(sql "SELECT parent_id FROM items WHERE title = 'Sub 1'")" = "$tugas_b_id" ]] || fail "subtask parent_id not set"
+  tugas_b_id=$(sql_value "SELECT id FROM items WHERE title = 'Tugas B'")
+  [[ -n "$tugas_b_id" ]] || fail "Tugas B not created"
+  sql_becomes "SELECT parent_id FROM items WHERE title = 'Sub 1'" "$tugas_b_id" || fail "subtask parent_id not set"
   click 130 95                  # ← Kembali
   sleep 1
   shot 12-subtasks
@@ -413,7 +425,7 @@ check_projects() {
   sleep 0.3
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT t.status || ':' || COALESCE(t.project_id, 'loose') FROM tasks t JOIN items i ON i.id = t.item_id WHERE i.title = 'tugas dari palette'")" = "plan:loose" ]] \
+  sql_becomes "SELECT t.status || ':' || COALESCE(t.project_id, 'loose') FROM tasks t JOIN items i ON i.id = t.item_id WHERE i.title = 'tugas dari palette'" "plan:loose" \
     || fail "palette task not saved as loose plan task"
 
   # Task 10: convert note to task
@@ -430,8 +442,8 @@ check_projects() {
   shot 12-note-item
   click 655 735                 # Jadikan tugas
   sleep 1
-  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'catatan jadi tugas' AND type = 'task'")" = "1" ]] || fail "task was not created from note"
-  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'catatan jadi tugas' AND type = 'task')")" = "plan" ]] || fail "converted task status not plan"
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'catatan jadi tugas' AND type = 'task'" "1" || fail "task was not created from note"
+  sql_becomes "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'catatan jadi tugas' AND type = 'task')" "plan" || fail "converted task status not plan"
   click 36 94                   # nav: Dashboard
   sleep 1
   shot 12-dashboard
@@ -475,7 +487,7 @@ check_schedule() {
   # 5. centang tugas di agenda, lalu cek DB status = 'done'
   click 964 344
   sleep 1
-  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Tugas E2E')")" = "done" ]] \
+  sql_becomes "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Tugas E2E')" "done" \
     || fail "task not marked done in schedule"
 
   # 6. matikan filter Tagihan, lalu screenshot 13-filter
@@ -510,7 +522,7 @@ check_habits() {
   sleep 1
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT i.title FROM habits h JOIN items i ON i.id = h.item_id WHERE i.deleted_at IS NULL")" = "Olahraga pagi" ]] \
+  sql_becomes "SELECT i.title FROM habits h JOIN items i ON i.id = h.item_id WHERE i.deleted_at IS NULL" "Olahraga pagi" \
     || fail "habit not saved"
   shot 14-habits-created       # measure checkbox from here
   click 140 351                # checkbox on the first habit row
@@ -541,7 +553,7 @@ check_journal() {
   sleep 1
   xdotool key Return
   sleep 1
-  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'catatan cepat jurnal' AND type = 'note'")" = "1" ]] \
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'catatan cepat jurnal' AND type = 'note'" "1" \
     || fail "quick capture note missing"
 
   click 36 148                  # nav: Jurnal
@@ -573,13 +585,13 @@ check_journal() {
 
   sql_becomes "SELECT body FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note'" "Membangun aplikasi open-source untuk produktivitas." \
     || fail "journal body not saved"
-  [[ "$(sql "SELECT mood FROM journal_entries WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note')")" = "4" ]] \
+  sql_becomes "SELECT mood FROM journal_entries WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note')" "4" \
     || fail "journal mood not saved"
-  [[ "$(sql "SELECT count(*) FROM habit_checks WHERE habit_id = 'habit-journal' AND deleted_at IS NULL")" = "1" ]] \
+  sql_becomes "SELECT count(*) FROM habit_checks WHERE habit_id = 'habit-journal' AND deleted_at IS NULL" "1" \
     || fail "habit was not auto-checked upon writing journal"
-  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'task'")" = "1" ]] \
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'task'" "1" \
     || fail "task not created from idea"
-  [[ "$(sql "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'task')")" = "plan" ]] \
+  sql_becomes "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'task')" "plan" \
     || fail "created task status not plan"
   [[ -n "$(sql "SELECT task_id FROM journal_entries WHERE item_id = (SELECT id FROM items WHERE title = 'Ide Bisnis Baru' AND type = 'note')")" ]] \
     || fail "task_id not linked in journal_entries"
@@ -736,7 +748,7 @@ check_notes() {
   xdotool type --delay 20 'Tinjau rencana'
   sleep 1
   expected_body=$'Catatan rencana dari e2e.\n\n- [ ] Tulis ide\n- [ ] Tinjau rencana'
-  rencana_id=$(sql "SELECT id FROM items WHERE type = 'page' AND title = 'Rencana' AND deleted_at IS NULL")
+  rencana_id=$(sql_value "SELECT id FROM items WHERE type = 'page' AND title = 'Rencana' AND deleted_at IS NULL")
   [[ -n "$rencana_id" ]] || fail "Rencana page not created"
   sql_becomes "SELECT body FROM items WHERE id = '$rencana_id'" "$expected_body" \
     || fail "notes paragraph and task list not saved as Markdown"
@@ -749,17 +761,17 @@ check_notes() {
   xdotool key Escape           # pratinjau wikilink yang belum punya tujuan
   sleep 0.3
   expected_body+=$'\n\n[[Ide baru]]'
-  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+  sql_becomes "SELECT body FROM items WHERE id = '$rencana_id'" "$expected_body" \
     || fail "unresolved wikilink not saved"
-  [[ "$(sql "SELECT COUNT(*) FROM items WHERE title = 'Ide baru'")" = 0 ]] \
+  sql_becomes "SELECT COUNT(*) FROM items WHERE title = 'Ide baru'" 0 \
     || fail "typing an unresolved wikilink must not create its page"
-  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id'")" = 0 ]] \
+  sql_becomes "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id'" 0 \
     || fail "unresolved wikilink must not create a links row"
   shot 18-notes-unresolved
   click 445 363                # klik [[Ide baru]]: buat halaman di akar
-  ide_id=$(sql "SELECT id FROM items WHERE type = 'page' AND title = 'Ide baru' AND parent_id IS NULL AND deleted_at IS NULL")
+  ide_id=$(sql_value "SELECT id FROM items WHERE type = 'page' AND title = 'Ide baru' AND parent_id IS NULL AND deleted_at IS NULL")
   [[ -n "$ide_id" ]] || fail "clicking unresolved wikilink did not create Ide baru"
-  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'")" = 1 ]] \
+  sql_becomes "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'" 1 \
     || fail "new page did not resolve Rencana's backlink"
   shot 18-notes-backlinks      # expect: Disebut di berisi Rencana
 
@@ -767,7 +779,7 @@ check_notes() {
   click 417 293                # centang tugas pertama di pratinjau
   sleep 1
   expected_body=${expected_body/'- [ ] Tulis ide'/'- [x] Tulis ide'}
-  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+  sql_becomes "SELECT body FROM items WHERE id = '$rencana_id'" "$expected_body" \
     || fail "backlink did not open Rencana or task checkbox did not save"
   shot 18-notes-backlink-open
 
@@ -781,11 +793,11 @@ check_notes() {
   xdotool key Return
   sleep 0.7
   expected_body=${expected_body/'[[Ide baru]]'/'[[Ide besar]]'}
-  [[ "$(sql "SELECT title FROM items WHERE id = '$ide_id'")" = 'Ide besar' ]] \
+  sql_becomes "SELECT title FROM items WHERE id = '$ide_id'" 'Ide besar' \
     || fail "page rename not saved"
-  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+  sql_becomes "SELECT body FROM items WHERE id = '$rencana_id'" "$expected_body" \
     || fail "renaming Ide baru did not rewrite Rencana's wikilink"
-  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'")" = 1 ]] \
+  sql_becomes "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'" 1 \
     || fail "page rename lost the backlink"
   shot 18-notes-renamed
 
@@ -797,7 +809,7 @@ check_notes() {
   click 417 323                # centang tugas kedua untuk memverifikasi hasil dibuka
   sleep 1
   expected_body=${expected_body/'- [ ] Tinjau rencana'/'- [x] Tinjau rencana'}
-  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+  sql_becomes "SELECT body FROM items WHERE id = '$rencana_id'" "$expected_body" \
     || fail "search for renc did not open Rencana or task checkbox did not save"
   shot 18-notes-search-open
 
@@ -809,19 +821,19 @@ check_notes() {
   click 220 346                # Hapus
   shot 18-notes-delete-confirm
   click 818 239                # konfirmasi Hapus
-  [[ "$(sql "SELECT COUNT(*) FROM items WHERE id = '$rencana_id' AND deleted_at IS NOT NULL")" = 1 ]] \
+  sql_becomes "SELECT COUNT(*) FROM items WHERE id = '$rencana_id' AND deleted_at IS NOT NULL" 1 \
     || fail "deleting Rencana did not set deleted_at"
-  [[ "$(sql "SELECT COUNT(*) FROM items WHERE type = 'page' AND deleted_at IS NULL")" = 1 ]] \
+  sql_becomes "SELECT COUNT(*) FROM items WHERE type = 'page' AND deleted_at IS NULL" 1 \
     || fail "deleting Rencana affected the other page"
   shot 18-notes-deleted        # expect: hanya Ide besar, Sampah (1)
   click 160 755                # Sampah
   shot 18-notes-trash          # expect: Rencana dengan Pulihkan
   click 800 188                # Pulihkan Rencana
-  [[ "$(sql "SELECT COUNT(*) FROM items WHERE id = '$rencana_id' AND deleted_at IS NULL")" = 1 ]] \
+  sql_becomes "SELECT COUNT(*) FROM items WHERE id = '$rencana_id' AND deleted_at IS NULL" 1 \
     || fail "restore did not clear Rencana's deleted_at"
-  [[ "$(sql "SELECT body FROM items WHERE id = '$rencana_id'")" = "$expected_body" ]] \
+  sql_becomes "SELECT body FROM items WHERE id = '$rencana_id'" "$expected_body" \
     || fail "restore changed Rencana's Markdown"
-  [[ "$(sql "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'")" = 1 ]] \
+  sql_becomes "SELECT COUNT(*) FROM links WHERE from_id = '$rencana_id' AND to_id = '$ide_id'" 1 \
     || fail "restore lost Rencana's backlink"
   shot 18-notes-trash-restored # expect: Sampah kosong
   click 810 215                # Tutup (dialog Sampah kosong)
@@ -856,9 +868,9 @@ check_agent() {
   sleep 0.5
   xdotool key Return
   sleep 1
-  proj_id=$(sql "SELECT item_id FROM projects WHERE agent = 1")
+  proj_id=$(sql_value "SELECT item_id FROM projects WHERE agent = 1")
   [[ -n "$proj_id" ]] || fail "agent project not created"
-  [[ "$(sql "SELECT agent_dir FROM projects WHERE item_id = '$proj_id'")" = "$repo" ]] || fail "agent folder not saved"
+  sql_becomes "SELECT agent_dir FROM projects WHERE item_id = '$proj_id'" "$repo" || fail "agent folder not saved"
   shot 19-agent-kanban
 
   click 663 180                # tab Agen kode
@@ -867,16 +879,16 @@ check_agent() {
   click 1107 565               # Kirim
   sql_becomes "SELECT count(*) FROM activities WHERE actor = 'Tes' AND role = 'implement'" 1 \
     || fail "agent command did not log through the CLI"
-  task_id=$(sql "SELECT task_id FROM activities WHERE actor = 'Kamu' AND role = 'request'")
+  task_id=$(sql_value "SELECT task_id FROM activities WHERE actor = 'Kamu' AND role = 'request'")
   [[ -n "$task_id" ]] || fail "request activity missing"
-  [[ "$(sql "SELECT title FROM items WHERE id = '$task_id'")" = "Tambahkan tes heatmap" ]] || fail "request task title wrong"
+  sql_becomes "SELECT title FROM items WHERE id = '$task_id'" "Tambahkan tes heatmap" || fail "request task title wrong"
   [[ -s "$APPDATA/agent-runs/$task_id.log" ]] || fail "agent run log missing"
   sleep 3.5                    # one polling cycle
   shot 19-agent-feed
 
   "$BIN" agent task status --task "$task_id" test --actor Tes >/dev/null || fail "CLI task status failed"
-  [[ "$(sql "SELECT status FROM tasks WHERE item_id = '$task_id'")" = test ]] || fail "CLI did not move the task"
-  [[ "$(sql "SELECT title FROM items i JOIN activities a ON a.item_id = i.id WHERE a.kind = 'status'")" = "Tes memindahkan ke Tes" ]] \
+  sql_becomes "SELECT status FROM tasks WHERE item_id = '$task_id'" test || fail "CLI did not move the task"
+  sql_becomes "SELECT title FROM items i JOIN activities a ON a.item_id = i.id WHERE a.kind = 'status'" "Tes memindahkan ke Tes" \
     || fail "status change not recorded"
   click 600 180                # tab Kanban
   sleep 3.5
@@ -934,7 +946,7 @@ check_assistant_ai() {
   xdotool key Return
   sleep 3
   shot 22-assistant-proposal    # expect: card "Buat tugas “Beli teri”" with Tolak / Setujui
-  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'Beli teri'")" = 0 ]] || fail "assistant wrote before approval"
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'Beli teri'" 0 || fail "assistant wrote before approval"
   click 1215 609               # Setujui
   sql_becomes "SELECT count(*) FROM items WHERE title = 'Beli teri' AND type = 'task' AND deleted_at IS NULL" 1 \
     || fail "approved proposal did not create the task"
@@ -1005,7 +1017,7 @@ check_email() {
   ANCHOA_FAKE_MAIL=0 start_app
   click 36 256                 # nav: Email, no account
   shot 25-email-connect        # expect: Sambungkan Gmail, App Password steps and fields
-  [[ "$(sql "SELECT count(*) FROM settings WHERE key = 'email.address'")" = 0 ]] \
+  sql_becomes "SELECT count(*) FROM settings WHERE key = 'email.address'" 0 \
     || fail "fresh email check unexpectedly has an account"
   stop_app
 
@@ -1065,10 +1077,10 @@ check_email_assist() {
   click 1190 290              # Ringkas email
   sleep 2
   shot 26-email-assist        # expect: two summary points, three reply chips, task proposal card
-  [[ "$(sql "SELECT count(*) FROM items WHERE title = 'Balas Siti'")" = 0 ]] || fail "email assistant wrote before approval"
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'Balas Siti'" 0 || fail "email assistant wrote before approval"
   click 732 649              # first reply suggestion fills the reply field only
   sleep 0.5
-  [[ "$(sql "SELECT count(*) FROM emails WHERE folder = '[Gmail]/Sent Mail'")" = 0 ]] || fail "reply suggestion sent an email"
+  sql_becomes "SELECT count(*) FROM emails WHERE folder = '[Gmail]/Sent Mail'" 0 || fail "reply suggestion sent an email"
   shot 26-email-suggestion    # expect: reply field holds "Terima kasih, Siti!"
   click 1171 439             # Setujui
   sql_becomes "SELECT count(*) FROM items WHERE title = 'Balas Siti' AND type = 'task' AND deleted_at IS NULL" 1 \

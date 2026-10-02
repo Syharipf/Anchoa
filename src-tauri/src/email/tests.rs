@@ -75,6 +75,46 @@ fn header(uid: u32) -> Header {
 }
 
 #[test]
+fn deleted_emails_leave_every_folder_filter_and_reject_actions_before_network_calls() {
+    let f = Fixture::new();
+    let mut h = header(1);
+    h.starred = true;
+    f.client.insert(INBOX, h.clone(), b"Content-Type: text/plain\r\n\r\nHalo".to_vec()).unwrap();
+    f.client.insert(SENT, h, b"Content-Type: text/plain\r\n\r\nHalo".to_vec()).unwrap();
+    sync::sync(&f.db, &f.client).unwrap();
+    let id = list(&f.db, Folder::Inbox, Filter::All, 200).unwrap()[0].id.clone();
+    f.db.conn().unwrap().execute("UPDATE items SET deleted_at = 123 WHERE type = 'email'", []).unwrap();
+    for folder in [Folder::Inbox, Folder::Sent, Folder::Starred] {
+        for filter in [Filter::All, Filter::Unread] {
+            assert!(list(&f.db, folder, filter, 200).unwrap().is_empty());
+        }
+    }
+    f.client.set_hook(Arc::new(|| panic!("Deleted email must be rejected before calling the client"))).unwrap();
+    assert!(matches!(get(&f.db.conn().unwrap(), &id), Err(AppError::NotFound)));
+    assert!(matches!(actions::open(&f.db, &f.client, &id), Err(AppError::NotFound)));
+    assert!(matches!(actions::set_flag(&f.db, &f.client, &id, Flag::Starred, false), Err(AppError::NotFound)));
+    assert!(matches!(actions::archive(&f.db, &f.client, &id), Err(AppError::NotFound)));
+}
+
+#[test]
+fn invalid_drafts_return_app_errors_without_sending_mail() {
+    let f = Fixture::new();
+    let draft = Draft { to: vec!["siti@example.com".into()], subject: "Halo".into(), body: "Terima kasih".into(), reply_to_id: None };
+    for bad in [
+        Draft { to: vec![], ..draft.clone() },
+        Draft { to: vec!["invalid-address".into()], ..draft.clone() },
+        Draft { to: vec!["siti@example.com\r\nBcc: evil@example.com".into()], ..draft.clone() },
+        Draft { subject: "Halo\r\nBcc: evil@example.com".into(), ..draft.clone() },
+        Draft { subject: "Halo\0".into(), ..draft.clone() },
+    ] {
+        assert!(matches!(send::send(&f.db, &f.client, ADDRESS, &bad), Err(AppError::Invalid(_))));
+    }
+    assert!(matches!(send::send(&f.db, &f.client, ADDRESS, &Draft { body: " \n ".into(), ..draft.clone() }), Err(AppError::Empty)));
+    assert!(matches!(send::send(&f.db, &f.client, ADDRESS, &Draft { reply_to_id: Some("missing".into()), ..draft }), Err(AppError::NotFound)));
+    assert!(f.client.sent().unwrap().is_empty());
+}
+
+#[test]
 fn validates_address_and_app_password() {
     let f = Fixture::new();
     for address in [

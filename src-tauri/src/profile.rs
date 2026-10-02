@@ -201,6 +201,21 @@ mod tests {
     }
 
     #[test]
+    fn profile_statistics_ignore_deleted_rows_of_every_counted_type() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let task = tasks::create_task(&conn, &NewTask { title: "Selesai".into(), status: TaskStatus::Done, ..Default::default() }, now(), &tz).unwrap();
+        let note = journal::create_entry(&conn, EntryKind::Note, Some("Jurnal"), now(), &tz).unwrap();
+        let page = crate::notes::create(&conn, None, "Catatan", now()).unwrap();
+        for id in [&task.id, &note.id, &page.id] {
+            items::soft_delete(&conn, id, now()).unwrap();
+        }
+        let profile = profile(&conn, now(), &tz).unwrap();
+        assert_eq!(profile.since, None);
+        assert_eq!((profile.stats.tasks_done, profile.stats.journal_entries, profile.stats.notes), (0, 0, 0));
+    }
+
+    #[test]
     fn set_name_trims_and_limits() {
         let conn = open_in_memory();
         let page = items::insert(&conn, "page", "Halaman", "", now()).unwrap();

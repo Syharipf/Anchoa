@@ -312,4 +312,35 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn every_registered_command_obeys_the_lock_guard() {
+        // Read the actual registration so adding a command cannot silently escape this check.
+        let source = include_str!("lib.rs");
+        let registered = source.split("tauri::generate_handler![").nth(1).unwrap()
+            .split("]))").next().unwrap();
+        let allowed = ["security_status", "unlock", "db_status"];
+        let commands: Vec<&str> = registered.split(',').map(str::trim)
+            .filter(|command| !command.is_empty())
+            .map(|command| command.rsplit("::").next().unwrap()).collect();
+        assert!(commands.len() > 100);
+        for command in commands {
+            assert!(check_command_access(command, Some(false)).is_ok(), "{command}");
+            assert!(matches!(check_command_access(command, None), Err(AppError::Locked)), "{command}");
+            assert_eq!(check_command_access(command, Some(true)).is_ok(), allowed.contains(&command), "{command}");
+        }
+    }
+
+    #[test]
+    fn lock_allowlist_requires_exact_command_names() {
+        for command in ["security_status", "unlock", "app_status", "db_status"] {
+            assert!(check_command_access(command, Some(true)).is_ok());
+            for altered in [format!(" {command}"), format!("{command} "), command.to_uppercase(), format!("plugin:security|{command}")] {
+                assert!(matches!(check_command_access(&altered, Some(true)), Err(AppError::Locked)), "{altered}");
+            }
+        }
+        for command in ["", "plugin:dialog|open", "plugin:opener|open_url", "plugin:fs|read_file", "unknown"] {
+            assert!(matches!(check_command_access(command, Some(true)), Err(AppError::Locked)), "{command}");
+        }
+    }
 }

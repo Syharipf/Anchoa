@@ -33,6 +33,16 @@ describe("rupiah formatting", () => {
 });
 
 describe("parseRupiah", () => {
+  test("round trips integer minor units up to the JavaScript precision limit", () => {
+    for (const amount of [0, 1, -1, 25001, Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER]) {
+      expect(parseRupiah(formatDigits(amount))).toBe(amount);
+      expect(Number.isSafeInteger(parseRupiah(formatDigits(amount)))).toBe(true);
+    }
+    for (const bad of ["9007199254740992", "9.007.199.254.740.992", "-9007199254740992", "1e3", "Infinity", "NaN", "+1", "0x10"]) {
+      expect(parseRupiah(bad)).toBeNull();
+    }
+  });
+
   test("accepts plain, grouped and Rp-prefixed amounts", () => {
     expect(parseRupiah("25000")).toBe(25000);
     expect(parseRupiah("25.000")).toBe(25000);
@@ -63,5 +73,11 @@ describe("months", () => {
   test("monthOf uses the local date", () => {
     // 30 Sep 20:00 UTC is 1 Oct 03:00 in Jakarta (bun run test sets TZ=Asia/Jakarta).
     expect(monthOf(Date.UTC(2026, 8, 30, 20))).toBe("2026-10");
+  });
+
+  test("monthOf switches on the exact Jakarta midnight millisecond", () => {
+    const midnight = Date.parse("2027-01-01T00:00:00+07:00");
+    expect(monthOf(midnight - 1)).toBe("2026-12");
+    expect(monthOf(midnight)).toBe("2027-01");
   });
 });

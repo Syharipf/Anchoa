@@ -187,4 +187,26 @@ mod tests {
         assert_eq!(next_month_due(ms("2028-01-31T00:00:00+07:00"), 31, &tz).unwrap(), ms("2028-02-29T00:00:00+07:00"));
         assert_eq!(next_month_due(ms("2026-12-15T00:00:00+07:00"), 15, &tz).unwrap(), ms("2027-01-15T00:00:00+07:00"));
     }
+
+    #[test]
+    fn day_month_and_date_roll_over_at_the_same_jakarta_millisecond() {
+        let tz = TimeZone::get("Asia/Jakarta").unwrap();
+        let midnight = ms("2027-01-01T00:00:00+07:00");
+        assert_eq!(day_bounds(midnight - 1, &tz).unwrap(), (midnight - 86_400_000, midnight));
+        assert_eq!(day_bounds(midnight, &tz).unwrap(), (midnight, midnight + 86_400_000));
+        assert_eq!(month_of(midnight - 1, &tz).unwrap(), "2026-12");
+        assert_eq!(month_of(midnight, &tz).unwrap(), "2027-01");
+        assert_eq!(local_date(midnight - 1, &tz).unwrap().to_string(), "2026-12-31");
+        assert_eq!(local_date(midnight, &tz).unwrap().to_string(), "2027-01-01");
+    }
+
+    #[test]
+    fn invalid_epoch_input_returns_errors() {
+        for bad in [i64::MIN, i64::MAX] {
+            assert!(day_bounds(bad, &jakarta()).is_err());
+            assert!(month_of(bad, &jakarta()).is_err());
+            assert!(local_date(bad, &jakarta()).is_err());
+            assert!(next_month_due(bad, 31, &jakarta()).is_err());
+        }
+    }
 }

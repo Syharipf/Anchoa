@@ -579,6 +579,21 @@ mod tests {
     use crate::db::open_in_memory;
 
     #[test]
+    fn removed_downloads_leave_the_queue_restart_and_dashboard_queries() {
+        let conn = open_in_memory();
+        let queued = add(&conn, &NewDownload { url: "https://example.com/queued.zip".into(), kind: DownloadKind::File, options: None }, 1).unwrap();
+        let running = add(&conn, &NewDownload { url: "https://example.com/running.zip".into(), kind: DownloadKind::File, options: None }, 2).unwrap();
+        set_status(&conn, &running.id, DownloadStatus::Running, None, 3).unwrap();
+        for id in [&queued.id, &running.id] {
+            remove(&conn, id, 4).unwrap();
+            assert!(matches!(get(&conn, id), Err(AppError::NotFound)));
+        }
+        assert!(next_queued(&conn, 10).unwrap().is_empty());
+        assert_eq!(pause_interrupted(&conn).unwrap(), 0);
+        assert!(crate::dashboard::downloads_summary(&conn, &std::collections::HashMap::new()).unwrap().items.is_empty());
+    }
+
+    #[test]
     fn add_rejects_bad_urls_and_torrents() {
         let conn = open_in_memory();
 

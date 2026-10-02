@@ -66,7 +66,7 @@ pub fn month_flow(conn: &Connection, month: &str, tz: &TimeZone) -> Result<Month
 pub fn budget_level(expense: i64, limit: i64) -> BudgetLevel {
     if expense > limit {
         BudgetLevel::Over
-    } else if expense * 5 >= limit * 4 {
+    } else if i128::from(expense) * 5 >= i128::from(limit) * 4 {
         BudgetLevel::Warn
     } else {
         BudgetLevel::Ok
@@ -100,7 +100,7 @@ pub fn overview(conn: &Connection, month: Option<&str>, now: i64, tz: &TimeZone)
     Ok(FinanceOverview {
         month,
         current_month: current,
-        balance: accounts.iter().map(|a| a.balance).sum(),
+        balance: crate::finance::total_balance(&accounts)?,
         account_count: accounts.len(),
         income: flow.income,
         expense: flow.expense,
@@ -219,5 +219,65 @@ mod tests {
         set_budget(&conn, None, now()).unwrap();
         assert_eq!(budget_amount(&conn).unwrap(), None);
         assert!(matches!(set_budget(&conn, Some(0), now()), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
+    fn deleted_money_does_not_affect_month_flow_chart_or_budget_selection() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 0);
+        let gone = spend(&conn, &bca, 99, "Belanja", TODAY);
+        crate::finance::delete_transaction(&conn, &gone.id, now(), &jakarta()).unwrap();
+        earn(&conn, &bca, 1, TODAY);
+        set_budget(&conn, Some(99), now() + 10).unwrap();
+        set_budget(&conn, None, now() + 11).unwrap();
+        // The deleted budget is newer, so missing the filter would select it.
+        set_budget(&conn, Some(10), now()).unwrap();
+        let overview = overview(&conn, None, now(), &jakarta()).unwrap();
+        assert_eq!((overview.income, overview.expense, overview.net), (1, 0, 1));
+        assert!(overview.chart.iter().all(|month| month.expense == 0));
+        assert_eq!(overview.budget, Some(BudgetView { amount: 10, level: BudgetLevel::Ok }));
+        set_budget(&conn, Some(20), now() + 1).unwrap();
+        assert_eq!(budget_amount(&conn).unwrap(), Some(20));
+        set_budget(&conn, None, now() + 2).unwrap();
+        assert_eq!(budget_view(&conn, 0).unwrap(), None);
+    }
+
+    #[test]
+    fn budget_thresholds_do_not_overflow_for_large_integer_money() {
+        assert_eq!(budget_level(i64::MAX - 1, i64::MAX), BudgetLevel::Warn);
+        assert_eq!(budget_level(i64::MAX / 2, i64::MAX), BudgetLevel::Ok);
+        assert_eq!(budget_level(i64::MAX, i64::MAX - 1), BudgetLevel::Over);
+        let conn = open_in_memory();
+        set_budget(&conn, Some(i64::MAX), now()).unwrap();
+        assert_eq!(budget_view(&conn, 0).unwrap().unwrap().level, BudgetLevel::Ok);
+    }
+
+    #[test]
+    fn combined_balances_out_of_range_return_an_app_error() {
+        for (opening, extra) in [(i64::MAX, 1), (i64::MIN, -1)] {
+            let conn = open_in_memory();
+            account(&conn, "BCA", opening);
+            account(&conn, "Tunai", extra);
+            assert!(matches!(overview(&conn, None, now(), &jakarta()), Err(AppError::Invalid(_))));
+        }
+    }
+
+    #[test]
+    fn large_credit_and_debt_balances_cancel_without_intermediate_overflow() {
+        let conn = open_in_memory();
+        account(&conn, "A", i64::MAX);
+        account(&conn, "B", 1);
+        account(&conn, "C", -1);
+        assert_eq!(overview(&conn, None, now(), &jakarta()).unwrap().balance, i64::MAX);
+    }
+
+    #[test]
+    fn month_flow_uses_exact_inclusive_and_exclusive_millisecond_bounds() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 0);
+        for (amount, date) in [(1, "2026-08-31T23:59:59.999+07:00"), (2, "2026-09-01T00:00:00+07:00"), (4, "2026-09-30T23:59:59.999+07:00"), (8, "2026-10-01T00:00:00+07:00")] {
+            earn(&conn, &bca, amount, date);
+        }
+        assert_eq!(month_flow(&conn, "2026-09", &jakarta()).unwrap().income, 6);
     }
 }

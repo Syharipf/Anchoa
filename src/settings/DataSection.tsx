@@ -49,9 +49,6 @@ export function DataSection() {
       <section className={`${PANEL} flex flex-col gap-3`}>
         <div className="flex items-center justify-between gap-3">
           <h2 className={H2}>Database lokal</h2>
-          <span className="text-xs text-muted">
-            Sinkron antarperangkat belum tersedia
-          </span>
         </div>
 
         <p className="m-0 break-all font-mono text-xs text-muted">

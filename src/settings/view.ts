@@ -1,4 +1,4 @@
-import type { AiStatus, VoiceStatus } from "../api";
+import type { AiStatus, SyncStatus, VoiceStatus } from "../api";
 
 // Settings navigation definitions, section status calculation, and static metadata.
 
@@ -173,4 +173,11 @@ export const ITEM_KIND_LABELS: Record<string, string> = {
 
 export function formatKind(kind: string): string {
   return ITEM_KIND_LABELS[kind] ?? (kind.charAt(0).toUpperCase() + kind.slice(1));
+}
+
+/** One line about sync for the Profil page. */
+export function syncLabel(status: SyncStatus | null): string {
+  if (!status) return "Memuat…";
+  if (!status.configured) return "Sync belum tersedia";
+  return status.signedIn ? `Sync: tersambung sebagai ${status.email ?? "akun Anda"}` : "Sync: mati";
 }

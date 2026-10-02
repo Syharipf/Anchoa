@@ -7,12 +7,13 @@ import {
   type NotifyPrefs,
   type Profile,
   type SecurityStatus,
+  type SyncStatus,
 } from "../api";
 import { School } from "../assistant/School";
 import { PinDialog } from "../security/PinDialog";
 import type { PinFormMode } from "../security/PinFields";
 import { connectionLabel } from "../email/view";
-import type { SettingsSection } from "../settings/view";
+import { syncLabel, type SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { FIELD, H1, H2, PANEL } from "../shell/ui";
 import {
@@ -42,6 +43,7 @@ export function ProfilePage({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [github, setGithub] = useState<GithubStatus | null>(null);
   const [email, setEmail] = useState<EmailStatus | null>(null);
+  const [sync, setSync] = useState<SyncStatus | null>(null);
   const [prefs, setPrefs] = useState<NotifyPrefs>(initialPrefs ?? DEFAULT_PREFS);
   const [isEditing, setIsEditing] = useState(false);
   const [nameInput, setNameInput] = useState("");
@@ -85,6 +87,7 @@ export function ProfilePage({
     );
     api.githubStatus().then(setGithub).catch(() => {});
     api.emailStatus().then(setEmail).catch((e) => toast(errorMessage(e), "error"));
+    api.syncStatus().then(setSync).catch(() => {});
   }, [toast]);
 
   const handleStartEdit = () => {
@@ -357,6 +360,23 @@ export function ProfilePage({
                 <span className="text-sm font-medium text-ink">Email</span>
                 <span className="break-all text-xs text-muted">{connectionLabel(email)}</span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-3 border-t border-line pt-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-2 font-mono text-xs font-medium text-muted">
+                SYN
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="text-sm font-medium text-ink">Sinkron antarperangkat</span>
+                <span className="break-all text-xs text-muted">{syncLabel(sync)}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenSettings?.("data")}
+                className="min-h-7 shrink-0 rounded-md border border-disabled px-2.5 text-xs text-ink transition-colors hover:bg-surface-2"
+              >
+                Atur
+              </button>
             </div>
 
             <div className="flex items-center gap-3 border-t border-line pt-3">

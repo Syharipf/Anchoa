@@ -58,7 +58,7 @@ export function AssistantCaption({
           {listening ? "Mendengarkan…" : "Asisten suara"}
         </span>
       )}
-      <p className="m-0 text-sm leading-snug text-ink">
+      <p className="m-0 max-h-40 overflow-y-auto break-words text-sm leading-snug text-ink">
         {listening ? "Bicaralah ke mikrofon. Ketuk lagi untuk mengirim ke asisten."
           : streamingCaption || (thinking ? "Memproses permintaan…" : hint)}
       </p>

@@ -149,6 +149,29 @@ describe("shared assistant voice controls", () => {
     expect(assistant().mode).toBe("idle");
   });
 
+  it("reads page text after a running reply finishes instead of dropping the request", async () => {
+    const reply = deferred<Awaited<ReturnType<typeof api.assistantSend>>>();
+    spies.push(spyOn(api, "assistantSend").mockReturnValue(reply.promise));
+    const speak = spyOn(api, "voiceSpeak").mockResolvedValue(undefined);
+    spies.push(speak);
+    let request: AssistantRequest | undefined;
+    harness = hookHarness<ReactNode>(() => AssistantStage({ request }));
+    harness.render();
+    await harness.settle();
+    void assistant().send("Halo");
+    harness.render();
+    expect(assistant().mode).toBe("thinking");
+    request = { id: 1, action: { kind: "speak", text: "Bacakan ini" } };
+    harness.render();
+    await harness.settle();
+    expect(speak).not.toHaveBeenCalled();
+    reply.resolve({ message: { role: "assistant", content: "Selesai" }, proposals: [] });
+    await harness.settle();
+    harness.render();
+    await harness.settle();
+    expect(speak).toHaveBeenCalledWith("Bacakan ini");
+  });
+
   it("ignores a cancelled read-aloud completion while a newer playback is running", async () => {
     const oldSpeech = deferred<void>();
     const newSpeech = deferred<void>();

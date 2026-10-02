@@ -149,11 +149,11 @@ impl HttpServer {
         let authorization = Zeroizing::new(format!("Bearer {token}"));
         let url = format!("{}{}", self.url, path);
         let response = if let Some(body) = body {
-            let mut request = self.agent.post(&url).header("apikey", &self.anon_key).header("Authorization", &authorization);
+            let mut request = self.agent.post(&url).header("apikey", &self.anon_key).header("Authorization", authorization.as_str());
             if let Some(prefer) = prefer { request = request.header("Prefer", prefer) }
             request.send_json(body)
         } else {
-            self.agent.get(&url).header("apikey", &self.anon_key).header("Authorization", &authorization).call()
+            self.agent.get(&url).header("apikey", &self.anon_key).header("Authorization", authorization.as_str()).call()
         };
         let mut response = response.map_err(|error| match error {
             ureq::Error::StatusCode(401) => AppError::Other("Sesi sync kedaluwarsa; masuk kembali".into()),
@@ -269,7 +269,7 @@ pub(crate) fn hex_encode(bytes: &[u8]) -> String {
 }
 pub(crate) fn hex_decode(value: &str) -> Result<Vec<u8>, AppError> {
     if !value.len().is_multiple_of(2) { return Err(invalid_response()) }
-    value.as_bytes().chunks_exact(2).map(|pair| {
+    value.as_bytes().as_chunks::<2>().0.iter().map(|pair| {
         let a = char::from(pair[0]).to_digit(16).ok_or_else(invalid_response)?;
         let b = char::from(pair[1]).to_digit(16).ok_or_else(invalid_response)?;
         Ok((a * 16 + b) as u8)

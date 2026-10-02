@@ -101,6 +101,8 @@ describe("AiSection", () => {
 
     const html = renderToStaticMarkup(harness.render());
     expect(html).toContain("OpenRouter");
+    expect(html).toContain("belum tersedia");
+    expect(html).not.toMatch(/fase|menyusul/i);
     expect(html).toContain("Privasi AI");
     expect(html).toContain("Jurnal hanya ke model lokal");
     expect(html).toContain('role="switch"');

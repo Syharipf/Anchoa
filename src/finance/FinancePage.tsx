@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
@@ -41,7 +42,7 @@ function Chevron({ d }: Readonly<{ d: string }>) {
 }
 
 /** Keuangan page (docs/design/artboards/Keuangan.dc.html, spec Fase 2 §5). */
-export function FinancePage({ newTransaction, onChanged }: Readonly<{ newTransaction: boolean; onChanged: () => void }>) {
+export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Readonly<{ newTransaction: boolean; onChanged: () => void; onOpenAssistant: OpenAssistant }>) {
   const toast = useToast();
   const [month, setMonth] = useState<string | null>(null);
   const [overview, setOverview] = useState<FinanceOverview | null>(null);
@@ -116,9 +117,9 @@ export function FinancePage({ newTransaction, onChanged }: Readonly<{ newTransac
         </div>
         <div className="ml-auto flex gap-2">
           <button
-            disabled
-            title="Hadir di Fase 5"
-            className={`${SECONDARY} disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-transparent`}
+            type="button"
+            onClick={() => onOpenAssistant({ kind: "voice" })}
+            className={SECONDARY}
           >
             Catat lewat suara
           </button>

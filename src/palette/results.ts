@@ -76,7 +76,7 @@ export function paletteResults(
     kind: "page",
     id: `page-${p.id}`,
     label: p.label,
-    sub: p.fase ? `Fase ${p.fase}` : "",
+    sub: "",
     page: p.id,
   }));
   const items: PaletteOption[] = recent.slice(0, RECENT_IN_PALETTE).map((i) => ({

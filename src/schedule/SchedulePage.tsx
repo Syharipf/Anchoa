@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
@@ -55,10 +56,12 @@ export function SchedulePage({
   onOpenItem,
   onOpenFinance,
   onChanged,
+  onOpenAssistant,
 }: Readonly<{
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
   onChanged: () => void;
+  onOpenAssistant: OpenAssistant;
 }>) {
   const toast = useToast();
   const [view, setView] = useState<"calendar" | "timeline">("calendar");
@@ -184,6 +187,7 @@ export function SchedulePage({
   return (
     <>
       <ScheduleHeader
+        onOpenAssistant={onOpenAssistant}
         view={view}
         onViewChange={setView}
         periodLabel={periodLabel}

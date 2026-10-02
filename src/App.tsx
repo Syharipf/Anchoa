@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
+import type { AssistantRequest, OpenAssistant } from "./assistant/useAssistantRequest";
 import { LockScreen } from "./security/LockScreen";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
@@ -21,7 +22,6 @@ import { CommandPalette } from "./palette/CommandPalette";
 import { Settings } from "./settings/Settings";
 import type { SettingsSection } from "./settings/view";
 import { Aside } from "./shell/Aside";
-import { ComingSoon } from "./shell/ComingSoon";
 import { ErrorScreen } from "./shell/ErrorScreen";
 import { assistantHint, pageInfo, type PageId } from "./shell/nav";
 import { Sidebar } from "./shell/Sidebar";
@@ -68,6 +68,16 @@ export function App() {
   const page = stack[stack.length - 1];
   const locked = security?.locked ?? true;
   const ready = status !== null && status.error === null && !locked;
+  const [assistantRequest, setAssistantRequest] = useState<Readonly<{ page: Page; request: AssistantRequest }> | undefined>();
+  const assistantRequests = useRef(0);
+  const openAssistant: OpenAssistant = (action) => {
+    setAssistantRequest({ page, request: { id: ++assistantRequests.current, action } });
+  };
+  const request = assistantRequest?.page === page ? assistantRequest.request : undefined;
+
+  useEffect(() => {
+    setAssistantRequest((current) => current?.page === page ? current : undefined);
+  }, [page]);
 
   useEffect(() => {
     api.dbStatus().then((s) => {
@@ -167,8 +177,8 @@ export function App() {
       />
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
-        {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} />}
-        {page.name === "jurnal" && <JournalPage key={`${captures}:${assistantDataVersion}`} onOpenItem={openItem} onChanged={reload} />}
+        {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} onOpenAssistant={openAssistant} />}
+        {page.name === "jurnal" && <JournalPage key={`${captures}:${assistantDataVersion}`} onOpenItem={openItem} onChanged={reload} onOpenAssistant={openAssistant} />}
         {page.name === "catatan" && (
           <NotesPage
             key={`${page.intent ?? 0}:${assistantDataVersion}`}
@@ -178,15 +188,16 @@ export function App() {
             onChanged={reload}
           />
         )}
-        {page.name === "habit" && <HabitsPage key={assistantDataVersion} onChanged={reload} />}
+        {page.name === "habit" && <HabitsPage key={assistantDataVersion} onChanged={reload} onOpenAssistant={openAssistant} />}
         {page.name === "keuangan" && (
-          <FinancePage key={`${page.intent ?? 0}:${assistantDataVersion}`} newTransaction={page.intent !== undefined} onChanged={reload} />
+          <FinancePage key={`${page.intent ?? 0}:${assistantDataVersion}`} newTransaction={page.intent !== undefined} onChanged={reload} onOpenAssistant={openAssistant} />
         )}
         {page.name === "proyek" && (
-          <ProjectsPage key={assistantDataVersion} onOpenItem={openItem} onChanged={reload} />
+          <ProjectsPage key={assistantDataVersion} onOpenItem={openItem} onChanged={reload} onOpenAssistant={openAssistant} />
         )}
         {page.name === "jadwal" && (
           <SchedulePage
+            onOpenAssistant={openAssistant}
             key={assistantDataVersion}
             onOpenItem={openItem}
             onOpenFinance={() => go("keuangan")}
@@ -195,6 +206,7 @@ export function App() {
         )}
         {page.name === "berkas" && (
           <FilesPage
+            onOpenAssistant={openAssistant}
             key={`${page.path ?? ""}:${assistantDataVersion}`}
             initialPath={page.path}
             clipboard={fileClipboard}
@@ -225,10 +237,10 @@ export function App() {
             onGithubChanged={onGithubChanged}
           />
         )}
-        {info?.about && <ComingSoon page={info} onOpenSettings={openSettings} />}
       </main>
       {page.name === "dashboard" ? (
         <Aside
+          request={request}
           contributionsVersion={contributionsVersion}
           onOpenSettings={() => openSettings("integrations")}
           onOpenAiSettings={() => openSettings("ai")}
@@ -237,6 +249,7 @@ export function App() {
         />
       ) : (
         <AssistantMini
+          request={request}
           key={page.name === "item" ? page.id : page.name}
           hint={assistantHint(info)}
           onOpenFull={() => go("dashboard")}

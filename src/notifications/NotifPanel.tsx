@@ -124,7 +124,7 @@ export function NotifPanel({
         </div>
 
         <p className="m-0 border-t border-line px-[18px] py-3 text-xs text-muted">
-          Pengingat dari tugas, tagihan, dan batas pengeluaran. Notifikasi lain menyusul bersama modulnya.
+          Pengingat dari tugas, tagihan, batas pengeluaran, dan habit.
         </p>
       </aside>
     </div>

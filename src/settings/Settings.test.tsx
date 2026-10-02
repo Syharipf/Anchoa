@@ -5,13 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { api, type DataOverview } from "../api";
 import { deferred, elements, hookHarness } from "../test/hookHarness";
 import { AboutSection } from "./AboutSection";
-import { ComingSection } from "./ComingSection";
 import { DataSection } from "./DataSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { Settings } from "./Settings";
 import { SettingsNav } from "./SettingsNav";
-import { ComingSoon } from "../shell/ComingSoon";
-import { pageInfo } from "../shell/nav";
 import { sectionStatus, THIRD_PARTY_LICENSES, type SettingsSection, type StatusContext } from "./view";
 
 describe("SettingsNav", () => {
@@ -51,33 +48,11 @@ describe("SettingsNav", () => {
   });
 });
 
-describe("ComingSection", () => {
-  it("renders Asisten & AI coming soon notice", () => {
-    const html = renderToStaticMarkup(<ComingSection section="ai" />);
-    expect(html).toContain("Asisten &amp; AI");
-    expect(html).toContain("Menyusul (Fase 5)");
-    expect(html).toContain("Anthropic");
-  });
-
-  it("renders Avatar Live2D coming soon notice", () => {
-    const html = renderToStaticMarkup(<ComingSection section="avatar" />);
-    expect(html).toContain("Avatar Live2D");
-    expect(html).toContain("Live2D Cubism");
-  });
-
-  it("renders Suara coming soon notice", () => {
-    const html = renderToStaticMarkup(<ComingSection section="suara" />);
-    expect(html).toContain("Suara");
-    expect(html).toContain("whisper.cpp");
-    expect(html).toContain("Piper");
-  });
-});
-
 describe("DataSection", () => {
   it("renders database, ringkasan data, and backup sections with buttons", () => {
     const html = renderToStaticMarkup(<DataSection />);
     expect(html).toContain("Database lokal");
-    expect(html).toContain("Sinkron antarperangkat menyusul (Fase 9)");
+    expect(html).toContain("Sinkron antarperangkat belum tersedia");
     expect(html).toContain("Backup sekarang");
     expect(html).toContain("Buka folder backup");
     expect(html).toContain("Buka folder data");
@@ -87,13 +62,13 @@ describe("DataSection", () => {
 });
 
 describe("IntegrationsSection", () => {
-  it("renders GitHub, Email and SFTP cards", () => {
+  it("renders built GitHub and Email integrations without an SFTP placeholder", () => {
     const html = renderToStaticMarkup(<IntegrationsSection onChanged={() => {}} />);
     expect(html).toContain("GitHub");
     expect(html).toContain("Email");
-    expect(html).toContain("Laptop dari HP (SFTP)");
-    expect(html).toContain("Menyusul");
-    expect(html).toContain("Tailscale");
+    expect(html).not.toContain("SFTP");
+    expect(html).not.toContain("Menyusul");
+    expect(html).not.toContain("Tailscale");
   });
 });
 
@@ -266,17 +241,5 @@ describe("Settings interactions", () => {
       expect(opening).toHaveBeenLastCalledWith(item.url);
     }
     await harness.settle();
-  });
-});
-
-describe("page metadata and settings navigation", () => {
-  it("marks email as built and retains sensible settings navigation", () => {
-    expect(pageInfo("email").about).toBeUndefined();
-    expect(pageInfo("email").fase).toBeUndefined();
-    const profilInfo = pageInfo("profil");
-    const htmlProfil = renderToStaticMarkup(
-      <ComingSoon page={profilInfo} onOpenSettings={() => {}} />,
-    );
-    expect(htmlProfil).toContain("Buka Pengaturan");
   });
 });

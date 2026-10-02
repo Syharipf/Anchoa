@@ -1,4 +1,5 @@
 import type { ItemKind } from "../api";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { H1, SECONDARY } from "../shell/ui";
 import { ALL_KINDS, KIND_COLORS, KIND_LABELS } from "./layout";
 
@@ -12,6 +13,7 @@ export function ScheduleHeader({
   off,
   onToggleKind,
   counts,
+  onOpenAssistant,
 }: Readonly<{
   view: "calendar" | "timeline";
   onViewChange: (v: "calendar" | "timeline") => void;
@@ -22,6 +24,7 @@ export function ScheduleHeader({
   off: ReadonlySet<ItemKind>;
   onToggleKind: (kind: ItemKind) => void;
   counts: Readonly<Record<ItemKind, number>>;
+  onOpenAssistant: OpenAssistant;
 }>) {
   return (
     <div className="flex flex-col gap-3.5">
@@ -142,9 +145,8 @@ export function ScheduleHeader({
         <div className="ml-auto flex gap-2.5">
           <button
             type="button"
-            disabled
-            title="Hadir di Fase 5"
-            className={`${SECONDARY} flex items-center gap-2 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-transparent`}
+            onClick={() => onOpenAssistant({ kind: "voice" })}
+            className={`${SECONDARY} flex items-center gap-2`}
           >
             <svg
               width="16"
@@ -161,7 +163,7 @@ export function ScheduleHeader({
               <path d="M5 11a7 7 0 0 0 14 0" />
               <path d="M12 18v3" />
             </svg>
-            Tambah lewat suara
+            Tambah tugas lewat suara
           </button>
         </div>
       </div>

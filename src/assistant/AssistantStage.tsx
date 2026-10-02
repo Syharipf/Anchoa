@@ -3,6 +3,7 @@ import { AssistantCaption, AssistantFeedback, STATUS } from "./AssistantFeedback
 import { School } from "./School";
 import { useAssistant } from "./useAssistant";
 import { usePageVisible } from "./usePageVisible";
+import { useAssistantRequest, type AssistantRequest } from "./useAssistantRequest";
 import {
   AssistantComposer,
   AssistantIcon,
@@ -12,6 +13,7 @@ import {
 } from "./AssistantControls";
 
 export interface AssistantStageProps {
+  readonly request?: AssistantRequest;
   readonly onOpenAiSettings?: () => void;
   readonly onOpenVoiceSettings?: () => void;
   readonly onChanged?: () => void;
@@ -20,6 +22,7 @@ export interface AssistantStageProps {
 const WAVE_DELAYS = ["-0.1s", "-0.4s", "-0.65s", "-0.25s"];
 
 export function AssistantStage({
+  request,
   onOpenAiSettings,
   onOpenVoiceSettings,
   onChanged,
@@ -28,6 +31,8 @@ export function AssistantStage({
   const composer = useAssistantComposer(assistant);
   const [showHistory, setShowHistory] = useState(false);
   const visible = usePageVisible();
+
+  useAssistantRequest(request, assistant, composer, () => setShowHistory(true));
 
   const mode = assistant.mode;
   const running = mode !== "idle" && visible;

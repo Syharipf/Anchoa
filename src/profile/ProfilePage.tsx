@@ -315,7 +315,7 @@ export function ProfilePage({
                 <span className="text-xs text-muted">Keuangan, email, dan catatan</span>
               </div>
               <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
-                Menyusul
+                Belum tersedia
               </span>
             </div>
           </section>
@@ -368,7 +368,7 @@ export function ProfilePage({
                 <span className="text-xs text-muted">Impor acara ke Jadwal</span>
               </div>
               <span className="shrink-0 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">
-                Menyusul
+                Belum tersedia
               </span>
             </div>
           </section>
@@ -431,21 +431,11 @@ export function ProfilePage({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-ink">Jam tenang</span>
                 <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-                  Menyusul
-                </span>
-              </div>
-              <div className="flex items-center gap-2 font-mono text-xs text-muted">
-                <span className="rounded-md bg-surface-2 px-2.5 py-1 text-ink">
-                  22.00
-                </span>
-                <span>sampai</span>
-                <span className="rounded-md bg-surface-2 px-2.5 py-1 text-ink">
-                  06.00
+                  Belum tersedia
                 </span>
               </div>
               <p className="m-0 text-xs leading-relaxed text-muted">
-                Menyusul bersama notifikasi desktop. Notifikasi tetap tercatat, tapi tidak dibacakan
-                dan tidak berbunyi.
+                Pengaturan jam tenang dan suara notifikasi desktop belum tersedia.
               </p>
             </div>
           </section>

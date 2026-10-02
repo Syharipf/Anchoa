@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { api, errorMessage, type Entry, type EntryKind } from "../api";
 import { useToast } from "../shell/toast";
 import { MoodPicker } from "./MoodPicker";
@@ -22,11 +23,13 @@ export function EntryEditor({
   onEntryChanged,
   onOpenTask,
   onAfterSaved,
+  onOpenAssistant,
 }: Readonly<{
   entry: Entry;
   onEntryChanged: (updated: Entry) => void;
   onOpenTask: (taskId: string) => void;
   onAfterSaved?: () => void;
+  onOpenAssistant: OpenAssistant;
 }>) {
   const toast = useToast();
   const [title, setTitle] = useState(entry.title);
@@ -238,18 +241,17 @@ export function EntryEditor({
 
         <button
           type="button"
-          disabled
-          title="Hadir di Fase 5"
-          className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-disabled cursor-not-allowed"
+          disabled={!title.trim() && !body.trim()}
+          onClick={() => onOpenAssistant({ kind: "speak", text: [title, body].filter((text) => text.trim()).join(". ") })}
+          className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
         >
           Bacakan
         </button>
 
         <button
           type="button"
-          disabled
-          title="Hadir di Fase 5"
-          className="min-h-[34px] rounded-lg border border-[#4E6A26] bg-transparent px-3 text-[13px] text-disabled cursor-not-allowed"
+          onClick={() => onOpenAssistant({ kind: "compose", text: `Berikan tanggapan yang suportif untuk entri jurnal ini:\n\n${title || "Tanpa judul"}\n${body}` })}
+          className="min-h-[34px] rounded-lg border border-[#4E6A26] bg-transparent px-3 text-[13px] text-accent transition-colors hover:bg-surface-2"
         >
           Minta tanggapan
         </button>

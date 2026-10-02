@@ -31,7 +31,7 @@ export function AvatarSection() {
             <div className="flex flex-1 flex-col gap-1">
               <span className="font-medium text-ink">Avatar Statis</span>
               <p className="m-0 text-xs text-muted leading-relaxed">
-                Avatar statis (kawanan teri). Live2D menyusul setelah cek lisensi Cubism.
+                Avatar statis (kawanan teri). Live2D belum tersedia.
               </p>
             </div>
           </div>

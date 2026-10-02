@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   assetUrl,
@@ -168,10 +169,12 @@ export function PreviewPanel({
   entry,
   onClose,
   onOpen,
+  onOpenAssistant,
 }: Readonly<{
   entry: FileEntry;
   onClose: () => void;
   onOpen: (entry: FileEntry) => void;
+  onOpenAssistant: OpenAssistant;
 }>) {
   const sub =
     entry.kind === "folder" ? `${entry.size} item` : formatSize(entry.size);
@@ -237,8 +240,8 @@ export function PreviewPanel({
         </button>
         <button
           type="button"
-          disabled
-          className="flex min-h-9 items-center justify-center gap-2 rounded-[10px] border border-line text-xs text-muted disabled:opacity-50"
+          onClick={() => onOpenAssistant({ kind: "compose", text: `Bantu jelaskan informasi berkas ini berdasarkan metadata berikut:\nNama: ${entry.name}\nLokasi: ${entry.path}\nJenis: ${KIND_LABELS[entry.kind]}\nUkuran: ${sub}\nDiubah: ${formatModDate(entry.modified)}` })}
+          className="flex min-h-9 items-center justify-center gap-2 rounded-[10px] border border-line text-xs text-ink transition-colors hover:bg-surface-2"
         >
           <svg
             width="14"
@@ -254,7 +257,7 @@ export function PreviewPanel({
             <rect x="9" y="3" width="6" height="11" rx="3" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>
-          <span>Tanya asisten (hadir di Fase 5)</span>
+          <span>Tanya asisten</span>
         </button>
       </div>
     </aside>

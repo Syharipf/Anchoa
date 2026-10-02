@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
@@ -22,9 +23,11 @@ import { boardColumns, nextStatus } from "./view";
 export function ProjectsPage({
   onOpenItem,
   onChanged,
+  onOpenAssistant,
 }: Readonly<{
   onOpenItem: (id: string) => void;
   onChanged: () => void;
+  onOpenAssistant: OpenAssistant;
 }>) {
   const toast = useToast();
   const [overview, setOverview] = useState<ProjectsOverview | null>(null);
@@ -149,9 +152,8 @@ export function ProjectsPage({
         <div className="ml-auto flex gap-2.5">
           <button
             type="button"
-            disabled
-            title="Hadir di Fase 5"
-            className={`${SECONDARY} flex items-center gap-2 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-transparent`}
+            onClick={() => onOpenAssistant({ kind: "voice" })}
+            className={`${SECONDARY} flex items-center gap-2`}
           >
             <svg
               width="16"
@@ -168,7 +170,7 @@ export function ProjectsPage({
               <path d="M5 11a7 7 0 0 0 14 0" />
               <path d="M12 18v3" />
             </svg>
-            Tambah lewat suara
+            Tambah tugas lewat suara
           </button>
           <button
             type="button"

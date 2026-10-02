@@ -56,34 +56,6 @@ export function EnginesPanel({
 
       {engines?.hint && <p className="select-text font-mono text-[11px] text-warn">{engines.hint}</p>}
 
-      <div className="my-1 border-t border-line" />
-
-      <div className="flex items-center gap-2.5 py-1">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted">
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M6 4v7a6 6 0 0 0 12 0V4" />
-            <path d="M6 4h4v7a2 2 0 0 0 4 0V4h4" />
-            <path d="M6 8h4M14 8h4" />
-          </svg>
-        </span>
-        <div className="flex flex-1 min-w-0 flex-col">
-          <span className="text-xs font-medium text-ink">
-            Torrent <span className="text-muted">(opsional)</span>
-          </span>
-          <span className="truncate text-[11px] text-muted">Magnet & berkas .torrent</span>
-        </div>
-        <span className="rounded bg-surface-2 px-2 py-0.5 text-xs text-muted">Menyusul</span>
-      </div>
     </section>
   );
 }

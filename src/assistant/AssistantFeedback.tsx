@@ -31,8 +31,8 @@ export function AssistantCaption({
 }>) {
   const { mode, streamingCaption } = assistant;
   if (mode === "idle") {
-    if (assistant.aiStatus?.available === false) return <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />;
     if (assistant.voiceMissing) return <VoiceMissingCard onOpenVoiceSettings={onOpenVoiceSettings} compact={compact} />;
+    if (assistant.aiStatus?.available === false) return <OllamaOfflineCard onOpenAiSettings={onOpenAiSettings} />;
   }
   const thinking = mode === "thinking";
   const speaking = mode === "speaking";

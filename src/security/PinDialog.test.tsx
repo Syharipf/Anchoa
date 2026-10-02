@@ -139,6 +139,8 @@ describe("PinDialog and PinFields", () => {
 
     expect(setPinSpy).toHaveBeenCalledWith(null, "1234");
     expect(succeeded).toBe(true);
+    expect(fields().props.newPin).toBe("");
+    expect(fields().props.confirmPin).toBe("");
 
     // Cancel triggers onClose
     const actions = elements(render()).find((el) => el.type === DialogActions)!;
@@ -146,7 +148,7 @@ describe("PinDialog and PinFields", () => {
     expect(closed).toBe(true);
   });
 
-  it("handles change PIN mode and shows backend error", async () => {
+  it("handles change PIN mode and clears fields after backend error and success", async () => {
     let succeeded = false;
     setPinSpy = spyOn(api, "setPin").mockRejectedValue({
       code: "invalid",
@@ -191,18 +193,30 @@ describe("PinDialog and PinFields", () => {
     alert = elements(render()).find((el) => el.props.role === "alert");
     expect(alert?.props.children).toBe("PIN lama salah");
 
-    // Enter correct old PIN
+    // All PIN fields should be cleared after failed submission
+    expect(fields().props.currentPin).toBe("");
+    expect(fields().props.newPin).toBe("");
+    expect(fields().props.confirmPin).toBe("");
+
+    // Enter correct old PIN and new PIN again
     setPinSpy.mockResolvedValueOnce(undefined);
     (fields().props.onCurrentPinChange as (val: string) => void)("1234");
+    (fields().props.onNewPinChange as (val: string) => void)("5678");
+    (fields().props.onConfirmPinChange as (val: string) => void)("5678");
     await harness.settle();
     await (form().props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault: () => {} });
     await harness.settle();
 
     expect(setPinSpy).toHaveBeenCalledWith("1234", "5678");
     expect(succeeded).toBe(true);
+
+    // All PIN fields should be cleared after successful submission
+    expect(fields().props.currentPin).toBe("");
+    expect(fields().props.newPin).toBe("");
+    expect(fields().props.confirmPin).toBe("");
   });
 
-  it("handles disable PIN mode and shows backend error", async () => {
+  it("handles disable PIN mode and clears fields after backend error and success", async () => {
     let succeeded = false;
     disablePinSpy = spyOn(api, "disablePin").mockRejectedValue({
       code: "invalid",
@@ -244,6 +258,9 @@ describe("PinDialog and PinFields", () => {
     alert = elements(render()).find((el) => el.props.role === "alert");
     expect(alert?.props.children).toBe("PIN salah");
 
+    // PIN field should be cleared after failed submission
+    expect(fields().props.currentPin).toBe("");
+
     // Correct current PIN
     disablePinSpy.mockResolvedValueOnce(undefined);
     (fields().props.onCurrentPinChange as (val: string) => void)("1234");
@@ -253,5 +270,8 @@ describe("PinDialog and PinFields", () => {
 
     expect(disablePinSpy).toHaveBeenCalledWith("1234");
     expect(succeeded).toBe(true);
+
+    // PIN field should be cleared after successful submission
+    expect(fields().props.currentPin).toBe("");
   });
 });

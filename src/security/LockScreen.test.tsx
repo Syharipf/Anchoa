@@ -98,21 +98,25 @@ describe("LockScreen", () => {
     await (form().props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault: () => {} });
     await harness.settle();
 
-    // PIN should be cleared and focus called
+    // PIN should be cleared, but focus must NOT be called while the input is still disabled
     expect(input().props.value).toBe("");
-    expect(focused).toBe(2);
+    expect(focused).toBe(1);
     expect(input().props.disabled).toBe(true);
 
-    // When cooldown timer ticks down to 0, focus is called again and input is re-enabled
+    // When cooldown timer ticks down to 0, focus is called in an effect after the input becomes enabled
     for (let i = 0; i < 30; i++) {
       harness.runTimers();
     }
     await harness.settle();
     expect(input().props.disabled).toBe(false);
-    expect(focused).toBe(3);
+    expect(focused).toBe(2);
+
+    // When cooldown reaches 0, the cooldown message is cleared
+    const alert = elements(render()).find((el) => el.props.role === "alert");
+    expect(alert).toBeUndefined();
   });
 
-  it("handles cooldown message and counts down remaining seconds", async () => {
+  it("handles cooldown message, counts down remaining seconds, and clears on expiry", async () => {
     let unlocked = false;
     unlockSpy = spyOn(api, "unlock").mockRejectedValue({
       code: "invalid",
@@ -144,6 +148,17 @@ describe("LockScreen", () => {
 
     const alertAfterTick = elements(render()).find((el) => el.props.role === "alert")!;
     expect(alertAfterTick.props.children).toContain("29 detik");
+
+    // Run remaining 29 timer ticks to reach 0
+    for (let i = 0; i < 29; i++) {
+      harness.runTimers();
+    }
+    await harness.settle();
+
+    expect(input().props.disabled).toBe(false);
+    expect(button().props.disabled).toBe(true); // pin is empty, so button disabled
+    const alertExpired = elements(render()).find((el) => el.props.role === "alert");
+    expect(alertExpired).toBeUndefined();
   });
 
   it("renders 'Lupa PIN?' disclosure explaining terminal reset", () => {
@@ -156,7 +171,11 @@ describe("LockScreen", () => {
     expect(allText).toContain("Lupa PIN?");
     expect(allText).toContain("Tutup aplikasi Anchoa");
     expect(allText).toContain("sqlite3");
+    expect(allText).toContain("io.github.syharipf.anchoa");
     expect(allText).toContain("anchoa.db");
     expect(allText).toContain("security.pin_hash");
+    expect(allText).toContain(
+      'sqlite3 ~/.local/share/io.github.syharipf.anchoa/anchoa.db "DELETE FROM settings WHERE key = \'security.pin_hash\';"'
+    );
   });
 });

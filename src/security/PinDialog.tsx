@@ -64,6 +64,9 @@ export function PinDialog({
     } catch (err) {
       setError(errorMessage(err));
     } finally {
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
       setBusy(false);
     }
   }
@@ -74,7 +77,7 @@ export function PinDialog({
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-[#5a2e2b] bg-danger-row p-3 text-xs text-danger"
+            className="rounded-lg border border-danger/40 bg-danger-row p-3 text-xs text-danger"
           >
             {error}
           </div>

@@ -44,11 +44,25 @@ export function ProfilePage({
   const [nameInput, setNameInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [security, setSecurity] = useState<SecurityStatus | null>(null);
+  const [securityError, setSecurityError] = useState<string | null>(null);
   const [pinDialog, setPinDialog] = useState<PinFormMode | null>(null);
 
-  useEffect(() => {
-    api.securityStatus().then(setSecurity).catch(() => {});
+  const loadSecurityStatus = useCallback(() => {
+    api
+      .securityStatus()
+      .then((status) => {
+        setSecurity(status);
+        setSecurityError(null);
+      })
+      .catch((err) => {
+        setSecurity(null);
+        setSecurityError(errorMessage(err));
+      });
   }, []);
+
+  useEffect(() => {
+    loadSecurityStatus();
+  }, [loadSecurityStatus]);
 
   useEffect(() => {
     if (initialPrefs) {
@@ -221,53 +235,74 @@ export function ProfilePage({
               Keamanan
             </h2>
 
-            <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
-              <div className="flex min-w-0 flex-col">
-                <span id="lbl-security-pin" className="text-sm text-ink">
-                  Kunci dengan PIN saat aplikasi dibuka
-                </span>
-                <span className="text-xs text-muted">
-                  Memerlukan PIN saat membuka aplikasi
-                </span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={security?.pinEnabled ?? false}
-                aria-labelledby="lbl-security-pin"
-                onClick={() => {
-                  if (security?.pinEnabled) {
-                    setPinDialog("disable");
-                  } else {
-                    setPinDialog("create");
-                  }
-                }}
-                className={`flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
-                  security?.pinEnabled ? "bg-accent" : "bg-disabled"
-                }`}
+            {securityError ? (
+              <div
+                role="alert"
+                className="flex flex-col gap-1.5 rounded-lg border border-danger/40 bg-danger-row p-3 text-xs text-danger"
               >
-                <span
-                  className={`h-[18px] w-[18px] rounded-full transition-transform ${
-                    security?.pinEnabled ? "translate-x-[18px] bg-canvas" : "translate-x-0 bg-muted"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {security?.pinEnabled && (
-              <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
-                <div className="flex min-w-0 flex-col">
-                  <span className="text-sm text-ink">PIN aktif</span>
-                  <span className="text-xs text-muted">Ganti PIN keamanan saat ini</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-danger">Gagal memuat status keamanan</span>
+                  <button
+                    type="button"
+                    onClick={loadSecurityStatus}
+                    className="font-medium text-accent hover:underline cursor-pointer"
+                  >
+                    Coba lagi
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPinDialog("change")}
-                  className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
-                >
-                  Ganti PIN
-                </button>
+                <p className="m-0 text-muted leading-relaxed">{securityError}</p>
               </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+                  <div className="flex min-w-0 flex-col">
+                    <span id="lbl-security-pin" className="text-sm text-ink">
+                      Kunci dengan PIN saat aplikasi dibuka
+                    </span>
+                    <span className="text-xs text-muted">
+                      Memerlukan PIN saat membuka aplikasi
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={security?.pinEnabled ?? false}
+                    aria-labelledby="lbl-security-pin"
+                    onClick={() => {
+                      if (security?.pinEnabled) {
+                        setPinDialog("disable");
+                      } else {
+                        setPinDialog("create");
+                      }
+                    }}
+                    className={`flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                      security?.pinEnabled ? "bg-accent" : "bg-disabled"
+                    }`}
+                  >
+                    <span
+                      className={`h-[18px] w-[18px] rounded-full transition-transform ${
+                        security?.pinEnabled ? "translate-x-[18px] bg-canvas" : "translate-x-0 bg-muted"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {security?.pinEnabled && (
+                  <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-sm text-ink">PIN aktif</span>
+                      <span className="text-xs text-muted">Ganti PIN keamanan saat ini</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPinDialog("change")}
+                      className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+                    >
+                      Ganti PIN
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">

@@ -357,4 +357,62 @@ describe("ProfilePage", () => {
     expect(textNodes).toContain("Keuangan, email, dan catatan");
     expect(textNodes).toContain("Menyusul");
   });
+
+  it("shows an error state for Keamanan card when securityStatus fails and prevents create flow", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    securityStatusSpy = spyOn(api, "securityStatus").mockRejectedValue({
+      code: "db_error",
+      message: "Gagal membaca database",
+    });
+
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+
+    const securitySection = elements(harness.render()).find(
+      (el) => el.type === "section" && el.props["aria-labelledby"] === "section-security",
+    )!;
+    expect(securitySection).toBeDefined();
+
+    // Error state is rendered inside Keamanan card
+    const alert = elements(securitySection).find((el) => el.props.role === "alert");
+    expect(alert).toBeDefined();
+    const alertText = elements(alert!)
+      .map((el) => el.props.children)
+      .flat()
+      .filter((t): t is string => typeof t === "string")
+      .join(" ");
+    expect(alertText).toContain("Gagal memuat status keamanan");
+    expect(alertText).toContain("Gagal membaca database");
+
+    // PIN switch is NOT rendered (no create flow on unknown status)
+    const pinSwitch = elements(securitySection).find(
+      (el) => el.type === "button" && el.props.role === "switch",
+    );
+    expect(pinSwitch).toBeUndefined();
+
+    // Dialog is not open
+    const dialog = elements(harness.render()).find((el) => el.type === PinDialog);
+    expect(dialog).toBeUndefined();
+
+    // Retry button works when securityStatus succeeds
+    securityStatusSpy.mockResolvedValueOnce({ pinEnabled: false, locked: false });
+    const retryBtn = elements(alert!).find(
+      (el) => el.type === "button" && el.props.children === "Coba lagi",
+    );
+    expect(retryBtn).toBeDefined();
+    (retryBtn!.props.onClick as () => void)();
+    await harness.settle();
+
+    // Alert cleared and switch restored
+    const updatedSecuritySection = elements(harness.render()).find(
+      (el) => el.type === "section" && el.props["aria-labelledby"] === "section-security",
+    )!;
+    expect(elements(updatedSecuritySection).find((el) => el.props.role === "alert")).toBeUndefined();
+    const recoveredSwitch = elements(updatedSecuritySection).find(
+      (el) => el.type === "button" && el.props.role === "switch",
+    );
+    expect(recoveredSwitch).toBeDefined();
+    expect(recoveredSwitch!.props["aria-checked"]).toBe(false);
+  });
 });

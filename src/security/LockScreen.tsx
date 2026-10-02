@@ -12,18 +12,32 @@ export function LockScreen({
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hadCooldown = useRef(false);
+  const needsFocus = useRef(false);
+
+  const disabled = busy || cooldown > 0;
 
   useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = window.setInterval(() => {
-      setCooldown((prev) => {
-        if (prev > 1) return prev - 1;
-        inputRef.current?.focus();
-        return 0;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
+    if (cooldown > 0) {
+      hadCooldown.current = true;
+      const timer = window.setInterval(() => {
+        setCooldown((prev) => (prev > 1 ? prev - 1 : 0));
+      }, 1000);
+      return () => window.clearInterval(timer);
+    }
+    if (hadCooldown.current) {
+      hadCooldown.current = false;
+      setError(null);
+      needsFocus.current = true;
+    }
   }, [cooldown]);
+
+  useEffect(() => {
+    if (!disabled && needsFocus.current) {
+      needsFocus.current = false;
+      inputRef.current?.focus();
+    }
+  });
 
   async function handleUnlock(e: FormEvent) {
     e.preventDefault();
@@ -40,9 +54,10 @@ export function LockScreen({
       const match = msg.match(/(\d+)\s+detik/);
       if (match) {
         setCooldown(Number.parseInt(match[1], 10));
+      } else {
+        needsFocus.current = true;
       }
       setPin("");
-      inputRef.current?.focus();
     } finally {
       setBusy(false);
     }
@@ -52,7 +67,9 @@ export function LockScreen({
     cooldown > 0
       ? error?.replace(/\d+\s+detik/, `${cooldown} detik`) ??
         `Terlalu banyak percobaan. Coba lagi dalam ${cooldown} detik.`
-      : error;
+      : error && !/\d+\s+detik/.test(error)
+      ? error
+      : null;
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center bg-canvas p-6 text-ink">
@@ -89,7 +106,7 @@ export function LockScreen({
           {displayError && (
             <div
               role="alert"
-              className="rounded-lg border border-[#5a2e2b] bg-danger-row p-3 text-xs text-danger"
+              className="rounded-lg border border-danger/40 bg-danger-row p-3 text-xs text-danger"
             >
               {displayError}
             </div>
@@ -142,7 +159,7 @@ export function LockScreen({
               </li>
             </ol>
             <pre className="mt-2 overflow-x-auto rounded border border-line bg-canvas p-2 font-mono text-[11px] text-ink">
-              sqlite3 ~/.local/share/anchoa/anchoa.db "DELETE FROM settings WHERE key = 'security.pin_hash';"
+              sqlite3 ~/.local/share/io.github.syharipf.anchoa/anchoa.db "DELETE FROM settings WHERE key = 'security.pin_hash';"
             </pre>
             <p className="m-0 mt-2">
               Setelah baris security.pin_hash dihapus, buka kembali Anchoa. PIN akan nonaktif.

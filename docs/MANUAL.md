@@ -39,7 +39,7 @@ Untuk Anchoa 0.17.0 di Fedora Linux. [Landing page](https://syharipf.github.io/A
 4. Pilih modul dari sidebar. Tombol **Cari atau jalankan perintah…** atau Ctrl+K membuka command palette untuk berpindah halaman, mencari item, dan mencatat cepat.
 5. Kebutuhan fitur tambahan ada di [Program tambahan](../README.md#program-tambahan-opsional).
 
-Saat ini Fedora Linux saja. Sinkron antarperangkat, Windows, dan Android masih direncanakan.
+Saat ini Fedora Linux saja. Windows dan Android masih direncanakan.
 
 Untuk mencatat cepat, buka Ctrl+K dan ketik `Ide baru`. Pilih **Simpan ke Jurnal: “Ide baru”** atau **Buat tugas: “Ide baru”** dengan panah dan Enter. **Catat transaksi** membuka formulir transaksi baru.
 
@@ -201,11 +201,11 @@ Untuk mengatur layanan dan data perangkat ini.
 
 1. Pilih **Asisten & AI** untuk **Tes koneksi** Ollama dan model per tugas; lihat [Asisten](#asisten).
 2. Pilih **Suara** untuk memasang model/binary, menguji mikrofon, memilih atau mengimpor suara, dan mengatur kecepatan, ekspresi, serta variasi.
-3. Pilih **Sinkron & data** untuk ukuran database, ringkasan item, daftar backup, **Backup sekarang**, **Buka folder backup**, dan **Buka folder data**.
+3. Pilih **Sinkron & data**. Bagian atas berisi kartu **Sinkron antarperangkat**: masuk dengan Google atau GitHub, buat atau buka kunci frasa sandi sync, lalu **Sinkronkan sekarang**. Bagian bawah berisi ukuran database, ringkasan item, daftar backup, **Backup sekarang**, **Buka folder backup**, dan **Buka folder data**.
 4. Pilih **Integrasi** untuk Gmail dan GitHub. Untuk kalender kontribusi GitHub, isi **Token GitHub** lalu **Sambungkan**. **Muat ulang data** mengambil ulang kalender; **Putuskan** menghapus token dan cache kontribusi.
 5. Pilih **Tentang** untuk melihat versi, memeriksa pembaruan, membuka **Repositori GitHub**/**Catatan Rilis**, dan melihat lisensi. Pembaruan RPM dipasang melalui `sudo dnf upgrade anchoa`.
 
-**Batas:** **Avatar Live2D** masih menampilkan avatar statis. **Sinkron & data** belum menyinkronkan perangkat. SFTP dari HP belum aktif. Penyedia AI hanya Ollama; belum ada pemasangan pembaruan aplikasi otomatis dari panel Tentang.
+**Batas:** **Avatar Live2D** masih menampilkan avatar statis. SFTP dari HP belum aktif. Penyedia AI hanya Ollama; belum ada pemasangan pembaruan aplikasi otomatis dari panel Tentang. Sync memerlukan Supabase yang dikonfigurasi saat build.
 
 ## Asisten
 
@@ -270,7 +270,7 @@ Data modul tersimpan dalam SQLite lokal di laptop. File asli dan hasil unduhan t
 
 | Fitur | Yang berada di perangkat | Yang keluar dari perangkat |
 | --- | --- | --- |
-| Modul harian | Jurnal, Catatan, tugas, jadwal, habit, keuangan, profil, pengaturan. | Tidak ada sinkron otomatis ke cloud. |
+| Modul harian | Jurnal, Catatan, tugas, jadwal, habit, keuangan, profil, pengaturan. | Jika sync aktif: record dienkripsi end-to-end (XChaCha20-Poly1305) dan dikirim ke Supabase. Server hanya menyimpan ciphertext. Tanpa sync, tidak ada data ke cloud. |
 | Asisten | Prompt, konteks, jawaban, riwayat dalam memori; pemrosesan Ollama di localhost secara bawaan. | Pengunduhan model Ollama menghubungi sumber model. |
 | Suara | Rekaman sementara, Whisper, Piper, model suara; pemrosesan lokal. | Unduhan binary Piper dari GitHub dan model Whisper/suara dari Hugging Face. |
 | Email | Alamat akun dan cache email di database; App Password di keyring. | Login/pengambilan ke `imap.gmail.com:993`; pengiriman ke `smtp.gmail.com:465`, melalui TLS. Ringkas email mengirim isi email terpilih ke Ollama lokal. |
@@ -278,6 +278,7 @@ Data modul tersimpan dalam SQLite lokal di laptop. File asli dan hasil unduhan t
 | Unduhan | Antrean, URL, file sementara, hasil. | Permintaan ke situs sumber melalui HTTP/HTTPS atau yt-dlp. |
 | Agen proyek | Tugas, aktivitas, log agen. | Mengikuti perintah/program agen, termasuk layanan luar yang dipakainya. |
 | Cek rilis dan tautan | Versi aplikasi. | Cek pembaruan menghubungi API GitHub; membuka tautan memakai browser/aplikasi sistem. |
+| Sync opsional | Frasa sandi dan recovery key tidak disimpan; DEK di keyring. Token OAuth di memori sesi. | Login OAuth ke Supabase Auth (Google/GitHub). Record terenkripsi dikirim/ditarik lewat REST Supabase. Server tidak bisa membaca isi. |
 
 Alamat AI dapat diganti lewat variabel lingkungan `ANCHOA_AI_BASE`; jika diarahkan keluar localhost, pesan/konteks dikirim ke alamat itu. Pengaturan UI tidak menyediakan penyedia cloud. Pemrosesan tetap di laptop hanya jika alamat AI serta program agen yang dipilih juga lokal.
 

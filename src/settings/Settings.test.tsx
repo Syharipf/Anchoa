@@ -46,6 +46,50 @@ describe("SettingsNav", () => {
     );
     expect(html).toContain("Belum terhubung");
   });
+
+  it("shows 'Terhubung' or 'Perlu kunci' for data section when sync is connected", () => {
+    const connectedHtml = renderToStaticMarkup(
+      <SettingsNav
+        current="data"
+        onSelect={() => {}}
+        statusContext={{
+          syncStatus: {
+            configured: true,
+            signedIn: true,
+            email: "a@b.id",
+            lastSyncAt: null,
+            lastError: null,
+            bytesUsed: 0,
+            quotaBytes: 400 * 1024 * 1024,
+            needsUnlockKey: false,
+            vaultExists: true,
+          },
+        }}
+      />,
+    );
+    expect(connectedHtml).toContain("Terhubung");
+
+    const lockedHtml = renderToStaticMarkup(
+      <SettingsNav
+        current="data"
+        onSelect={() => {}}
+        statusContext={{
+          syncStatus: {
+            configured: true,
+            signedIn: true,
+            email: "a@b.id",
+            lastSyncAt: null,
+            lastError: null,
+            bytesUsed: 0,
+            quotaBytes: 400 * 1024 * 1024,
+            needsUnlockKey: true,
+            vaultExists: true,
+          },
+        }}
+      />,
+    );
+    expect(lockedHtml).toContain("Perlu kunci");
+  });
 });
 
 describe("DataSection", () => {
@@ -240,5 +284,35 @@ describe("Settings interactions", () => {
       expect(opening).toHaveBeenLastCalledWith(item.url);
     }
     await harness.settle();
+  });
+
+  it("passes loaded syncStatus to SettingsNav", async () => {
+    mockGithubStatus();
+    spies.push(spyOn(tauriApp, "getVersion").mockResolvedValue("0.18.0"));
+    spies.push(
+      spyOn(api, "syncStatus").mockResolvedValue({
+        configured: true,
+        signedIn: true,
+        email: "sync@example.test",
+        lastSyncAt: 123456,
+        lastError: null,
+        bytesUsed: 1024,
+        quotaBytes: 400 * 1024 * 1024,
+        needsUnlockKey: false,
+        vaultExists: true,
+      }),
+    );
+    harness = hookHarness(() =>
+      Settings({
+        initialSection: "data",
+        onSectionChange: () => {},
+        onGithubChanged: () => {},
+      }),
+    );
+    await harness.settle();
+    const context = () => settingsNav().props.statusContext as StatusContext;
+    expect(context().syncStatus?.signedIn).toBe(true);
+    expect(context().syncStatus?.email).toBe("sync@example.test");
+    expect(sectionStatus("data", context())).toBe("Terhubung");
   });
 });

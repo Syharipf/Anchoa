@@ -56,6 +56,7 @@ export interface StatusContext {
   readonly aiChatModel?: string;
   readonly voiceStatus?: VoiceStatus | null;
   readonly avatarStatus?: string;
+  readonly syncStatus?: SyncStatus | null;
 }
 
 /** Check if all essential voice components are installed on the device. */
@@ -99,8 +100,13 @@ export function sectionStatus(
       );
       return active?.label ?? "Di perangkat";
     }
-    case "data":
+    case "data": {
+      if (context?.syncStatus?.signedIn) {
+        if (context.syncStatus.needsUnlockKey) return "Perlu kunci";
+        return "Terhubung";
+      }
       return "Lokal";
+    }
     case "integrations":
       return context?.githubConnected ? "Terhubung" : "Belum terhubung";
     case "about": {

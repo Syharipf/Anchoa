@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, errorMessage, onSyncChanged, type SyncProvider, type SyncStatus } from "../api";
 import { formatBytes, relativeTime } from "../format";
@@ -291,16 +292,13 @@ export function SyncSection({
           </p>
         )}
         <div className="flex flex-col gap-1.5">
-          <div
-            role="progressbar"
-            aria-label="Pemakaian cloud"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(ratio * 100)}
-            className="h-2 overflow-hidden rounded-full bg-surface-2"
-          >
-            <div className={`h-full ${ratio >= 0.9 ? "bg-danger" : "bg-accent"}`} style={{ width: `${ratio * 100}%` }} />
-          </div>
+          <FishProgress
+            role="meter"
+            value={Math.round(ratio * 100)}
+            label="Pemakaian cloud"
+            tone={ratio >= 0.9 ? "danger" : "accent"}
+            className="h-2"
+          />
           <span className="font-mono text-xs text-muted">
             {formatBytes(status.bytesUsed)} dari {formatBytes(status.quotaBytes)}
           </span>

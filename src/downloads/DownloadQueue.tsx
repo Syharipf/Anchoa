@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import { useState } from "react";
 import type { DownloadView } from "../api";
 import {
@@ -5,7 +6,6 @@ import {
   metaText,
   progressPercent,
   progressText,
-  STATUS_BAR,
   STATUS_LABELS,
   STATUS_TEXT,
   tabCounts,
@@ -154,15 +154,28 @@ export function DownloadQueue({
                 </div>
 
                 <div className="flex w-56 shrink-0 flex-col gap-1.5">
-                  <div
-                    aria-hidden="true"
-                    className="h-1 w-full overflow-hidden rounded-sm bg-line"
-                  >
-                    <div
-                      style={{ width: `${pct}%` }}
-                      className={`h-full rounded-sm transition-all ${STATUS_BAR[row.status]}`}
-                    />
-                  </div>
+                  <FishProgress
+                    value={
+                      row.status === "done"
+                        ? 100
+                        : row.totalBytes && row.totalBytes > 0
+                          ? pct
+                          : row.status === "queued" || row.status === "failed"
+                            ? 0
+                            : undefined
+                    }
+                    label={row.title}
+                    state={
+                      row.status === "failed"
+                        ? "error"
+                        : row.status === "paused" || row.status === "queued"
+                          ? "paused"
+                          : row.status === "done"
+                            ? "done"
+                            : "running"
+                    }
+                    className="h-3 w-full"
+                  />
                   <span
                     className={`truncate font-mono text-[11px] ${
                       row.status === "failed" ? "text-danger" : "text-muted"

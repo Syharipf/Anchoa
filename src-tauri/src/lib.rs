@@ -120,6 +120,15 @@ pub fn run() {
             app.manage(assistant::AssistantState::default());
             app.manage(email::EmailState::default());
             app.manage(assistant::voice::VoiceState::new(data_dir));
+            let sync_server = sync::server::configured_server().unwrap_or_else(|e| {
+                log::error!("sync disabled: {e}");
+                None
+            });
+            app.manage(sync::commands::SyncState::new(
+                sync_server,
+                keystore::KeyringStore::default(),
+            ));
+            sync::commands::spawn_scheduler(app.handle().clone());
             Ok(())
         })
         .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
@@ -250,7 +259,22 @@ pub fn run() {
             commands::search_items,
             commands::export_pages,
             commands::open_link,
+            sync::commands::sync_status,
+            sync::commands::sync_sign_in,
+            sync::commands::sync_cancel_sign_in,
+            sync::commands::sync_create_key,
+            sync::commands::sync_unlock_key,
+            sync::commands::sync_change_passphrase,
+            sync::commands::sync_now,
+            sync::commands::sync_sign_out,
         ]))
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(focused) = event
+                && let Some(sync) = window.app_handle().try_state::<sync::commands::SyncState>()
+            {
+                sync.set_focused(*focused);
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

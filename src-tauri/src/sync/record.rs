@@ -140,6 +140,10 @@ fn queued_at(conn: &Connection, id: &str) -> Result<Option<i64>, AppError> {
     Ok(conn.query_row("SELECT changed_at FROM sync_outbox WHERE record_id = ?1", [id], |r| r.get(0)).optional()?)
 }
 
+pub(crate) fn is_too_large(error: &AppError) -> bool {
+    matches!(error, AppError::Invalid(message) if message.contains("terlalu besar untuk sync (batas"))
+}
+
 fn compressed<T: Serialize>(document: &T, title: &str) -> Result<Vec<u8>, AppError> {
     let json = serde_json::to_vec(document).map_err(|_| invalid_record())?;
     // Other devices refuse to inflate past this limit, so refuse to export it too.
@@ -444,14 +448,14 @@ pub fn enqueue_all(conn: &Connection) -> Result<(), AppError> {
     atomic(conn, || {
         let sql = format!(
             "INSERT INTO sync_outbox (record_id, changed_at)
-             SELECT id, CAST(unixepoch('subsec') * 1000 AS INTEGER) FROM items WHERE type IN ({})
+             SELECT id, MAX(updated_at, COALESCE(deleted_at, 0)) FROM items WHERE type IN ({})
              ON CONFLICT(record_id) DO UPDATE SET changed_at = MAX(sync_outbox.changed_at, excluded.changed_at)",
             vec!["?"; SYNCED_TYPES.len()].join(", "),
         );
         conn.execute(&sql, params_from_iter(SYNCED_TYPES.iter()))?;
         conn.execute(
             "INSERT INTO sync_outbox (record_id, changed_at)
-             SELECT 'hc:' || habit_id || ':' || date, CAST(unixepoch('subsec') * 1000 AS INTEGER) FROM habit_checks WHERE 1
+             SELECT 'hc:' || habit_id || ':' || date, updated_at FROM habit_checks WHERE 1
              ON CONFLICT(record_id) DO UPDATE SET changed_at = MAX(sync_outbox.changed_at, excluded.changed_at)",
             [],
         )?;
@@ -1322,6 +1326,10 @@ mod tests {
         expected.push("hc:habit:2026-10-02".into());
         expected.sort();
         assert_eq!(outbox(&conn), expected);
+        assert_eq!(queued_at(&conn, "habit").unwrap(), Some(99));
+        assert_eq!(queued_at(&conn, "hc:habit:2026-10-02").unwrap(), Some(99));
+        let own_time: i64 = conn.query_row("SELECT updated_at FROM items WHERE id='page'", [], |r| r.get(0)).unwrap();
+        assert_eq!(queued_at(&conn, "page").unwrap(), Some(own_time));
         conn.execute("UPDATE sync_outbox SET changed_at = 9007199254740993 WHERE record_id = 'task'", []).unwrap();
         enqueue_all(&conn).unwrap();
         assert_eq!(export(&conn, "task").unwrap().unwrap().changed_at, 9007199254740993);

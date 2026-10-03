@@ -1,5 +1,6 @@
 // The only module that talks to the Rust backend.
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 
 export interface Item {
@@ -877,7 +878,46 @@ export interface EmailAssistance {
   action: AssistantProposal | null;
 }
 
+export type SyncProvider = "google" | "github";
+
+export interface SyncStatus {
+  /** False in builds without a Supabase URL and key: every other sync command then fails. */
+  configured: boolean;
+  signedIn: boolean;
+  email: string | null;
+  lastSyncAt: number | null;
+  lastError: string | null;
+  bytesUsed: number;
+  quotaBytes: number;
+  needsUnlockKey: boolean;
+  /** While a key is needed: whether the cloud already has one (unlock) or not (create). Null when unknown. */
+  vaultExists: boolean | null;
+}
+
+export interface SyncReport {
+  pulled: number;
+  pushed: number;
+  pending: number;
+  bytesUsed: number;
+  quotaBytes: number;
+  stoppedByQuota: boolean;
+}
+
+/** Runs the handler after a sync applied records from other devices, so pages can reload. */
+export const onSyncChanged = (handler: () => void) => listen("sync-changed", () => handler());
+
 export const api = {
+  syncStatus: () => invoke<SyncStatus>("sync_status"),
+  /** Opens the browser and resolves when the login completes; reject after `syncCancelSignIn`. */
+  syncSignIn: (provider: SyncProvider) => invoke<void>("sync_sign_in", { provider }),
+  syncCancelSignIn: () => invoke<void>("sync_cancel_sign_in"),
+  /** The recovery key is returned once and never stored. */
+  syncCreateKey: (passphrase: string) => invoke<{ recoveryKey: string }>("sync_create_key", { passphrase }),
+  syncUnlockKey: (passphraseOrRecovery: string) => invoke<void>("sync_unlock_key", { passphraseOrRecovery }),
+  syncChangePassphrase: (oldPassphrase: string, newPassphrase: string) =>
+    invoke<void>("sync_change_passphrase", { old: oldPassphrase, new: newPassphrase }),
+  syncNow: () => invoke<SyncReport>("sync_now"),
+  syncSignOut: (deleteCloud: boolean) => invoke<void>("sync_sign_out", { deleteCloud }),
   emailAssist: (id: string) => invoke<EmailAssistance>("email_assist", { id }),
   emailStatus: () => invoke<EmailStatus>("email_status"),
   emailConnect: (address: string, appPassword: string) =>

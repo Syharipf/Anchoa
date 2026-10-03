@@ -897,7 +897,7 @@ fn newer_schema_pending_survives_edits_and_resolves_by_lww_after_upgrade() {
         a.write("p", "Old local", 80);
         b.write("p", "Future content", 100);
         push_document(&server, &b, "p", 100, |doc| {
-            doc["schema"] = serde_json::json!(13)
+            doc["schema"] = serde_json::json!(99)
         });
         assert_eq!(a.sync(&server).pending, 1);
         a.write("p", "Local edit while deferred", local_ts);
@@ -913,7 +913,7 @@ fn newer_schema_pending_survives_edits_and_resolves_by_lww_after_upgrade() {
         assert_eq!(server.pull(&session(), 0, 500).unwrap()[0].changed_at, 100);
         a.db.conn()
             .unwrap()
-            .pragma_update(None, "user_version", 13)
+            .pragma_update(None, "user_version", 99)
             .unwrap();
         let report = a.sync(&server);
         assert_eq!(report.pending, 0);
@@ -925,7 +925,7 @@ fn newer_schema_pending_survives_edits_and_resolves_by_lww_after_upgrade() {
         assert_eq!(a.title("p"), expected);
         b.db.conn()
             .unwrap()
-            .pragma_update(None, "user_version", 13)
+            .pragma_update(None, "user_version", 99)
             .unwrap();
         b.sync(&server);
         assert_eq!(b.title("p"), expected);

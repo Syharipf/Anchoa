@@ -1,6 +1,6 @@
 # Anchoa Fase 8 Email: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh Gemini dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Gmail lewat IMAP/SMTP dengan App Password di keyring: baca, tandai, arsip, balas, dan tulis. Ringkasan dan saran balasan dari asisten lokal ada di PR terakhir.
 
@@ -56,7 +56,7 @@
 
 Halaman tiga kolom, Tulis/Balas, empty state "Sambungkan Gmail" dengan langkah App Password, kartu Email di Pengaturan › Integrasi, dan status di Profil. Tanpa duplikasi, dengan token tema. Aturan SonarCloud.
 
-### Task 5: E2E dan versi 0.16.0 (sesi Opus)
+### Task 5: E2E dan versi 0.16.0
 
 - `check_email` memeriksa dua hal: empty state tanpa akun, dan alur dengan `ANCHOA_FAKE_MAIL=1` (sambungkan, daftar, buka lalu jadi dibaca di DB, bintang, balas).
 - Versi 0.16.0 dan status di `CLAUDE.md`.
@@ -67,11 +67,8 @@ Halaman tiga kolom, Tulis/Balas, empty state "Sambungkan Gmail" dengan langkah A
 - `email_assist(id)`: ringkasan dan 3 saran balasan dengan JSON terstruktur, ditampilkan di panel "Ringkasan asisten". Satu aksi kontekstual memakai usulan tools yang sudah ada dan tetap harus disetujui.
 - Saran balasan mengisi kotak balas, tidak langsung terkirim.
 
-### Task 7: E2E dan versi 0.17.0 (sesi Opus)
+### Task 7: E2E dan versi 0.17.0
 
 `check_email_assist` dengan `scripts/fake-llm.py` yang diperluas: ringkasan tampil, dan aksi menghasilkan usulan.
 
 ## Menjalankan task
-
-- **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "<task>" < /dev/null`. Sandbox Sol tidak bisa commit dan tidak punya jaringan, jadi sesi Opus mengambil crate (`cargo fetch`) dan commit.
-- **Gemini:** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions -p "<task>" < /dev/null`.

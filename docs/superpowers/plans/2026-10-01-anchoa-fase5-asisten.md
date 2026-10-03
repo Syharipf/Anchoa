@@ -1,6 +1,6 @@
 # Anchoa Fase 5 Asisten: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`, lalu agen `implementer`. Review oleh Gemini dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Asisten lokal dengan Ollama (`qwen2.5:3b`), peran yang dibatasi, aksi lewat persetujuan, serta suara lokal (whisper.cpp dan Piper) yang natural, bisa dipilih, dan bisa diimpor.
 
@@ -99,7 +99,7 @@
 **Test:** reducer, dan bahwa kartu usulan memanggil `assistantDecide`.
 **Commit:** `feat: chat with the assistant from the stage and mini panel`.
 
-### Task 5: Pengaturan › Asisten & AI dan E2E (sesi Opus)
+### Task 5: Pengaturan › Asisten & AI dan E2E
 
 - `src/settings/AiSection.tsx` menggantikan ComingSection untuk `ai`, sesuai spec §4. Status kecil sub-nav: "Ollama · qwen2.5:3b" atau "Ollama mati".
 - E2E `check_assistant_ai`:
@@ -119,7 +119,7 @@
   - `find_whisper()`: `whisper-cli`, lalu `whisper-cpp`, lalu `None`;
   - `transcribe(model, wav) -> String`: `-l id -nt -f`, lalu trim;
   - `Download { url, sha256, dest }`: berkas `.part`, cek SHA-256 (`sha2`), lalu rename, dengan event progres.
-- URL dan SHA-256 tetap untuk `ggml-base.bin` diisi sesi Opus di konstanta. Jangan menebak hash.
+- URL dan SHA-256 tetap untuk `ggml-base.bin` diisi di konstanta. Jangan menebak hash.
 - Command: `voice_status`, `voice_install("whisper-model")`, `voice_record_start`, `voice_record_stop`.
 
 **Test:**
@@ -131,7 +131,7 @@
 
 ### Task 7: Piper TTS
 
-- Instal Piper: tarball resmi ke `<data>/piper/bin/`, dengan SHA-256 tetap (diisi sesi Opus).
+- Instal Piper: tarball resmi ke `<data>/piper/bin/`, dengan SHA-256 tetap (diisi di konstanta).
 - Katalog suara: konstanta `[{ id, label, url_onnx, sha_onnx, url_json, sha_json }]`, untuk `id_ID-news_tts-medium` dan 2–3 suara `en_US` medium/high.
 - `voice_import(onnx_path)`: salin `.onnx` dan `.onnx.json` di sebelahnya ke `<data>/piper/voices/custom/`, validasi seperti di spec C9, lalu kembalikan id.
 - `speak(text, voice, params)`:
@@ -164,7 +164,7 @@
 
 **Commit:** `feat: talk to the assistant and manage voices in settings`.
 
-### Task 9: E2E dan versi 0.14.0 (sesi Opus)
+### Task 9: E2E dan versi 0.14.0
 
 - E2E `check_voice_settings`:
   - Pengaturan › Suara menampilkan status "belum dipasang" tanpa jaringan;
@@ -176,7 +176,7 @@
 **Commit:** `test: cover voice settings end to end; bump version to 0.14.0`.
 **Penutup PR 5-4**, lalu rilis.
 
-## Konstanta unduhan (diverifikasi sesi Opus, 2026-10-01 23:33)
+## Konstanta unduhan
 
 Hash SHA-256 diambil dari header `x-linked-etag` Hugging Face (LFS) atau dihitung dari berkas yang diunduh.
 
@@ -201,6 +201,3 @@ Tarball Piper berisi folder `piper/`:
 Uji di Fedora 44: `echo "…" | piper/piper --model id.onnx --noise_scale 0.667 --noise_w 0.8 --output_file test.wav` berjalan dengan real-time factor 0,19.
 
 ## Menjalankan task
-
-- **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "<task>" < /dev/null`. Sandbox Sol tidak bisa commit, jadi sesi Opus yang commit.
-- **Gemini:** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions -p "<task>" < /dev/null`.

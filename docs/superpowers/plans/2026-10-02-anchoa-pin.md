@@ -1,6 +1,6 @@
 # Anchoa Kunci PIN: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh Gemini dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Kunci PIN saat app dibuka, dengan hash Argon2id dan penegakan di Rust.
 
@@ -47,7 +47,7 @@
 **Test:** layar kunci (benar, salah, jeda) dan alur sakelar.
 **Commit:** `feat: add the lock screen and PIN settings`.
 
-### Task 3: E2E dan versi 0.15.0 (sesi Opus)
+### Task 3: E2E dan versi 0.15.0
 
 - `check_pin` sesuai spec §3.
 - Versi 0.15.0 dan status di `CLAUDE.md`.

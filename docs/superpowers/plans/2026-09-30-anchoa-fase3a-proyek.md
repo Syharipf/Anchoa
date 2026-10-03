@@ -1,6 +1,6 @@
 # Anchoa Fase 3A (Proyek dan tugas): Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Di repo ini, kode ditulis oleh Gemini 3.8 Flash High lewat `agy-multi` (lihat "Menjalankan task"), lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Model tugas dengan status, proyek, dan sub-tugas; halaman Proyek dengan kanban; catatan bertenggat lama menjadi tugas.
 
@@ -35,13 +35,8 @@
 
 ## Menjalankan task
 
-Dari root repo, di branch PR yang sedang dikerjakan:
+Gunakan task role `Coder` untuk implementasi setiap task (test-first, satu commit per task), dan reviewer role untuk review sebelum merge.
 
-```bash
-agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions --print-timeout 2700s -p "Implement Tasks <N..M> of docs/superpowers/plans/2026-09-30-anchoa-fase3a-proyek.md following docs/superpowers/specs/2026-09-30-anchoa-fase3a-proyek-design.md and CLAUDE.md, test-first, one commit per task. The branch is already checked out: do not switch branches. Rules: work only inside this repository; do not push, merge, open PRs or change remotes; do not open URLs. When done, print the last lines of the checks and the commit hashes."
-```
-
-Sesi Opus menjalankan "Prosedur penutup PR" dari rencana Fase 2 (pemeriksaan, screenshot, review `agy`, push, PR, merge).
 
 ## Pembagian PR
 

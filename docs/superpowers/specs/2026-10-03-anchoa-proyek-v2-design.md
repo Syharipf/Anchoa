@@ -5,7 +5,7 @@ Status: user memilih keempat paket (Dasar, Struktur, Terhubung, Waktu) dan menye
 
 ## 1. Ringkasan
 
-Menu kedua dalam seri "poles per menu", setelah Jurnal v2. Empat PR, masing-masing dikerjakan di sesi Claude Code terpisah, setelah J-4:
+Menu kedua dalam seri "poles per menu", setelah Jurnal v2. Empat PR, masing-masing dikerjakan terpisah, setelah J-4:
 
 | PR | Isi |
 |---|---|

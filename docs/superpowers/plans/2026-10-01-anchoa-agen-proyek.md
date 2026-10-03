@@ -1,6 +1,6 @@
 # Anchoa Proyek × Agen AI: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh (`codex exec -s workspace-write`), dibantu Gemini 3.8 Flash High lewat `agy-multi`. Review oleh Gemini dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Proyek menjadi papan kerja agen AI: kanban 5 kolom, utas aktivitas per tugas, permintaan ke agen, dan CLI `anchoa agent` untuk agen melapor.
 
@@ -141,7 +141,7 @@ pub fn running(&self) -> Vec<String>          // project id yang sedang jalan
 **Test:** `view.test.ts` untuk kolom, label peran (Permintaan, Rencana, Implementasi, Tes, Review, Merge, Catatan), dan inisial aktor.
 **Commit:** `feat: show agent work on the project board`.
 
-### Task 5: E2E, `CLAUDE.md`, versi 0.10.0 (sesi Opus)
+### Task 5: E2E, `CLAUDE.md`, versi 0.10.0
 
 - `check_agent` sesuai spec §7.
 - `CLAUDE.md`: bagian "Melapor ke Anchoa" (spec §6) dan status.

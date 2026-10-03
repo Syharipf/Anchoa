@@ -1,6 +1,6 @@
 # Anchoa Jurnal v2 — J-1 Dasar: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi utama oleh Codex gpt-6.1-sol xhigh (`codex exec -s workspace-write`, satu task per run). Kalau kuotanya habis, pakai `agy-multi --model gemini-3.8-flash-high`. Review oleh agy dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** entri Jurnal bisa dihapus (dengan Urungkan), disematkan, dan disaring per tag dan suasana hati.
 
@@ -17,7 +17,7 @@
 - SonarCloud: props `Readonly<...>`, elemen non-tombol dengan `onClick` butuh handler keyboard, tanpa `Math.random()`.
 - Teks UI Bahasa Indonesia, tanpa kata "Fase".
 - Tanpa dependency baru. Tanpa bump versi (rilis setelah J-4).
-- Sesi ini hanya mengerjakan J-1. J-2..J-4 dikerjakan di sesi Claude Code lain, masing-masing menulis plan-nya sendiri dari spec.
+- Sesi ini hanya mengerjakan J-1. J-2..J-4 dikerjakan terpisah, masing-masing menulis plan-nya sendiri dari spec.
 
 | PR | Task |
 |---|---|
@@ -355,7 +355,7 @@ git commit -m "feat(journal): delete with undo, pin, and tag/mood filter chips"
 
 ---
 
-### Task 3: E2E dan PR (sesi Opus)
+### Task 3: E2E dan PR
 
 **Files:**
 - Modify: `scripts/e2e-smoke.sh` (fungsi baru `check_journal_v2`, dipanggil setelah `check_journal`)
@@ -367,5 +367,5 @@ git commit -m "feat(journal): delete with undo, pin, and tag/mood filter chips"
   4. Beri tag `e2e`, klik tag itu. `shot 12-journal-tag-filter` (chip "#e2e ×" tampil, hanya entri itu di daftar).
   Pakai `[[ ... ]]`, bukan `[ ... ]`.
 - [ ] **Step 2:** `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`. Cek screenshot di `~/.cache/anchoa-e2e/`.
-- [ ] **Step 3:** Commit, push branch `feat/140-jurnal-dasar`, buka PR dengan bukti test dan `Closes #140`. Review Sol + agy paralel, verifikasi temuan, perbaiki, merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
+- [ ] **Step 3:** Commit, push branch `feat/140-jurnal-dasar`, buka PR dengan bukti test dan `Closes #140`. Review (task role `reviewer`), verifikasi temuan, perbaiki, merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
 - [ ] **Step 4:** Tulis handoff ke `.remember/now.md`: J-1 selesai, J-2 berikutnya di sesi baru (sesi itu menulis `docs/superpowers/plans/2026-10-0x-anchoa-jurnal-v2-j2.md` dari spec V5–V7 sebelum kode).

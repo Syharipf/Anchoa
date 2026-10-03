@@ -246,7 +246,6 @@ export function App() {
         )}
         {page.name === "settings" && (
           <Settings
-            key={assistantDataVersion}
             initialSection={page.section}
             onSectionChange={onSectionChange}
             onGithubChanged={onGithubChanged}

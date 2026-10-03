@@ -75,6 +75,92 @@ impl KeyringStore {
     }
 }
 
+#[cfg(any(test, debug_assertions))]
+#[derive(Debug)]
+pub struct FileCredentialBuilder {
+    path: std::path::PathBuf,
+}
+
+#[cfg(any(test, debug_assertions))]
+impl FileCredentialBuilder {
+    pub fn new(path: std::path::PathBuf) -> Self {
+        Self { path }
+    }
+}
+
+#[cfg(any(test, debug_assertions))]
+impl keyring::credential::CredentialBuilderApi for FileCredentialBuilder {
+    fn build(
+        &self,
+        _target: Option<&str>,
+        service: &str,
+        user: &str,
+    ) -> keyring::Result<Box<keyring::credential::Credential>> {
+        Ok(Box::new(FileCredential {
+            path: self.path.clone(),
+            key: format!("{service}:{user}"),
+        }))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+#[cfg(any(test, debug_assertions))]
+#[derive(Debug)]
+struct FileCredential {
+    path: std::path::PathBuf,
+    key: String,
+}
+
+#[cfg(any(test, debug_assertions))]
+impl FileCredential {
+    fn read_map(&self) -> HashMap<String, Vec<u8>> {
+        if let Ok(bytes) = std::fs::read(&self.path) {
+            serde_json::from_slice(&bytes).unwrap_or_default()
+        } else {
+            HashMap::new()
+        }
+    }
+
+    fn write_map(&self, map: &HashMap<String, Vec<u8>>) -> keyring::Result<()> {
+        if let Some(parent) = self.path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let data = serde_json::to_vec(map).map_err(|e| keyring::Error::PlatformFailure(Box::new(e)))?;
+        std::fs::write(&self.path, data).map_err(|e| keyring::Error::PlatformFailure(Box::new(e)))?;
+        Ok(())
+    }
+}
+
+#[cfg(any(test, debug_assertions))]
+impl keyring::credential::CredentialApi for FileCredential {
+    fn set_secret(&self, secret: &[u8]) -> keyring::Result<()> {
+        let mut map = self.read_map();
+        map.insert(self.key.clone(), secret.to_vec());
+        self.write_map(&map)
+    }
+
+    fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+        let map = self.read_map();
+        map.get(&self.key).cloned().ok_or(keyring::Error::NoEntry)
+    }
+
+    fn delete_credential(&self) -> keyring::Result<()> {
+        let mut map = self.read_map();
+        if map.remove(&self.key).is_some() {
+            self.write_map(&map)
+        } else {
+            Err(keyring::Error::NoEntry)
+        }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,5 +223,27 @@ mod tests {
                 assert!(!output.contains(SECRET));
             }
         }
+    }
+
+    #[test]
+    fn file_credential_builder_persists_credentials_across_instances() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fake_keyring.json");
+
+        let store1 = KeyringStore::with_builder(Box::new(FileCredentialBuilder::new(path.clone())));
+        assert_eq!(store1.get("sync-dek:u1").unwrap(), None);
+        store1.set("sync-dek:u1", SECRET).unwrap();
+        assert_eq!(store1.get("sync-dek:u1").unwrap(), Some(SECRET.into()));
+
+        // Second instance reads persisted secret from disk
+        let store2 = KeyringStore::with_builder(Box::new(FileCredentialBuilder::new(path.clone())));
+        assert_eq!(store2.get("sync-dek:u1").unwrap(), Some(SECRET.into()));
+
+        // Delete from second instance
+        store2.delete("sync-dek:u1").unwrap();
+
+        // Third instance confirms deletion
+        let store3 = KeyringStore::with_builder(Box::new(FileCredentialBuilder::new(path)));
+        assert_eq!(store3.get("sync-dek:u1").unwrap(), None);
     }
 }

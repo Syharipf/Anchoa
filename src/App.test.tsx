@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import type { ReactNode } from "react";
+import * as apiModule from "./api";
 import { api } from "./api";
 import { App } from "./App";
 import type { OpenAssistant } from "./assistant/useAssistantRequest";
@@ -119,6 +120,41 @@ describe("App settings navigation", () => {
       expect(settings().props.initialSection).toBe("about");
     },
   );
+
+  it("does not key Settings by assistantDataVersion when sync-changed reloads data", async () => {
+    let syncHandler: (() => void) | undefined;
+    const syncSpy = spyOn(apiModule, "onSyncChanged").mockImplementation(async (handler) => {
+      syncHandler = handler;
+      return () => {};
+    });
+    const secSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
+    const dbSpy = spyOn(api, "dbStatus").mockResolvedValue({ path: "/db", error: null, backupError: null });
+    const dashSpy = spyOn(api, "getDashboard").mockReturnValue(Promise.withResolvers<any>().promise);
+    try {
+      harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, locked: false } });
+      harness.render(true);
+      const palette = () => elements(harness.render(false)).find((element) => element.type === CommandPalette)!;
+      (palette().props.onNavigate as (name: string, section?: SettingsSection) => void)("settings", "data");
+      const settings = elements(harness.render(false)).find((element) => element.type === Settings)!;
+
+      expect(settings).toBeDefined();
+      expect(settings.key).toBeNull();
+
+      // Trigger sync-changed event which runs reloadAllData and bumps assistantDataVersion
+      expect(syncHandler).toBeDefined();
+      syncHandler!();
+
+      // After sync-changed, Settings element retains null key (not keyed to assistantDataVersion)
+      const settingsAfter = elements(harness.render(false)).find((element) => element.type === Settings)!;
+      expect(settingsAfter).toBeDefined();
+      expect(settingsAfter.key).toBeNull();
+    } finally {
+      syncSpy.mockRestore();
+      secSpy.mockRestore();
+      dbSpy.mockRestore();
+      dashSpy.mockRestore();
+    }
+  });
 });
 
 describe("App profile navigation", () => {
@@ -185,7 +221,6 @@ describe("App assistant approvals", () => {
     { name: "catatan", component: NotesPage },
     { name: "item", component: ItemPage },
     { name: "profil", component: ProfilePage },
-    { name: "settings", component: Settings },
     { name: "berkas", component: FilesPage },
     { name: "unduhan", component: DownloadsPage },
   ])("refreshes the dashboard and the currently shown $name page after a Mini approval", ({ name, component }) => {

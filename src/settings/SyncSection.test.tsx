@@ -111,6 +111,30 @@ it("creates a key: validates client-side, shows the recovery key once, clears it
   expect(texts()).toContain("Sinkronkan sekarang");
 });
 
+it("preserves displayed recovery key across sync-changed events", async () => {
+  current = { ...READY, needsUnlockKey: true, vaultExists: false };
+  let syncHandler: (() => void) | undefined;
+  spy(spyOn(apiModule, "onSyncChanged").mockImplementation(async (handler) => {
+    syncHandler = handler;
+    return () => {};
+  }));
+  spy(spyOn(api, "syncCreateKey").mockImplementation(async () => {
+    current = READY;
+    return { recoveryKey: "AAAA-BBBB-CCCC-DDDD" };
+  }));
+  await mount();
+  type(0, PASS);
+  type(1, PASS);
+  await submit();
+  expect(texts()).toContain("AAAA-BBBB-CCCC-DDDD");
+
+  expect(syncHandler).toBeDefined();
+  syncHandler!();
+  await harness.settle();
+
+  expect(texts()).toContain("AAAA-BBBB-CCCC-DDDD");
+});
+
 it("copies the recovery key", async () => {
   current = { ...READY, needsUnlockKey: true, vaultExists: false };
   spy(spyOn(api, "syncCreateKey").mockResolvedValue({ recoveryKey: "KEY-1" }));

@@ -147,9 +147,12 @@ export function SyncSection({
 
   const signOut = () =>
     run(async () => {
-      await api.syncSignOut(deleteCloud);
+      const result = await api.syncSignOut(deleteCloud);
       setDialog(null);
       setDeleteCloud(false);
+      if (result && !result.remoteRevoked) {
+        setNote("Sync dinonaktifkan di perangkat ini, tetapi pencabutan sesi di server tidak dapat dikonfirmasi.");
+      }
     });
 
   function closeDialog() {

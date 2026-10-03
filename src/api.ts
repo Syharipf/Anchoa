@@ -903,6 +903,10 @@ export interface SyncReport {
   stoppedByQuota: boolean;
 }
 
+export interface SignOutResult {
+  remoteRevoked: boolean;
+}
+
 /** Runs the handler after a sync applied records from other devices, so pages can reload. */
 export const onSyncChanged = (handler: () => void) => listen("sync-changed", () => handler());
 
@@ -917,7 +921,7 @@ export const api = {
   syncChangePassphrase: (oldPassphrase: string, newPassphrase: string) =>
     invoke<void>("sync_change_passphrase", { old: oldPassphrase, new: newPassphrase }),
   syncNow: () => invoke<SyncReport>("sync_now"),
-  syncSignOut: (deleteCloud: boolean) => invoke<void>("sync_sign_out", { deleteCloud }),
+  syncSignOut: (deleteCloud: boolean) => invoke<SignOutResult>("sync_sign_out", { deleteCloud }),
   emailAssist: (id: string) => invoke<EmailAssistance>("email_assist", { id }),
   emailStatus: () => invoke<EmailStatus>("email_status"),
   emailConnect: (address: string, appPassword: string) =>

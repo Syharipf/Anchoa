@@ -218,7 +218,7 @@ it("changes the passphrase from a dialog after validating the new one", async ()
 });
 
 it("turns sync off, optionally deleting the cloud copy", async () => {
-  const out = spy(spyOn(api, "syncSignOut").mockImplementation(async () => { current = { ...READY, signedIn: false }; }));
+  const out = spy(spyOn(api, "syncSignOut").mockImplementation(async () => { current = { ...READY, signedIn: false }; return { remoteRevoked: true }; }));
   await mount();
   await click("Matikan sync");
   tick(true);
@@ -226,6 +226,15 @@ it("turns sync off, optionally deleting the cloud copy", async () => {
   await harness.settle();
   expect(out).toHaveBeenCalledWith(true);
   expect(texts()).toContain("Masuk dengan Google");
+});
+
+it("warns when remote revocation is unconfirmed during sign out", async () => {
+  spy(spyOn(api, "syncSignOut").mockImplementation(async () => { current = { ...READY, signedIn: false }; return { remoteRevoked: false }; }));
+  await mount();
+  await click("Matikan sync");
+  await (tree().filter((el) => el.type === "button" && textOf(el) === "Matikan sync").at(-1)!.props.onClick as () => unknown)();
+  await harness.settle();
+  expect(texts().some((t) => t.includes("pencabutan sesi di server tidak dapat dikonfirmasi"))).toBe(true);
 });
 
 it("passphraseProblem accepts 12 characters that match", () => {

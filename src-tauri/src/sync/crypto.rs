@@ -176,7 +176,7 @@ pub fn kek_from_passphrase(passphrase: &str, kdf: &Kdf) -> Result<[u8; 32], AppE
     let invalid = || AppError::Invalid("Parameter KDF sync tidak valid".into());
     // Parameters come from the server's vault row, which is untrusted: bound them so a
     // hostile server cannot make the client allocate gigabytes or spin for minutes.
-    if !(8..=1_048_576).contains(&kdf.m_kib) || !(1..=10).contains(&kdf.t) || !(1..=4).contains(&kdf.p) {
+    if !(8..=65_536).contains(&kdf.m_kib) || !(1..=3).contains(&kdf.t) || !(1..=4).contains(&kdf.p) {
         return Err(invalid());
     }
     let params = Params::new(kdf.m_kib, kdf.t, kdf.p, Some(32)).map_err(|_| invalid())?;
@@ -269,7 +269,14 @@ mod tests {
 
     #[test]
     fn rejects_out_of_range_kdf_parameters_from_the_server() {
-        for (m_kib, t, p) in [(4_194_304, 3, 1), (65_536, 0, 1), (65_536, 100, 1), (65_536, 3, 64)] {
+        for (m_kib, t, p) in [
+            (1_048_576, 3, 1), // 1 GiB excessive for remote parameter
+            (262_144, 3, 1),   // 256 MiB excessive
+            (65_537, 3, 1),    // Above 64 MiB generated default
+            (65_536, 4, 1),    // Above t=3 generated default
+            (65_536, 0, 1),
+            (65_536, 3, 64),
+        ] {
             let kdf = Kdf { m_kib, t, p, salt: [7; 16] };
             assert!(matches!(kek_from_passphrase("frasa sandi panjang", &kdf), Err(AppError::Invalid(_))));
         }

@@ -94,6 +94,12 @@ pub struct CreateKeyResult {
     pub recovery_key: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignOutResult {
+    pub remote_revoked: bool,
+}
+
 fn get_state(conn: &Connection, key: &str) -> Result<String, AppError> {
     Ok(conn
         .query_row("SELECT value FROM sync_state WHERE key = ?1", [key], |r| r.get(0))
@@ -381,7 +387,7 @@ pub(crate) fn run_sync(sync: &SyncState, db: &Db) -> Result<Option<SyncReport>, 
     result.map(Some)
 }
 
-pub(crate) fn sign_out(sync: &SyncState, db: &Db, delete_cloud: bool) -> Result<(), AppError> {
+pub(crate) fn sign_out(sync: &SyncState, db: &Db, delete_cloud: bool) -> Result<SignOutResult, AppError> {
     let _running = lock(&sync.running);
     let server = sync.server()?;
     let user_id = require_user(db)?;
@@ -393,9 +399,10 @@ pub(crate) fn sign_out(sync: &SyncState, db: &Db, delete_cloud: bool) -> Result<
         })?;
         call_server(sync, session, |s| server.delete_my_data(s))?;
     }
-    if let Ok(session) = &session {
-        let _ = server.sign_out(session);
-    }
+    let remote_revoked = match &session {
+        Ok(s) => server.sign_out(s).is_ok(),
+        Err(_) => false,
+    };
     Session::delete(&sync.keys, &user_id)?;
     engine::delete_dek(&sync.keys, &user_id)?;
     {
@@ -408,7 +415,7 @@ pub(crate) fn sign_out(sync: &SyncState, db: &Db, delete_cloud: bool) -> Result<
         tx.commit()?;
     }
     *lock(&sync.last_error) = None;
-    Ok(())
+    Ok(SignOutResult { remote_revoked })
 }
 
 fn ready(sync: &SyncState, db: &Db) -> bool {
@@ -551,7 +558,7 @@ pub async fn sync_now(app: AppHandle) -> Result<SyncReport, AppError> {
 }
 
 #[tauri::command]
-pub async fn sync_sign_out(app: AppHandle, delete_cloud: bool) -> Result<(), AppError> {
+pub async fn sync_sign_out(app: AppHandle, delete_cloud: bool) -> Result<SignOutResult, AppError> {
     run(app, move |sync, db| sign_out(sync, db, delete_cloud)).await
 }
 
@@ -726,6 +733,23 @@ mod tests {
         assert_eq!(title, "Tetap");
         // The cloud copy is untouched.
         assert!(f.server.get_vault(&fake_session(&f)).unwrap().is_some());
+    }
+
+    #[test]
+    fn sign_out_when_remote_fails_reports_revocation_unconfirmed_but_cleans_up_locally() {
+        let f = fixture();
+        sign_in(&f.sync, &f.db, "google").unwrap();
+        create_key(&f.sync, &f.db, PASS, cheap_kdf()).unwrap();
+        let user = signed_in_user(&f.db).unwrap().unwrap();
+
+        f.server.set_offline(true);
+        let result = sign_out(&f.sync, &f.db, false).unwrap();
+        assert!(!result.remote_revoked, "remote revocation must not be reported as confirmed when server fails");
+
+        // Local state MUST be cleaned up even if remote fails:
+        assert!(Session::load(&f.sync.keys, &user).unwrap().is_none());
+        assert!(engine::load_dek(&f.sync.keys, &user).unwrap().is_none());
+        assert!(signed_in_user(&f.db).unwrap().is_none());
     }
 
     #[test]

@@ -419,20 +419,15 @@ fn apply_page(
     cursor: &mut i64,
     pulled: &mut usize,
 ) -> Result<(), AppError> {
+    let mut new_cursor = *cursor;
     let mut to_apply = Vec::new();
     for wire in page {
-        *cursor = (*cursor).max(wire.seq);
+        new_cursor = new_cursor.max(wire.seq);
         let Some(ciphertext) = &wire.payload else {
             continue;
         };
         let aad = crypto::aad(user, &wire.id, wire.changed_at, &wire.device_id);
-        let plain = match crypto::open(dek, &aad, ciphertext) {
-            Ok(plain) => plain,
-            Err(_) => {
-                log::warn!("Record {}: gagal didekripsi, dilewati", wire.id);
-                continue;
-            }
-        };
+        let plain = crypto::open(dek, &aad, ciphertext)?;
         if is_newer_schema(tx, &plain)? {
             // Schema compatibility precedes LWW: even an older remote version
             // must hold back writes from a client that cannot preserve its fields.
@@ -541,6 +536,7 @@ fn apply_page(
         }
     }
     retry_pending(tx, device, pulled)?;
+    *cursor = new_cursor;
     set_state(tx, "cursor", &cursor.to_string())
 }
 

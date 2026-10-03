@@ -226,7 +226,7 @@ fn child_arrives_before_parent_goes_to_pending_and_applies_after_parent() {
 }
 
 #[test]
-fn tampered_payload_is_skipped_and_cursor_advances() {
+fn tampered_payload_is_retried_without_advancing_cursor() {
     let server = test_server();
     let a = Client::new(DEVICE_A);
     let b = Client::new(DEVICE_B);
@@ -235,7 +235,8 @@ fn tampered_payload_is_skipped_and_cursor_advances() {
     a.write("page2", "Second", 200);
     a.sync(&server);
 
-    // Server tampers: swap payloads of page1 and page2
+    // Server swaps payloads. AAD includes record ID, so the receiving client
+    // must reject the page and retain its cursor for a later retry.
     server.tamper(|rows| {
         if rows.len() >= 2 {
             let p0 = rows[0].payload.clone();
@@ -244,19 +245,30 @@ fn tampered_payload_is_skipped_and_cursor_advances() {
         }
     });
 
-    // B syncs: both fail to decrypt because AAD contains record_id, so both are skipped!
-    let report_b = b.sync(&server);
-    assert_eq!(report_b.pulled, 0);
+    let err = engine::sync_once(&b.db, &b.keys, &server, 1_000).unwrap_err();
+    assert!(matches!(err, crate::error::AppError::Invalid(_)));
+    assert_eq!(state(&b, "cursor"), "0");
     assert!(b.title_opt("page1").is_none());
     assert!(b.title_opt("page2").is_none());
 
-    // A writes a third untampered record
+    // Repair the server data by swapping payloads back. The next sync must pull
+    // both records, proving cursor was preserved rather than advanced.
+    server.tamper(|rows| {
+        if rows.len() >= 2 {
+            let p0 = rows[0].payload.clone();
+            rows[0].payload = rows[1].payload.clone();
+            rows[1].payload = p0;
+        }
+    });
+    let report_b2 = b.sync(&server);
+    assert_eq!(report_b2.pulled, 2);
+    assert_eq!(b.title("page1"), "First");
+    assert_eq!(b.title("page2"), "Second");
+    assert_eq!(state(&b, "cursor"), "2");
     a.write("page3", "Third", 300);
     a.sync(&server);
-
-    // B syncs: cursor had advanced past tampered rows, so only page3 arrives and succeeds!
-    let report_b2 = b.sync(&server);
-    assert_eq!(report_b2.pulled, 1);
+    let report_b3 = b.sync(&server);
+    assert_eq!(report_b3.pulled, 1);
     assert_eq!(b.title("page3"), "Third");
 }
 
@@ -696,7 +708,7 @@ fn rejection_metadata_cannot_clear_outbox_or_record_an_unauthenticated_version()
         b.sync(racing.as_ref());
         racing.tamper(|rows|rows[0].payload.as_mut().unwrap()[0] ^= 1);
     });
-    a.sync(server.as_ref());
+    assert!(engine::sync_once(&a.db, &a.keys, server.as_ref(), 1000).is_err());
     assert_eq!(a.title("p"),"Local survives unauthenticated winner");
     let conn = a.db.conn().unwrap();
     assert_eq!(conn.query_row("SELECT changed_at FROM sync_outbox WHERE record_id='p'",[],|r|r.get::<_,i64>(0)).unwrap(),8);
@@ -1125,9 +1137,9 @@ fn tampered_lost_push_echo_cannot_acknowledge_the_outbox() {
     server.lose_next_push_response();
     assert!(engine::sync_once(&a.db, &a.keys, &server, 1000).is_err());
     server.tamper(|rows| rows[0].payload.as_mut().unwrap()[0] ^= 1);
-    a.sync(&server);
+    assert!(engine::sync_once(&a.db, &a.keys, &server, 1000).is_err());
     assert_eq!(outbox_count(&a), 1);
-    b.sync(&server);
+    assert!(engine::sync_once(&b.db, &b.keys, &server, 1000).is_err());
     assert!(b.title_opt("p").is_none());
     assert_eq!(
         a.db.conn()

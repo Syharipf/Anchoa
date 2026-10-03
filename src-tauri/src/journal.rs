@@ -71,6 +71,7 @@ pub struct Entry {
     pub created_at: i64,
     pub when: String,
     pub task_id: Option<String>,
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -92,6 +93,8 @@ pub struct JournalList {
 pub struct ListQuery {
     pub query: Option<String>,
     pub kind: Option<EntryKind>,
+    pub tag: Option<String>,
+    pub mood: Option<i8>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -101,6 +104,7 @@ pub struct EntryPatch {
     #[serde(default, deserialize_with = "present_mood")]
     pub mood: Option<Option<i8>>,
     pub tags: Option<String>,
+    pub pinned: Option<bool>,
 }
 
 fn present_mood<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Option<i8>>, D::Error> {
@@ -177,7 +181,7 @@ pub fn normalize_tags(raw: &str) -> Result<String, AppError> {
 pub fn journal_entry(conn: &Connection, id: &str, _now: i64, tz: &TimeZone) -> Result<Entry, AppError> {
     let row = conn
         .query_row(
-            "SELECT i.id, i.title, i.body, i.created_at, j.kind, j.mood, j.tags, j.task_id
+            "SELECT i.id, i.title, i.body, i.created_at, j.kind, j.mood, j.tags, j.task_id, COALESCE(j.pinned, 0)
              FROM items i
              LEFT JOIN journal_entries j ON j.item_id = i.id
              WHERE i.id = ?1 AND i.type = 'note' AND i.deleted_at IS NULL",
@@ -192,12 +196,13 @@ pub fn journal_entry(conn: &Connection, id: &str, _now: i64, tz: &TimeZone) -> R
                     r.get::<_, Option<i8>>(5)?,
                     r.get::<_, Option<String>>(6)?,
                     r.get::<_, Option<String>>(7)?,
+                    r.get::<_, i64>(8)?,
                 ))
             },
         )
         .optional()?;
 
-    let Some((id, title, body, created_at, kind, mood, tags_str, task_id)) = row else {
+    let Some((id, title, body, created_at, kind, mood, tags_str, task_id, pinned)) = row else {
         return Err(AppError::NotFound);
     };
 
@@ -218,6 +223,7 @@ pub fn journal_entry(conn: &Connection, id: &str, _now: i64, tz: &TimeZone) -> R
         created_at,
         when,
         task_id,
+        pinned: pinned != 0,
     })
 }
 
@@ -255,16 +261,7 @@ pub fn update_entry(
         None => None,
     };
 
-    let exists: bool = conn
-        .query_row(
-            "SELECT 1 FROM items WHERE id = ?1 AND type = 'note' AND deleted_at IS NULL",
-            [id],
-            |_| Ok(true),
-        )
-        .optional()?
-        .unwrap_or(false);
-
-    if !exists {
+    if !note_exists(conn, id, false)? {
         return Err(AppError::NotFound);
     }
 
@@ -283,10 +280,46 @@ pub fn update_entry(
     if let Some(tags) = normalized_tags {
         conn.execute("UPDATE journal_entries SET tags = ?1 WHERE item_id = ?2", params![tags, id])?;
     }
+    if let Some(pinned) = patch.pinned {
+        conn.execute("UPDATE journal_entries SET pinned = ?1 WHERE item_id = ?2", params![pinned, id])?;
+    }
 
     conn.execute("UPDATE items SET updated_at = ?2 WHERE id = ?1", params![id, now])?;
 
     journal_entry(conn, id, now, tz)
+}
+
+fn note_exists(conn: &Connection, id: &str, include_deleted: bool) -> Result<bool, AppError> {
+    let sql = if include_deleted {
+        "SELECT 1 FROM items WHERE id = ?1 AND type = 'note'"
+    } else {
+        "SELECT 1 FROM items WHERE id = ?1 AND type = 'note' AND deleted_at IS NULL"
+    };
+    Ok(conn.query_row(sql, [id], |_| Ok(())).optional()?.is_some())
+}
+
+/// Soft delete (V1). Tasks made from ideas and habit checks stay (V2).
+pub fn delete_entry(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
+    if !note_exists(conn, id, false)? {
+        return Err(AppError::NotFound);
+    }
+    conn.execute(
+        "UPDATE items SET deleted_at = ?2, updated_at = ?2 WHERE id = ?1 AND deleted_at IS NULL",
+        params![id, now],
+    )?;
+    Ok(())
+}
+
+/// Undo for `delete_entry`; a live entry is left alone.
+pub fn restore_entry(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
+    if !note_exists(conn, id, true)? {
+        return Err(AppError::NotFound);
+    }
+    conn.execute(
+        "UPDATE items SET deleted_at = NULL, updated_at = ?2 WHERE id = ?1 AND deleted_at IS NOT NULL",
+        params![id, now],
+    )?;
+    Ok(())
 }
 
 pub fn entry_to_task(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result<Entry, AppError> {
@@ -322,7 +355,7 @@ pub fn journal_list(
     tz: &TimeZone,
 ) -> Result<Vec<Group>, AppError> {
     let mut sql = String::from(
-        "SELECT i.id, i.title, i.body, i.created_at, j.kind, j.mood
+        "SELECT i.id, i.title, i.body, i.created_at, j.kind, j.mood, COALESCE(j.pinned, 0)
          FROM items i
          LEFT JOIN journal_entries j ON j.item_id = i.id
          WHERE i.type = 'note' AND i.deleted_at IS NULL",
@@ -338,6 +371,23 @@ pub fn journal_list(
         });
     }
 
+    if let Some(mood) = query.mood {
+        if !(1..=5).contains(&mood) {
+            return Err(AppError::Invalid(format!("Suasana hati harus antara 1 dan 5: {mood}")));
+        }
+        sql.push_str(" AND j.mood = ?");
+        params_vec.push(i64::from(mood).into());
+    }
+    if let Some(raw) = &query.tag {
+        let tag = normalize_tags(raw)?;
+        if tag.is_empty() || tag.contains(' ') {
+            return Err(AppError::Invalid("Saring satu tag saja".into()));
+        }
+        // Padding matches whole space-separated tags, so kerja excludes kerjaan.
+        sql.push_str(" AND (' ' || COALESCE(j.tags, '') || ' ') LIKE ?");
+        params_vec.push(format!("% {tag} %").into());
+    }
+
     if let Some(ref q) = query.query {
         let trimmed = q.trim();
         if !trimmed.is_empty() {
@@ -348,7 +398,7 @@ pub fn journal_list(
         }
     }
 
-    sql.push_str(" ORDER BY i.created_at DESC, i.id DESC");
+    sql.push_str(" ORDER BY COALESCE(j.pinned, 0) DESC, i.created_at DESC, i.id DESC");
 
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |r| {
@@ -359,6 +409,7 @@ pub fn journal_list(
             r.get::<_, i64>(3)?,
             r.get::<_, Option<EntryKind>>(4)?,
             r.get::<_, Option<i8>>(5)?,
+            r.get::<_, i64>(6)?,
         ))
     })?;
 
@@ -366,12 +417,14 @@ pub fn journal_list(
     let mut groups: Vec<Group> = Vec::new();
 
     for row in rows {
-        let (id, title, body, created_at, kind, mood) = row?;
+        let (id, title, body, created_at, kind, mood, pinned) = row?;
         let entry_zoned = Timestamp::from_millisecond(created_at)?.to_zoned(tz.clone());
         let entry_date = entry_zoned.date();
         let diff_days = today.since(entry_date).map(|s| s.get_days()).unwrap_or(0);
 
-        let (group_key, group_label) = if diff_days <= 0 {
+        let (group_key, group_label) = if pinned != 0 {
+            ("pinned".to_string(), "Disematkan".to_string())
+        } else if diff_days <= 0 {
             ("today".to_string(), "Hari ini".to_string())
         } else if diff_days == 1 {
             ("yesterday".to_string(), "Kemarin".to_string())
@@ -521,6 +574,174 @@ mod tests {
     use crate::habits::HabitInput;
 
     #[test]
+    fn delete_hides_entry_and_restore_brings_it_back() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let e = create_entry(&conn, EntryKind::Note, Some("Hapus aku"), t, &tz).unwrap();
+
+        delete_entry(&conn, &e.id, t + 1).unwrap();
+        assert!(matches!(journal_entry(&conn, &e.id, t, &tz), Err(AppError::NotFound)));
+        let groups = journal_list(&conn, &ListQuery::default(), t, &tz).unwrap();
+        assert!(groups.iter().all(|g| g.entries.iter().all(|x| x.id != e.id)));
+        let timestamps = || {
+            conn.query_row("SELECT deleted_at, updated_at FROM items WHERE id = ?1", [&e.id], |r| {
+                Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, i64>(1)?))
+            }).unwrap()
+        };
+        assert_eq!(timestamps(), (Some(t + 1), t + 1));
+        assert!(matches!(delete_entry(&conn, &e.id, t + 2), Err(AppError::NotFound)));
+        assert_eq!(timestamps(), (Some(t + 1), t + 1));
+
+        restore_entry(&conn, &e.id, t + 2).unwrap();
+        assert_eq!(journal_entry(&conn, &e.id, t, &tz).unwrap().title, "Hapus aku");
+        assert_eq!(timestamps(), (None, t + 2));
+        let groups = journal_list(&conn, &ListQuery::default(), t, &tz).unwrap();
+        assert_eq!(groups[0].entries[0].id, e.id);
+        restore_entry(&conn, &e.id, t + 3).unwrap();
+        assert_eq!(timestamps(), (None, t + 2));
+    }
+
+    #[test]
+    fn delete_rejects_unknown_and_non_note_items() {
+        let conn = open_in_memory();
+        let t = now();
+        assert!(matches!(delete_entry(&conn, "missing", t), Err(AppError::NotFound)));
+        assert!(matches!(restore_entry(&conn, "missing", t), Err(AppError::NotFound)));
+        for kind in ["task", "page", "habit"] {
+            let id = items::insert(&conn, kind, "Item lain", "", t).unwrap();
+            assert!(matches!(delete_entry(&conn, &id, t + 1), Err(AppError::NotFound)));
+            assert!(matches!(restore_entry(&conn, &id, t + 1), Err(AppError::NotFound)));
+            assert_eq!(items::get(&conn, &id).unwrap().updated_at, t);
+            items::delete(&conn, &id, t + 1).unwrap();
+            assert!(matches!(restore_entry(&conn, &id, t + 2), Err(AppError::NotFound)));
+            assert!(matches!(items::get(&conn, &id), Err(AppError::NotFound)));
+        }
+    }
+
+    #[test]
+    fn delete_keeps_task_made_from_idea() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let idea = create_entry(&conn, EntryKind::Idea, Some("Ide"), t, &tz).unwrap();
+        let task_id = entry_to_task(&conn, &idea.id, t, &tz).unwrap().task_id.unwrap();
+        delete_entry(&conn, &idea.id, t + 1).unwrap();
+        assert_eq!(items::get(&conn, &task_id).unwrap().updated_at, t);
+        restore_entry(&conn, &idea.id, t + 2).unwrap();
+        assert_eq!(journal_entry(&conn, &idea.id, t, &tz).unwrap().task_id.as_deref(), Some(task_id.as_str()));
+        assert!(matches!(entry_to_task(&conn, &idea.id, t + 3, &tz), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
+    fn pinned_entries_come_first_in_their_own_group() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let a = create_entry(&conn, EntryKind::Note, Some("Lama"), t - 3 * 86_400_000, &tz).unwrap();
+        let b = create_entry(&conn, EntryKind::Note, Some("Baru"), t, &tz).unwrap();
+        assert!(!a.pinned);
+        let patch = EntryPatch { pinned: Some(true), ..Default::default() };
+        assert!(update_entry(&conn, &a.id, &patch, t, &tz).unwrap().pinned);
+
+        let groups = journal_list(&conn, &ListQuery::default(), t, &tz).unwrap();
+        assert_eq!(groups[0].key, "pinned");
+        assert_eq!(groups[0].label, "Disematkan");
+        assert_eq!(groups[0].entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), vec![a.id.as_str()]);
+        assert!(groups[1..].iter().all(|g| g.entries.iter().all(|e| e.id != a.id)));
+        assert!(groups[1..].iter().any(|g| g.entries.iter().any(|e| e.id == b.id)));
+
+        update_entry(&conn, &b.id, &patch, t, &tz).unwrap();
+        let groups = journal_list(&conn, &ListQuery::default(), t, &tz).unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), [b.id.as_str(), a.id.as_str()]);
+
+        let patch = EntryPatch { pinned: Some(false), ..Default::default() };
+        assert!(!update_entry(&conn, &a.id, &patch, t + 1, &tz).unwrap().pinned);
+        update_entry(&conn, &b.id, &patch, t + 1, &tz).unwrap();
+        let groups = journal_list(&conn, &ListQuery::default(), t, &tz).unwrap();
+        assert_eq!(groups.iter().map(|g| g.key.as_str()).collect::<Vec<_>>(), ["today", "last7"]);
+    }
+
+    #[test]
+    fn list_filters_by_tag_and_mood() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let a = create_entry(&conn, EntryKind::Note, Some("A"), t, &tz).unwrap();
+        let b = create_entry(&conn, EntryKind::Note, Some("B"), t, &tz).unwrap();
+        let c = create_entry(&conn, EntryKind::Note, Some("C"), t, &tz).unwrap();
+        let tag = |s: &str, m: i8| EntryPatch { tags: Some(s.into()), mood: Some(Some(m)), ..Default::default() };
+        update_entry(&conn, &a.id, &tag("kerja rumah", 4), t, &tz).unwrap();
+        update_entry(&conn, &b.id, &tag("kerjaan", 4), t, &tz).unwrap();
+        update_entry(&conn, &c.id, &tag("kerja", 2), t, &tz).unwrap();
+
+        let ids = |q: ListQuery| -> Vec<String> {
+            let mut v: Vec<String> = journal_list(&conn, &q, t, &tz).unwrap()
+                .into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+            v.sort();
+            v
+        };
+        let mut want = vec![a.id.clone(), c.id.clone()];
+        want.sort();
+        assert_eq!(ids(ListQuery { tag: Some("#Kerja".into()), ..Default::default() }), want);
+        assert_eq!(ids(ListQuery { tag: Some("rumah".into()), ..Default::default() }), vec![a.id.clone()]);
+        assert_eq!(ids(ListQuery { tag: Some("kerja".into()), mood: Some(4), ..Default::default() }), vec![a.id.clone()]);
+        for mood in [0, 6, 9] {
+            assert!(matches!(journal_list(&conn, &ListQuery { mood: Some(mood), ..Default::default() }, t, &tz), Err(AppError::Invalid(_))));
+        }
+        for tag in ["", "#", "dua kata", "%", "ker_ja", "kerja'"] {
+            assert!(matches!(journal_list(&conn, &ListQuery { tag: Some(tag.into()), ..Default::default() }, t, &tz), Err(AppError::Invalid(_))));
+        }
+    }
+
+    #[test]
+    fn list_combines_all_filters_including_pinned_entries() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let patch = EntryPatch { tags: Some("kerja".into()), mood: Some(Some(4)), pinned: Some(true), ..Default::default() };
+        let mut matching = Vec::new();
+        for (kind, title) in [(EntryKind::Idea, "Kopi lama"), (EntryKind::Vent, "Kopi curhat"), (EntryKind::Idea, "Teh"), (EntryKind::Idea, "Kopi baru")] {
+            let entry = create_entry(&conn, kind, Some(title), t, &tz).unwrap();
+            update_entry(&conn, &entry.id, &patch, t, &tz).unwrap();
+            if kind == EntryKind::Idea && title.starts_with("Kopi") {
+                matching.push(entry.id);
+            }
+        }
+        let query = ListQuery { query: Some("KOPI".into()), kind: Some(EntryKind::Idea), tag: Some("#Kerja".into()), mood: Some(4) };
+        let groups = journal_list(&conn, &query, t, &tz).unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].key, "pinned");
+        matching.reverse();
+        assert_eq!(groups[0].entries.iter().map(|e| &e.id).collect::<Vec<_>>(), matching.iter().collect::<Vec<_>>());
+        let no_match = ListQuery { mood: Some(1), ..query };
+        assert!(journal_list(&conn, &no_match, t, &tz).unwrap().is_empty());
+    }
+
+    #[test]
+    fn deleting_journal_keeps_habit_checks_and_deleted_notes_cannot_check_habits() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let habit = habits::save_habit(&conn, &HabitInput { name: "Jurnal".into(), days: 127, auto_journal: true, ..Default::default() }, t, &tz).unwrap();
+        let entry = create_entry(&conn, EntryKind::Note, Some("Refleksi"), t, &tz).unwrap();
+        items::update(&conn, &entry.id, &items::ItemPatch { body: Some("Isi refleksi".into()), ..Default::default() }, t).unwrap();
+        after_note_saved(&conn, &entry.id, t, &tz).unwrap();
+        assert!(habits::habits_overview(&conn, t, &tz).unwrap().habits[0].done_today);
+
+        delete_entry(&conn, &entry.id, t + 1).unwrap();
+        assert!(habits::habits_overview(&conn, t, &tz).unwrap().habits[0].done_today);
+        habits::check_habit(&conn, &habit.id, false, t + 2, &tz).unwrap();
+        after_note_saved(&conn, &entry.id, t + 3, &tz).unwrap();
+        assert!(!habits::habits_overview(&conn, t, &tz).unwrap().habits[0].done_today);
+        restore_entry(&conn, &entry.id, t + 4).unwrap();
+        assert!(!habits::habits_overview(&conn, t, &tz).unwrap().habits[0].done_today);
+        after_note_saved(&conn, &entry.id, t + 5, &tz).unwrap();
+        assert!(habits::habits_overview(&conn, t, &tz).unwrap().habits[0].done_today);
+    }
+
+    #[test]
     fn old_notes_are_journal_notes() {
         let conn = open_in_memory();
         let tz = jakarta();
@@ -532,6 +753,7 @@ mod tests {
         let entry = journal_entry(&conn, &note_id, current, &tz).unwrap();
         assert_eq!(entry.kind, EntryKind::Note);
         assert_eq!(entry.mood, None);
+        assert!(!entry.pinned);
         assert!(entry.tags.is_empty());
         assert_eq!(entry.title, "Catatan lama");
         assert_eq!(entry.body, "Isi lama");
@@ -541,6 +763,11 @@ mod tests {
         assert_eq!(groups[0].entries.len(), 1);
         assert_eq!(groups[0].entries[0].kind, EntryKind::Note);
         assert_eq!(groups[0].entries[0].title, "Catatan lama");
+
+        update_entry(&conn, &note_id, &EntryPatch { pinned: Some(true), ..Default::default() }, current, &tz).unwrap();
+        delete_entry(&conn, &note_id, current + 1).unwrap();
+        restore_entry(&conn, &note_id, current + 2).unwrap();
+        assert!(journal_entry(&conn, &note_id, current, &tz).unwrap().pinned);
     }
 
     #[test]
@@ -620,6 +847,7 @@ mod tests {
             &ListQuery {
                 query: Some("kopi".into()),
                 kind: None,
+                ..Default::default()
             },
             current,
             &tz,
@@ -633,6 +861,7 @@ mod tests {
             &ListQuery {
                 query: Some("KOPI".into()),
                 kind: None,
+                ..Default::default()
             },
             current,
             &tz,
@@ -647,6 +876,7 @@ mod tests {
             &ListQuery {
                 query: Some("buku".into()),
                 kind: None,
+                ..Default::default()
             },
             current,
             &tz,
@@ -660,6 +890,7 @@ mod tests {
             &ListQuery {
                 query: None,
                 kind: Some(EntryKind::Idea),
+                ..Default::default()
             },
             current,
             &tz,
@@ -673,6 +904,7 @@ mod tests {
             &ListQuery {
                 query: None,
                 kind: Some(EntryKind::Vent),
+                ..Default::default()
             },
             current,
             &tz,
@@ -686,6 +918,7 @@ mod tests {
             &ListQuery {
                 query: None,
                 kind: Some(EntryKind::Note),
+                ..Default::default()
             },
             current,
             &tz,
@@ -1011,18 +1244,27 @@ mod tests {
         update_entry(&conn, &gone.id, &EntryPatch { mood: Some(Some(1)), ..Default::default() }, now(), &tz).unwrap();
         let yesterday = create_entry(&conn, EntryKind::Vent, Some("Kemarin dihapus"), ms("2026-09-28T23:59:59.999+07:00"), &tz).unwrap();
         for id in [&gone.id, &yesterday.id] {
-            items::delete(&conn, id, now()).unwrap();
+            update_entry(&conn, id, &EntryPatch { pinned: Some(true), tags: Some("hilang".into()), ..Default::default() }, now(), &tz).unwrap();
+            delete_entry(&conn, id, now()).unwrap();
+            let changes = conn.total_changes();
             assert!(matches!(journal_entry(&conn, id, now(), &tz), Err(AppError::NotFound)));
-            assert!(matches!(update_entry(&conn, id, &EntryPatch::default(), now(), &tz), Err(AppError::NotFound)));
+            assert!(matches!(update_entry(&conn, id, &EntryPatch { pinned: Some(false), kind: Some(EntryKind::Note), mood: Some(Some(3)), tags: Some("diubah".into()) }, now(), &tz), Err(AppError::NotFound)));
+            assert!(matches!(items::update(&conn, id, &items::ItemPatch { title: Some("Diubah".into()), body: Some("Isi diubah".into()), ..Default::default() }, now()), Err(AppError::NotFound)));
             assert!(matches!(entry_to_task(&conn, id, now(), &tz), Err(AppError::NotFound)));
+            assert_eq!(conn.total_changes(), changes);
         }
         let groups = journal_list(&conn, &ListQuery::default(), now(), &tz).unwrap();
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].entries.iter().map(|entry| entry.id.as_str()).collect::<Vec<_>>(), [live.id.as_str()]);
         for kind in [None, Some(EntryKind::Idea), Some(EntryKind::Vent)] {
-            let query = ListQuery { query: Some("dihapus".into()), kind };
+            let query = ListQuery { query: Some("dihapus".into()), kind, ..Default::default() };
             assert!(journal_list(&conn, &query, now(), &tz).unwrap().is_empty());
         }
+        for query in [ListQuery { tag: Some("hilang".into()), ..Default::default() }, ListQuery { mood: Some(1), ..Default::default() }] {
+            assert!(journal_list(&conn, &query, now(), &tz).unwrap().is_empty());
+        }
+        assert_eq!(items::list_inbox(&conn).unwrap().iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), [live.id.as_str()]);
+        assert!(crate::search::search(&conn, "dihapus", false, 50).unwrap().is_empty());
         let side = journal_side(&conn, now(), &tz).unwrap();
         assert_eq!(side.write_days, 1);
         assert_eq!(side.trend.last().unwrap().mood, Some(5));

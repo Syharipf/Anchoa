@@ -76,7 +76,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 12 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 13 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -599,6 +599,53 @@ check_journal() {
   stop_app
 }
 
+check_journal_v2() {
+  fresh
+  start_app
+
+  click 36 148                  # nav: Jurnal
+  sleep 1
+  local title
+  for title in 'Entri e2e lain' 'Entri e2e hapus'; do
+    click 1215 104              # tombol Tulis
+    sleep 1
+    click 480 235               # judul
+    xdotool type --delay 20 "$title"
+    sleep 1.5
+    sql_becomes "SELECT count(*) FROM items WHERE title = '$title' AND deleted_at IS NULL" "1" \
+      || fail "journal entry $title not saved"
+  done
+
+  click 927 179                 # Hapus entri (ikon tempat sampah)
+  sql_becomes "SELECT deleted_at IS NOT NULL FROM items WHERE title = 'Entri e2e hapus'" "1" \
+    || fail "journal entry not soft-deleted"
+  shot 16-journal-deleted
+
+  click 687 765                 # toast: Urungkan
+  sql_becomes "SELECT deleted_at IS NULL FROM items WHERE title = 'Entri e2e hapus'" "1" \
+    || fail "journal entry not restored"
+  sleep 1
+
+  click 891 179                 # Sematkan (ikon pin)
+  sql_becomes "SELECT pinned FROM journal_entries j JOIN items i ON i.id = j.item_id WHERE i.title = 'Entri e2e hapus'" "1" \
+    || fail "journal entry not pinned"
+  sleep 1
+  shot 16-journal-pinned
+
+  click 475 621                 # #tambah-tag
+  xdotool type --delay 20 'e2e'
+  xdotool key Return
+  sql_becomes "SELECT tags FROM journal_entries j JOIN items i ON i.id = j.item_id WHERE i.title = 'Entri e2e hapus'" "e2e" \
+    || fail "journal tag not saved"
+  sleep 1
+
+  click 454 620                 # tag #e2e di editor: saring daftar
+  sleep 1.5
+  shot 16-journal-tag-filter
+
+  stop_app
+}
+
 # Runs the app with a throwaway HOME, so the file manager never sees or
 # trashes the real user's files.
 # Waits up to $2 seconds for the download whose URL ends in $1 to reach status done.
@@ -1114,6 +1161,7 @@ check_projects
 check_schedule
 check_habits
 check_journal
+check_journal_v2
 check_files
 check_downloads
 check_notes

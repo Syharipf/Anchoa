@@ -4,10 +4,12 @@ import { parseTag } from "./view";
 export function TagInput({
   tags,
   onChange,
+  onTagClick,
   disabled = false,
 }: Readonly<{
   tags: readonly string[];
   onChange: (tags: string[]) => void;
+  onTagClick: (tag: string) => void;
   disabled?: boolean;
 }>) {
   const [inputVal, setInputVal] = useState("");
@@ -36,7 +38,14 @@ export function TagInput({
           key={tag}
           className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-muted"
         >
-          <span>#{tag}</span>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onTagClick(tag)}
+            className="hover:text-ink disabled:text-disabled"
+          >
+            #{tag}
+          </button>
           {!disabled && (
             <button
               type="button"

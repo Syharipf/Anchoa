@@ -20,6 +20,10 @@ struct Extension {
     references: &'static [&'static str],
 }
 
+/// Extension columns added after sync schema 12, with the value an older record
+/// that lacks them gets.
+const ADDED_COLUMNS: &[(&str, &str, i64)] = &[("journal_entries", "pinned", 0)];
+
 const EXTENSIONS: &[Extension] = &[
     Extension {
         kind: "task",
@@ -46,7 +50,7 @@ const EXTENSIONS: &[Extension] = &[
     Extension {
         kind: "note",
         table: "journal_entries",
-        columns: &["item_id", "kind", "mood", "tags", "task_id"],
+        columns: &["item_id", "kind", "mood", "tags", "task_id", "pinned"],
         references: &["task_id"],
     },
 ];
@@ -248,15 +252,24 @@ fn missing_parent(conn: &Connection, id: &str, parent: Option<&str>) -> Result<O
 }
 
 fn extension_values(ext: &Extension, values: &Map<String, Value>, id: &str) -> Result<Vec<SqlValue>, AppError> {
-    if values.len() != ext.columns.len() || values.get("item_id").and_then(Value::as_str) != Some(id) {
+    if values.keys().any(|key| !ext.columns.contains(&key.as_str()))
+        || values.get("item_id").and_then(Value::as_str) != Some(id)
+    {
         return Err(invalid_record());
     }
+    let added = |column: &str| {
+        ADDED_COLUMNS
+            .iter()
+            .find(|(table, name, _)| *table == ext.table && *name == column)
+            .map(|(_, _, default)| SqlValue::Integer(*default))
+    };
     ext.columns
         .iter()
         .map(|column| match values.get(*column) {
             Some(Value::Null) => Ok(SqlValue::Null),
             Some(Value::String(value)) => Ok(SqlValue::Text(value.clone())),
             Some(Value::Number(value)) => value.as_i64().map(SqlValue::Integer).ok_or_else(invalid_record),
+            None => added(column).ok_or_else(invalid_record),
             _ => Err(invalid_record()),
         })
         .collect()
@@ -474,7 +487,7 @@ mod tests {
         ("budget", "budgets", "INSERT INTO budgets VALUES ('budget', NULL, 5000)", "amount = 6000"),
         ("habit", "habits", "INSERT INTO habits VALUES ('habit', 127, '08:00', 1, 1)", "days = 31"),
         ("task", "tasks", "INSERT INTO tasks VALUES ('task', 'doing', 'project', 90, 'tag')", "status = 'review'"),
-        ("note", "journal_entries", "INSERT INTO journal_entries VALUES ('note', 'idea', 4, 'tag', 'task')", "mood = 5"),
+        ("note", "journal_entries", "INSERT INTO journal_entries (item_id, kind, mood, tags, task_id) VALUES ('note', 'idea', 4, 'tag', 'task')", "mood = 5"),
     ];
 
     fn insert_item(conn: &Connection, id: &str, kind: &str) {
@@ -565,7 +578,7 @@ mod tests {
             only_outbox(&conn, kind);
             let record = export(&conn, kind).unwrap().unwrap();
             assert!(record.deleted);
-            assert_eq!(document(&record), json!({"schema":12,"tombstone":true,"id":kind}));
+            assert_eq!(document(&record), json!({"schema":schema(&conn).unwrap(),"tombstone":true,"id":kind}));
         }
     }
 
@@ -732,7 +745,7 @@ mod tests {
         only_outbox(&conn, "hc:habit:2026-10-02");
         let record = export(&conn, "hc:habit:2026-10-02").unwrap().unwrap();
         assert!(record.deleted);
-        assert_eq!(document(&record), json!({"schema":12,"tombstone":true,"id":record.id}));
+        assert_eq!(document(&record), json!({"schema":schema(&conn).unwrap(),"tombstone":true,"id":record.id}));
     }
 
     #[test]
@@ -820,6 +833,50 @@ mod tests {
     }
 
     #[test]
+    fn journal_pin_delete_and_restore_enqueue_and_round_trip() {
+        use crate::{finance::testing::{jakarta, now}, journal};
+        let source = open_in_memory();
+        let destination = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let entry = journal::create_entry(&source, journal::EntryKind::Note, Some("Disematkan"), t, &tz).unwrap();
+        clear_outbox(&source);
+        // Pinning at the same timestamp still needs to enqueue the extension change.
+        journal::update_entry(&source, &entry.id, &journal::EntryPatch { pinned: Some(true), ..Default::default() }, t, &tz).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(document(&record)["ext"]["pinned"], 1);
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(journal::journal_entry(&destination, &entry.id, t, &tz).unwrap().pinned);
+
+        clear_outbox(&source);
+        journal::update_entry(&source, &entry.id, &journal::EntryPatch { pinned: Some(true), ..Default::default() }, t, &tz).unwrap();
+        assert!(outbox(&source).is_empty());
+
+        clear_outbox(&source);
+        journal::delete_entry(&source, &entry.id, t + 1).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(matches!(journal::journal_entry(&destination, &entry.id, t, &tz), Err(AppError::NotFound)));
+
+        clear_outbox(&source);
+        journal::restore_entry(&source, &entry.id, t + 2).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(journal::journal_entry(&destination, &entry.id, t, &tz).unwrap().pinned);
+
+        clear_outbox(&source);
+        journal::update_entry(&source, &entry.id, &journal::EntryPatch { pinned: Some(false), ..Default::default() }, t + 3, &tz).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(!journal::journal_entry(&destination, &entry.id, t, &tz).unwrap().pinned);
+        assert!(outbox(&destination).is_empty());
+    }
+
+    #[test]
     fn journal_extension_upsert_conversion_and_auto_habit_check_enqueue_records() {
         use crate::journal;
         let conn = open_in_memory();
@@ -837,7 +894,7 @@ mod tests {
         journal::update_entry(
             &conn,
             &note.id,
-            &journal::EntryPatch { kind: Some(journal::EntryKind::Idea), mood: Some(Some(5)), tags: Some("tag".into()) },
+            &journal::EntryPatch { kind: Some(journal::EntryKind::Idea), mood: Some(Some(5)), tags: Some("tag".into()), ..Default::default() },
             now,
             &tz,
         )
@@ -935,7 +992,7 @@ mod tests {
         for id in ["project", "account", "bill", "transaction", "budget", "habit", "task", "note", "page", "hc:habit:2026-10-02"] {
             let record = export(&source, id).unwrap().unwrap();
             let value = document(&record);
-            assert_eq!(value["schema"], 12);
+            assert_eq!(value["schema"], schema(&source).unwrap());
             assert!(value["item"].get("opened_at").is_none());
             for field in ["agent", "agent_command", "agent_dir"] {
                 assert!(value["ext"].get(field).is_none());
@@ -1035,13 +1092,38 @@ mod tests {
     }
 
     #[test]
+    fn schema_12_journal_record_without_pinned_still_applies() {
+        use crate::{finance::testing::{jakarta, now}, journal};
+        let source = open_in_memory();
+        let destination = open_in_memory();
+        let tz = jakarta();
+        let entry = journal::create_entry(&source, journal::EntryKind::Idea, Some("Lama"), now(), &tz).unwrap();
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        let mut value = document(&record);
+        value["schema"] = json!(12);
+        value["ext"].as_object_mut().unwrap().remove("pinned");
+        assert_eq!(apply(&destination, &with_document(&record, value.clone())).unwrap(), Applied::Done);
+        let applied = journal::journal_entry(&destination, &entry.id, now(), &tz).unwrap();
+        assert_eq!(applied.kind, journal::EntryKind::Idea);
+        assert!(!applied.pinned);
+
+        // Only columns added after schema 12 may be missing, and unknown ones never pass.
+        let mut missing_mood = value.clone();
+        missing_mood["ext"].as_object_mut().unwrap().remove("mood");
+        assert!(apply(&destination, &with_document(&record, missing_mood)).is_err());
+        let mut unknown = value;
+        unknown["ext"]["extra"] = json!(1);
+        assert!(apply(&destination, &with_document(&record, unknown)).is_err());
+    }
+
+    #[test]
     fn newer_schema_is_deferred_before_reading_unknown_fields() {
         let conn = open_in_memory();
         let record = Record {
             id: "future".into(),
             changed_at: 99,
             deleted: false,
-            payload: Some(compress_to_vec(br#"{"schema":13,"future":true}"#, 6)),
+            payload: Some(compress_to_vec(&serde_json::to_vec(&json!({"schema":schema(&conn).unwrap() + 1,"future":true})).unwrap(), 6)),
         };
         assert_eq!(apply(&conn, &record).unwrap(), Applied::NewerSchema);
         assert_eq!(applying(&conn), "0");

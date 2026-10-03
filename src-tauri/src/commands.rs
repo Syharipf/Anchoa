@@ -462,8 +462,10 @@ pub fn journal_list(
     db: State<'_, Db>,
     query: Option<String>,
     kind: Option<EntryKind>,
+    tag: Option<String>,
+    mood: Option<i8>,
 ) -> Result<JournalList, AppError> {
-    let q = ListQuery { query, kind };
+    let q = ListQuery { query, kind, tag, mood };
     let groups = journal::journal_list(&*db.conn()?, &q, time::now_ms(), &TimeZone::system())?;
     Ok(JournalList { groups })
 }
@@ -494,6 +496,16 @@ pub fn update_entry(
 #[tauri::command]
 pub fn entry_to_task(db: State<'_, Db>, id: String) -> Result<Entry, AppError> {
     journal::entry_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_entry(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    journal::delete_entry(&*db.conn()?, &id, time::now_ms())
+}
+
+#[tauri::command]
+pub fn restore_entry(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    journal::restore_entry(&*db.conn()?, &id, time::now_ms())
 }
 
 #[tauri::command]

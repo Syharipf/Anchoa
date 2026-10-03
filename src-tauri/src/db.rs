@@ -19,6 +19,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/010_activities.sql"),
     include_str!("../migrations/011_emails.sql"),
     include_str!("../migrations/012_sync.sql"),
+    include_str!("../migrations/013_journal_pinned.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -452,7 +453,7 @@ mod tests {
         drop(conn);
 
         let conn = open(&path).unwrap();
-        assert_eq!(version(&conn), 12);
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
         let backup = Connection::open(dir.path().join("anchoa.db.bak-v11")).unwrap();
         assert_eq!(version(&backup), 11);
         assert_eq!(conn.query_row("SELECT title, opened_at FROM items WHERE id = 'h1'", [], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))).unwrap(), ("Baca".into(), 30));
@@ -476,6 +477,26 @@ mod tests {
         drop(conn);
         let conn = open(&path).unwrap();
         assert_eq!(conn.query_row("SELECT value FROM sync_state WHERE key = 'device_id'", [], |r| r.get::<_, String>(0)).unwrap(), device_id);
+    }
+
+    #[test]
+    fn version_12_database_upgrades_to_pinned_journal_without_losing_data() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        configure(&conn).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..12], None).unwrap();
+        conn.execute_batch(
+            "INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('n1', 'note', 'lama', 1, 2);
+             INSERT INTO journal_entries (item_id, kind, mood, tags) VALUES ('n1', 'idea', 4, 'kerja');",
+        ).unwrap();
+        migrate(&mut conn, MIGRATIONS, None).unwrap();
+        assert_eq!(version(&conn), 13);
+        let entry = crate::journal::journal_entry(&conn, "n1", crate::finance::testing::now(), &crate::finance::testing::jakarta()).unwrap();
+        assert_eq!(entry.title, "lama");
+        assert_eq!(entry.kind, crate::journal::EntryKind::Idea);
+        assert_eq!(entry.mood, Some(4));
+        assert_eq!(entry.tags, ["kerja"]);
+        assert!(!entry.pinned);
+        assert!(conn.execute("UPDATE journal_entries SET pinned = NULL WHERE item_id = 'n1'", []).is_err());
     }
 
     #[test]

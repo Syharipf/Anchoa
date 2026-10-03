@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { EntryKind, EntrySummary, Group } from "../api";
+import type { EntryKind, EntrySummary, Group, JournalFilter } from "../api";
 import { KIND_META, MOODS, moodBars } from "./view";
 
 const FILTERS: readonly { readonly id: EntryKind | undefined; readonly label: string }[] = [
@@ -87,19 +87,16 @@ export function EntryList({
   groups,
   selectedId,
   onSelect,
-  query,
-  onQueryChange,
-  kindFilter,
-  onKindFilterChange,
+  filter,
+  onFilterChange,
 }: Readonly<{
   groups: readonly Group[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  query: string;
-  onQueryChange: (q: string) => void;
-  kindFilter: EntryKind | undefined;
-  onKindFilterChange: (kind: EntryKind | undefined) => void;
+  filter: JournalFilter;
+  onFilterChange: (patch: Partial<JournalFilter>) => void;
 }>) {
+  const query = filter.query ?? "";
   const [localQuery, setLocalQuery] = useState(query);
 
   useEffect(() => {
@@ -109,12 +106,13 @@ export function EntryList({
   // Debounce search input by 250ms
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      onQueryChange(localQuery);
+      if (localQuery !== query) onFilterChange({ query: localQuery || undefined });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [localQuery, onQueryChange]);
+  }, [localQuery, query, onFilterChange]);
 
   const totalEntries = groups.reduce((acc, g) => acc + g.entries.length, 0);
+  const filtered = Boolean(filter.query || filter.kind || filter.tag || filter.mood);
 
   return (
     <section
@@ -150,14 +148,14 @@ export function EntryList({
       <fieldset className="m-0 flex flex-wrap gap-1 border-0 p-0">
         <legend className="sr-only">Saring jenis</legend>
         {FILTERS.map((f) => {
-          const active = kindFilter === f.id;
+          const active = filter.kind === f.id;
           const bgClass = active ? "bg-surface-2 text-ink font-medium" : "text-muted hover:bg-surface-2";
           return (
             <button
               key={f.label}
               type="button"
               aria-pressed={active}
-              onClick={() => onKindFilterChange(f.id)}
+              onClick={() => onFilterChange({ kind: f.id })}
               className={`flex min-h-7 items-center rounded-md px-2.5 text-xs transition-colors ${bgClass}`}
             >
               {f.label}
@@ -166,11 +164,64 @@ export function EntryList({
         })}
       </fieldset>
 
+      <fieldset className="m-0 flex flex-wrap gap-1 border-0 p-0">
+        <legend className="sr-only">Saring suasana hati</legend>
+        {MOODS.map((label, index) => {
+          const mood = index + 1;
+          const active = filter.mood === mood;
+          const colors = active ? "bg-surface-2 text-ink font-medium" : "text-muted hover:bg-surface-2";
+          return (
+            <button
+              key={mood}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onFilterChange({ mood: active ? undefined : mood })}
+              className={`min-h-7 rounded-md px-2 text-xs transition-colors ${colors}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </fieldset>
+
+      {(filter.tag || filter.mood) && (
+        <div aria-label="Saringan aktif" className="flex flex-wrap gap-1.5">
+          {filter.tag && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-muted">
+              #{filter.tag}
+              <button
+                type="button"
+                aria-label={`Hapus saringan tag ${filter.tag}`}
+                onClick={() => onFilterChange({ tag: undefined })}
+                className="ml-0.5 min-h-6 min-w-6 text-xs hover:text-ink"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filter.mood && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
+              Suasana {filter.mood}
+              <button
+                type="button"
+                aria-label="Hapus saringan suasana hati"
+                onClick={() => onFilterChange({ mood: undefined })}
+                className="ml-0.5 min-h-6 min-w-6 hover:text-ink"
+              >
+                ×
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Groups & Entries */}
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-0.5">
         {totalEntries === 0 ? (
           <p className="p-3 text-xs leading-relaxed text-muted">
-            Belum ada entri. Mulai dari pemantik di kanan, atau tekan Tulis.
+            {filtered
+              ? "Tidak ada entri yang cocok dengan saringan."
+              : "Belum ada entri. Mulai dari pemantik di kanan, atau tekan Tulis."}
           </p>
         ) : (
           groups.map((group) => (

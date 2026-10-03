@@ -39,7 +39,7 @@ export function EntryEditor({
   onOpenTask: (taskId: string) => void;
   onAfterSaved?: () => void;
   onOpenAssistant: OpenAssistant;
-  onDelete: (id: string) => void | Promise<void>;
+  onDelete: (id: string) => Promise<boolean | void> | boolean | void;
   onTagClick: (tag: string) => void;
 }>) {
   const toast = useToast();
@@ -146,15 +146,21 @@ export function EntryEditor({
     if (queue.deleting) return;
     queue.deleting = true;
     setDeleting(true);
+    let success = false;
     try {
       if (!await flush()) {
         toast("Entri belum dihapus karena perubahan gagal disimpan.", "error");
         return;
       }
-      await onDelete(entry.id);
+      const ok = await onDelete(entry.id);
+      success = ok !== false;
+    } catch {
+      success = false;
     } finally {
-      queue.deleting = false;
-      setDeleting(false);
+      if (!success) {
+        queue.deleting = false;
+        setDeleting(false);
+      }
     }
   }
 

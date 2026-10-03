@@ -147,7 +147,7 @@ export function JournalPage({
     onChanged?.();
   }, [loadList, loadSide, onChanged]);
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string): Promise<boolean> {
     try {
       await api.deleteEntry(id);
       deletedEntries.current.add(id);
@@ -166,8 +166,10 @@ export function JournalPage({
       });
       await loadList(filterRef.current);
       void loadSide();
+      return true;
     } catch (e) {
       toast(errorMessage(e), "error");
+      return false;
     }
   }
 

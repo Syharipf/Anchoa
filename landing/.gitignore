@@ -14,3 +14,4 @@ test-results/
 /tests/
 /scripts/
 /playwright.config.ts
+/design/

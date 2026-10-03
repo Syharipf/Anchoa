@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
-import { api, errorMessage, type Entry, type EntryKind } from "../api";
+import { api, errorMessage, type Entry, type EntryKind, type EntryPatch } from "../api";
 import { useToast } from "../shell/toast";
 import { MoodPicker } from "./MoodPicker";
 import { TagInput } from "./TagInput";
@@ -10,6 +10,13 @@ const KINDS: readonly EntryKind[] = ["idea", "vent", "note"];
 const AUTOSAVE_MS = 500;
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
+type TextPatch = { title?: string; body?: string };
+type SaveQueue = {
+  pending: TextPatch;
+  timer?: number;
+  saving?: Promise<boolean>;
+  deleting: boolean;
+};
 
 function computeSaveText(saveState: SaveState, body: string): string {
   if (saveState === "saving") return "Menyimpan…";
@@ -24,91 +31,89 @@ export function EntryEditor({
   onOpenTask,
   onAfterSaved,
   onOpenAssistant,
+  onDelete,
+  onTagClick,
 }: Readonly<{
   entry: Entry;
   onEntryChanged: (updated: Entry) => void;
   onOpenTask: (taskId: string) => void;
   onAfterSaved?: () => void;
   onOpenAssistant: OpenAssistant;
+  onDelete: (id: string) => void | Promise<void>;
+  onTagClick: (tag: string) => void;
 }>) {
   const toast = useToast();
   const [title, setTitle] = useState(entry.title);
   const [body, setBody] = useState(entry.body);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [converting, setConverting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  const pending = useRef<{ title?: string; body?: string }>({});
-  const timer = useRef<number | undefined>(undefined);
+  const queue = useMemo<SaveQueue>(() => ({ pending: {}, deleting: false }), [entry.id]);
   const currentId = useRef(entry.id);
+  const afterSaved = useRef(onAfterSaved);
+  afterSaved.current = onAfterSaved;
 
-  // When entry ID changes, flush previous edits and reset local inputs
+  // Each entry keeps its own save queue, including during navigation.
   useEffect(() => {
     if (currentId.current !== entry.id) {
       currentId.current = entry.id;
       setTitle(entry.title);
       setBody(entry.body);
       setSaveState("idle");
-      pending.current = {};
+      setDeleting(false);
     }
   }, [entry.id, entry.title, entry.body]);
 
   const flush = useCallback(async () => {
-    window.clearTimeout(timer.current);
-    const patch = pending.current;
-    if (Object.keys(patch).length === 0) return;
-    pending.current = {};
-    setSaveState("saving");
-    try {
-      await api.updateItem(entry.id, patch);
-      setSaveState("saved");
-      onAfterSaved?.();
-    } catch {
-      pending.current = { ...patch, ...pending.current };
-      setSaveState("failed");
-    }
-  }, [entry.id, onAfterSaved]);
+    window.clearTimeout(queue.timer);
+    if (queue.saving) return queue.saving;
+    if (Object.keys(queue.pending).length === 0) return true;
+    queue.saving = (async () => {
+      while (Object.keys(queue.pending).length > 0) {
+        const patch = queue.pending;
+        queue.pending = {};
+        if (currentId.current === entry.id) setSaveState("saving");
+        try {
+          await api.updateItem(entry.id, patch);
+        } catch {
+          queue.pending = { ...patch, ...queue.pending };
+          if (currentId.current === entry.id) setSaveState("failed");
+          return false;
+        }
+      }
+      if (currentId.current === entry.id) setSaveState("saved");
+      afterSaved.current?.();
+      return true;
+    })().finally(() => { queue.saving = undefined; });
+    return queue.saving;
+  }, [entry.id, queue]);
 
   // Flush on unmount
   useEffect(() => () => void flush(), [flush]);
 
   function handleTitleChange(val: string) {
+    if (queue.deleting) return;
     setTitle(val);
-    pending.current = { ...pending.current, title: val };
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void flush(), AUTOSAVE_MS);
+    queue.pending = { ...queue.pending, title: val };
+    window.clearTimeout(queue.timer);
+    queue.timer = window.setTimeout(() => void flush(), AUTOSAVE_MS);
   }
 
   function handleBodyChange(val: string) {
+    if (queue.deleting) return;
     setBody(val);
-    pending.current = { ...pending.current, body: val };
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void flush(), AUTOSAVE_MS);
+    queue.pending = { ...queue.pending, body: val };
+    window.clearTimeout(queue.timer);
+    queue.timer = window.setTimeout(() => void flush(), AUTOSAVE_MS);
   }
 
-  async function handleKindChange(kind: EntryKind) {
-    await flush();
+  async function handleEntryPatch(patch: EntryPatch) {
+    if (queue.deleting) return;
+    const saved = await flush();
+    if (!saved || queue.deleting) return;
     try {
-      const updated = await api.updateEntry(entry.id, { kind });
-      onEntryChanged(updated);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    }
-  }
-
-  async function handleMoodChange(mood: number | null) {
-    await flush();
-    try {
-      const updated = await api.updateEntry(entry.id, { mood });
-      onEntryChanged(updated);
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    }
-  }
-
-  async function handleTagsChange(newTags: string[]) {
-    await flush();
-    try {
-      const updated = await api.updateEntry(entry.id, { tags: tagsToText(newTags) });
+      const updated = await api.updateEntry(entry.id, patch);
       onEntryChanged(updated);
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -116,7 +121,9 @@ export function EntryEditor({
   }
 
   async function handleConvertToTask() {
-    await flush();
+    if (queue.deleting) return;
+    const saved = await flush();
+    if (!saved || queue.deleting) return;
     setConverting(true);
     try {
       const updated = await api.entryToTask(entry.id);
@@ -132,6 +139,22 @@ export function EntryEditor({
       toast(errorMessage(e), "error");
     } finally {
       setConverting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (queue.deleting) return;
+    queue.deleting = true;
+    setDeleting(true);
+    try {
+      if (!await flush()) {
+        toast("Entri belum dihapus karena perubahan gagal disimpan.", "error");
+        return;
+      }
+      await onDelete(entry.id);
+    } finally {
+      queue.deleting = false;
+      setDeleting(false);
     }
   }
 
@@ -155,8 +178,9 @@ export function EntryEditor({
               <button
                 key={k}
                 type="button"
+                disabled={deleting}
                 aria-pressed={active}
-                onClick={() => void handleKindChange(k)}
+                onClick={() => void handleEntryPatch({ kind: k })}
                 className={`flex min-h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors ${bgClass}`}
               >
                 <svg
@@ -183,6 +207,7 @@ export function EntryEditor({
 
       {/* Title */}
       <input
+        disabled={deleting}
         value={title}
         onChange={(e) => handleTitleChange(e.target.value)}
         onBlur={() => void flush()}
@@ -193,6 +218,7 @@ export function EntryEditor({
 
       {/* Body */}
       <textarea
+        disabled={deleting}
         value={body}
         onChange={(e) => handleBodyChange(e.target.value)}
         onBlur={() => void flush()}
@@ -202,10 +228,15 @@ export function EntryEditor({
       />
 
       {/* Tags */}
-      <TagInput tags={entry.tags} onChange={handleTagsChange} />
+      <TagInput
+        tags={entry.tags}
+        disabled={deleting}
+        onChange={(tags) => void handleEntryPatch({ tags: tagsToText(tags) })}
+        onTagClick={onTagClick}
+      />
 
       {/* Mood Picker */}
-      <MoodPicker mood={entry.mood} onChange={handleMoodChange} />
+      <MoodPicker mood={entry.mood} disabled={deleting} onChange={(mood) => void handleEntryPatch({ mood })} />
 
       {/* Footer */}
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-line pt-3">
@@ -230,7 +261,7 @@ export function EntryEditor({
           ) : (
             <button
               type="button"
-              disabled={converting}
+              disabled={converting || deleting}
               onClick={() => void handleConvertToTask()}
               className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
             >
@@ -238,6 +269,25 @@ export function EntryEditor({
             </button>
           )
         )}
+
+        <button
+          type="button"
+          disabled={deleting}
+          aria-pressed={entry.pinned}
+          onClick={() => void handleEntryPatch({ pinned: !entry.pinned })}
+          className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
+        >
+          {entry.pinned ? "Lepas sematan" : "Sematkan"}
+        </button>
+
+        <button
+          type="button"
+          disabled={deleting || converting}
+          onClick={() => void handleDelete()}
+          className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-danger transition-colors hover:bg-surface-2 disabled:text-disabled"
+        >
+          Hapus entri
+        </button>
 
         <button
           type="button"

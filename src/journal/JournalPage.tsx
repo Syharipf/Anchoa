@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
   type Entry,
-  type EntryKind,
   type Group,
+  type JournalFilter,
   type Side as JournalSideData,
 } from "../api";
 import { useToast } from "../shell/toast";
@@ -23,22 +23,35 @@ export function JournalPage({
   onOpenAssistant: OpenAssistant;
 }>) {
   const toast = useToast();
-  const [query, setQuery] = useState("");
-  const [kindFilter, setKindFilter] = useState<EntryKind | undefined>(undefined);
+  const [filter, setFilter] = useState<JournalFilter>({});
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentEntry, setCurrentEntry] = useState<Entry | null>(null);
   const [side, setSide] = useState<JournalSideData | null>(null);
+  const filterRef = useRef(filter);
+  filterRef.current = filter;
+  const listRequest = useRef(0);
+  const deletedEntries = useRef(new Set<string>());
+
+  const handleFilterChange = useCallback((patch: Partial<JournalFilter>) => {
+    setFilter((current) => ({ ...current, ...patch }));
+  }, []);
 
   const loadList = useCallback(
-    async (q: string, kind?: EntryKind) => {
+    async (f: JournalFilter) => {
+      const request = ++listRequest.current;
       try {
-        const res = await api.journalList(q || undefined, kind);
+        const res = await api.journalList(f);
+        if (request !== listRequest.current) return null;
         setGroups(res.groups);
+        const entries = res.groups.flatMap((group) => group.entries);
+        setSelectedId((current) => entries.some((entry) => entry.id === current)
+          ? current : entries[0]?.id ?? null);
+        setCurrentEntry((current) => current && entries.some((entry) => entry.id === current.id) ? current : null);
         return res.groups;
       } catch (e) {
-        toast(errorMessage(e), "error");
-        return [];
+        if (request === listRequest.current) toast(errorMessage(e), "error");
+        return null;
       }
     },
     [toast],
@@ -53,41 +66,31 @@ export function JournalPage({
     }
   }, [toast]);
 
-  // Load list and side data when query or filter changes
+  // Ignore old responses when the filters change or the page unmounts.
   useEffect(() => {
-    let active = true;
-    void loadList(query, kindFilter).then((newGroups) => {
-      if (!active) return;
-      const allEntries = newGroups.flatMap((g) => g.entries);
-      if (allEntries.length === 0) {
-        setSelectedId(null);
-        setCurrentEntry(null);
-      } else {
-        const stillSelected = allEntries.some((e) => e.id === selectedId);
-        if (!stillSelected) {
-          setSelectedId(allEntries[0].id);
-        }
-      }
-    });
-    void loadSide();
+    void loadList(filter);
     return () => {
-      active = false;
+      listRequest.current++;
     };
-  }, [query, kindFilter, loadList, loadSide, selectedId]);
+  }, [filter, loadList]);
+
+  useEffect(() => {
+    void loadSide();
+  }, [loadSide]);
 
   // Load selected entry details
   useEffect(() => {
+    setCurrentEntry(null);
     if (!selectedId) {
-      setCurrentEntry(null);
       return;
     }
     let active = true;
     api.journalEntry(selectedId).then(
       (entry) => {
-        if (active) setCurrentEntry(entry);
+        if (active && !deletedEntries.current.has(entry.id)) setCurrentEntry(entry);
       },
       (e) => {
-        if (active) toast(errorMessage(e), "error");
+        if (active && !deletedEntries.current.has(selectedId)) toast(errorMessage(e), "error");
       },
     );
     return () => {
@@ -96,12 +99,12 @@ export function JournalPage({
   }, [selectedId, toast]);
 
   async function handleNewEntry() {
-    const kind = kindFilter ?? "note";
+    const kind = filter.kind ?? "note";
     try {
       const created = await api.createEntry(kind, "");
       setSelectedId(created.id);
       setCurrentEntry(created);
-      await loadList(query, kindFilter);
+      await loadList(filterRef.current);
       await loadSide();
       onChanged?.();
     } catch (e) {
@@ -114,7 +117,7 @@ export function JournalPage({
       const created = await api.createEntry("note", promptText);
       setSelectedId(created.id);
       setCurrentEntry(created);
-      await loadList(query, kindFilter);
+      await loadList(filterRef.current);
       await loadSide();
       onChanged?.();
     } catch (e) {
@@ -123,21 +126,61 @@ export function JournalPage({
   }
 
   function handleIdeaSelect(id: string) {
-    setKindFilter(undefined);
+    setFilter({});
     setSelectedId(id);
   }
 
   function handleEntryChanged(updated: Entry) {
-    setCurrentEntry(updated);
-    void loadList(query, kindFilter);
+    if (deletedEntries.current.has(updated.id)) return;
+    setCurrentEntry((current) => current?.id === updated.id ? updated : current);
+    void loadList(filterRef.current);
     void loadSide();
     onChanged?.();
   }
 
-  function handleAfterSaved() {
-    void loadList(query, kindFilter);
+  const handleAfterSaved = useCallback(() => {
+    void loadList(filterRef.current);
     void loadSide();
     onChanged?.();
+  }, [loadList, loadSide, onChanged]);
+
+  async function handleDelete(id: string) {
+    try {
+      await api.deleteEntry(id);
+      deletedEntries.current.add(id);
+      listRequest.current++;
+      setSelectedId((current) => current === id ? null : current);
+      setCurrentEntry((current) => current?.id === id ? null : current);
+      setGroups((current) => current.map((group) => ({
+        ...group, entries: group.entries.filter((entry) => entry.id !== id),
+      })).filter((group) => group.entries.length > 0));
+      onChanged?.();
+      toast("Entri dihapus", "info", {
+        label: "Urungkan",
+        run: () => {
+          void handleRestore(id);
+        },
+      });
+      await loadList(filterRef.current);
+      void loadSide();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
+  async function handleRestore(id: string) {
+    try {
+      await api.restoreEntry(id);
+      deletedEntries.current.delete(id);
+      const restoredGroups = await loadList(filterRef.current);
+      if (restoredGroups?.some((group) => group.entries.some((entry) => entry.id === id))) {
+        setSelectedId(id);
+      }
+      void loadSide();
+      onChanged?.();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
   }
 
   return (
@@ -224,19 +267,20 @@ export function JournalPage({
           groups={groups}
           selectedId={selectedId}
           onSelect={setSelectedId}
-          query={query}
-          onQueryChange={setQuery}
-          kindFilter={kindFilter}
-          onKindFilterChange={setKindFilter}
+          filter={filter}
+          onFilterChange={handleFilterChange}
         />
 
         {currentEntry ? (
           <EntryEditor
+            key={currentEntry.id}
             onOpenAssistant={onOpenAssistant}
             entry={currentEntry}
             onEntryChanged={handleEntryChanged}
             onOpenTask={onOpenItem}
             onAfterSaved={handleAfterSaved}
+            onDelete={handleDelete}
+            onTagClick={(tag) => handleFilterChange({ tag })}
           />
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-surface p-6 text-center text-sm text-muted">

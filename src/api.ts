@@ -439,6 +439,7 @@ export interface Entry {
   createdAt: number;
   when: string;
   taskId: string | null;
+  pinned: boolean;
 }
 
 export interface Group {
@@ -453,15 +454,18 @@ export interface JournalList {
   groups: Group[];
 }
 
-export interface ListQuery {
+export interface JournalFilter {
   query?: string;
   kind?: EntryKind;
+  tag?: string;
+  mood?: number;
 }
 
 export interface EntryPatch {
   kind?: EntryKind;
   mood?: number | null;
   tags?: string;
+  pinned?: boolean;
 }
 
 export interface TrendDay {
@@ -984,13 +988,15 @@ export const api = {
   deleteHabit: (id: string) => invoke<void>("delete_habit", { id }),
   checkHabit: (id: string, done: boolean) =>
     invoke<HabitRow>("check_habit", { id, done }),
-  journalList: (query?: string, kind?: EntryKind) =>
-    invoke<JournalList>("journal_list", { query, kind }),
+  journalList: (f: JournalFilter = {}) =>
+    invoke<JournalList>("journal_list", { query: f.query, kind: f.kind, tag: f.tag, mood: f.mood }),
   journalEntry: (id: string) => invoke<Entry>("journal_entry", { id }),
   createEntry: (kind: EntryKind, title?: string) =>
     invoke<Entry>("create_entry", { kind, title }),
   updateEntry: (id: string, patch: EntryPatch) =>
     invoke<Entry>("update_entry", { id, patch }),
+  deleteEntry: (id: string) => invoke<void>("delete_entry", { id }),
+  restoreEntry: (id: string) => invoke<void>("restore_entry", { id }),
   entryToTask: (id: string) => invoke<Entry>("entry_to_task", { id }),
   journalSide: () => invoke<Side>("journal_side"),
   dataPaths: () => invoke<DataPaths>("data_paths"),

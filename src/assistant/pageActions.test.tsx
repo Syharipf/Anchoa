@@ -25,7 +25,7 @@ const habits: HabitsOverview = {
 const projects: ProjectsOverview = { projects: [], activeCount: 0, loose: { done: 0, total: 0 }, upcoming: [] };
 const entry: Entry = {
   id: "entry", kind: "note", title: "Judul tersimpan", body: "Isi tersimpan", mood: null,
-  tags: [], createdAt: 1, when: "Hari ini", taskId: null,
+  tags: [], createdAt: 1, when: "Hari ini", taskId: null, pinned: false,
 };
 
 describe("module assistant actions", () => {
@@ -71,7 +71,8 @@ describe("module assistant actions", () => {
 
   it("reads and requests feedback using the current journal draft", () => {
     const onOpenAssistant = mock<OpenAssistant>(() => {});
-    harness = hookHarness(() => EntryEditor({ entry, onEntryChanged: () => {}, onOpenTask: () => {}, onOpenAssistant }));
+    harness = hookHarness(() => EntryEditor({ entry, onEntryChanged: () => {}, onOpenTask: () => {}, onOpenAssistant,
+      onDelete: async () => {}, onTagClick: () => {} }));
     const input = (label: string) => elements(harness.render(false)).find((element) => element.props["aria-label"] === label)!;
     (input("Judul entri").props.onChange as (event: unknown) => void)({ target: { value: "Judul baru" } });
     (input("Isi entri").props.onChange as (event: unknown) => void)({ target: { value: "Isi belum tersimpan" } });
@@ -84,7 +85,8 @@ describe("module assistant actions", () => {
   });
 
   it("keeps read-aloud disabled for an empty journal draft", () => {
-    harness = hookHarness(() => EntryEditor({ entry: { ...entry, title: "", body: " " }, onEntryChanged: () => {}, onOpenTask: () => {}, onOpenAssistant: () => {} }));
+    harness = hookHarness(() => EntryEditor({ entry: { ...entry, title: "", body: " " }, onEntryChanged: () => {},
+      onOpenTask: () => {}, onOpenAssistant: () => {}, onDelete: async () => {}, onTagClick: () => {} }));
     expect(button("Bacakan").props.disabled).toBe(true);
   });
 

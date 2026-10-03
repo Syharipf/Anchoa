@@ -161,11 +161,10 @@ fn check_passphrase(passphrase: &str) -> Result<(), AppError> {
 
 /// Data that exists before the first sync has no outbox row (triggers only see later
 /// edits), so queue everything once. After that the outbox and versions take over.
-fn enqueue_if_never_synced(db: &Db) -> Result<(), AppError> {
-    let conn = db.conn()?;
+fn enqueue_if_never_synced(conn: &Connection) -> Result<(), AppError> {
     let synced: i64 = conn.query_row("SELECT count(*) FROM sync_versions", [], |r| r.get(0))?;
     if synced == 0 {
-        record::enqueue_all(&conn)?;
+        record::enqueue_all(conn)?;
     }
     Ok(())
 }
@@ -304,8 +303,31 @@ pub(crate) fn unlock_key(sync: &SyncState, db: &Db, secret: &str) -> Result<(), 
         },
     };
     engine::store_dek(&sync.keys, &user_id, &dek)?;
-    set_state(&*db.conn()?,"vault_fingerprint",&engine::vault_fingerprint(&vault))?;
-    enqueue_if_never_synced(db)?;
+    let fingerprint = engine::vault_fingerprint(&vault);
+    let reset_state = {
+        let mut conn = db.conn()?;
+        let tx = conn.transaction()?;
+        let previous = get_state(&tx, "vault_fingerprint")?;
+        let reset_state = previous != fingerprint
+            && (!previous.is_empty()
+                || tx.query_row("SELECT EXISTS(SELECT 1 FROM sync_versions)", [], |r| {
+                    r.get::<_, bool>(0)
+                })?);
+        if reset_state {
+            reset_account_state(&tx)?;
+        }
+        set_state(&tx, "vault_fingerprint", &fingerprint)?;
+        if reset_state {
+            record::enqueue_all(&tx)?;
+        } else {
+            enqueue_if_never_synced(&tx)?;
+        }
+        tx.commit()?;
+        reset_state
+    };
+    if reset_state {
+        *lock(&sync.last_error) = None;
+    }
     sync.wake.store(true, Ordering::SeqCst);
     Ok(())
 }
@@ -1044,6 +1066,152 @@ mod tests {
                 .unwrap(),
             "Local data"
         );
+    }
+
+    #[test]
+    fn unlocking_replacement_vault_resets_state_and_uploads_all_local_data() {
+        for detect_key_change in [false, true] {
+            let f = fixture();
+            sign_in(&f.sync, &f.db, "google").unwrap();
+            create_key(&f.sync, &f.db, PASS, cheap_kdf()).unwrap();
+            f.db.conn().unwrap().execute("INSERT INTO items(id,type,title,created_at,updated_at) VALUES('p','page','Local page',1,10),('q','page','Another page',1,10)", []).unwrap();
+            assert_eq!(run_sync(&f.sync, &f.db).unwrap().unwrap().pushed, 2);
+            run_sync(&f.sync, &f.db).unwrap(); // Pull our own records to advance the cursor.
+            let old_fingerprint = {
+                let conn = f.db.conn().unwrap();
+                assert_ne!(get_state(&conn, "cursor").unwrap(), "0");
+                assert_eq!(
+                    conn.query_row("SELECT count(*) FROM sync_versions", [], |r| r
+                        .get::<_, i64>(0))
+                        .unwrap(),
+                    2
+                );
+                assert_eq!(
+                    conn.query_row("SELECT count(*) FROM sync_outbox", [], |r| r
+                        .get::<_, i64>(0))
+                        .unwrap(),
+                    0
+                );
+                conn.execute(
+                    "INSERT INTO sync_pending VALUES('pending','101:old',X'00')",
+                    [],
+                )
+                .unwrap();
+                set_state(&conn, "warning:p", "Old vault warning").unwrap();
+                get_state(&conn, "vault_fingerprint").unwrap()
+            };
+
+            let other = SyncState::new(
+                Some(f.server.clone()),
+                KeyringStore::with_builder(keyring::mock::default_credential_builder()),
+            );
+            let dir = tempfile::tempdir_in(".").unwrap();
+            let db = Db::open_at(dir.path().join("app.db"));
+            sign_in(&other, &db, "google").unwrap();
+            f.server.delete_my_data(&fake_session(&f)).unwrap();
+            create_key(&other, &db, PASS, cheap_kdf()).unwrap();
+            let new_fingerprint = get_state(&db.conn().unwrap(), "vault_fingerprint").unwrap();
+            assert_ne!(old_fingerprint, new_fingerprint);
+            if detect_key_change {
+                assert!(run_sync(&f.sync, &f.db).is_err());
+                assert!(!dek_present(&f));
+            }
+
+            unlock_key(&f.sync, &f.db, PASS).unwrap();
+            assert_account_state_reset(&f);
+            {
+                let conn = f.db.conn().unwrap();
+                assert_eq!(
+                    get_state(&conn, "vault_fingerprint").unwrap(),
+                    new_fingerprint
+                );
+                let mut stmt = conn
+                    .prepare("SELECT record_id FROM sync_outbox ORDER BY record_id")
+                    .unwrap();
+                let queued = stmt
+                    .query_map([], |r| r.get::<_, String>(0))
+                    .unwrap()
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap();
+                assert_eq!(queued, ["p", "q"]);
+            }
+            assert_eq!(run_sync(&f.sync, &f.db).unwrap().unwrap().pushed, 2);
+            assert_eq!(run_sync(&other, &db).unwrap().unwrap().pulled, 2);
+        }
+    }
+
+    #[test]
+    fn unlocking_same_vault_keeps_synced_versions_and_cursor() {
+        let f = fixture();
+        sign_in(&f.sync, &f.db, "google").unwrap();
+        create_key(&f.sync, &f.db, PASS, cheap_kdf()).unwrap();
+        f.db.conn().unwrap().execute("INSERT INTO items(id,type,title,created_at,updated_at) VALUES('p','page','Synced page',1,10)", []).unwrap();
+        run_sync(&f.sync, &f.db).unwrap();
+        run_sync(&f.sync, &f.db).unwrap();
+        let (cursor, version) = {
+            let conn = f.db.conn().unwrap();
+            (
+                get_state(&conn, "cursor").unwrap(),
+                conn.query_row(
+                    "SELECT version FROM sync_versions WHERE record_id='p'",
+                    [],
+                    |r| r.get::<_, String>(0),
+                )
+                .unwrap(),
+            )
+        };
+        assert_ne!(cursor, "0");
+        engine::delete_dek(&f.sync.keys, &require_user(&f.db).unwrap()).unwrap();
+
+        unlock_key(&f.sync, &f.db, PASS).unwrap();
+        let conn = f.db.conn().unwrap();
+        assert_eq!(get_state(&conn, "cursor").unwrap(), cursor);
+        assert_eq!(
+            conn.query_row(
+                "SELECT version FROM sync_versions WHERE record_id='p'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            version
+        );
+        assert_eq!(
+            conn.query_row("SELECT count(*) FROM sync_outbox", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn first_unlock_without_fingerprint_queues_preexisting_local_data() {
+        let f = fixture();
+        sign_in(&f.sync, &f.db, "google").unwrap();
+        f.db.conn().unwrap().execute("INSERT INTO items(id,type,title,created_at,updated_at) VALUES('p','page','Preexisting page',1,10)", []).unwrap();
+        f.db.conn()
+            .unwrap()
+            .execute("DELETE FROM sync_outbox", [])
+            .unwrap();
+        let other = SyncState::new(
+            Some(f.server.clone()),
+            KeyringStore::with_builder(keyring::mock::default_credential_builder()),
+        );
+        let dir = tempfile::tempdir_in(".").unwrap();
+        let db = Db::open_at(dir.path().join("app.db"));
+        sign_in(&other, &db, "google").unwrap();
+        create_key(&other, &db, PASS, cheap_kdf()).unwrap();
+        assert_eq!(
+            get_state(&f.db.conn().unwrap(), "vault_fingerprint").unwrap(),
+            ""
+        );
+
+        unlock_key(&f.sync, &f.db, PASS).unwrap();
+        assert_eq!(
+            get_state(&f.db.conn().unwrap(), "vault_fingerprint").unwrap(),
+            get_state(&db.conn().unwrap(), "vault_fingerprint").unwrap()
+        );
+        assert_eq!(run_sync(&f.sync, &f.db).unwrap().unwrap().pushed, 1);
+        assert_eq!(run_sync(&other, &db).unwrap().unwrap().pulled, 1);
     }
 
     #[test]

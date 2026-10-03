@@ -46,7 +46,7 @@ const EXTENSIONS: &[Extension] = &[
     Extension {
         kind: "note",
         table: "journal_entries",
-        columns: &["item_id", "kind", "mood", "tags", "task_id"],
+        columns: &["item_id", "kind", "mood", "tags", "task_id", "pinned"],
         references: &["task_id"],
     },
 ];
@@ -474,7 +474,7 @@ mod tests {
         ("budget", "budgets", "INSERT INTO budgets VALUES ('budget', NULL, 5000)", "amount = 6000"),
         ("habit", "habits", "INSERT INTO habits VALUES ('habit', 127, '08:00', 1, 1)", "days = 31"),
         ("task", "tasks", "INSERT INTO tasks VALUES ('task', 'doing', 'project', 90, 'tag')", "status = 'review'"),
-        ("note", "journal_entries", "INSERT INTO journal_entries VALUES ('note', 'idea', 4, 'tag', 'task')", "mood = 5"),
+        ("note", "journal_entries", "INSERT INTO journal_entries (item_id, kind, mood, tags, task_id) VALUES ('note', 'idea', 4, 'tag', 'task')", "mood = 5"),
     ];
 
     fn insert_item(conn: &Connection, id: &str, kind: &str) {
@@ -565,7 +565,7 @@ mod tests {
             only_outbox(&conn, kind);
             let record = export(&conn, kind).unwrap().unwrap();
             assert!(record.deleted);
-            assert_eq!(document(&record), json!({"schema":12,"tombstone":true,"id":kind}));
+            assert_eq!(document(&record), json!({"schema":schema(&conn).unwrap(),"tombstone":true,"id":kind}));
         }
     }
 
@@ -732,7 +732,7 @@ mod tests {
         only_outbox(&conn, "hc:habit:2026-10-02");
         let record = export(&conn, "hc:habit:2026-10-02").unwrap().unwrap();
         assert!(record.deleted);
-        assert_eq!(document(&record), json!({"schema":12,"tombstone":true,"id":record.id}));
+        assert_eq!(document(&record), json!({"schema":schema(&conn).unwrap(),"tombstone":true,"id":record.id}));
     }
 
     #[test]
@@ -820,6 +820,50 @@ mod tests {
     }
 
     #[test]
+    fn journal_pin_delete_and_restore_enqueue_and_round_trip() {
+        use crate::{finance::testing::{jakarta, now}, journal};
+        let source = open_in_memory();
+        let destination = open_in_memory();
+        let tz = jakarta();
+        let t = now();
+        let entry = journal::create_entry(&source, journal::EntryKind::Note, Some("Disematkan"), t, &tz).unwrap();
+        clear_outbox(&source);
+        // Pinning at the same timestamp still needs to enqueue the extension change.
+        journal::update_entry(&source, &entry.id, &journal::EntryPatch { pinned: Some(true), ..Default::default() }, t, &tz).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(document(&record)["ext"]["pinned"], 1);
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(journal::journal_entry(&destination, &entry.id, t, &tz).unwrap().pinned);
+
+        clear_outbox(&source);
+        journal::update_entry(&source, &entry.id, &journal::EntryPatch { pinned: Some(true), ..Default::default() }, t, &tz).unwrap();
+        assert!(outbox(&source).is_empty());
+
+        clear_outbox(&source);
+        journal::delete_entry(&source, &entry.id, t + 1).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(matches!(journal::journal_entry(&destination, &entry.id, t, &tz), Err(AppError::NotFound)));
+
+        clear_outbox(&source);
+        journal::restore_entry(&source, &entry.id, t + 2).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(journal::journal_entry(&destination, &entry.id, t, &tz).unwrap().pinned);
+
+        clear_outbox(&source);
+        journal::update_entry(&source, &entry.id, &journal::EntryPatch { pinned: Some(false), ..Default::default() }, t + 3, &tz).unwrap();
+        only_outbox(&source, &entry.id);
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        assert_eq!(apply(&destination, &record).unwrap(), Applied::Done);
+        assert!(!journal::journal_entry(&destination, &entry.id, t, &tz).unwrap().pinned);
+        assert!(outbox(&destination).is_empty());
+    }
+
+    #[test]
     fn journal_extension_upsert_conversion_and_auto_habit_check_enqueue_records() {
         use crate::journal;
         let conn = open_in_memory();
@@ -837,7 +881,7 @@ mod tests {
         journal::update_entry(
             &conn,
             &note.id,
-            &journal::EntryPatch { kind: Some(journal::EntryKind::Idea), mood: Some(Some(5)), tags: Some("tag".into()) },
+            &journal::EntryPatch { kind: Some(journal::EntryKind::Idea), mood: Some(Some(5)), tags: Some("tag".into()), ..Default::default() },
             now,
             &tz,
         )
@@ -935,7 +979,7 @@ mod tests {
         for id in ["project", "account", "bill", "transaction", "budget", "habit", "task", "note", "page", "hc:habit:2026-10-02"] {
             let record = export(&source, id).unwrap().unwrap();
             let value = document(&record);
-            assert_eq!(value["schema"], 12);
+            assert_eq!(value["schema"], schema(&source).unwrap());
             assert!(value["item"].get("opened_at").is_none());
             for field in ["agent", "agent_command", "agent_dir"] {
                 assert!(value["ext"].get(field).is_none());
@@ -1041,7 +1085,7 @@ mod tests {
             id: "future".into(),
             changed_at: 99,
             deleted: false,
-            payload: Some(compress_to_vec(br#"{"schema":13,"future":true}"#, 6)),
+            payload: Some(compress_to_vec(&serde_json::to_vec(&json!({"schema":schema(&conn).unwrap() + 1,"future":true})).unwrap(), 6)),
         };
         assert_eq!(apply(&conn, &record).unwrap(), Applied::NewerSchema);
         assert_eq!(applying(&conn), "0");

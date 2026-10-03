@@ -215,6 +215,8 @@ pub fn run() {
             commands::create_entry,
             commands::update_entry,
             commands::entry_to_task,
+            commands::delete_entry,
+            commands::restore_entry,
             commands::journal_side,
             commands::data_paths,
             commands::open_folder,

@@ -463,7 +463,7 @@ mod tests {
         // Deleting the source journal must not make its copied text public.
         for deleted in [false, true] {
             if deleted {
-                items::soft_delete(&conn, &entry.id, now()).unwrap();
+                journal::delete_entry(&conn, &entry.id, now()).unwrap();
             }
             for query in ["teri", "RAHASIAJURNAL"] {
                 let result =

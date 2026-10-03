@@ -975,11 +975,11 @@ check_sync() {
   # --- Instance A: Sign in and create encryption key ---
   export XDG_DATA_HOME="$dir_a/data" XDG_CONFIG_HOME="$dir_a/config"
   start_app
-  sleep 2
+  sleep 4
   click 36 760                 # nav: Pengaturan
-  sleep 1.5
+  sleep 3
   click 428 258                # Masuk dengan Google
-  sleep 1.5
+  sleep 3
   click 790 313                # input 1: Frasa sandi sync
   xdotool type --delay 20 "$pass"
   sleep 0.3
@@ -987,21 +987,72 @@ check_sync() {
   xdotool type --delay 20 "$pass"
   sleep 0.3
   click 396 442                # Buat kunci
-  sleep 3
+  sleep 5
   shot 27-sync-recovery        # expect: recovery key displayed
 
-  # Check recovery key is not in DB A
-  [[ "$(sqlite3 "$db_a" "SELECT count(*) FROM settings WHERE value LIKE '%word%' OR value LIKE '%-%'")" -eq 0 ]] \
-    || fail "recovery key or secret leaked into settings in DB A"
-
-  # Confirm recovery key display: double-click checkbox to focus and check, then Lanjut
-  click 353 334                # Checkbox: Sudah saya simpan
-  sleep 0.2
-  click 353 334
+  # Capture displayed recovery key via Salin button (or code click selection)
+  click 1200 290               # Salin button
   sleep 0.5
-  click 382 376                # Lanjut
-  sleep 1.5
+  local rk
+  rk=$(xclip -selection clipboard -o 2>/dev/null || true)
+  if [[ -z "$rk" ]] || [[ ! "$rk" =~ ^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$ ]]; then
+    click 500 290
+    sleep 0.2
+    xdotool key ctrl+c
+    sleep 0.3
+    rk=$(xclip -selection clipboard -o 2>/dev/null || xclip -selection primary -o 2>/dev/null || true)
+  fi
+  [[ "$rk" =~ ^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$ ]] \
+    || fail "recovery key capture failed or invalid format"
 
+  # Inspect DB A and WAL for actual formatted and canonical key bytes
+  python3 -c "
+import sys, os
+CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+def decode_crockford(s):
+    clean = s.replace('-', '').strip().upper().replace('O', '0').replace('I', '1').replace('L', '1')
+    val = 0
+    for c in clean:
+        val = (val * 32) + CROCKFORD.index(c)
+    return val.to_bytes(16, 'big')
+
+rk = sys.argv[1].strip()
+raw_bytes = decode_crockford(rk)
+fmt_bytes = rk.encode('utf-8')
+canon_str_bytes = rk.replace('-', '').encode('utf-8')
+
+db_content = b''
+for p in [sys.argv[2], sys.argv[2] + '-wal']:
+    if os.path.exists(p):
+        with open(p, 'rb') as f:
+            db_content += f.read()
+
+for label, needle in [
+    ('formatted recovery key', fmt_bytes),
+    ('canonical recovery key string', canon_str_bytes),
+    ('raw 16-byte recovery key', raw_bytes),
+]:
+    if needle in db_content:
+        sys.stderr.write(f'leak detected: {label} found in DB A or WAL\n')
+        sys.exit(1)
+" "$rk" "$db_a" || fail "recovery key leaked into DB A or WAL"
+
+  # Confirm: check checkbox once, then click enabled Lanjut
+  click 353 334                # Checkbox: Sudah saya simpan (single click)
+  sleep 0.5
+  click 382 376                # Lanjut (now enabled)
+  sleep 1.5
+  shot 27-sync-after-confirm   # expect: recovery key gone, sync controls visible
+
+  # Prove recovery key display disappeared after confirmation
+  python3 -c "
+import sys
+from PIL import Image
+im = Image.open('$WORK/27-sync-after-confirm.png').convert('RGB')
+salin_pixels = sum(1 for y in range(285, 296) for x in range(1180, 1220) if sum(im.getpixel((x, y))) > 350)
+if salin_pixels > 20:
+    sys.exit(1)
+" || fail "recovery key display did not disappear after confirmation"
   # Create task "Tugas sync" in A
   local now_ms
   now_ms=$(date +%s%3N)

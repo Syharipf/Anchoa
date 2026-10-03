@@ -413,7 +413,7 @@ pub(crate) fn vault_from_json(value: &Value) -> Result<Vault, AppError> {
     #[derive(Deserialize)]
     struct KdfJson { alg: String, m: u32, t: u32, p: u32, salt: String }
     let kdf: KdfJson = serde_json::from_value(value["kdf"].clone()).map_err(|_| invalid_response())?;
-    if kdf.alg != "argon2id" || !(8..=1_048_576).contains(&kdf.m) || !(1..=10).contains(&kdf.t) || !(1..=4).contains(&kdf.p) { return Err(invalid_response()) }
+    if kdf.alg != "argon2id" || !(8..=65_536).contains(&kdf.m) || !(1..=3).contains(&kdf.t) || !(1..=4).contains(&kdf.p) { return Err(invalid_response()) }
     let blob = |name: &str| value[name].as_str().filter(|s| s.len() == 146).and_then(|s| s.strip_prefix("\\x")).ok_or_else(invalid_response).and_then(hex_decode);
     Ok(Vault { kdf: Kdf { m_kib: kdf.m, t: kdf.t, p: kdf.p, salt: salt_decode(&kdf.salt)? }, dek_by_passphrase: blob("dek_by_passphrase")?, dek_by_recovery: blob("dek_by_recovery")? })
 }

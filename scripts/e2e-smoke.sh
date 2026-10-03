@@ -616,7 +616,7 @@ check_journal_v2() {
       || fail "journal entry $title not saved"
   done
 
-  click 680 738                 # Hapus entri
+  click 927 179                 # Hapus entri (ikon tempat sampah)
   sql_becomes "SELECT deleted_at IS NOT NULL FROM items WHERE title = 'Entri e2e hapus'" "1" \
     || fail "journal entry not soft-deleted"
   shot 16-journal-deleted
@@ -626,7 +626,7 @@ check_journal_v2() {
     || fail "journal entry not restored"
   sleep 1
 
-  click 583 738                 # Sematkan
+  click 891 179                 # Sematkan (ikon pin)
   sql_becomes "SELECT pinned FROM journal_entries j JOIN items i ON i.id = j.item_id WHERE i.title = 'Entri e2e hapus'" "1" \
     || fail "journal entry not pinned"
   sleep 1

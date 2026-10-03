@@ -202,7 +202,57 @@ export function EntryEditor({
           })}
         </fieldset>
 
-        <span className="font-mono text-xs text-muted">{entry.when}</span>
+        <div className="flex items-center gap-1">
+          <span className="mr-1 font-mono text-xs text-muted">{entry.when}</span>
+          <button
+            type="button"
+            disabled={deleting}
+            aria-pressed={entry.pinned}
+            aria-label={entry.pinned ? "Lepas sematan" : "Sematkan"}
+            title={entry.pinned ? "Lepas sematan" : "Sematkan"}
+            onClick={() => void handleEntryPatch({ pinned: !entry.pinned })}
+            className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 disabled:text-disabled ${entry.pinned ? "text-accent" : "text-muted hover:text-ink"}`}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill={entry.pinned ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 17v5" />
+              <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            disabled={deleting || converting}
+            aria-label="Hapus entri"
+            title="Hapus entri"
+            onClick={() => void handleDelete()}
+            className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-danger disabled:text-disabled"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Title */}
@@ -269,25 +319,6 @@ export function EntryEditor({
             </button>
           )
         )}
-
-        <button
-          type="button"
-          disabled={deleting}
-          aria-pressed={entry.pinned}
-          onClick={() => void handleEntryPatch({ pinned: !entry.pinned })}
-          className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
-        >
-          {entry.pinned ? "Lepas sematan" : "Sematkan"}
-        </button>
-
-        <button
-          type="button"
-          disabled={deleting || converting}
-          onClick={() => void handleDelete()}
-          className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-danger transition-colors hover:bg-surface-2 disabled:text-disabled"
-        >
-          Hapus entri
-        </button>
 
         <button
           type="button"

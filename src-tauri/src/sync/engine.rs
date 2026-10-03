@@ -433,6 +433,22 @@ fn apply_page(
                 continue;
             }
         };
+        if is_newer_schema(tx, &plain)? {
+            // Schema compatibility precedes LWW: even an older remote version
+            // must hold back writes from a client that cannot preserve its fields.
+            let version = format_version(wire.changed_at, &wire.device_id);
+            tx.execute("INSERT INTO sync_pending VALUES(?1,?2,?3) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version,payload=excluded.payload", params![wire.id,version,plain])?;
+            let known = known_version(tx, &wire.id)?;
+            if known
+                .as_deref()
+                .and_then(parse_version)
+                .is_none_or(|known| (wire.changed_at, wire.device_id.as_str()) > known)
+            {
+                tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version", params![wire.id,version])?;
+            }
+            warn_newer_schema(tx, &wire.id, &plain)?;
+            continue;
+        }
         let queued: Option<i64> = tx
             .query_row(
                 "SELECT changed_at FROM sync_outbox WHERE record_id=?1",
@@ -445,15 +461,26 @@ fn apply_page(
             && wire.changed_at
                 == effective_changed_at(queued, known_version(tx, &wire.id)?.as_deref())
         {
-            // The server committed this push even if its response was lost.
-            tx.execute(
-                "DELETE FROM sync_outbox WHERE record_id=?1 AND changed_at=?2",
-                params![wire.id, queued],
-            )?;
-            tx.execute(
-                "DELETE FROM sync_state WHERE key=?1",
-                [format!("warning:{}", wire.id)],
-            )?;
+            // Clock adjustment can give a later, unsent edit the same timestamp.
+            // Only identical content acknowledges the push whose response was lost.
+            let matches_local = match record::export(tx, &wire.id) {
+                Ok(local) => {
+                    local.is_some_and(|rec| rec.payload.as_deref() == Some(plain.as_slice()))
+                }
+                Err(e) if record::is_too_large(&e) => false,
+                Err(e) => return Err(e),
+            };
+            if matches_local {
+                tx.execute(
+                    "DELETE FROM sync_outbox WHERE record_id=?1 AND changed_at=?2",
+                    params![wire.id, queued],
+                )?;
+                tx.execute(
+                    "DELETE FROM sync_state WHERE key=?1",
+                    [format!("warning:{}", wire.id)],
+                )?;
+            }
+            // A retained edit must advance past the authenticated echo on its next push.
             tx.execute("INSERT INTO sync_versions VALUES(?1,?2) ON CONFLICT(record_id) DO UPDATE SET version=excluded.version", params![wire.id,format_version(wire.changed_at,device)])?;
             continue;
         }

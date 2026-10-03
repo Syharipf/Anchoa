@@ -527,9 +527,10 @@ fn newer_schema_deferral_keeps_local_outbox_and_warns() {
     let b = Client::new(DEVICE_B);
     a.write("p", "Old schema", 8);
     b.write("p", "Future content", 10);
+    let future = future_schema(&a);
     let compressed = record::export(&b.db.conn().unwrap(), "p").unwrap().unwrap().payload.unwrap();
     let mut doc: serde_json::Value = serde_json::from_slice(&miniz_oxide::inflate::decompress_to_vec(&compressed).unwrap()).unwrap();
-    doc["schema"] = serde_json::json!(999);
+    doc["schema"] = serde_json::json!(future);
     let plain = miniz_oxide::deflate::compress_to_vec(&serde_json::to_vec(&doc).unwrap(),6);
     let payload = crypto::seal(&Dek::from_bytes([7;32]), &crypto::aad(USER,"p",10,DEVICE_B), &plain);
     server.push(&session(), &[WireRecord { id:"p".into(),changed_at:10,device_id:DEVICE_B.into(),deleted:false,payload:Some(payload),seq:0 }]).unwrap();
@@ -730,6 +731,11 @@ fn outbox_count(client: &Client) -> i64 {
         .unwrap()
 }
 
+fn future_schema(client: &Client) -> i64 {
+    let v: i64 = client.db.conn().unwrap().pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+    v + 1
+}
+
 fn push_document(
     server: &MemoryServer,
     source: &Client,
@@ -798,6 +804,51 @@ fn lost_push_echo_preserves_a_newer_local_edit() {
     assert!(engine::sync_once(&a.db, &a.keys, &server, 1000).is_err());
     a.write("p", "Second", 200);
     assert_eq!(a.sync(&server).pushed, 1);
+    b.sync(&server);
+    assert_eq!(b.title("p"), "Second");
+}
+
+#[test]
+fn lost_push_echo_preserves_a_newer_edit_with_the_same_effective_timestamp() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    b.write("p", "Base", 100);
+    b.sync(&server);
+    a.sync(&server);
+    a.write("p", "First", 1);
+    server.lose_next_push_response();
+    assert!(engine::sync_once(&a.db, &a.keys, &server, 1000).is_err());
+    assert_eq!(server.pull(&session(), 0, 500).unwrap()[0].changed_at, 101);
+
+    a.write("p", "Second", 2); // Both queued edits have effective timestamp 101.
+    set_state(&a, "quota_bytes", "0");
+    let pushes = server.push_count();
+    assert_eq!(a.sync(&server).pushed, 0);
+    assert_eq!(server.push_count(), pushes);
+    assert_eq!(a.title("p"), "Second");
+    assert_eq!(outbox_count(&a), 1);
+    assert_eq!(
+        a.db.conn()
+            .unwrap()
+            .query_row(
+                "SELECT changed_at FROM sync_outbox WHERE record_id='p'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap(),
+        2
+    );
+    assert_eq!(version(&a, "p"), engine::format_version(101, DEVICE_A));
+
+    set_state(
+        &a,
+        "quota_bytes",
+        &super::server::DEFAULT_QUOTA_BYTES.to_string(),
+    );
+    assert_eq!(a.sync(&server).pushed, 1);
+    assert_eq!(version(&a, "p"), engine::format_version(102, DEVICE_A));
+    assert_eq!(outbox_count(&a), 0);
     b.sync(&server);
     assert_eq!(b.title("p"), "Second");
 }
@@ -894,10 +945,11 @@ fn newer_schema_pending_survives_edits_and_resolves_by_lww_after_upgrade() {
         let server = test_server();
         let a = Client::new(local_device);
         let b = Client::new(DEVICE_B);
+        let future = future_schema(&a);
         a.write("p", "Old local", 80);
         b.write("p", "Future content", 100);
         push_document(&server, &b, "p", 100, |doc| {
-            doc["schema"] = serde_json::json!(99)
+            doc["schema"] = serde_json::json!(future)
         });
         assert_eq!(a.sync(&server).pending, 1);
         a.write("p", "Local edit while deferred", local_ts);
@@ -913,7 +965,7 @@ fn newer_schema_pending_survives_edits_and_resolves_by_lww_after_upgrade() {
         assert_eq!(server.pull(&session(), 0, 500).unwrap()[0].changed_at, 100);
         a.db.conn()
             .unwrap()
-            .pragma_update(None, "user_version", 99)
+            .pragma_update(None, "user_version", future)
             .unwrap();
         let report = a.sync(&server);
         assert_eq!(report.pending, 0);
@@ -925,11 +977,79 @@ fn newer_schema_pending_survives_edits_and_resolves_by_lww_after_upgrade() {
         assert_eq!(a.title("p"), expected);
         b.db.conn()
             .unwrap()
-            .pragma_update(None, "user_version", 99)
+            .pragma_update(None, "user_version", future)
             .unwrap();
         b.sync(&server);
         assert_eq!(b.title("p"), expected);
     }
+}
+
+#[test]
+fn older_remote_timestamp_with_newer_schema_blocks_local_push_without_lowering_version() {
+    let server = test_server();
+    let a = Client::new(DEVICE_A);
+    let b = Client::new(DEVICE_B);
+    let future = future_schema(&a);
+    a.write("p", "Local edit", 200);
+    a.db.conn()
+        .unwrap()
+        .execute(
+            "INSERT INTO sync_versions VALUES('p',?1)",
+            [engine::format_version(175, DEVICE_A)],
+        )
+        .unwrap();
+    b.write("p", "Future content", 150);
+    push_document(&server, &b, "p", 150, |doc| {
+        doc["schema"] = serde_json::json!(future)
+    });
+
+    let pushes = server.push_count();
+    let report = a.sync(&server);
+    assert_eq!(report.pushed, 0);
+    assert_eq!(server.push_count(), pushes);
+    assert_eq!(report.pending, 1);
+    assert_eq!(outbox_count(&a), 1);
+    assert_eq!(a.title("p"), "Local edit");
+    assert_eq!(version(&a, "p"), engine::format_version(175, DEVICE_A));
+    assert_eq!(
+        a.db.conn()
+            .unwrap()
+            .query_row(
+                "SELECT version FROM sync_pending WHERE record_id='p'",
+                [],
+                |r| r.get::<_, String>(0),
+            )
+            .unwrap(),
+        engine::format_version(150, DEVICE_B)
+    );
+    assert_eq!(
+        state(&a, "warning:p"),
+        "Perbarui Anchoa untuk menyinkronkan Local edit"
+    );
+    assert_eq!(server.pull(&session(), 0, 500).unwrap()[0].changed_at, 150);
+
+    a.db.conn()
+        .unwrap()
+        .pragma_update(None, "user_version", future)
+        .unwrap();
+    let report = a.sync(&server);
+    assert_eq!(report.pending, 0);
+    assert_eq!(report.pushed, 1);
+    assert_eq!(
+        a.db.conn()
+            .unwrap()
+            .query_row("SELECT count(*) FROM sync_state WHERE key='warning:p'", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(version(&a, "p"), engine::format_version(200, DEVICE_A));
+    b.db.conn()
+        .unwrap()
+        .pragma_update(None, "user_version", future)
+        .unwrap();
+    b.sync(&server);
+    assert_eq!(b.title("p"), "Local edit");
 }
 
 #[test]

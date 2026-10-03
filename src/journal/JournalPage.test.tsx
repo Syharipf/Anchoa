@@ -152,6 +152,23 @@ describe("JournalPage actions and filters", () => {
     expect(api.journalList).toHaveBeenLastCalledWith({ query: "Entri", kind: "note", mood: 4, tag: undefined });
   });
 
+  it("drops filters that would hide a new entry and opens it", async () => {
+    spies.push(spyOn(api, "createEntry").mockImplementation(async (kind) => {
+      const created: Entry = { ...makeEntry("B"), kind, title: "", mood: null, tags: [] };
+      entries.push(created);
+      return created;
+    }));
+    list().onFilterChange({ query: "Entri", kind: "note", mood: 4, tag: "kerja" });
+    await harness.settle();
+    click(harness.render(), "Tulis");
+    await harness.settle();
+    expect(api.createEntry).toHaveBeenCalledWith("note", "");
+    expect(list().filter).toEqual({ kind: "note" });
+    expect(api.journalList).toHaveBeenLastCalledWith({ kind: "note" });
+    expect(editor().entry.id).toBe("B");
+    expect(list().groups.flatMap((group) => group.entries).some((entry) => entry.id === "B")).toBe(true);
+  });
+
   it("passes mood filtering to the backend", async () => {
     list().onFilterChange({ mood: 4 });
     await harness.settle();

@@ -98,15 +98,23 @@ export function JournalPage({
     };
   }, [selectedId, toast]);
 
+  // A new entry has no tags, mood or matching text yet: drop the filters that
+  // would hide it, keeping only the kind it was created with.
+  async function openCreated(created: Entry) {
+    const next: JournalFilter = filterRef.current.kind === created.kind ? { kind: created.kind } : {};
+    filterRef.current = next;
+    setFilter(next);
+    setSelectedId(created.id);
+    setCurrentEntry(created);
+    await loadList(next);
+    await loadSide();
+    onChanged?.();
+  }
+
   async function handleNewEntry() {
     const kind = filter.kind ?? "note";
     try {
-      const created = await api.createEntry(kind, "");
-      setSelectedId(created.id);
-      setCurrentEntry(created);
-      await loadList(filterRef.current);
-      await loadSide();
-      onChanged?.();
+      await openCreated(await api.createEntry(kind, ""));
     } catch (e) {
       toast(errorMessage(e), "error");
     }
@@ -114,12 +122,7 @@ export function JournalPage({
 
   async function handlePromptSelect(promptText: string) {
     try {
-      const created = await api.createEntry("note", promptText);
-      setSelectedId(created.id);
-      setCurrentEntry(created);
-      await loadList(filterRef.current);
-      await loadSide();
-      onChanged?.();
+      await openCreated(await api.createEntry("note", promptText));
     } catch (e) {
       toast(errorMessage(e), "error");
     }

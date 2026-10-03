@@ -20,6 +20,10 @@ struct Extension {
     references: &'static [&'static str],
 }
 
+/// Extension columns added after sync schema 12, with the value an older record
+/// that lacks them gets.
+const ADDED_COLUMNS: &[(&str, &str, i64)] = &[("journal_entries", "pinned", 0)];
+
 const EXTENSIONS: &[Extension] = &[
     Extension {
         kind: "task",
@@ -248,15 +252,24 @@ fn missing_parent(conn: &Connection, id: &str, parent: Option<&str>) -> Result<O
 }
 
 fn extension_values(ext: &Extension, values: &Map<String, Value>, id: &str) -> Result<Vec<SqlValue>, AppError> {
-    if values.len() != ext.columns.len() || values.get("item_id").and_then(Value::as_str) != Some(id) {
+    if values.keys().any(|key| !ext.columns.contains(&key.as_str()))
+        || values.get("item_id").and_then(Value::as_str) != Some(id)
+    {
         return Err(invalid_record());
     }
+    let added = |column: &str| {
+        ADDED_COLUMNS
+            .iter()
+            .find(|(table, name, _)| *table == ext.table && *name == column)
+            .map(|(_, _, default)| SqlValue::Integer(*default))
+    };
     ext.columns
         .iter()
         .map(|column| match values.get(*column) {
             Some(Value::Null) => Ok(SqlValue::Null),
             Some(Value::String(value)) => Ok(SqlValue::Text(value.clone())),
             Some(Value::Number(value)) => value.as_i64().map(SqlValue::Integer).ok_or_else(invalid_record),
+            None => added(column).ok_or_else(invalid_record),
             _ => Err(invalid_record()),
         })
         .collect()
@@ -1076,6 +1089,31 @@ mod tests {
         let mut value = document(&note);
         value["item"]["parent_id"] = Value::Null;
         assert_eq!(apply(&destination, &with_document(&note, value)).unwrap(), Applied::NeedsParent("task".into()));
+    }
+
+    #[test]
+    fn schema_12_journal_record_without_pinned_still_applies() {
+        use crate::{finance::testing::{jakarta, now}, journal};
+        let source = open_in_memory();
+        let destination = open_in_memory();
+        let tz = jakarta();
+        let entry = journal::create_entry(&source, journal::EntryKind::Idea, Some("Lama"), now(), &tz).unwrap();
+        let record = export(&source, &entry.id).unwrap().unwrap();
+        let mut value = document(&record);
+        value["schema"] = json!(12);
+        value["ext"].as_object_mut().unwrap().remove("pinned");
+        assert_eq!(apply(&destination, &with_document(&record, value.clone())).unwrap(), Applied::Done);
+        let applied = journal::journal_entry(&destination, &entry.id, now(), &tz).unwrap();
+        assert_eq!(applied.kind, journal::EntryKind::Idea);
+        assert!(!applied.pinned);
+
+        // Only columns added after schema 12 may be missing, and unknown ones never pass.
+        let mut missing_mood = value.clone();
+        missing_mood["ext"].as_object_mut().unwrap().remove("mood");
+        assert!(apply(&destination, &with_document(&record, missing_mood)).is_err());
+        let mut unknown = value;
+        unknown["ext"]["extra"] = json!(1);
+        assert!(apply(&destination, &with_document(&record, unknown)).is_err());
     }
 
     #[test]

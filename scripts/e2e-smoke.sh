@@ -328,7 +328,7 @@ check_backup() {
   start_app
   ls "$APPDATA"/backups/anchoa-*.db >/dev/null 2>&1 || fail "no daily backup at startup"
   click 36 760          # nav: Pengaturan
-  click 413 274         # Backup sekarang (Sinkron & data)
+  click 413 384         # Backup sekarang (Sinkron & data)
   sleep 1
   shot 6-settings
   [[ "$(ls "$APPDATA"/backups/anchoa-*.db | wc -l)" -eq 2 ]] || fail "manual backup was not created"

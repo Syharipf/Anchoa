@@ -176,14 +176,23 @@ describe("JournalPage actions and filters", () => {
     expect(list().filter.mood).toBe(4);
   });
 
-  it("keeps the editor open and shows a delete error", async () => {
+  it("keeps the editor open, shows a delete error, and allows retry when api.deleteEntry rejects", async () => {
     spyOn(api, "deleteEntry").mockRejectedValueOnce(new Error("Hapus gagal"));
-    await editor().onDelete("A");
+    const result = await editor().onDelete("A");
     await harness.settle();
+    expect(result).toBe(false);
     expect(editor().entry.id).toBe("A");
     expect(elements(harness.render()).some((element) =>
       Array.isArray(element.props.children) && element.props.children.includes("Hapus gagal"))).toBe(true);
     expect(elements(harness.render()).some((element) => element.props.children === "Urungkan")).toBe(false);
+
+    // Retrying deletion succeeds
+    const retried = await editor().onDelete("A");
+    await harness.settle();
+    expect(retried).toBe(true);
+    expect(api.deleteEntry).toHaveBeenCalledTimes(2);
+    expect(elements(harness.render()).some((element) => element.type === EntryEditor)).toBe(false);
+    expect(button(harness.render(), "Urungkan")).toBeDefined();
   });
 
   it("shows restore errors without reopening a deleted entry", async () => {
@@ -281,7 +290,7 @@ describe("EntryEditor pinning and safe deletion", () => {
   let spies: { mockRestore: () => void }[];
   let calls: string[];
   const afterSaved = mock(() => {});
-  const onDelete = mock(async (id: string) => { calls.push(`delete:${id}`); });
+  const onDelete = mock(async (id: string): Promise<boolean | void> => { calls.push(`delete:${id}`); });
 
   function edit(value: string) {
     const textarea = elements(harness.render()).find((element) => element.props["aria-label"] === "Isi entri")!;
@@ -386,6 +395,62 @@ describe("EntryEditor pinning and safe deletion", () => {
     expect(api.updateItem).not.toHaveBeenCalled();
     deleting.resolve();
     await harness.settle();
+  });
+
+  it("re-enables controls and allows retry when onDelete returns false or rejects", async () => {
+    onDelete.mockResolvedValueOnce(false);
+    click(harness.render(), "Hapus entri");
+    await harness.settle();
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(false);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(false);
+
+    onDelete.mockRejectedValueOnce(new Error("Gagal"));
+    click(harness.render(), "Hapus entri");
+    await harness.settle();
+    expect(onDelete).toHaveBeenCalledTimes(2);
+    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(false);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(false);
+
+    // Retrying delete succeeds and keeps controls disabled
+    onDelete.mockResolvedValueOnce(true);
+    click(harness.render(), "Hapus entri");
+    await harness.settle();
+    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(true);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(true);
+  });
+
+  it("keeps deleting disabled until unmount when deletion succeeds", async () => {
+    click(harness.render(), "Hapus entri");
+    await harness.settle();
+    expect(onDelete).toHaveBeenCalledWith("A");
+    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(true);
+    edit("Jangan disimpan setelah terhapus");
+    harness.runTimers();
+    expect(api.updateItem).not.toHaveBeenCalled();
+  });
+
+  it("re-enables controls and allows retry when api.deleteEntry rejects", async () => {
+    spies.push(spyOn(api, "deleteEntry").mockRejectedValueOnce(new Error("Hapus gagal")).mockResolvedValue(undefined));
+    onDelete.mockImplementation(async (id: string) => {
+      try {
+        await api.deleteEntry(id);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    click(harness.render(), "Hapus entri");
+    await harness.settle();
+    expect(api.deleteEntry).toHaveBeenCalledTimes(1);
+    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(false);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(false);
+
+    // Retrying delete succeeds
+    click(harness.render(), "Hapus entri");
+    await harness.settle();
+    expect(api.deleteEntry).toHaveBeenCalledTimes(2);
+    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(true);
   });
 });
 

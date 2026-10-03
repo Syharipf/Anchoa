@@ -1,6 +1,6 @@
 # Anchoa Proyek v2 — P-3 Terhubung: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi utama oleh Codex gpt-6.1-sol xhigh (`codex exec -s workspace-write`, satu task per run). Kalau kuotanya habis, pakai `agy-multi --model gemini-3.8-flash-high`. Review oleh agy dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** proyek terhubung ke uang (transaksi + anggaran), ke repo GitHub (commit terakhir, issue, PR), dan ke item lain lewat tautan `[[...]]` di catatan tugas.
 
@@ -12,15 +12,9 @@
 
 > **Baca dulu:** plan ini ditulis terhadap `main` sebelum J-1..J-4, P-1, dan P-2 di-merge. P-1 (prioritas, filter, `restore_task`) dan P-2 (arsip proyek, banyak tag, `recur`) masuk lebih dulu dan menyentuh file yang sama (`projects.rs`, `tasks.rs`, `sync/record.rs`, migrasi, `ProjectHeader.tsx`, `ProjectForm.tsx`, `ItemPage.tsx`, `api.ts`). Sebelum setiap task, baca ulang file yang disebut di task itu di `main` terbaru dan sesuaikan nomor baris, nomor migrasi, daftar kolom, dan definisi trigger. Kalau P-2 sudah menambah `archived_at` ke trigger `sync_projects_update`, pertahankan kolom itu saat membuat ulang trigger.
 
-## Menjalankan task dengan agy
+## Menjalankan task
 
-Satu task per run, di branch PR yang sedang dikerjakan, dari root worktree:
-
-```bash
-agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions --print-timeout 2100s -p "Implement Task <N> of docs/superpowers/plans/2026-10-03-anchoa-proyek-v2-p3.md exactly as written, test first, including its tests and its commit. Read the spec docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md. Follow CLAUDE.md, including the SonarCloud conventions. Rules: work only inside this repository; do not push, merge, open PRs, change git remotes or branches; do not open URLs; do not edit docs/. Stage files by explicit path, never git add -A. Before committing run the task's checks and fix every failure. When done, print the tail of each check and the commit hash."
-```
-
-Setelah setiap run, sesi Opus menjalankan test task itu dan membaca diff commit-nya. Review PR memakai Codex dan agy (`CLAUDE.md`, "Model per step").
+Gunakan task role `Coder` untuk implementasi setiap task (test-first, satu commit per task), dan reviewer role untuk review sebelum merge.
 
 ## Global Constraints
 
@@ -32,7 +26,7 @@ Setelah setiap run, sesi Opus menjalankan test task itu dan membaca diff commit-
 - SonarCloud: props `Readonly<...>`, elemen non-tombol dengan `onClick` butuh handler keyboard, tanpa `Math.random()`, `[[ ... ]]` di bash.
 - Teks UI Bahasa Indonesia, tanpa kata "Fase".
 - Tanpa dependency baru (Rust maupun JS). Tanpa bump versi (rilis setelah P-4).
-- Sesi ini hanya mengerjakan P-3. P-4 dikerjakan di sesi Claude Code lain.
+- Sesi ini hanya mengerjakan P-3. P-4 dikerjakan terpisah.
 
 | PR | Task |
 |---|---|
@@ -827,7 +821,7 @@ git commit -m "feat(projects): repo and budget chips, project field on transacti
 
 ---
 
-### Task 4: E2E dan PR (sesi Opus)
+### Task 4: E2E dan PR
 
 **Files:**
 - Modify: `scripts/e2e-smoke.sh` (fungsi baru `check_projects_links`, dipanggil setelah `check_projects` dan check P-1/P-2)
@@ -876,5 +870,5 @@ Ganti setiap `<x> <y>` dengan koordinat dari screenshot sebelumnya (pola yang sa
 
 - [ ] **Step 2:** Cek manual yang tidak bisa diotomatisasi tanpa jaringan: jalankan `bun tauri dev` dengan proyek ber-repo publik (misalnya `https://github.com/Syharipf/Anchoa`) dan pastikan chip menampilkan "Repo · commit … · n issue · n PR". Ini satu-satunya langkah yang memakai jaringan; catat hasilnya di PR.
 - [ ] **Step 3:** `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`. Cek screenshot di `~/.cache/anchoa-e2e/`.
-- [ ] **Step 4:** Commit, push branch `feat/147-proyek-terhubung`, buka PR dengan bukti test dan `Closes #147`. Review Sol + agy paralel, verifikasi temuan, perbaiki, merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
+- [ ] **Step 4:** Commit, push branch `feat/147-proyek-terhubung`, buka PR dengan bukti test dan `Closes #147`. Review (task role `reviewer`, spec `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md`), verifikasi temuan, perbaiki, merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
 - [ ] **Step 5:** Tulis handoff ke `.remember/now.md`: P-3 selesai, P-4 berikutnya di sesi baru (sesi itu membaca `docs/superpowers/plans/2026-10-03-anchoa-proyek-v2-p4.md` kalau sudah ada, atau menulisnya dari spec R14–R17 sebelum kode).

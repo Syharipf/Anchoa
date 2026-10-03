@@ -1,6 +1,6 @@
 # Anchoa Proyek v2 — P-1 Dasar: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi utama oleh Codex gpt-6.1-sol xhigh (`codex exec -s workspace-write`, satu task per run). Kalau kuotanya habis, pakai `agy-multi --model gemini-3.8-flash-high`. Review oleh agy dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** kartu kanban bisa diseret antar kolom, tugas punya prioritas, kanban bisa dicari dan disaring, dan tugas yang dihapus bisa diurungkan. Asisten bisa mengubah tugas lewat persetujuan.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust + rusqlite + jiff, React + TypeScript, bun test, Xvfb E2E.
 
-**Spec:** `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md` (R1–R6, R18, §3, §4).
+**Spec:** `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md` (R1–R6, R18, R19, §3, §4).
 
 ## Global Constraints
 
@@ -18,22 +18,15 @@
 - Teks UI dalam Bahasa Indonesia, tanpa kata "Fase".
 - Tanpa dependency baru (drag-and-drop memakai API HTML5 bawaan). Tanpa bump versi (rilis setelah P-4).
 - Jurnal v2 (J-1..J-4) sudah merge sebelum P-1 dan menambah migrasi. Pakai **nomor migrasi berikutnya yang masih bebas** di `src-tauri/migrations/` (`ls src-tauri/migrations | tail -1`, lalu +1). Di plan ini nomornya ditulis `0NN`.
-- Sesi ini hanya mengerjakan P-1. P-2..P-4 dikerjakan di sesi Claude Code lain, masing-masing menulis plan-nya sendiri dari spec.
+- Sesi ini hanya mengerjakan P-1. P-2..P-4 dikerjakan terpisah, masing-masing menulis plan-nya sendiri dari spec.
 
 | PR | Task |
 |---|---|
-| P-1 (#145, milestone "Proyek v2") | 1–4 |
+| P-1 (#145, milestone "Proyek v2") | 1–5 |
 
 ## Menjalankan task
 
-Satu task per run, di branch `feat/145-proyek-dasar`, dari root worktree:
-
-```bash
-codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C "$PWD" < /dev/null "Implement Task <N> of docs/superpowers/plans/2026-10-03-anchoa-proyek-v2-p1.md exactly as written, step by step, including its tests and its commit. Follow CLAUDE.md. Rules: work only inside this repository; do not push, merge, open PRs, change git remotes or branches, or touch files the task does not list; do not open URLs. When done, print the output of the task's test commands and the commit hash."
-```
-
-Kalau Codex gagal (kuota, auth, timeout): `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions --print-timeout 1200s -p "<prompt yang sama>"`. `--model` harus sebelum `-p`. Setelah setiap run, sesi Opus menjalankan test task itu dan membaca diff commit-nya. Kalau satu task gagal dua kali, pakai agent `implementer` (Sonnet). Commit dulu sebelum menjalankan agy, karena agy bisa mereset file yang belum di-commit.
-
+Gunakan task role `Coder` untuk implementasi setiap task (test-first, satu commit per task), dan reviewer role untuk review sebelum merge.
 ---
 
 ### Task 1: Backend — prioritas, filter board, pulihkan tugas
@@ -1067,7 +1060,259 @@ git commit -m "feat(projects): drag and drop, priority chips, board filter, dele
 
 ---
 
-### Task 4: E2E dan PR (sesi Opus)
+### Task 4: Frontend — menu klik kanan dan tombol Ubah (R19)
+
+**Files:**
+- Create: `src/shell/ContextMenu.tsx`, `src/shell/ContextMenu.test.tsx`
+- Modify: `src/projects/Kanban.tsx` (tombol "Hapus tugas" dari Task 3 diganti tombol ⋯; `onContextMenu` di kedua jenis `<article>`), `src/projects/Kanban.test.tsx`
+- Modify: `src/projects/ProjectList.tsx` (`onContextMenu` di tombol proyek, props `onEditProject`, `onDeleteProject`)
+- Modify: `src/projects/ProjectHeader.tsx` (tombol Ubah)
+- Modify: `src/projects/ProjectsPage.tsx` (menu tugas dan proyek, dialog hapus proyek), `src/projects/ProjectsPage.test.tsx`
+
+**Interfaces:**
+- Produces (TS, `src/shell/ContextMenu.tsx`):
+
+```ts
+export type MenuEntry =
+  | Readonly<{ label: string; onSelect: () => void; danger?: boolean; checked?: boolean }>
+  | "separator";
+export type MenuAnchor = Readonly<{ x: number; y: number }>;
+/** Mouse position, or the element's bottom-left corner for keyboard-opened menus (clientX/Y = 0). */
+export function anchorOf(e: Readonly<{ clientX: number; clientY: number; currentTarget: Element }>): MenuAnchor;
+export function useContextMenu(): {
+  menu: JSX.Element | null;
+  open: (anchor: MenuAnchor, entries: readonly MenuEntry[]) => void;
+  close: () => void;
+};
+```
+
+- Kanban props: `onDeleteCard` dari Task 3 diganti `cardMenu: (card: TaskCard) => readonly MenuEntry[]`. Kanban memanggil `useContextMenu()` sendiri dan merender `menu`.
+- ProjectList props baru: `projectMenu: (project: ProjectSummary) => readonly MenuEntry[]`.
+
+- [ ] **Step 1: Tulis test yang gagal**
+
+`src/shell/ContextMenu.test.tsx` (pola `hookHarness` seperti `Kanban.test.tsx`):
+
+```tsx
+import { describe, expect, it, mock } from "bun:test";
+import { elements, hookHarness } from "../test/hookHarness";
+import { anchorOf, useContextMenu } from "./ContextMenu";
+
+describe("ContextMenu", () => {
+  it("uses the mouse position, or the element corner for keyboard events", () => {
+    const el = { getBoundingClientRect: () => ({ left: 10, bottom: 40 }) } as unknown as Element;
+    expect(anchorOf({ clientX: 120, clientY: 80, currentTarget: el })).toEqual({ x: 120, y: 80 });
+    expect(anchorOf({ clientX: 0, clientY: 0, currentTarget: el })).toEqual({ x: 10, y: 40 });
+  });
+
+  it("renders entries as menu items, runs one and closes", () => {
+    const pick = mock(() => {});
+    const harness = hookHarness(() => useContextMenu());
+    harness.result().open({ x: 5, y: 5 }, [{ label: "Buka", onSelect: pick }, "separator", { label: "Hapus", onSelect: () => {}, danger: true }]);
+    const items = elements(harness.render().menu).filter((e) => e.props.role === "menuitem");
+    expect(items.map((e) => e.props.children)).toContainEqual("Buka");
+    (items[0].props.onClick as () => void)();
+    expect(pick).toHaveBeenCalled();
+    expect(harness.render().menu).toBeNull();
+    harness.dispose();
+  });
+});
+```
+
+Sesuaikan pemanggilan `hookHarness` (`result()`/`render()`) dengan API di `src/test/hookHarness.ts`; maksud test-nya tetap: posisi anchor, item `role="menuitem"`, memilih item menjalankan `onSelect` dan menutup menu.
+
+Di `src/projects/Kanban.test.tsx`, ganti test "deletes from the card" dari Task 3: tombol `aria-label="Menu tugas"` ada di kartu, `onContextMenu` di `<article>` memanggil `preventDefault` dan membuka menu berisi entri dari `cardMenu(card)`.
+
+Di `src/projects/ProjectsPage.test.tsx`: entri menu tugas berisi "Buka", "Pindah ke Dikerjakan", "Pindah ke Selesai", "Prioritas Tinggi" … "Tanpa prioritas" (yang aktif `checked`), "Hapus"; memilih "Hapus" memanggil `api.deleteTask` lalu toast Urungkan (pindahkan test hapus Task 3 ke sini). Entri menu proyek berisi "Ubah" dan "Hapus"; "Ubah" memanggil `api.projectBoard(id)` lalu membuka formulir dengan `board.project`.
+
+- [ ] **Step 2: Jalankan, pastikan gagal**
+
+```bash
+TZ=Asia/Jakarta bun test src/shell/ContextMenu.test.tsx src/projects/Kanban.test.tsx src/projects/ProjectsPage.test.tsx
+```
+
+- [ ] **Step 3: `ContextMenu.tsx`**
+
+```tsx
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+
+export type MenuEntry =
+  | Readonly<{ label: string; onSelect: () => void; danger?: boolean; checked?: boolean }>
+  | "separator";
+export type MenuAnchor = Readonly<{ x: number; y: number }>;
+
+export function anchorOf(e: Readonly<{ clientX: number; clientY: number; currentTarget: Element }>): MenuAnchor {
+  if (e.clientX !== 0 || e.clientY !== 0) return { x: e.clientX, y: e.clientY };
+  const rect = e.currentTarget.getBoundingClientRect();
+  return { x: rect.left, y: rect.bottom };
+}
+
+const ITEM = "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors";
+
+export function useContextMenu() {
+  const [state, setState] = useState<{ anchor: MenuAnchor; entries: readonly MenuEntry[] } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const opener = useRef<Element | null>(null);
+
+  const close = () => {
+    setState(null);
+    (opener.current as HTMLElement | null)?.focus?.();
+  };
+  const open = (anchor: MenuAnchor, entries: readonly MenuEntry[]) => {
+    opener.current = typeof document === "undefined" ? null : document.activeElement;
+    setState({ anchor, entries });
+  };
+
+  useEffect(() => {
+    if (!state) return;
+    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const outside = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setState(null);
+    };
+    document.addEventListener("mousedown", outside);
+    return () => document.removeEventListener("mousedown", outside);
+  }, [state]);
+
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const next = e.key === "ArrowDown" ? index + 1 : index - 1;
+    items[(next + items.length) % items.length]?.focus();
+  }
+
+  const menu = state && (
+    <div
+      ref={ref}
+      role="menu"
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+      style={{
+        left: Math.min(state.anchor.x, (globalThis.innerWidth ?? 1280) - 200),
+        top: Math.min(state.anchor.y, (globalThis.innerHeight ?? 800) - 16 - state.entries.length * 30),
+      }}
+      className="fixed z-50 flex w-48 flex-col rounded-xl border border-line bg-surface p-1 shadow-lg"
+    >
+      {state.entries.map((entry, i) =>
+        entry === "separator" ? (
+          <hr key={`sep-${i}`} className="my-1 border-line" />
+        ) : (
+          <button
+            key={entry.label}
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setState(null);
+              entry.onSelect();
+            }}
+            className={`${ITEM} ${entry.danger ? "text-danger hover:bg-danger-row" : "text-ink hover:bg-surface-2"}`}
+          >
+            <span className="w-3 shrink-0 text-accent">{entry.checked ? "✓" : ""}</span>
+            {entry.label}
+          </button>
+        ),
+      )}
+    </div>
+  );
+
+  return { menu, open, close };
+}
+```
+
+Kalau test memeriksa `children` tombol sebagai string tunggal, pindahkan tanda ✓ ke `aria-checked` + `role="menuitemcheckbox"` untuk entri `checked !== undefined` dan sesuaikan test; jangan menambah dependency.
+
+- [ ] **Step 4: `Kanban.tsx`**
+
+- Ganti prop `onDeleteCard` dengan `cardMenu`. Di awal komponen: `const { menu, open } = useContextMenu();` (setelah `useState` yang ada, supaya urutan slot hook test lama tidak bergeser), dan render `{menu}` sebagai anak terakhir grid.
+- Kedua jenis `<article>`: `onContextMenu={(e) => { e.preventDefault(); open(anchorOf(e), cardMenu(c)); }}`.
+- Tombol "Hapus tugas" dari Task 3 diganti tombol ⋯ di posisi yang sama:
+
+```tsx
+<button
+  type="button"
+  aria-label="Menu tugas"
+  title="Menu tugas"
+  onClick={(e) => open(anchorOf(e), cardMenu(c))}
+  className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+>
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /><circle cx="5" cy="12" r="1.5" />
+  </svg>
+</button>
+```
+
+  Tambah `group` ke `className` kedua `<article>`.
+
+- [ ] **Step 5: `ProjectList.tsx`, `ProjectHeader.tsx`**
+
+- `ProjectList`: prop baru `projectMenu`; panggil `useContextMenu()`; tombol proyek mendapat `onContextMenu={(e) => { e.preventDefault(); open(anchorOf(e), projectMenu(p)); }}`; render `{menu}` di akhir `<section>`. Entri "Tugas lepas" tidak punya menu.
+- `ProjectHeader`: tombol Ubah dipindah ke kolom kanan atas (di bawah "n dari m tugas"), memakai kelas `SECONDARY` dari `../shell/ui` dengan ikon pensil 14px (path sama dengan "Ganti nama" di `PageTree.tsx`). Teks tetap "Ubah".
+
+- [ ] **Step 6: `ProjectsPage.tsx`**
+
+Fungsi pembuat entri (tanpa hook baru):
+
+```tsx
+function cardMenu(card: TaskCard): MenuEntry[] {
+  const agent = agentProject !== null;
+  const moves = boardColumns(agent)
+    .filter(({ status }) => status !== card.status)
+    .map(({ status, title }) => ({ label: `Pindah ke ${title}`, onSelect: () => void moveTo(card, status) }));
+  const priorities = ([1, 2, 3] as const).map((p) => ({
+    label: `Prioritas ${PRIORITY_LABELS[p].label}`,
+    checked: card.priority === p,
+    onSelect: () => void setPriority(card, p),
+  }));
+  return [
+    { label: "Buka", onSelect: () => handleOpenCard(card.id) },
+    "separator",
+    ...moves,
+    "separator",
+    ...priorities,
+    { label: "Tanpa prioritas", checked: card.priority === null, onSelect: () => void setPriority(card, null) },
+    "separator",
+    { label: "Hapus", danger: true, onSelect: () => void handleDeleteCard(card) },
+  ];
+}
+```
+
+`moveTo` dan `handleDeleteCard` sudah ada dari Task 3. `setPriority(card, p)` memanggil `api.updateTask(card.id, { priority: p })`, lalu `setVersion((v) => v + 1)` dan `onChanged()`; error masuk toast. Teruskan `cardMenu={cardMenu}` ke `Kanban`.
+
+Menu proyek:
+
+```tsx
+function projectMenu(project: ProjectSummary): MenuEntry[] {
+  return [
+    { label: "Ubah", onSelect: () => void editProject(project.id) },
+    { label: "Hapus", danger: true, onSelect: () => setDeleting(project) },
+  ];
+}
+```
+
+`editProject(id)` memanggil `api.projectBoard(id)` lalu `setFormOpen({ edit: board.project })`. State baru `deleting: ProjectSummary | null`; saat terisi, render `Dialog` (komponen yang dipakai `ProjectForm`) berjudul `Hapus proyek ${deleting.name}?`, teks "Tugasnya pindah ke Tugas lepas.", tombol Batal dan "Hapus" (`text-danger`). "Hapus" memanggil `api.deleteProject(deleting.id)`, menutup dialog, lalu `handleSaved()`.
+
+- [ ] **Step 7: Jalankan test**
+
+```bash
+TZ=Asia/Jakarta bun test && bun run typecheck
+```
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src/shell/ContextMenu.tsx src/shell/ContextMenu.test.tsx src/projects/Kanban.tsx src/projects/Kanban.test.tsx src/projects/ProjectList.tsx src/projects/ProjectHeader.tsx src/projects/ProjectsPage.tsx src/projects/ProjectsPage.test.tsx
+git commit -m "feat(projects): right-click menus for tasks and projects, clearer edit button"
+```
+
+---
+
+### Task 5: E2E dan PR
 
 **Files:**
 - Modify: `scripts/e2e-smoke.sh` (fungsi baru `check_projects_v2`, dipanggil tepat setelah `check_projects` di daftar akhir; perbarui koordinat `check_projects` kalau bar filter menggeser kanban)
@@ -1082,6 +1327,8 @@ git commit -m "feat(projects): drag and drop, priority chips, board filter, dele
   5. Drag-and-drop: coba `xdotool mousemove <kartu> mousedown 1 mousemove <kolom Dikerjakan> mouseup 1`, lalu `sql_becomes "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Tugas hapus')" doing`. Kalau WebKitGTK tidak memicu drag HTML5 dari input sintetis, ganti dengan tombol → di kartu yang sama dan tulis di PR bahwa logika drop dites di `Kanban.test.tsx` (R18).
   6. `shot 12-projects-v2`, lalu `stop_app`.
 
+  5. Klik kanan (`xdotool click 3`) di kartu tugas "Tugas prioritas" → `shot 12-projects-menu`. Pilih "Prioritas Tinggi". `sql_becomes "SELECT t.priority FROM tasks t JOIN items i ON i.id = t.item_id WHERE i.title = 'Tugas prioritas'" 1 || fail "context menu did not set priority"`. Klik kanan kartu proyek di daftar kiri → `shot 12-projects-project-menu` (menu berisi Ubah dan Hapus; tekan Esc).
+
 - [ ] **Step 3: Jalankan suite penuh.**
 
 ```bash
@@ -1092,6 +1339,6 @@ bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/deb
 
 Cek screenshot di `~/.cache/anchoa-e2e/`. Cek juga drag-and-drop di layar sungguhan kalau E2E memakai fallback tombol →. Itu masuk daftar cek manual untuk user.
 
-- [ ] **Step 4: Commit, push, PR.** Commit `test(e2e): projects priority, filter, delete undo`. Push branch `feat/145-proyek-dasar`, lalu buka PR berisi bukti test, nama screenshot, dan `Closes #145`. Jalankan review Sol dan agy secara paralel (perintah di `CLAUDE.md`, spec `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md`). Verifikasi setiap temuan, perbaiki yang nyata, lalu merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
+- [ ] **Step 4: Commit, push, PR.** Commit `test(e2e): projects priority, filter, delete undo`. Push branch `feat/145-proyek-dasar`, lalu buka PR berisi bukti test, nama screenshot, dan `Closes #145`. Jalankan review (task role `reviewer`, spec `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md`). Verifikasi setiap temuan, perbaiki yang nyata, lalu merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
 
 - [ ] **Step 5: Handoff.** Tulis ke `.remember/now.md`: P-1 selesai, dan P-2 dikerjakan berikutnya di sesi baru. Sesi P-2 menulis `docs/superpowers/plans/<tanggal>-anchoa-proyek-v2-p2.md` dari spec R7–R10 sebelum menulis kode.

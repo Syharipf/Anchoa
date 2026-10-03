@@ -1,8 +1,8 @@
 # Anchoa Proyek v2 — P-4 Waktu: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi utama oleh Codex gpt-6.1-sol xhigh (`codex exec -s workspace-write`, satu task per run). Kalau kuotanya habis, pakai `agy-multi --model gemini-3.8-flash-high`. Review oleh agy dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Gunakan task role `Coder` untuk implementasi dan reviewer role untuk review.
 
-> **Baca dulu:** rencana ini ditulis 2026-10-03 dari `main` sebelum Jurnal v2 (J-1..J-4) dan Proyek v2 P-1..P-3 di-merge. Sebelum Task 1, sesi P-4 membaca ulang setiap file yang disebut di bawah di `main` terbaru, lalu menyesuaikan nomor migrasi, indeks kolom `CARD_SELECT`, field baru di `TaskCard`/`ProjectDetail`/`NotifyPrefs`, dan daftar tool asisten. Khusus pengingat (Task 2): J-2 menambah `journalAt` dengan penjadwal pengingat. Kalau `main` sudah punya penjadwal itu (`grep -rn "journal_at\|journalAt\|tauri_plugin_notification" src-tauri/src`), tambahkan ringkasan tugas ke penjadwal tersebut dan lewati pembuatan `reminders.rs`, plugin, dan thread baru di Task 2 Step 4.
+> **Baca dulu:** rencana ini ditulis 2026-10-03 dari `main` sebelum Jurnal v2 (J-1..J-4) dan Proyek v2 P-1..P-3 di-merge. Sebelum Task 1, baca ulang setiap file yang disebut di bawah di `main` terbaru, lalu menyesuaikan nomor migrasi, indeks kolom `CARD_SELECT`, field baru di `TaskCard`/`ProjectDetail`/`NotifyPrefs`, dan daftar tool asisten. Khusus pengingat (Task 2): J-2 menambah `journalAt` dengan penjadwal pengingat. Kalau `main` sudah punya penjadwal itu (`grep -rn "journal_at\|journalAt\|tauri_plugin_notification" src-tauri/src`), tambahkan ringkasan tugas ke penjadwal tersebut dan lewati pembuatan `reminders.rs`, plugin, dan thread baru di Task 2 Step 4.
 
 **Goal:** tugas bisa diberi timer, total waktu tampil per tugas dan per proyek, pengingat tenggat harian muncul sebagai notifikasi sistem, dan asisten lokal bisa menulis laporan mingguan proyek. PR ini ditutup dengan rilis.
 
@@ -27,15 +27,9 @@
 |---|---|
 | P-4 (#148, milestone "Proyek v2") | 1–4 |
 
-## Menjalankan task dengan agy
+## Menjalankan task
 
-Satu task per run, di branch `feat/148-proyek-waktu`, dari root repo:
-
-```bash
-agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions --print-timeout 1200s -p "Implement Task <N> of docs/superpowers/plans/2026-10-03-anchoa-proyek-v2-p4.md exactly as written, step by step, including its tests and its commit. Follow CLAUDE.md. Rules: work only inside this repository; do not push, merge, open PRs, change git remotes or branches, or touch files the task does not list; do not open URLs. When done, print the output of the task's test commands and the commit hash."
-```
-
-Jalur utama tetap Codex: `codex exec -m gpt-6.1-sol -s workspace-write -C "$PWD" < /dev/null "<prompt yang sama>"`. Setelah setiap run, sesi Opus menjalankan test task itu dan membaca diff commit-nya. Commit dulu sebelum menjalankan agy (agy bisa me-reset file yang belum di-commit).
+Gunakan task role `Coder` untuk implementasi setiap task (test-first, satu commit per task), dan reviewer role untuk review sebelum merge.
 
 ---
 
@@ -1255,7 +1249,7 @@ git commit -m "feat(projects): timer buttons and pill, weekly time, report dialo
 
 ---
 
-### Task 4: E2E, PR, dan rilis (sesi Opus)
+### Task 4: E2E, PR, dan rilis
 
 **Files:**
 - Modify: `scripts/e2e-smoke.sh` (`check_projects_time`, dipanggil setelah `check_projects`)
@@ -1279,7 +1273,7 @@ git commit -m "feat(projects): timer buttons and pill, weekly time, report dialo
   7. `stop_app`, matikan fake LLM.
   Pakai `[[ ... ]]`, bukan `[ ... ]`.
 - [ ] **Step 3:** `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`, lalu `E2E_ONLY=check_projects_time scripts/e2e-smoke.sh src-tauri/target/debug/anchoa` saat mengulang. Cek screenshot di `~/.cache/anchoa-e2e/` dan DB di disk.
-- [ ] **Step 4:** Push branch `feat/148-proyek-waktu`, buka PR dengan bukti test, screenshot, dan `Closes #148`. Catat di PR body: klik notifikasi tidak membuka Proyek (plugin desktop tanpa callback klik), dan tool `project_report` mengembalikan fakta, bukan teks. Review Sol + agy paralel (perintah di `CLAUDE.md`, spec `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md`), verifikasi temuan, perbaiki, merge saat semua hijau (`gh pr merge --squash --delete-branch`).
+- [ ] **Step 4:** Push branch `feat/148-proyek-waktu`, buka PR dengan bukti test, screenshot, dan `Closes #148`. Catat di PR body: klik notifikasi tidak membuka Proyek (plugin desktop tanpa callback klik), dan tool `project_report` mengembalikan fakta, bukan teks. Review (task role `reviewer`, spec `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md`), verifikasi temuan, perbaiki, merge saat semua hijau (`gh pr merge --squash --delete-branch`).
 - [ ] **Step 5: Rilis.** Dari `main` terbaru di branch `chore/release-0.20.0` (atau ikut di PR P-4 kalau belum di-merge): ubah versi menjadi minor berikutnya (contoh `0.20.0`) di `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, jalankan `cd src-tauri && cargo check` agar `Cargo.lock` ikut, dan perbarui baris Status di `CLAUDE.md` (Proyek v2 selesai: drag-and-drop, prioritas, filter, Daftar, berulang, arsip, anggaran, status repo, tautan, timer, pengingat, laporan). Merge lewat PR seperti biasa, lalu:
 
 ```bash

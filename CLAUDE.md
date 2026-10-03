@@ -71,24 +71,6 @@ On the dev laptop, NVIDIA is the X `PrimaryGPU`, and Intel is also present.
 
 Do not start implementing a phase until the user approves moving from planning to code.
 
-### Model per step
-
-- Planning (brainstorm, spec, plan): Opus 5.5 at high effort, in the main session (no Opus fork subagents: when the user asks for parallel subagents, send the work to `agy-multi` or Codex instead, to save Claude tokens), with the `superpowers:brainstorming` and `superpowers:writing-plans` skills. Close each PR with `superpowers:verification-before-completion` and `superpowers:finishing-a-development-branch`. Use any other listed skill that fits the task.
-- Implementation (user, 2026-10-03): `agy-multi --model gemini-3.8-flash-high` with `--dangerously-skip-permissions`, one plan task per run. On the main account (syharipf) `agy-multi` runs Claude Opus 4.6 Thinking instead, because its Gemini quota is used up; other accounts keep Gemini 3.8 Flash High. The prompt keeps it inside this repository and forbids push, merge and PRs. Each plan has the command under "Menjalankan task dengan agy". The Claude session only checks each result (the task's tests and the commit diff) and does not write the code itself.
-- Codex gpt-6.1-sol does not implement; it is the reviewer. When `agy-multi` runs out on every account, it falls back to `codex exec -s workspace-write` by itself.
-- `agy-multi` (`~/.local/bin/agy-multi`) wraps `agy` with the same arguments. Put `--model` before `-p`, because `-p` takes the next argument as the prompt.
-  - On a quota error, it repeats the run with the next Google account.
-  - When a Gemini model is out of quota on every account, it repeats the run with `claude-opus-4-6-thinking` (Claude Opus 4.6 in Antigravity), again account by account.
-  - When that is out everywhere too, it sends the `-p` prompt to `codex exec -s workspace-write`.
-- Review: Codex gpt-6.1-sol at xhigh (Sol, Codex CLI, ChatGPT login) on every PR, without editing files. For Sol:
-
-  ```bash
-  codex exec -m gpt-6.1-sol -s read-only -C "$PWD" -o ../review.txt < /dev/null "You are reviewing a pull request. Run git diff origin/main...HEAD to see it, and open changed files for context. Project rules are in CLAUDE.md; the spec is <spec path>, and this PR is <PR>. Do not edit files. Report real bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
-  ```
-
-  `codex review --base` does not accept custom instructions, so use `codex exec`. Keep `< /dev/null`: without a terminal, `codex exec` otherwise waits for more input on stdin. Check every finding before fixing it: reviewers also report false positives.
-- Fallback, only when needed: Opus at medium effort. Use the `reviewer-opus` agent when Codex fails (auth, quota, timeout, or no output after a retry). Use the `implementer` agent (Sonnet, `.claude/agents/implementer.md`) when a task fails twice through `agy-multi`, and Opus only when it also fails twice with Sonnet.
-
 ## Reporting to Anchoa
 
 When a task belongs to an agent project in Anchoa, report through the CLI in the app binary (`anchoa agent …`, or `"$ANCHOA_CLI" agent …` inside a run that Anchoa started). Each command prints one JSON line; errors exit with code 2.

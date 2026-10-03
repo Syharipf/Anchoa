@@ -61,10 +61,11 @@ export function App() {
   }, []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
-  const onAssistantChanged = useCallback(() => {
+  const reloadAllData = useCallback(() => {
     reload();
     setAssistantDataVersion((version) => version + 1);
   }, [reload]);
+  const onAssistantChanged = reloadAllData;
   const page = stack[stack.length - 1];
   const locked = security?.locked ?? true;
   const ready = status !== null && status.error === null && !locked;
@@ -102,7 +103,7 @@ export function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let active = true;
-    onSyncChanged(onAssistantChanged).then(
+    onSyncChanged(reloadAllData).then(
       (stop) => (active ? (unlisten = stop) : stop()),
       () => {},
     );
@@ -110,7 +111,7 @@ export function App() {
       active = false;
       unlisten?.();
     };
-  }, [onAssistantChanged]);
+  }, [reloadAllData]);
 
   // The Unduhan card shows live progress: refresh every second while it lists downloads.
   const downloading = page.name === "dashboard" && (dashboard.data?.downloads.items.length ?? 0) > 0;

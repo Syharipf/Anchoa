@@ -15,7 +15,9 @@ export function passphraseProblem(pass: string, again: string): string | null {
 
 type Dialogs = "passphrase" | "signOut" | null;
 
-export function SyncSection() {
+export function SyncSection({
+  onChanged,
+}: Readonly<{ onChanged?: () => void }> = {}) {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
@@ -34,8 +36,14 @@ export function SyncSection() {
   const cancelled = useRef(false);
 
   const refresh = useCallback(() => {
-    return api.syncStatus().then(setStatus, (e) => setError(errorMessage(e)));
-  }, []);
+    return api.syncStatus().then(
+      (s) => {
+        setStatus(s);
+        onChanged?.();
+      },
+      (e) => setError(errorMessage(e)),
+    );
+  }, [onChanged]);
 
   useEffect(() => {
     void refresh();

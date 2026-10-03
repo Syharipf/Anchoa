@@ -91,8 +91,57 @@ describe("sectionStatus", () => {
     expect(sectionStatus("suara", { voiceStatus: { ...installedVoiceStatus, pwPlay: false } })).toBe("Belum dipasang");
   });
 
-  it("returns 'Lokal' for data", () => {
+  it("returns 'Lokal' for data when sync is not connected", () => {
     expect(sectionStatus("data")).toBe("Lokal");
+    expect(sectionStatus("data", { syncStatus: null })).toBe("Lokal");
+    expect(
+      sectionStatus("data", {
+        syncStatus: {
+          configured: true,
+          signedIn: false,
+          email: null,
+          lastSyncAt: null,
+          lastError: null,
+          bytesUsed: 0,
+          quotaBytes: 400 * 1024 * 1024,
+          needsUnlockKey: false,
+          vaultExists: null,
+        },
+      }),
+    ).toBe("Lokal");
+  });
+
+  it("reflects connected or locked sync state for data", () => {
+    expect(
+      sectionStatus("data", {
+        syncStatus: {
+          configured: true,
+          signedIn: true,
+          email: "user@test.org",
+          lastSyncAt: null,
+          lastError: null,
+          bytesUsed: 100,
+          quotaBytes: 400 * 1024 * 1024,
+          needsUnlockKey: false,
+          vaultExists: true,
+        },
+      }),
+    ).toBe("Terhubung");
+    expect(
+      sectionStatus("data", {
+        syncStatus: {
+          configured: true,
+          signedIn: true,
+          email: "user@test.org",
+          lastSyncAt: null,
+          lastError: null,
+          bytesUsed: 0,
+          quotaBytes: 400 * 1024 * 1024,
+          needsUnlockKey: true,
+          vaultExists: true,
+        },
+      }),
+    ).toBe("Perlu kunci");
   });
 
   it("reflects GitHub connection state for integrasi", () => {

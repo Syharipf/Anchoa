@@ -27,7 +27,7 @@
 ## Kenapa Anchoa
 
 - **Semua di satu tempat.** Tugas, jadwal, uang, habit, jurnal, dan catatan saling tertaut; satu pencarian (Ctrl K) untuk semuanya.
-- **Data tetap di laptopmu.** Semua tersimpan di SQLite lokal, dengan backup harian otomatis. Tidak perlu akun Anchoa, dan tidak ada data yang dikirim ke cloud.
+- **Data tetap di laptopmu.** Semua tersimpan di SQLite lokal, dengan backup harian otomatis. Sync antarperangkat opsional dan terenkripsi end-to-end; tanpa sync, tidak ada data yang dikirim ke cloud.
 - **Asisten yang privat.** Asisten berjalan di Ollama lokal, bisa diajak bicara (Whisper dan Piper), dan setiap perubahan yang diusulkannya harus kamu setujui dulu.
 - **Gratis.** Seluruh kodenya ada di repo ini.
 
@@ -50,7 +50,7 @@
 
 Cara pakai setiap modul ada di [panduan pengguna](docs/MANUAL.md).
 
-**Status:** versi 0.17.0, untuk Fedora Linux. Yang direncanakan: sinkron terenkripsi end-to-end antarperangkat ([spec](docs/superpowers/specs/2026-10-02-anchoa-sync-design.md)), lalu Android dan Windows.
+**Status:** versi 0.18.0, untuk Fedora Linux. Sync terenkripsi end-to-end antarperangkat sudah tersedia ([spec](docs/superpowers/specs/2026-10-02-anchoa-sync-design.md)). Yang direncanakan: Android dan Windows.
 
 ## Instal
 

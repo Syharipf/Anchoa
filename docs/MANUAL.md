@@ -278,7 +278,7 @@ Data modul tersimpan dalam SQLite lokal di laptop. File asli dan hasil unduhan t
 | Unduhan | Antrean, URL, file sementara, hasil. | Permintaan ke situs sumber melalui HTTP/HTTPS atau yt-dlp. |
 | Agen proyek | Tugas, aktivitas, log agen. | Mengikuti perintah/program agen, termasuk layanan luar yang dipakainya. |
 | Cek rilis dan tautan | Versi aplikasi. | Cek pembaruan menghubungi API GitHub; membuka tautan memakai browser/aplikasi sistem. |
-| Sync opsional | Frasa sandi dan recovery key tidak disimpan; DEK di keyring. Token OAuth di memori sesi. | Login OAuth ke Supabase Auth (Google/GitHub). Record terenkripsi dikirim/ditarik lewat REST Supabase. Server tidak bisa membaca isi. |
+| Sync opsional | Frasa sandi dan recovery key tidak disimpan; DEK dan token OAuth disimpan di keyring sistem. | Login OAuth ke Supabase Auth (Google/GitHub). Record terenkripsi dikirim/ditarik lewat REST Supabase. Server tidak bisa membaca isi. |
 
 Alamat AI dapat diganti lewat variabel lingkungan `ANCHOA_AI_BASE`; jika diarahkan keluar localhost, pesan/konteks dikirim ke alamat itu. Pengaturan UI tidak menyediakan penyedia cloud. Pemrosesan tetap di laptop hanya jika alamat AI serta program agen yang dipilih juga lokal.
 

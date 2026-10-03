@@ -1,6 +1,6 @@
 # Anchoa Fase 4B (Catatan): Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Kode ditulis Gemini 3.8 Flash High lewat `agy-multi`, direview Codex, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Halaman Catatan dengan pohon halaman, editor blok Markdown, `[[wikilink]]` dan backlink, pencarian FTS5, Sampah, dan ekspor Markdown.
 
@@ -14,15 +14,11 @@
 
 **Bentuk rencana:** sama seperti rencana Fase 6 dan 7. Rencana ini berisi antarmuka, aturan, dan test wajib. Kerjakan TDD dengan satu commit per task, dan stage path secara eksplisit.
 
-## Menjalankan task dengan agy
+## Menjalankan task
 
-Satu task per run, di branch PR yang sedang dikerjakan, dari root worktree:
+Gunakan task role `Coder` untuk implementasi setiap task (test-first, satu commit per task), dan reviewer role untuk review sebelum merge.
 
-```bash
-agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions --print-timeout 2100s -p "Implement Task <N> of docs/superpowers/plans/2026-10-01-anchoa-fase4b-catatan.md exactly as written, test first, including its tests and its commit. Read the spec docs/superpowers/specs/2026-10-01-anchoa-fase4b-catatan-design.md. Follow CLAUDE.md, including the SonarCloud conventions. Rules: work only inside this repository; do not push, merge, open PRs, change git remotes or branches; do not open URLs; do not edit docs/. Stage files by explicit path, never git add -A. Before committing run the task's checks and fix every failure. When done, print the tail of each check and the commit hash."
-```
-
-Setelah setiap run, sesi Opus menjalankan test task itu dan membaca diff commit-nya. Review PR memakai Codex (`CLAUDE.md`, "Model per step").
+Review oleh task role `reviewer`.
 
 ## Global Constraints
 
@@ -337,7 +333,7 @@ Logika tombol sudah diuji di Task 4.
 **Test:** `results.test.ts`: penggabungan grup perintah dan item, serta navigasi panah melewati batas grup.
 **Commit:** `feat: search items from the command palette`.
 
-### Task 9: E2E, versi 0.9.0, penutup (dikerjakan sesi Opus)
+### Task 9: E2E, versi 0.9.0, penutup
 
 - **Koordinat nav:** Catatan di `y=202` menggeser semua menu setelah Jurnal sebanyak +54. Sesuaikan semua `click 36 <y>` di `scripts/e2e-smoke.sh`:
   - Email 202→256, Jadwal 256→310, Habit 310→364, Keuangan 364→418;

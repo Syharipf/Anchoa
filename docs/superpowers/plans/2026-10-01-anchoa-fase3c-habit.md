@@ -1,6 +1,6 @@
 # Anchoa Fase 3C (Habit): Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Kode ditulis oleh Gemini 3.8 Flash High lewat `agy-multi`, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Menu Habit: kebiasaan dengan hari aktif, centang harian, streak, konsistensi, riwayat bulanan, dan pengingat di panel notifikasi.
 

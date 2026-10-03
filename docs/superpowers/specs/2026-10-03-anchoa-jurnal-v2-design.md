@@ -5,7 +5,7 @@ Status: user memilih keempat paket (Dasar, Menulis, Refleksi, Data) dan menyetuj
 
 ## 1. Ringkasan
 
-Update menu pertama dalam seri "poles per menu". Empat PR, masing-masing dikerjakan di sesi Claude Code terpisah:
+Update menu pertama dalam seri "poles per menu". Empat PR, masing-masing dikerjakan terpisah:
 
 | PR | Isi |
 |---|---|

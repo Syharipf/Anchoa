@@ -1,6 +1,6 @@
 # Anchoa Profil: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh. Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh Gemini dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Halaman Profil sesuai artboard, berisi:
 - kartu profil dengan nama dan statistik;
@@ -60,7 +60,7 @@
 
 **Commit:** `feat: add the profile page and notification switches`.
 
-### Task 3: E2E, versi 0.12.0 (sesi Opus)
+### Task 3: E2E, versi 0.12.0
 
 - `check_profile` sesuai spec §5.
 - Versi 0.12.0.
@@ -69,6 +69,3 @@
 **Commit:** `test: cover the profile page end to end; bump version to 0.12.0`.
 
 ## Menjalankan task
-
-- **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "<task>" < /dev/null`. Sandbox Sol tidak bisa commit, jadi sesi Opus yang commit.
-- **Gemini:** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions -p "<task>" < /dev/null`.

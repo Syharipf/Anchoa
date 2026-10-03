@@ -1,6 +1,6 @@
 # Anchoa Pengaturan: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Implementasi utama oleh Codex gpt-6.1-sol xhigh (`codex exec -s workspace-write`). Kalau kuotanya habis, pakai Gemini 3.8 Flash High lewat `agy-multi`. Review oleh Gemini dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Halaman Pengaturan dengan sub-nav enam bagian sesuai artboard, berisi Sinkron & data lokal, Integrasi, dan Tentang (cek pembaruan dan lisensi).
 
@@ -77,7 +77,7 @@
 
 **Commit:** `feat: rebuild the settings page around a section nav`.
 
-### Task 4: E2E, versi 0.11.0 (sesi Opus)
+### Task 4: E2E, versi 0.11.0
 
 - `check_settings` sesuai spec §5.
 - Versi 0.11.0 (`package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`).
@@ -87,6 +87,3 @@
 **Penutup PR P-2**, lalu rilis.
 
 ## Menjalankan task
-
-- **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "<task>" < /dev/null`. Sandbox Sol tidak bisa commit (metadata git berada di luar worktree), jadi sesi Opus yang commit.
-- **Gemini:** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions -p "<task>" < /dev/null`.

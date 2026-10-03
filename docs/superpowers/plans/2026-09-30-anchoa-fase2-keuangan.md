@@ -1,6 +1,6 @@
 # Anchoa Fase 2 (Keuangan): Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Di repo ini, setiap task ditulis oleh Gemini 3.8 Flash High lewat `agy` (lihat "Menjalankan task dengan agy"), lalu dicek oleh sesi Opus. Review per PR juga memakai `agy`; lihat CLAUDE.md "Model per step".
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 ## Status verifikasi
 
@@ -11,15 +11,9 @@ Semua blok kode di rencana ini sudah diterapkan di worktree percobaan (tidak di-
 - `bun run test`: 43 lulus;
 - E2E: `PASS`, termasuk `check_finance` dan `check_bills`. Koordinat klik di bawah diukur dari build itu.
 
-## Menjalankan task dengan agy
+## Menjalankan task
 
-Satu task per run, di branch PR yang sedang dikerjakan, dari root repo:
-
-```bash
-agy --model gemini-3.8-flash-high --dangerously-skip-permissions --print-timeout 1200s -p "Implement Task <N> of docs/superpowers/plans/2026-09-30-anchoa-fase2-keuangan.md exactly as written, step by step, including its tests and its commit. Follow CLAUDE.md. Rules: work only inside this repository; do not push, merge, open PRs, change git remotes or branches, or touch files the task does not list; do not open URLs. When done, print the output of the task's test commands and the commit hash."
-```
-
-`--dangerously-skip-permissions` menyetujui semua permintaan tool tanpa bertanya. Karena itu aturan di prompt membatasi pekerjaannya ke repo ini. Push, PR, dan merge tetap dikerjakan sesi Opus. Setelah setiap run, sesi Opus menjalankan test task itu dan membaca diff commit-nya. Kalau satu task gagal dua kali, pakai agent `implementer` (Sonnet).
+Gunakan task role `Coder` untuk implementasi setiap task (test-first, satu commit per task), dan reviewer role untuk review sebelum merge.
 
 **Goal:** Membangun halaman Keuangan sesuai artboard: beberapa akun, transaksi dan transfer, kartu bulanan, grafik arus kas 6 bulan, tagihan sekali atau bulanan dengan "Tandai lunas", dan satu batas pengeluaran bulanan. Kartu Keuangan di dashboard, panel notifikasi, dan command palette ikut memakai data ini.
 
@@ -80,13 +74,9 @@ Task terakhir setiap PR menjalankan langkah ini. Nomor issue, branch, dan base d
 
 1. Jalankan semua perintah pemeriksaan di Global Constraints, lalu simpan ekor outputnya.
 2. Buka screenshot E2E yang disebut di task, lalu cocokkan dengan artboard `docs/design/artboards/Keuangan.dc.html` (atau `Main.dc.html` dan `NotifPanel.dc.html` untuk dashboard dan notifikasi).
-3. Review dengan `agy`:
-   ```bash
-   git diff <base>...HEAD > .git/review.diff
-   agy --model gemini-3.8-flash-high --mode plan --print-timeout 600s -p "Rules: do not run shell commands, do not open URLs, and read only files inside this repository with your built-in file viewing tool. Task: review the diff in .git/review.diff against CLAUDE.md, docs/superpowers/specs/2026-09-30-anchoa-fase2-keuangan-design.md and docs/superpowers/plans/2026-09-30-anchoa-fase2-keuangan.md. Open changed files for context. Report bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
-   ```
-   Kalau `agy` gagal dua kali, pakai agent `reviewer-opus`. Periksa setiap temuan; perbaiki yang benar, lalu commit.
-4. `git push -u origin <branch>`, lalu `gh pr create --base <base>`. Body PR memuat ringkasan, output pemeriksaan, daftar screenshot, hasil review, `Closes #<issue>`, dan baris atribusi Claude Code.
+3. Review (task role `reviewer`, spec dan plan sebagai konteks). Verifikasi temuan, perbaiki yang benar, commit.
+Periksa setiap temuan; perbaiki yang benar, lalu commit.
+4. `git push -u origin <branch>`, lalu `gh pr create --base <base>`. Body PR memuat ringkasan, output pemeriksaan, daftar screenshot, hasil review, `Closes #<issue>`, dan baris atribusi.
 5. Jangan merge. Merge hanya kalau user bilang.
 
 **Base branch:** kalau PR sebelumnya sudah di-merge, branch baru dibuat dari `main` dan base-nya `main`. Kalau belum, branch baru dibuat dari branch PR sebelumnya dan base-nya branch itu (PR bertumpuk).

@@ -1,6 +1,6 @@
 # Anchoa UI lanjutan (kerangka global): Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Di repo ini, setiap task dijalankan oleh agent `implementer` (Sonnet, effort high). Review per PR memakai `agy` (Gemini 3.8 Flash High); lihat CLAUDE.md "Model per step".
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
 **Goal:** Menyamakan kerangka aplikasi dengan paket desain lengkap. Isinya nav 8 modul, halaman "menyusul", asisten mini, top bar dengan command palette, panel notifikasi, dan dashboard bento.
 
@@ -60,13 +60,9 @@ Task terakhir setiap PR menjalankan langkah ini. Nomor issue dan nama branch dit
 
 1. Jalankan semua perintah pemeriksaan di Global Constraints, lalu simpan ekor outputnya.
 2. Buka screenshot E2E yang disebut di task, lalu cocokkan dengan artboard.
-3. Review dengan `agy`:
-   ```bash
-   git diff <base>...HEAD > .git/review.diff
-   agy --model gemini-3.8-flash-high --mode plan --print-timeout 600s -p "Rules: do not run shell commands, do not open URLs, and read only files inside this repository with your built-in file viewing tool. Task: review the diff in .git/review.diff against CLAUDE.md, docs/superpowers/specs/2026-09-30-anchoa-ui-lanjutan-design.md and docs/superpowers/plans/2026-09-30-anchoa-ui-lanjutan.md. Open changed files for context. Report bugs, security issues and spec mismatches, one per line as path:line: problem. Say NONE if clean."
-   ```
-   Kalau `agy` gagal dua kali, pakai agent `reviewer-opus`. Periksa setiap temuan; perbaiki yang benar, lalu commit.
-4. `git push -u origin <branch>`, lalu `gh pr create --base <base>`. Body PR memuat ringkasan, output pemeriksaan, daftar screenshot, hasil review, `Closes #<issue>`, dan baris atribusi Claude Code.
+3. Review (task role `reviewer`, spec dan plan sebagai konteks). Verifikasi temuan, perbaiki yang benar, commit.
+Periksa setiap temuan; perbaiki yang benar, lalu commit.
+4. `git push -u origin <branch>`, lalu `gh pr create --base <base>`. Body PR memuat ringkasan, output pemeriksaan, daftar screenshot, hasil review, `Closes #<issue>`, dan baris atribusi.
 5. Jangan merge. Merge hanya kalau user bilang.
 
 ---

@@ -1,6 +1,6 @@
 # Panduan pengguna Anchoa
 
-Untuk Anchoa 0.17.0 di Fedora Linux. [Landing page](https://syharipf.github.io/Anchoa/) · [README](../README.md)
+Untuk Anchoa 0.18.0 di Fedora Linux. [Landing page](https://syharipf.github.io/Anchoa/) · [README](../README.md)
 
 ## Daftar isi
 

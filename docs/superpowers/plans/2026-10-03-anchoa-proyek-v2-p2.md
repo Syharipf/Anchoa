@@ -1,8 +1,8 @@
 # Anchoa Proyek v2 — P-2 Struktur: Rencana Implementasi
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi utama oleh Codex gpt-6.1-sol xhigh (`codex exec -s workspace-write`, satu task per run). Kalau kuotanya habis, pakai `agy-multi --model gemini-3.8-flash-high`. Review oleh agy dan Sol, lalu dicek sesi Opus.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementasi oleh task role `Coder` (satu task per run). Review oleh task role `reviewer`.
 
-> **Baca dulu:** rencana ini ditulis terhadap `main` sebelum P-1 (#145) di-merge. P-1 menambah `tasks.priority`, `BoardFilter` di `project_board`, `restore_task`, drag-and-drop, dan bar filter di atas kanban. Sebelum Task 1, sesi Opus membaca ulang semua file di bawah setelah P-1 ada di `main` dan menyesuaikan nomor baris, indeks kolom `CARD_SELECT`, nama helper prioritas, dan nomor migrasi. Antarmuka P-1 yang dipakai di sini (dari spec): `TaskCard.priority: Option<i64>` (`number | null` di TS), `BoardFilter { query, tag, priority, due }` dengan `Default`, dan bar filter di `ProjectsPage`.
+> **Baca dulu:** rencana ini ditulis terhadap `main` sebelum P-1 (#145) di-merge. P-1 menambah `tasks.priority`, `BoardFilter` di `project_board`, `restore_task`, drag-and-drop, dan bar filter di atas kanban. Sebelum Task 1, baca ulang semua file di bawah setelah P-1 ada di `main` dan sesuaikan nomor baris, indeks kolom `CARD_SELECT`, nama helper prioritas, dan nomor migrasi. Antarmuka P-1 yang dipakai di sini (dari spec): `TaskCard.priority: Option<i64>` (`number | null` di TS), `BoardFilter { query, tag, priority, due }` dengan `Default`, dan bar filter di `ProjectsPage`.
 
 **Goal:** tugas bisa dilihat sebagai Daftar, bisa berulang harian/mingguan/bulanan, proyek bisa diarsipkan, dan tugas bisa punya beberapa tag.
 
@@ -20,7 +20,7 @@
 - Teks UI Bahasa Indonesia, tanpa kata "Fase".
 - Tanpa dependency baru. Tanpa bump versi (rilis setelah P-4).
 - Setiap kolom baru di `tasks`/`projects` masuk `EXTENSIONS` di `src-tauri/src/sync/record.rs`, dan trigger update sync-nya ikut membandingkan kolom itu.
-- Sesi ini hanya mengerjakan P-2. P-3 dan P-4 dikerjakan di sesi Claude Code lain.
+- Sesi ini hanya mengerjakan P-2. P-3 dan P-4 dikerjakan terpisah.
 
 | PR | Task |
 |---|---|
@@ -28,12 +28,7 @@
 
 ## Menjalankan task
 
-Satu task per run, di worktree branch `feat/146-proyek-struktur` (di `~/Projects/anchoa-wt/`), dari root worktree:
-
-- **Sol:** `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s workspace-write -C <worktree> "Implement Task <N> of docs/superpowers/plans/2026-10-03-anchoa-proyek-v2-p2.md exactly as written, test first. Read the spec docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md and CLAUDE.md. Work only inside this repository; do not push, merge, open PRs, or edit docs/. Print the tail of each check." < /dev/null`. Sandbox Sol tidak bisa commit, jadi sesi Opus yang commit.
-- **Gemini (cadangan):** `agy-multi --model gemini-3.8-flash-high --dangerously-skip-permissions --print-timeout 2100s -p "<prompt yang sama, plus: stage files by explicit path, never git add -A; commit with the task's message>" < /dev/null`.
-
-Setelah setiap run, sesi Opus menjalankan test task itu dan membaca diff-nya.
+Gunakan task role `Coder` untuk implementasi setiap task (test-first, satu commit per task), dan reviewer role untuk review sebelum merge.
 
 ---
 
@@ -1086,7 +1081,7 @@ git commit -m "feat(projects): list view, recurring tasks, archive, and multiple
 
 ---
 
-### Task 4: E2E dan PR (sesi Opus)
+### Task 4: E2E dan PR
 
 **Files:**
 - Modify: `scripts/e2e-smoke.sh` (fungsi baru `check_projects_structure`, dipanggil setelah `check_projects` di daftar bawah)
@@ -1100,5 +1095,5 @@ git commit -m "feat(projects): list view, recurring tasks, archive, and multiple
   6. Klik "Pulihkan". `sql_becomes ... 0`.
   7. Restart app (`stop_app`, `start_app`), buka Proyek: tampilan Daftar masih terpilih (`shot 13-projects-view-kept`).
 - [ ] **Step 2:** `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`. Cek screenshot di `~/.cache/anchoa-e2e/`.
-- [ ] **Step 3:** Jalankan suite penuh: `cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings`, lalu `bun run typecheck && bun run test`. Commit `scripts/e2e-smoke.sh` (`test(e2e): project list view, recurrence and archive`), push branch `feat/146-proyek-struktur`, buka PR dengan bukti test, screenshot (tanpa data pribadi), dan `Closes #146`. Review Sol + agy paralel (perintah di CLAUDE.md, spec `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md`), verifikasi tiap temuan, perbaiki yang nyata, merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
+- [ ] **Step 3:** Jalankan suite penuh: `cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings`, lalu `bun run typecheck && bun run test`. Commit `scripts/e2e-smoke.sh` (`test(e2e): project list view, recurrence and archive`), push branch `feat/146-proyek-struktur`, buka PR dengan bukti test, screenshot (tanpa data pribadi), dan `Closes #146`. Review (task role `reviewer`, spec `docs/superpowers/specs/2026-10-03-anchoa-proyek-v2-design.md`), verifikasi tiap temuan, perbaiki yang nyata, merge saat semua hijau (`gh pr merge --squash --delete-branch`). Tanpa rilis.
 - [ ] **Step 4:** Tulis handoff ke `.remember/now.md`: P-2 selesai, P-3 berikutnya di sesi baru (sesi itu memakai `docs/superpowers/plans/2026-10-03-anchoa-proyek-v2-p3.md` kalau ada, atau menulisnya dari spec R11–R13 sebelum kode).

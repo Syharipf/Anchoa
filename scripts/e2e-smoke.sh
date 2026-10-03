@@ -189,8 +189,7 @@ check_dashboard() {
   click 36 94           # nav: Dashboard
   shot 5-dashboard      # expect: bento, "2 tugas hari ini · 1 terlambat", "tugas besok" in the first upcoming column
   click 137 257         # checkbox of the first task ("tugas terlambat")
-  sleep 1
-  [[ -n "$(sql "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
+  [[ -n "$(sql_value "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
   shot 5-dashboard-done # expect: row struck through, "1/2 selesai"
   stop_app
 }

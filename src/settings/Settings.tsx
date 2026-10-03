@@ -5,6 +5,7 @@ import {
   type AiRoles,
   type AiStatus,
   type GithubStatus,
+  type SyncStatus,
   type VoiceStatus,
 } from "../api";
 import { H1 } from "../shell/ui";
@@ -14,6 +15,7 @@ import { AvatarSection } from "./AvatarSection";
 import { DataSection } from "./DataSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { SettingsNav } from "./SettingsNav";
+import { SyncSection } from "./SyncSection";
 import { VoiceSection } from "./VoiceSection";
 import { normalizeSection, type SettingsSection } from "./view";
 
@@ -36,7 +38,7 @@ export function Settings({
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [aiRoles, setAiRoles] = useState<AiRoles | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
-
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const loadAi = useCallback(() => {
     api.aiStatus().then(setAiStatus, () =>
       setAiStatus({ available: false, models: [], error: "Gagal terhubung" }),
@@ -48,12 +50,16 @@ export function Settings({
     api.voiceStatus().then(setVoiceStatus, () => setVoiceStatus(null));
   }, []);
 
+  const loadSync = useCallback(() => {
+    api.syncStatus().then(setSyncStatus, () => setSyncStatus(null));
+  }, []);
   useEffect(() => {
     getVersion().then(setVersion, () => setVersion(""));
     api.githubStatus().then(setGhStatus, () => setGhStatus(null));
     loadAi();
     loadVoice();
-  }, [loadAi, loadVoice]);
+    loadSync();
+  }, [loadAi, loadVoice, loadSync]);
 
   useEffect(() => {
     setSection(normalizeSection(initialSection));
@@ -88,6 +94,7 @@ export function Settings({
             aiStatus,
             aiChatModel: aiRoles?.chat.model,
             voiceStatus,
+            syncStatus,
           }}
         />
 
@@ -95,7 +102,12 @@ export function Settings({
           {section === "ai" && <AiSection onChanged={loadAi} />}
           {section === "avatar" && <AvatarSection />}
           {section === "suara" && <VoiceSection onChanged={loadVoice} />}
-          {section === "data" && <DataSection />}
+          {section === "data" && (
+            <div className="flex flex-col gap-4">
+              <SyncSection onChanged={loadSync} />
+              <DataSection />
+            </div>
+          )}
           {section === "integrations" && (
             <IntegrationsSection onChanged={handleGithubChanged} />
           )}

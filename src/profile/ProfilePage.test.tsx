@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { api, type GithubStatus, type NotifyPrefs, type Profile } from "../api";
 import { PinDialog } from "../security/PinDialog";
 import { elements, hookHarness } from "../test/hookHarness";
+import { syncLabel } from "../settings/view";
 import { ProfilePage } from "./ProfilePage";
 
 const sampleProfile: Profile = {
@@ -38,9 +39,14 @@ describe("ProfilePage", () => {
   let setPinSpy: ReturnType<typeof spyOn<typeof api, "setPin">> | undefined;
   let disablePinSpy: ReturnType<typeof spyOn<typeof api, "disablePin">> | undefined;
   let emailStatusSpy: ReturnType<typeof spyOn<typeof api, "emailStatus">>;
+  let syncStatusSpy: ReturnType<typeof spyOn<typeof api, "syncStatus">>;
 
   beforeEach(() => {
     emailStatusSpy = spyOn(api, "emailStatus").mockResolvedValue({ connected: false, address: null });
+    syncStatusSpy = spyOn(api, "syncStatus").mockResolvedValue({
+      configured: true, signedIn: false, email: null, lastSyncAt: null, lastError: null,
+      bytesUsed: 0, quotaBytes: 0, needsUnlockKey: false, vaultExists: null,
+    });
   });
 
   afterEach(() => {
@@ -53,6 +59,25 @@ describe("ProfilePage", () => {
     setPinSpy?.mockRestore();
     disablePinSpy?.mockRestore();
     emailStatusSpy?.mockRestore();
+    syncStatusSpy?.mockRestore();
+  });
+
+  it("shows the sync status row", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+    const texts = () => elements(harness.render()).map((el) => el.props.children).flat();
+    expect(texts()).toContain("Sync: mati");
+    syncStatusSpy.mockResolvedValue({
+      configured: true, signedIn: true, email: "a@b.id", lastSyncAt: null, lastError: null,
+      bytesUsed: 0, quotaBytes: 0, needsUnlockKey: false, vaultExists: null,
+    });
+    harness.replayEffects();
+    await harness.settle();
+    expect(texts()).toContain("Sync: tersambung sebagai a@b.id");
+    expect(syncLabel(null)).toBe("Memuat…");
+    expect(syncLabel({ ...(await api.syncStatus()), configured: false })).toBe("Sync belum tersedia");
   });
 
   it("renders profile card with name, initials, since date, and 4 stats", async () => {

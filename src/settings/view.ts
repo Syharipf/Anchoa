@@ -1,4 +1,4 @@
-import type { AiStatus, VoiceStatus } from "../api";
+import type { AiStatus, SyncStatus, VoiceStatus } from "../api";
 
 // Settings navigation definitions, section status calculation, and static metadata.
 
@@ -56,6 +56,7 @@ export interface StatusContext {
   readonly aiChatModel?: string;
   readonly voiceStatus?: VoiceStatus | null;
   readonly avatarStatus?: string;
+  readonly syncStatus?: SyncStatus | null;
 }
 
 /** Check if all essential voice components are installed on the device. */
@@ -99,8 +100,13 @@ export function sectionStatus(
       );
       return active?.label ?? "Di perangkat";
     }
-    case "data":
+    case "data": {
+      if (context?.syncStatus?.signedIn) {
+        if (context.syncStatus.needsUnlockKey) return "Perlu kunci";
+        return "Terhubung";
+      }
       return "Lokal";
+    }
     case "integrations":
       return context?.githubConnected ? "Terhubung" : "Belum terhubung";
     case "about": {
@@ -173,4 +179,11 @@ export const ITEM_KIND_LABELS: Record<string, string> = {
 
 export function formatKind(kind: string): string {
   return ITEM_KIND_LABELS[kind] ?? (kind.charAt(0).toUpperCase() + kind.slice(1));
+}
+
+/** One line about sync for the Profil page. */
+export function syncLabel(status: SyncStatus | null): string {
+  if (!status) return "Memuat…";
+  if (!status.configured) return "Sync belum tersedia";
+  return status.signedIn ? `Sync: tersambung sebagai ${status.email ?? "akun Anda"}` : "Sync: mati";
 }

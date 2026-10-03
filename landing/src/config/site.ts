@@ -7,7 +7,7 @@ export const site = {
   repository: 'https://github.com/Syharipf/Anchoa',
   releases: 'https://github.com/Syharipf/Anchoa/releases/latest',
   profile: 'https://github.com/Syharipf/Anchoa',
-  version: '0.17.0',
+  version: '0.18.0',
   installCommand: 'sudo dnf install ./Anchoa-*.x86_64.rpm',
   coprCommand:
     'sudo dnf config-manager addrepo --from-repofile=https://syharipf.github.io/Anchoa/anchoa.repo',

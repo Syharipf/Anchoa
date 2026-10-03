@@ -119,14 +119,24 @@ pub fn run() {
             app.manage(agent_runner::AgentRunner::default());
             app.manage(assistant::AssistantState::default());
             app.manage(email::EmailState::default());
-            app.manage(assistant::voice::VoiceState::new(data_dir));
+            app.manage(assistant::voice::VoiceState::new(data_dir.clone()));
             let sync_server = sync::server::configured_server().unwrap_or_else(|e| {
                 log::error!("sync disabled: {e}");
                 None
             });
+            #[cfg(debug_assertions)]
+            let sync_keys = if std::env::var_os("ANCHOA_FAKE_SYNC").is_some() {
+                keystore::KeyringStore::with_builder(Box::new(keystore::FileCredentialBuilder::new(
+                    data_dir.join("fake_keyring.json"),
+                )))
+            } else {
+                keystore::KeyringStore::default()
+            };
+            #[cfg(not(debug_assertions))]
+            let sync_keys = keystore::KeyringStore::default();
             app.manage(sync::commands::SyncState::new(
                 sync_server,
-                keystore::KeyringStore::default(),
+                sync_keys,
             ));
             sync::commands::spawn_scheduler(app.handle().clone());
             Ok(())

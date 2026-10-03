@@ -189,8 +189,7 @@ check_dashboard() {
   click 36 94           # nav: Dashboard
   shot 5-dashboard      # expect: bento, "2 tugas hari ini · 1 terlambat", "tugas besok" in the first upcoming column
   click 137 257         # checkbox of the first task ("tugas terlambat")
-  sleep 1
-  [[ -n "$(sql "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
+  [[ -n "$(sql_value "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
   shot 5-dashboard-done # expect: row struck through, "1/2 selesai"
   stop_app
 }
@@ -328,7 +327,7 @@ check_backup() {
   start_app
   ls "$APPDATA"/backups/anchoa-*.db >/dev/null 2>&1 || fail "no daily backup at startup"
   click 36 760          # nav: Pengaturan
-  click 413 274         # Backup sekarang (Sinkron & data)
+  click 413 384         # Backup sekarang (Sinkron & data)
   sleep 1
   shot 6-settings
   [[ "$(ls "$APPDATA"/backups/anchoa-*.db | wc -l)" -eq 2 ]] || fail "manual backup was not created"
@@ -958,6 +957,136 @@ check_settings() {
   stop_app
 }
 
+check_sync() {
+  local pass='frasa-sandi-sync-e2e'
+  local sync_db="$WORK/sync.db"
+  rm -f "$sync_db"
+  export ANCHOA_FAKE_SYNC="$sync_db"
+
+  local dir_a="$WORK/app-a"
+  local dir_b="$WORK/app-b"
+  local db_a="$dir_a/data/io.github.syharipf.anchoa/anchoa.db"
+  local db_b="$dir_b/data/io.github.syharipf.anchoa/anchoa.db"
+  local id_task='01a10000-0000-7000-8000-000000000001'
+
+  rm -rf "$dir_a" "$dir_b"
+  mkdir -p "$dir_a/data" "$dir_a/config" "$dir_b/data" "$dir_b/config"
+
+  # --- Instance A: Sign in and create encryption key ---
+  export XDG_DATA_HOME="$dir_a/data" XDG_CONFIG_HOME="$dir_a/config"
+  start_app
+  sleep 2
+  click 36 760                 # nav: Pengaturan
+  sleep 1.5
+  click 428 258                # Masuk dengan Google
+  sleep 1.5
+  click 790 313                # input 1: Frasa sandi sync
+  xdotool type --delay 20 "$pass"
+  sleep 0.3
+  click 790 389                # input 2: Ulangi frasa sandi
+  xdotool type --delay 20 "$pass"
+  sleep 0.3
+  click 396 442                # Buat kunci
+  sleep 3
+  shot 27-sync-recovery        # expect: recovery key displayed
+
+  # Check recovery key is not in DB A
+  [[ "$(sqlite3 "$db_a" "SELECT count(*) FROM settings WHERE value LIKE '%word%' OR value LIKE '%-%'")" -eq 0 ]] \
+    || fail "recovery key or secret leaked into settings in DB A"
+
+  # Confirm recovery key display: double-click checkbox to focus and check, then Lanjut
+  click 353 334                # Checkbox: Sudah saya simpan
+  sleep 0.2
+  click 353 334
+  sleep 0.5
+  click 382 376                # Lanjut
+  sleep 1.5
+
+  # Create task "Tugas sync" in A
+  local now_ms
+  now_ms=$(date +%s%3N)
+  sqlite3 "$db_a" "INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('$id_task', 'task', 'Tugas sync', $now_ms, $now_ms);"
+  sqlite3 "$db_a" "INSERT INTO tasks (item_id, status) VALUES ('$id_task', 'plan');"
+
+  click 425 360                # Sinkronkan sekarang
+  sleep 2
+  stop_app
+
+  # Verify encrypted payload in fake sync.db
+  [[ "$(sqlite3 "$sync_db" "SELECT count(*) FROM fake_records")" -gt 0 ]] \
+    || fail "no records uploaded to sync.db"
+  python3 -c "
+import sqlite3, sys
+conn = sqlite3.connect('$sync_db')
+rows = conn.execute('SELECT payload FROM fake_records').fetchall()
+for r in rows:
+    if b'Tugas sync' in r[0]:
+        sys.exit(1)
+" || fail "plaintext 'Tugas sync' leaked into fake sync.db payload"
+
+  # --- Instance B: Sign in with GitHub and unlock key ---
+  export XDG_DATA_HOME="$dir_b/data" XDG_CONFIG_HOME="$dir_b/config"
+  start_app
+  sleep 2
+  click 36 760                 # nav: Pengaturan
+  sleep 1.5
+  click 590 258                # Masuk dengan GitHub
+  sleep 1.5
+  click 790 313                # input unlock
+  xdotool type --delay 20 "$pass"
+  sleep 0.3
+  xdotool key Return
+  sleep 2
+  click 425 360                # Sinkronkan sekarang
+  sleep 2
+
+  # Check task exists in DB B
+  [[ "$(sqlite3 "$db_b" "SELECT count(*) FROM items WHERE title = 'Tugas sync' AND deleted_at IS NULL")" -eq 1 ]] \
+    || fail "task 'Tugas sync' not received in DB B"
+  shot 27-sync-synced-b
+
+  # Update status in B and sync
+  sqlite3 "$db_b" "UPDATE tasks SET status = 'done' WHERE item_id = '$id_task';"
+  sqlite3 "$db_b" "UPDATE items SET updated_at = CAST(unixepoch('subsec') * 1000 AS INTEGER) WHERE id = '$id_task';"
+  click 425 360                # Sinkronkan sekarang
+  sleep 2
+  stop_app
+
+  # --- Instance A: Sync updated status ---
+  export XDG_DATA_HOME="$dir_a/data" XDG_CONFIG_HOME="$dir_a/config"
+  start_app
+  sleep 2
+  click 36 760                 # nav: Pengaturan
+  sleep 1.5
+  click 425 360                # Sinkronkan sekarang
+  sleep 2
+  [[ "$(sqlite3 "$db_a" "SELECT status FROM tasks WHERE item_id = '$id_task'")" = "done" ]] \
+    || fail "updated status 'done' not reflected in DB A"
+
+  # Delete in A and sync
+  sqlite3 "$db_a" "UPDATE items SET deleted_at = CAST(unixepoch('subsec') * 1000 AS INTEGER) WHERE id = '$id_task';"
+  click 425 360                # Sinkronkan sekarang
+  sleep 2
+  stop_app
+
+  # --- Instance B: Sync deletion ---
+  export XDG_DATA_HOME="$dir_b/data" XDG_CONFIG_HOME="$dir_b/config"
+  start_app
+  sleep 2
+  click 36 760                 # nav: Pengaturan
+  sleep 1.5
+  click 425 360                # Sinkronkan sekarang
+  sleep 2
+  stop_app
+
+  [[ "$(sqlite3 "$db_b" "SELECT count(*) FROM items WHERE id = '$id_task' AND deleted_at IS NOT NULL")" -eq 1 ]] \
+    || fail "task 'Tugas sync' not marked deleted in DB B"
+
+  # Restore standard XDG paths for remaining tests
+  export XDG_DATA_HOME="$WORK/data" XDG_CONFIG_HOME="$WORK/config"
+  unset ANCHOA_FAKE_SYNC
+}
+
 check_profile() {
   fresh
   start_app
@@ -1167,6 +1296,7 @@ check_downloads
 check_notes
 check_agent
 check_settings
+check_sync
 check_profile
 check_assistant_ai
 check_voice_settings

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
+import { api, errorMessage, onSyncChanged, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import type { AssistantRequest, OpenAssistant } from "./assistant/useAssistantRequest";
 import { LockScreen } from "./security/LockScreen";
@@ -61,10 +61,11 @@ export function App() {
   }, []);
   const dashboard = useDashboard();
   const { reload } = dashboard;
-  const onAssistantChanged = useCallback(() => {
+  const reloadAllData = useCallback(() => {
     reload();
     setAssistantDataVersion((version) => version + 1);
   }, [reload]);
+  const onAssistantChanged = reloadAllData;
   const page = stack[stack.length - 1];
   const locked = security?.locked ?? true;
   const ready = status !== null && status.error === null && !locked;
@@ -97,6 +98,20 @@ export function App() {
   useEffect(() => {
     if (ready) reload();
   }, [ready, stack, reload]);
+
+  // Records pulled from another device change what every page shows.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let active = true;
+    onSyncChanged(reloadAllData).then(
+      (stop) => (active ? (unlisten = stop) : stop()),
+      () => {},
+    );
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [reloadAllData]);
 
   // The Unduhan card shows live progress: refresh every second while it lists downloads.
   const downloading = page.name === "dashboard" && (dashboard.data?.downloads.items.length ?? 0) > 0;
@@ -231,7 +246,6 @@ export function App() {
         )}
         {page.name === "settings" && (
           <Settings
-            key={assistantDataVersion}
             initialSection={page.section}
             onSectionChange={onSectionChange}
             onGithubChanged={onGithubChanged}

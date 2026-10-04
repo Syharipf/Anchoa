@@ -574,6 +574,19 @@ pub fn journal_calendar(db: State<'_, Db>, month: String) -> Result<CalendarView
 }
 
 #[tauri::command]
+pub async fn journal_weekly_summary(app: AppHandle, db: State<'_, Db>) -> Result<Entry, AppError> {
+    let _ = db;
+    tauri::async_runtime::spawn_blocking(move || {
+        let db = app.state::<Db>();
+        let conn = db.conn()?;
+        let endpoint = crate::assistant::Endpoint::default();
+        journal::journal_weekly_summary(&conn, &endpoint, time::now_ms(), &TimeZone::system())
+    })
+    .await
+    .map_err(blocking_error)?
+}
+
+#[tauri::command]
 pub fn dismiss_journal_reminder(db: State<'_, Db>) -> Result<(), AppError> {
     journal::dismiss_reminder(&*db.conn()?, time::now_ms(), &TimeZone::system())
 }

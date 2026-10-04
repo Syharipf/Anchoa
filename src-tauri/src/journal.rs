@@ -127,6 +127,7 @@ pub struct Side {
     pub trend: Vec<TrendDay>,
     pub write_days: i64,
     pub ideas: Vec<EntrySummary>,
+    pub memories: Vec<EntrySummary>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -682,11 +683,172 @@ pub fn journal_side(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Side, 
         });
     }
 
+    let [prev_month, prev_year] = memory_dates(today)?;
+    let (m_start, m_end) = crate::time::date_bounds(prev_month, tz)?;
+    let (y_start, y_end) = crate::time::date_bounds(prev_year, tz)?;
+
+    let mut memories_stmt = conn.prepare(
+        "SELECT i.id, i.title, i.body, i.created_at, COALESCE(j.kind, 'note'), j.mood
+         FROM items i
+         LEFT JOIN journal_entries j ON j.item_id = i.id
+         WHERE i.type = 'note' AND i.deleted_at IS NULL
+           AND ((i.created_at >= ?1 AND i.created_at < ?2) OR (i.created_at >= ?3 AND i.created_at < ?4))
+         ORDER BY i.created_at DESC, i.id DESC",
+    )?;
+    let memory_rows = memories_stmt.query_map(params![m_start, m_end, y_start, y_end], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, i64>(3)?,
+            r.get::<_, EntryKind>(4)?,
+            r.get::<_, Option<i8>>(5)?,
+        ))
+    })?;
+
+    let mut memories = Vec::new();
+    for row in memory_rows {
+        let (id, title, body, created_at, kind, mood) = row?;
+        memories.push(EntrySummary {
+            id,
+            kind,
+            title,
+            preview: body.trim().to_string(),
+            mood,
+            created_at,
+            time: format_time(created_at, now, tz)?,
+        });
+    }
+
     Ok(Side {
         trend,
         write_days,
         ideas,
+        memories,
     })
+}
+
+pub fn memory_dates(today: Date) -> Result<[Date; 2], AppError> {
+    let prev_month_first = today.first_of_month().checked_sub(1.month())?;
+    let prev_month_day = today.day().clamp(1, prev_month_first.days_in_month());
+    let prev_month = Date::new(prev_month_first.year(), prev_month_first.month(), prev_month_day)
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    let prev_year_first = Date::new(today.year() - 1, today.month(), 1)
+        .map_err(|e| AppError::Other(e.to_string()))?;
+    let prev_year_day = today.day().clamp(1, prev_year_first.days_in_month());
+    let prev_year = Date::new(today.year() - 1, today.month(), prev_year_day)
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    Ok([prev_month, prev_year])
+}
+
+pub fn journal_weekly_summary(
+    conn: &Connection,
+    endpoint: &crate::assistant::Endpoint,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<Entry, AppError> {
+    let today = local_date(now, tz)?;
+    let start_date = today.checked_sub(6.days())?;
+    let (start_ms, _) = crate::time::date_bounds(start_date, tz)?;
+    let (_, end_ms) = crate::time::date_bounds(today, tz)?;
+
+    let mut stmt = conn.prepare(
+        "SELECT i.id, i.title, i.body, i.created_at, COALESCE(j.kind, 'note'), j.mood, COALESCE(j.tags, '')
+         FROM items i
+         LEFT JOIN journal_entries j ON j.item_id = i.id
+         WHERE i.type = 'note' AND i.deleted_at IS NULL
+           AND i.created_at >= ?1 AND i.created_at < ?2
+         ORDER BY i.created_at ASC, i.id ASC",
+    )?;
+    let rows = stmt.query_map(params![start_ms, end_ms], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, i64>(3)?,
+            r.get::<_, EntryKind>(4)?,
+            r.get::<_, Option<i8>>(5)?,
+            r.get::<_, String>(6)?,
+        ))
+    })?;
+
+    let mut entries = Vec::new();
+    for row in rows {
+        let (id, title, body, created_at, kind, mood, tags_str) = row?;
+        let tags: Vec<String> = if tags_str.trim().is_empty() {
+            Vec::new()
+        } else {
+            tags_str.split_whitespace().map(String::from).collect()
+        };
+        entries.push((id, title, body, created_at, kind, mood, tags));
+    }
+
+    if entries.is_empty() {
+        return Err(AppError::Invalid(
+            "Belum ada entri jurnal dalam 7 hari terakhir".into(),
+        ));
+    }
+
+    let role_config = crate::assistant::roles::get_role(conn, "recap")?;
+    let model = role_config.model;
+
+    let system_prompt = "Anda asisten lokal untuk jurnal pribadi. Bacalah entri jurnal pengguna selama 7 hari terakhir, lalu tulis ringkasan mengenai tema-tema utama yang muncul dan perkembangan suasana hati dalam bahasa Indonesia. Tulisan harus suportif, jelas, dan terstruktur dalam format Markdown. Langsung berikan isi ringkasan tanpa pengantar atau penutup basa-basi.";
+
+    let mut user_prompt = format!(
+        "Berikut adalah entri jurnal 7 hari terakhir ({start_date} s/d {today}):\n\n"
+    );
+    for (_id, title, body, created_at, _kind, mood, tags) in &entries {
+        let body_cut: String = body.chars().take(2000).collect();
+        let mood_str = match mood {
+            Some(m) => format!("{m}/5"),
+            None => "tidak ada".to_string(),
+        };
+        let tags_str = if tags.is_empty() {
+            "tidak ada".to_string()
+        } else {
+            tags.join(", ")
+        };
+        let date_str = local_date(*created_at, tz)
+            .map(|d| d.to_string())
+            .unwrap_or_else(|_| "-".to_string());
+        user_prompt.push_str(&format!(
+            "### {} ({date_str})\nSuasana hati: {}\nTag: {}\n\n{}\n\n",
+            if title.trim().is_empty() { "Tanpa judul" } else { title.trim() },
+            mood_str,
+            tags_str,
+            body_cut.trim()
+        ));
+    }
+
+    let request = crate::assistant::llm::ChatRequest {
+        model,
+        messages: vec![
+            crate::assistant::llm::ChatMessage::text("system", system_prompt),
+            crate::assistant::llm::ChatMessage::text("user", user_prompt),
+        ],
+        tools: vec![],
+    };
+
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let response = crate::assistant::llm::stream_chat(endpoint, &request, &cancel, |_| {})?;
+    let summary_text = response.content.trim().to_string();
+    if summary_text.is_empty() {
+        return Err(AppError::Other(
+            "Asisten tidak menghasilkan ringkasan".into(),
+        ));
+    }
+
+    let title = format!("Ringkasan minggu {start_date}–{today}");
+    let id = items::insert(conn, "note", &title, &summary_text, now)?;
+    conn.execute(
+        "INSERT INTO journal_entries (item_id, kind, mood, tags, task_id) VALUES (?1, ?2, NULL, 'ringkasan', NULL)",
+        params![id, EntryKind::Note],
+    )?;
+    crate::links::refresh(conn, &id, &summary_text)?;
+    after_note_saved(conn, &id, now, tz)?;
+    journal_entry(conn, &id, now, tz)
 }
 
 pub fn after_note_saved(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result<(), AppError> {
@@ -1726,5 +1888,185 @@ mod tests {
         .unwrap();
         let ids_del: Vec<String> = groups_after_del.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
         assert_eq!(ids_del, vec![e29b.id.clone()]);
+    }
+
+    #[test]
+    fn memories_finds_entries_from_last_month_and_last_year() {
+        // 1. Test date calculation & clamp edge cases
+        // Leap day
+        let leap_day = Date::new(2024, 2, 29).unwrap();
+        let [m_leap, y_leap] = memory_dates(leap_day).unwrap();
+        assert_eq!(m_leap, Date::new(2024, 1, 29).unwrap());
+        assert_eq!(y_leap, Date::new(2023, 2, 28).unwrap());
+
+        // March 31 in leap year -> 1 month ago is Feb 29
+        let mar31_leap = Date::new(2024, 3, 31).unwrap();
+        let [m_mar_leap, y_mar_leap] = memory_dates(mar31_leap).unwrap();
+        assert_eq!(m_mar_leap, Date::new(2024, 2, 29).unwrap());
+        assert_eq!(y_mar_leap, Date::new(2023, 3, 31).unwrap());
+
+        // March 31 in non-leap year -> 1 month ago is Feb 28
+        let mar31_non_leap = Date::new(2025, 3, 31).unwrap();
+        let [m_mar, y_mar] = memory_dates(mar31_non_leap).unwrap();
+        assert_eq!(m_mar, Date::new(2025, 2, 28).unwrap());
+        assert_eq!(y_mar, Date::new(2024, 3, 31).unwrap());
+
+        // May 31 -> 1 month ago is April 30
+        let may31 = Date::new(2026, 5, 31).unwrap();
+        let [m_may, y_may] = memory_dates(may31).unwrap();
+        assert_eq!(m_may, Date::new(2026, 4, 30).unwrap());
+        assert_eq!(y_may, Date::new(2025, 5, 31).unwrap());
+
+        // Jan 31 -> 1 month ago is Dec 31 previous year
+        let jan31 = Date::new(2026, 1, 31).unwrap();
+        let [m_jan, y_jan] = memory_dates(jan31).unwrap();
+        assert_eq!(m_jan, Date::new(2025, 12, 31).unwrap());
+        assert_eq!(y_jan, Date::new(2025, 1, 31).unwrap());
+
+        // 2. Test DB queries in journal_side
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_time = ms("2026-10-04T12:00:00+07:00");
+
+        // When DB is empty, memories is empty
+        let side_empty = journal_side(&conn, now_time, &tz).unwrap();
+        assert!(side_empty.memories.is_empty());
+
+        // Create entries:
+        // 1 month ago: 2026-09-04
+        let t_month = ms("2026-09-04T09:00:00+07:00");
+        let e_month = create_entry(&conn, EntryKind::Note, Some("Satu bulan lalu"), t_month, &tz).unwrap();
+
+        // 1 year ago: 2025-10-04
+        let t_year = ms("2025-10-04T15:00:00+07:00");
+        let e_year = create_entry(&conn, EntryKind::Idea, Some("Satu tahun lalu"), t_year, &tz).unwrap();
+
+        // Unrelated date: 2026-09-10
+        let t_other = ms("2026-09-10T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Vent, Some("Tanggal lain"), t_other, &tz).unwrap();
+
+        // Deleted entry on 1 month ago: 2026-09-04
+        let t_del = ms("2026-09-04T11:00:00+07:00");
+        let e_del = create_entry(&conn, EntryKind::Note, Some("Dihapus"), t_del, &tz).unwrap();
+        delete_entry(&conn, &e_del.id, now_time).unwrap();
+
+        let side = journal_side(&conn, now_time, &tz).unwrap();
+        assert_eq!(side.memories.len(), 2);
+        // Ordered created_at DESC: 1 month ago first, then 1 year ago
+        assert_eq!(side.memories[0].id, e_month.id);
+        assert_eq!(side.memories[0].title, "Satu bulan lalu");
+        assert_eq!(side.memories[1].id, e_year.id);
+        assert_eq!(side.memories[1].title, "Satu tahun lalu");
+        assert_eq!(side.memories[1].kind, EntryKind::Idea);
+    }
+
+    #[test]
+    fn weekly_summary_requires_entries_and_creates_note() {
+        use crate::assistant::test_server::{Server, sse};
+        use serde_json::json;
+
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_time = ms("2026-10-04T12:00:00+07:00");
+
+        // 1. Error when no entries in last 7 days
+        let err_empty = journal_weekly_summary(
+            &conn,
+            &crate::assistant::Endpoint::default(),
+            now_time,
+            &tz,
+        )
+        .unwrap_err();
+        assert!(matches!(&err_empty, AppError::Invalid(msg) if msg == "Belum ada entri jurnal dalam 7 hari terakhir"));
+
+        // 2. Older entry (> 7 days ago, e.g. 8 days ago: 2026-09-26) still results in empty error
+        let t_old = ms("2026-09-26T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Note, Some("Entri lama"), t_old, &tz).unwrap();
+        let err_still_empty = journal_weekly_summary(
+            &conn,
+            &crate::assistant::Endpoint::default(),
+            now_time,
+            &tz,
+        )
+        .unwrap_err();
+        assert!(matches!(&err_still_empty, AppError::Invalid(msg) if msg == "Belum ada entri jurnal dalam 7 hari terakhir"));
+
+        // 3. Entry in last 7 days exists, but Ollama server is offline
+        let t_recent = ms("2026-10-02T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Note, Some("Entri baru"), t_recent, &tz).unwrap();
+
+        let dead_endpoint = crate::assistant::Endpoint {
+            base_url: "http://127.0.0.1:59998/v1".into(),
+            api_key: None,
+        };
+        let err_offline = journal_weekly_summary(&conn, &dead_endpoint, now_time, &tz).unwrap_err();
+        assert!(err_offline.to_string().contains("Ollama"));
+
+        // Check no summary note was created
+        let count_notes: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM items WHERE type = 'note' AND title LIKE 'Ringkasan%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count_notes, 0);
+
+        // 4. Successful summary creation with mock server
+        // Add another entry with > 2000 chars body, mood, and tags to test prompt formatting
+        let long_body = "x".repeat(3000);
+        let e2 = create_entry(&conn, EntryKind::Idea, Some("Ide Menarik"), ms("2026-10-03T14:00:00+07:00"), &tz).unwrap();
+        update_entry(
+            &conn,
+            &e2.id,
+            &EntryPatch {
+                tags: Some("fokus produktif".into()),
+                mood: Some(Some(4)),
+                ..Default::default()
+            },
+            ms("2026-10-03T14:01:00+07:00"),
+            &tz,
+        )
+        .unwrap();
+        conn.execute("UPDATE items SET body = ?1 WHERE id = ?2", params![long_body, e2.id]).unwrap();
+
+        let summary_text = "## Tema Utama\nMinggu ini berfokus pada ide menarik dan produktivitas.\n\n## Suasana Hati\nSuasana hati stabil pada tingkat baik (4/5).";
+        let server = Server::new(vec![sse(&[json!({
+            "choices": [{
+                "delta": {
+                    "content": summary_text
+                }
+            }]
+        })])]);
+
+        let endpoint = crate::assistant::Endpoint {
+            base_url: server.base.clone(),
+            api_key: None,
+        };
+
+        let summary_entry = journal_weekly_summary(&conn, &endpoint, now_time, &tz).unwrap();
+
+        // Title should be "Ringkasan minggu 2026-09-28–2026-10-04"
+        assert_eq!(summary_entry.title, "Ringkasan minggu 2026-09-28–2026-10-04");
+        assert_eq!(summary_entry.kind, EntryKind::Note);
+        assert_eq!(summary_entry.tags, vec!["ringkasan".to_string()]);
+        assert_eq!(summary_entry.body, summary_text);
+
+        // Verify request received by mock server
+        let (_headers, request) = server.requests.recv().unwrap();
+        assert_eq!(request["model"], "qwen2.5:3b");
+        let messages = request["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0]["role"], "system");
+        assert_eq!(messages[1]["role"], "user");
+        let user_content = messages[1]["content"].as_str().unwrap();
+        assert!(user_content.contains("Ide Menarik"));
+        assert!(user_content.contains("fokus, produktif"));
+        assert!(user_content.contains("4/5"));
+        // Body was truncated to 2000 chars, so 3000 consecutive 'x's are not in the prompt
+        assert!(!user_content.contains(&"x".repeat(2001)));
+        assert!(user_content.contains(&"x".repeat(2000)));
+
+        server.finish();
     }
 }

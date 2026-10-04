@@ -9,7 +9,7 @@ import { EntryEditor } from "./EntryEditor";
 import { EntryList } from "./EntryList";
 import { JournalPage } from "./JournalPage";
 import { TagInput } from "./TagInput";
-
+import { JOURNAL_TEMPLATES } from "./view";
 function makeEntry(id = "A"): Entry {
   return {
     id, kind: "note", title: `Entri ${id}`, body: `Isi ${id}`, mood: 4,
@@ -167,6 +167,110 @@ describe("JournalPage actions and filters", () => {
     expect(api.journalList).toHaveBeenLastCalledWith({ kind: "note" });
     expect(editor().entry.id).toBe("B");
     expect(list().groups.flatMap((group) => group.entries).some((entry) => entry.id === "B")).toBe(true);
+  });
+
+  it("opens template dropdown and creates an entry with template title and body", async () => {
+    spies.push(spyOn(api, "createEntry").mockImplementation(async (kind, title) => {
+      const created: Entry = { ...makeEntry("T1"), kind, title: title ?? "", mood: null, tags: [] };
+      entries.push(created);
+      return created;
+    }));
+    spies.push(spyOn(api, "updateItem").mockImplementation(async (id, patch) => {
+      const entry = entries.find((e) => e.id === id);
+      if (entry && patch.body !== undefined) {
+        entry.body = patch.body;
+      }
+      return makeItem(entry ?? makeEntry(id));
+    }));
+
+    // Menu is initially closed
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Refleksi harian<"))).toBe(false);
+
+    // Open dropdown menu
+    click(harness.render(), "Entri baru ▾");
+    await harness.settle();
+
+    // Dropdown contains all 4 templates and Entri kosong
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Refleksi harian<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">3 hal yang disyukuri<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Review mingguan<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Curhat terarah<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Entri kosong<"))).toBe(true);
+
+    // Select "Refleksi harian" template
+    click(harness.render(), "Refleksi harian");
+    await harness.settle();
+
+    expect(api.createEntry).toHaveBeenCalledWith("note", "Refleksi harian");
+    expect(api.updateItem).toHaveBeenCalledWith("T1", {
+      body: JOURNAL_TEMPLATES[0].body,
+    });
+    expect(editor().entry.id).toBe("T1");
+    expect(editor().entry.title).toBe("Refleksi harian");
+    expect(editor().entry.body).toBe(JOURNAL_TEMPLATES[0].body);
+
+    // Dropdown is closed after selecting template
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Refleksi harian<"))).toBe(false);
+  });
+
+  it("creates a vent entry when Curhat terarah template is chosen", async () => {
+    spies.push(spyOn(api, "createEntry").mockImplementation(async (kind, title) => {
+      const created: Entry = { ...makeEntry("V1"), kind, title: title ?? "", mood: null, tags: [] };
+      entries.push(created);
+      return created;
+    }));
+    spies.push(spyOn(api, "updateItem").mockImplementation(async (id, patch) => {
+      const entry = entries.find((e) => e.id === id);
+      if (entry && patch.body !== undefined) {
+        entry.body = patch.body;
+      }
+      return makeItem(entry ?? makeEntry(id));
+    }));
+
+    click(harness.render(), "Entri baru ▾");
+    await harness.settle();
+
+    click(harness.render(), "Curhat terarah");
+    await harness.settle();
+
+    const ventTemplate = JOURNAL_TEMPLATES.find((t) => t.id === "guided-vent")!;
+    expect(api.createEntry).toHaveBeenCalledWith("vent", "Curhat terarah");
+    expect(api.updateItem).toHaveBeenCalledWith("V1", { body: ventTemplate.body });
+    expect(editor().entry.id).toBe("V1");
+    expect(editor().entry.kind).toBe("vent");
+    expect(editor().entry.body).toBe(ventTemplate.body);
+  });
+
+  it("creates blank entry when Entri kosong is clicked in dropdown", async () => {
+    spies.push(spyOn(api, "createEntry").mockImplementation(async (kind) => {
+      const created: Entry = { ...makeEntry("B2"), kind, title: "", mood: null, tags: [] };
+      entries.push(created);
+      return created;
+    }));
+
+    click(harness.render(), "Entri baru ▾");
+    await harness.settle();
+
+    click(harness.render(), "Entri kosong");
+    await harness.settle();
+
+    expect(api.createEntry).toHaveBeenCalledWith("note", "");
+    expect(editor().entry.id).toBe("B2");
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Entri kosong<"))).toBe(false);
+  });
+
+  it("toggles and closes dropdown menu via Escape key", async () => {
+    click(harness.render(), "Entri baru ▾");
+    await harness.settle();
+
+    const menuEl = elements(harness.render()).find((el) => el.props.role === "menu");
+    expect(menuEl).toBeDefined();
+
+    // Press Escape
+    (menuEl!.props.onKeyDown as (e: { key: string }) => void)({ key: "Escape" });
+    await harness.settle();
+
+    expect(elements(harness.render()).some((el) => el.props.role === "menu")).toBe(false);
   });
 
   it("passes mood filtering to the backend", async () => {

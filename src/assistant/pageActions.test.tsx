@@ -117,6 +117,7 @@ describe("module assistant actions", () => {
       upcoming: [], recent: [], inboxCount: 0, projects: [], habitReminders: [],
       finance: { hasAccounts: false, balance: 0, expense: 0, budget: null, dueBills: [] },
       downloads: { items: [], speed: 0 },
+      journalReminder: false,
     };
     expect(button("Dengarkan rekap").props.disabled).toBe(false);
     (button("Dengarkan rekap").props.onClick as () => void)();

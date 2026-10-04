@@ -660,6 +660,18 @@ check_journal_v2() {
   sleep 1.5
   shot 16-journal-tag-filter
 
+  # J-2: Menu template entri baru
+  click 1235 104                # tombol panah dropdown template (Entri baru ▾)
+  sleep 1
+  shot 16-journal-template-menu
+  click 1100 218                # pilih template pertama: Refleksi harian
+  sleep 1.5
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'Refleksi harian' AND deleted_at IS NULL" "1" \
+    || fail "template entry Refleksi harian not created"
+  sql_becomes "SELECT count(*) FROM items WHERE title = 'Refleksi harian' AND body LIKE '%Apa yang berjalan baik hari ini?%'" "1" \
+    || fail "template entry body not saved"
+  shot 16-journal-template-created
+
   stop_app
 }
 

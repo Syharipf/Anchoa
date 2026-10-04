@@ -19,6 +19,7 @@ import { FIELD, H1, H2, PANEL } from "../shell/ui";
 import {
   formatSince,
   NOTIFY_PREF_OPTIONS,
+  type NotifyPrefOption,
   profileInitials,
   profileStatsList,
 } from "./view";
@@ -28,6 +29,8 @@ const DEFAULT_PREFS: NotifyPrefs = {
   bill: true,
   budget: true,
   habit: true,
+  journal: false,
+  journalAt: "20:00",
 };
 
 export function ProfilePage({
@@ -118,12 +121,10 @@ export function ProfilePage({
   };
 
   const prefsRequest = useRef(0);
-  const handleTogglePref = useCallback(
-    (key: keyof NotifyPrefs) => {
+  const savePrefs = useCallback(
+    (next: NotifyPrefs) => {
       const previous: NotifyPrefs = { ...prefs };
-      const next: NotifyPrefs = { ...prefs, [key]: !prefs[key] };
       setPrefs(next);
-      // Only the newest save may update the switches; an older reply must not undo a later toggle.
       const request = ++prefsRequest.current;
       api.setNotifyPrefs(next).then(
         (saved) => {
@@ -138,6 +139,19 @@ export function ProfilePage({
       );
     },
     [prefs, onPrefsChanged, toast],
+  );
+  const handleTogglePref = useCallback(
+    (key: NotifyPrefOption["key"]) => savePrefs({ ...prefs, [key]: !prefs[key] }),
+    [prefs, savePrefs],
+  );
+  const handleJournalAtChange = useCallback(
+    (value: string) => {
+      if (!/^\d{2}:\d{2}$/.test(value)) return;
+      const [h, m] = value.split(":").map(Number);
+      if (h >= 24 || m >= 60) return;
+      savePrefs({ ...prefs, journalAt: value });
+    },
+    [prefs, savePrefs],
   );
 
   const stats = profileStatsList(profile?.stats);
@@ -420,30 +434,44 @@ export function ProfilePage({
             {NOTIFY_PREF_OPTIONS.map((opt) => (
               <div
                 key={opt.key}
-                className="flex items-center justify-between gap-3 border-t border-line py-2.5 first:border-0 first:pt-0"
+                className="flex flex-col border-t border-line py-2.5 first:border-0 first:pt-0"
               >
-                <div className="flex min-w-0 flex-col">
-                  <span id={`lbl-notify-${opt.key}`} className="text-sm text-ink">
-                    {opt.label}
-                  </span>
-                  <span className="text-xs text-muted">{opt.description}</span>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={prefs[opt.key]}
-                  aria-labelledby={`lbl-notify-${opt.key}`}
-                  onClick={() => handleTogglePref(opt.key)}
-                  className={`flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
-                    prefs[opt.key] ? "bg-accent" : "bg-disabled"
-                  }`}
-                >
-                  <span
-                    className={`h-[18px] w-[18px] rounded-full transition-transform ${
-                      prefs[opt.key] ? "translate-x-[18px] bg-canvas" : "translate-x-0 bg-muted"
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-col">
+                    <span id={`lbl-notify-${opt.key}`} className="text-sm text-ink">
+                      {opt.label}
+                    </span>
+                    <span className="text-xs text-muted">{opt.description}</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={prefs[opt.key]}
+                    aria-labelledby={`lbl-notify-${opt.key}`}
+                    onClick={() => handleTogglePref(opt.key)}
+                    className={`flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                      prefs[opt.key] ? "bg-accent" : "bg-disabled"
                     }`}
-                  />
-                </button>
+                  >
+                    <span
+                      className={`h-[18px] w-[18px] rounded-full transition-transform ${
+                        prefs[opt.key] ? "translate-x-[18px] bg-canvas" : "translate-x-0 bg-muted"
+                      }`}
+                    />
+                  </button>
+                </div>
+                {opt.key === "journal" && prefs.journal && (
+                  <div className="mt-2 flex items-center justify-between gap-3 pl-2">
+                    <span className="text-xs text-muted">Waktu pengingat</span>
+                    <input
+                      type="time"
+                      aria-label="Jam pengingat jurnal"
+                      value={prefs.journalAt}
+                      onChange={(e) => handleJournalAtChange(e.target.value)}
+                      className={`${FIELD} h-7 w-24 px-2 text-center text-xs`}
+                    />
+                  </div>
+                )}
               </div>
             ))}
 

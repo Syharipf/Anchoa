@@ -113,7 +113,7 @@ describe("reminders with NotifyPrefs", () => {
   const today = [task("t-late", true), task("t-today", false)];
   const fin = finance([bill("b-late", "overdue"), bill("b-today", "dueToday")], { amount: 100000, level: "warn" }, 90000);
   const habits = [{ id: "h1", name: "Baca", remindAt: "07:00" }];
-  const allOn = { task: true, bill: true, budget: true, habit: true };
+  const allOn = { task: true, bill: true, budget: true, habit: true, journal: false, journalAt: "20:00" };
 
   test("all enabled includes every kind", () => {
     const groups = reminders(today, fin, habits, allOn);
@@ -165,9 +165,40 @@ describe("reminders with NotifyPrefs", () => {
   });
 
   test("disabling everything leaves empty groups and zero count", () => {
-    const none = { task: false, bill: false, budget: false, habit: false };
+    const none = { task: false, bill: false, budget: false, habit: false, journal: false, journalAt: "20:00" };
     expect(reminders(today, fin, habits, none)).toEqual([]);
     expect(reminderCount(today, fin, habits, none)).toBe(0);
+  });
+});
+
+describe("journal reminder", () => {
+  const allOn = { task: true, bill: true, budget: true, habit: true, journal: true, journalAt: "20:00" };
+
+  test("journal card appears in Hari ini when journal pref on and journalReminder true", () => {
+    const groups = reminders([], null, [], allOn, true);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].title).toBe("Hari ini");
+    expect(groups[0].items).toEqual([{ kind: "journal", id: "journal" }]);
+    expect(reminderCount([], null, [], allOn, true)).toBe(1);
+  });
+
+  test("journal card absent when journal pref off", () => {
+    const prefs = { ...allOn, journal: false };
+    expect(reminders([], null, [], prefs, true)).toEqual([]);
+    expect(reminderCount([], null, [], prefs, true)).toBe(0);
+  });
+
+  test("journal card absent when journalReminder false", () => {
+    expect(reminders([], null, [], allOn, false)).toEqual([]);
+    expect(reminderCount([], null, [], allOn, false)).toBe(0);
+  });
+
+  test("reminderText for journal kind", () => {
+    expect(reminderText({ kind: "journal", id: "journal" })).toEqual({
+      title: "Jurnal harian",
+      detail: "Belum menulis jurnal hari ini",
+      tone: "muted",
+    });
   });
 });
 

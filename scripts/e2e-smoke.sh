@@ -758,6 +758,9 @@ check_journal_v2() {
     || fail "template entry body not saved"
   shot 16-journal-template-created
 
+  # J-3: Kalender refleksi di kolom kanan
+  shot 16-journal-calendar-side
+
   stop_app
 }
 

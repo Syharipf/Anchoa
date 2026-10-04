@@ -4,93 +4,50 @@ export type FishProgressState = "running" | "paused" | "done" | "error";
 export type FishProgressTone = "accent" | "warning" | "danger";
 
 export interface FishProgressProps {
-  value?: number;
-  label: string;
-  state?: FishProgressState;
-  className?: string;
-  tone?: FishProgressTone;
-  role?: "progressbar" | "meter";
+  readonly value?: number;
+  readonly label: string;
+  readonly state?: FishProgressState;
+  readonly className?: string;
+  readonly tone?: FishProgressTone;
+  readonly role?: "progressbar" | "meter";
 }
 
 /**
- * Deterministic anchovy silhouette from assistant/School.tsx (DESIGN.md §4).
- * Coordinates centered at origin, swim direction pointing +X (right).
+ * Anchovy silhouette from artboard Unduhan.dc.html (and assistant/School.tsx).
+ * Origin at center, pointing right +X.
  */
 const BODY = "M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z";
 
-interface FishSpec {
-  x: number;      // percent along track (0..100)
-  y: number;      // percent of track height
-  width: number;  // pixel width
-  height: number; // pixel height
-  opacity: number;
-  delay: number;  // animation phase delay in seconds
+/**
+ * 7 anchovies in deterministic 72x12 tile from artboard Unduhan.dc.html (FB_IMG.run).
+ * Guarantees uniform fish density across arbitrary track widths via repeat-x tile.
+ */
+interface TileFish {
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
+  readonly opacity: number;
 }
 
-/** 12 deterministic positions across the horizontal track. */
-const FISH_SCHOOL: readonly FishSpec[] = [
-  { x: 4,  y: 35, width: 15, height: 7, opacity: 0.8,  delay: 0.0 },
-  { x: 12, y: 55, width: 17, height: 8, opacity: 0.85, delay: 0.2 },
-  { x: 20, y: 30, width: 14, height: 7, opacity: 0.75, delay: 0.4 },
-  { x: 29, y: 60, width: 18, height: 8, opacity: 0.9,  delay: 0.1 },
-  { x: 38, y: 38, width: 16, height: 7, opacity: 0.8,  delay: 0.3 },
-  { x: 47, y: 58, width: 17, height: 8, opacity: 0.85, delay: 0.5 },
-  { x: 56, y: 32, width: 15, height: 7, opacity: 0.8,  delay: 0.15 },
-  { x: 65, y: 62, width: 19, height: 9, opacity: 0.95, delay: 0.35 },
-  { x: 74, y: 40, width: 16, height: 8, opacity: 0.85, delay: 0.05 },
-  { x: 82, y: 56, width: 17, height: 8, opacity: 0.9,  delay: 0.25 },
-  { x: 90, y: 34, width: 15, height: 7, opacity: 0.8,  delay: 0.45 },
-  { x: 96, y: 52, width: 18, height: 8, opacity: 0.95, delay: 0.1 },
-];
-
-const TONE_CLASSES: Readonly<Record<FishProgressTone, string>> = {
-  accent: "text-accent",
-  warning: "text-warn",
-  danger: "text-danger",
-};
+const TILE_FISH: readonly TileFish[] = [
+  { x: 6.0, y: 3.7, scale: 0.5, opacity: 0.75 },
+  { x: 15.0, y: 8.3, scale: 0.64, opacity: 1.0 },
+  { x: 25.5, y: 4.3, scale: 0.58, opacity: 0.9 },
+  { x: 35.5, y: 8.6, scale: 0.5, opacity: 0.7 },
+  { x: 45.0, y: 3.6, scale: 0.66, opacity: 1.0 },
+  { x: 55.5, y: 8.0, scale: 0.56, opacity: 0.85 },
+  { x: 65.5, y: 4.2, scale: 0.5, opacity: 0.75 },
+] as const;
 
 /**
- * Global anchovy-school linear progress bar & meter.
- * Uses native SVG + CSS transform animations (no React RAF timers).
- * Automatically obeys prefers-reduced-motion via [data-anim].
+ * Global anchovy-school progress bar & meter.
+ * Matches Unduhan.dc.html artboard visual specification:
+ * - 72x12px seamless repeat-x tile
+ * - Linear translateX(-72px) to 0 loop animation
+ * - Exact tint colors per state (run: lime, pause: gray, done: olive, error: coral track)
+ *
+ * ponytail: lead fish dot at track head omitted; add when canvas HUD particles are added
  */
-function renderFishSchool(isRunning: boolean, animationSpec: string, fill: string, className?: string) {
-  return (
-    <g
-      data-anim
-      className="anchoa-fish-school"
-      style={{
-        animation: isRunning ? `${animationSpec} infinite` : "none",
-        animationPlayState: isRunning ? "running" : "paused",
-      }}
-    >
-      {FISH_SCHOOL.map((f, i) => (
-        <svg
-          key={i}
-          x={`${f.x}%`}
-          y={`${f.y}%`}
-          width={f.width}
-          height={f.height}
-          viewBox="-10.5 -3.5 18 7"
-          overflow="visible"
-          aria-hidden="true"
-          style={{ overflow: "visible" }}
-        >
-          <g
-            data-anim
-            style={{
-              animation: isRunning ? `anchoa-fish-wiggle 1.2s ease-in-out ${f.delay}s infinite` : "none",
-              animationPlayState: isRunning ? "running" : "paused",
-              transformOrigin: "0 0",
-            }}
-          >
-            <path d={BODY} fill={fill} fillOpacity={f.opacity} className={className} />
-          </g>
-        </svg>
-      ))}
-    </g>
-  );
-}
 export function FishProgress({
   value,
   label,
@@ -100,21 +57,45 @@ export function FishProgress({
   role = "progressbar",
 }: Readonly<FishProgressProps>) {
   const rawId = useId();
+  const patternId = `fish-pat-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const clipId = `fish-clip-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   const isDeterminate = typeof value === "number" && !Number.isNaN(value);
   const clamped = isDeterminate ? Math.max(0, Math.min(100, value!)) : 0;
   const isDone = state === "done" || (isDeterminate && clamped >= 100);
-  const isRunning = state === "running" && !isDone;
+  const isError = state === "error" || tone === "danger";
 
-  const resolvedTone: FishProgressTone =
-    tone ?? (state === "error" ? "danger" : "accent");
+  // Visual parameters aligned with Unduhan.dc.html:289-299 fishBar()
+  let pct = isDeterminate ? clamped : 100;
+  let trackBg = "#1A1E25";
+  let tintBg = "rgba(198,243,107,0.14)";
+  let fishColor: string | null = "#C6F36B";
+  let isAnimated = state === "running" && !isDone && !isError;
 
-  const toneClass =
-    isDone && !tone ? "text-field-focus" : TONE_CLASSES[resolvedTone];
+  if (isError) {
+    pct = 0;
+    trackBg = "rgba(255,138,122,0.12)";
+    tintBg = "transparent";
+    fishColor = null;
+    isAnimated = false;
+  } else if (isDone) {
+    pct = 100;
+    trackBg = "#1A1E25";
+    tintBg = "rgba(78,106,38,0.16)";
+    fishColor = "#4E6A26";
+    isAnimated = false;
+  } else if (state === "paused") {
+    trackBg = "#1A1E25";
+    tintBg = "rgba(91,100,117,0.16)";
+    fishColor = "#5B6475";
+    isAnimated = false;
+  } else if (tone === "warning") {
+    tintBg = "rgba(229,168,59,0.16)";
+    fishColor = "#E5A83B";
+  }
 
   const hasHeight = /\bh-\S+/.test(className);
-  const heightClass = hasHeight ? "" : "h-2.5";
+  const heightClass = hasHeight ? "" : "h-3";
 
   return (
     <div
@@ -123,7 +104,8 @@ export function FishProgress({
       aria-valuemin={isDeterminate ? 0 : undefined}
       aria-valuemax={isDeterminate ? 100 : undefined}
       aria-valuenow={isDeterminate ? Math.round(clamped) : undefined}
-      className={`relative w-full overflow-hidden rounded-full border border-line/60 bg-[#1A1E25] ${heightClass} ${className}`}
+      style={{ backgroundColor: trackBg }}
+      className={`relative w-full overflow-hidden rounded-[6px] ${heightClass} ${className}`}
     >
       <svg
         data-anim
@@ -131,48 +113,66 @@ export function FishProgress({
         className="absolute inset-0 h-full w-full"
       >
         <defs>
+          {fishColor ? (
+            <pattern
+              id={patternId}
+              width="72"
+              height="12"
+              patternUnits="userSpaceOnUse"
+            >
+              {TILE_FISH.map((f, i) => (
+                <g
+                  key={i}
+                  transform={`translate(${f.x.toFixed(2)} ${f.y.toFixed(2)}) scale(${f.scale.toFixed(2)} ${f.scale.toFixed(2)})`}
+                >
+                  <path
+                    d={BODY}
+                    fill={fishColor}
+                    fillOpacity={f.opacity}
+                  />
+                </g>
+              ))}
+            </pattern>
+          ) : null}
           <clipPath id={clipId}>
             <rect
               x="0"
               y="0"
-              width={isDeterminate ? `${clamped}%` : "100%"}
+              width={`${pct}%`}
               height="100%"
-              rx="9999"
+              rx="6"
             />
           </clipPath>
         </defs>
 
-        {isDeterminate ? (
+        {pct > 0 ? (
           <g clipPath={`url(#${clipId})`}>
-            {/* Filled bar track */}
+            {/* Soft tinted bar fill */}
             <rect
               x="0"
               y="0"
               width="100%"
               height="100%"
-              fill="currentColor"
-              className={toneClass}
+              fill={tintBg}
             />
 
-            {/* Anchovy silhouettes swimming inside filled region */}
-            {renderFishSchool(isRunning, "anchoa-swim 3.5s ease-in-out", "#0F1115")}
+            {/* Anchovy tile with seamless 72px linear shift */}
+            {fishColor ? (
+              <rect
+                data-anim
+                className="anchoa-fish-school"
+                y="0"
+                width="calc(100% + 72px)"
+                height="100%"
+                fill={`url(#${patternId})`}
+                style={{
+                  animation: isAnimated ? "anchoa-swim 3.5s linear infinite" : "none",
+                  animationPlayState: isAnimated ? "running" : "paused",
+                }}
+              />
+            ) : null}
           </g>
-        ) : (
-          /* Indeterminate state: fish loop continuously across the track */
-          <g>
-            <rect
-              x="0"
-              y="0"
-              width="100%"
-              height="100%"
-              rx="9999"
-              fill="currentColor"
-              opacity="0.14"
-              className={toneClass}
-            />
-            {renderFishSchool(isRunning, "anchoa-swim-loop 3s linear", "currentColor", toneClass)}
-          </g>
-        )}
+        ) : null}
       </svg>
     </div>
   );

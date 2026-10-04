@@ -13,8 +13,11 @@ describe("FishProgress", () => {
     expect(html).toContain('aria-valuemax="100"');
     expect(html).toContain('aria-valuenow="45"');
     expect(html).toContain('width="45%"');
-    // Anchovy silhouette path exists
+    // Anchovy silhouette path and tile pattern exist
     expect(html).toContain("M-7 0C-3-2.4 3-2.6 7 0");
+    expect(html).toContain('fill="#C6F36B"');
+    expect(html).toContain('fill="rgba(198,243,107,0.14)"');
+    expect(html).not.toContain("#0F1115");
   });
 
   it("omits valuenow/min/max for indeterminate state (undefined value)", () => {
@@ -26,7 +29,7 @@ describe("FishProgress", () => {
     expect(html).not.toContain("aria-valuenow");
     expect(html).not.toContain("aria-valuemin");
     expect(html).not.toContain("aria-valuemax");
-    expect(html).toContain("anchoa-swim-loop");
+    expect(html).toContain("anchoa-swim");
   });
 
   it("supports meter role for budgets and gauges", () => {
@@ -41,23 +44,28 @@ describe("FishProgress", () => {
     expect(html).toContain('role="meter"');
     expect(html).toContain('aria-label="Pemakaian anggaran"');
     expect(html).toContain('aria-valuenow="80"');
-    expect(html).toContain("text-warn");
+    expect(html).toContain('fill="#E5A83B"');
+    expect(html).toContain('fill="rgba(229,168,59,0.16)"');
   });
 
-  it("handles danger tone and error state", () => {
+  it("handles danger tone and error state by collapsing fill to 0 and showing coral track", () => {
     const html = renderToStaticMarkup(
       <FishProgress value={30} label="Gagal" state="error" />,
     );
-    expect(html).toContain("text-danger");
-    expect(html).toContain("animation-play-state:paused");
+    expect(html).toContain("rgba(255,138,122,0.12)");
+    // Error state clears anchovies and fill
+    expect(html).not.toContain("anchoa-swim");
+    expect(html).toContain('aria-valuenow="30"');
   });
 
-  it("handles paused state and freezes animations", () => {
+  it("handles paused state and freezes animations with neutral gray fish", () => {
     const html = renderToStaticMarkup(
       <FishProgress value={60} label="Jeda" state="paused" />,
     );
     expect(html).toContain("animation-play-state:paused");
     expect(html).toContain('width="60%"');
+    expect(html).toContain('fill="#5B6475"');
+    expect(html).toContain('fill="rgba(91,100,117,0.16)"');
   });
 
   it("clamps values outside 0-100", () => {

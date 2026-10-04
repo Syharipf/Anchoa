@@ -352,6 +352,7 @@ export interface Dashboard {
   projects: ProjectSummary[];
   habitReminders: HabitReminder[];
   downloads: DownloadsSummary;
+  journalReminder: boolean;
 }
 
 export type DayState = "blank" | "future" | "off" | "done" | "todo" | "miss";
@@ -501,6 +502,8 @@ export interface NotifyPrefs {
   bill: boolean;
   budget: boolean;
   habit: boolean;
+  journal: boolean;
+  journalAt: string;
 }
 
 export interface SecurityStatus {
@@ -1025,6 +1028,7 @@ export const api = {
   setProfileName: (name: string) => invoke<Profile>("set_profile_name", { name }),
   getNotifyPrefs: () => invoke<NotifyPrefs>("get_notify_prefs"),
   setNotifyPrefs: (prefs: NotifyPrefs) => invoke<NotifyPrefs>("set_notify_prefs", { prefs }),
+  dismissJournalReminder: () => invoke<void>("dismiss_journal_reminder"),
   habitsOverview: () => invoke<HabitsOverview>("habits_overview"),
   habitHistory: (id: string, month: string) =>
     invoke<HabitHistory>("habit_history", { id, month }),

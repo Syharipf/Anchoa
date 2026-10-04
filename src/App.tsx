@@ -186,6 +186,7 @@ export function App() {
           data?.finance ?? null,
           data?.habitReminders ?? [],
           notifyPrefs,
+          data?.journalReminder ?? false,
         )}
         notificationsOpen={overlay === "notifications"}
         onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
@@ -291,10 +292,13 @@ export function App() {
           finance={data?.finance ?? null}
           habitReminders={data?.habitReminders ?? []}
           prefs={notifyPrefs}
+          journalReminder={data?.journalReminder ?? false}
           onClose={() => setOverlay(null)}
           onOpenItem={openItem}
           onOpenFinance={() => go("keuangan")}
           onOpenHabits={() => go("habit")}
+          onOpenJournal={() => go("jurnal")}
+          onDismissJournal={() => { void api.dismissJournalReminder().then(reload); }}
         />
       )}
     </div>

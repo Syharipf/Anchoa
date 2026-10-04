@@ -32,7 +32,7 @@ export function profileStatsList(stats?: ProfileStats | null): readonly StatItem
 }
 
 export interface NotifyPrefOption {
-  readonly key: keyof NotifyPrefs;
+  readonly key: Exclude<keyof NotifyPrefs, "journalAt">;
   readonly label: string;
   readonly description: string;
 }
@@ -57,5 +57,10 @@ export const NOTIFY_PREF_OPTIONS: readonly NotifyPrefOption[] = [
     key: "habit",
     label: "Habit",
     description: "Pengingat kebiasaan harian yang belum dicentang",
+  },
+  {
+    key: "journal",
+    label: "Jurnal",
+    description: "Pengingat menulis jurnal harian",
   },
 ] as const;

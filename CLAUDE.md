@@ -79,7 +79,11 @@ When a task belongs to an agent project in Anchoa, report through the CLI in the
 - Log the start and the end of each task: `anchoa agent log --task ID --actor <name> --role implement --body "…"`.
 - Save plans with `anchoa agent plan --task ID --actor <name> --file plan.md`. The plan also becomes a Catatan page under "Rencana <project>".
 - Move the card as work progresses: `anchoa agent task status --task ID doing|test|review|done --actor <name>`. Status changes are logged automatically.
-- Log review findings with `--role review`, and the PR link with `--role merge --kind link`, before moving the task to `done`.
+- MANDATORY AUTO-STEP: Setiap menyelesaikan PR / rilis, jangan tunggu user meminta. Wajib otomatis:
+  1. Log review findings: `anchoa agent log --task ID --actor Claude --role review --body "..."`
+  2. Log PR link: `anchoa agent log --task ID --actor Claude --role merge --kind link --body "https://github.com/..."`
+  3. Pindahkan status task ke `done`: `anchoa agent task status --task ID done --actor Claude`
+  4. Lapor ringkasan dan status kartu ke user.
 - Never send file contents, secrets, or `.env` values to Anchoa.
 
 ## GUI testing

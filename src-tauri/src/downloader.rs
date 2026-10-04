@@ -1037,8 +1037,11 @@ fn fetch_multi_range(
     }
 
     // Check existing resume.json
-    if let Some(meta) = load_resume_metadata(opts.part_dir, opts.url)
-        && meta.validator.as_deref() == validator
+    // Check existing resume.json only if payload exists and has not been truncated
+    let payload_len = payload_path.metadata().map(|m| m.len()).unwrap_or(0);
+    if payload_len >= total {
+        if let Some(meta) = load_resume_metadata(opts.part_dir, opts.url)
+            && meta.validator.as_deref() == validator
             && meta.total == Some(total)
             && meta.ranges.len() == NUM_WORKERS
         {
@@ -1048,6 +1051,7 @@ fn fetch_multi_range(
                 }
             }
         }
+    }
 
     // Pre-allocate payload.part
     let file = OpenOptions::new()

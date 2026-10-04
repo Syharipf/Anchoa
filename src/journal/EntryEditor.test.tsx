@@ -159,4 +159,89 @@ describe("EntryEditor dictation", () => {
     harness.dispose();
     expect(stop).toHaveBeenCalledTimes(1);
   });
+
+  it("preserves edits typed while transcript is pending", async () => {
+    const { promise: delayedStop, resolve: resolveStop } = Promise.withResolvers<string>();
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceRecordStop").mockReturnValue(delayedStop));
+    entry.body = "Awal";
+    mount();
+
+    // Start & stop recording
+    click(harness.render(), "Dikte");
+    await harness.settle();
+    click(harness.render(), "Hentikan rekaman dikte");
+    await harness.settle();
+
+    // While transcribing is pending, user types in textarea
+    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    expect(textareaEl).toBeDefined();
+    (textareaEl!.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: "Awal diedit" } });
+    await harness.settle();
+
+    // Transcript arrives now
+    resolveStop("suara baru");
+    await harness.settle();
+
+    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    expect((textareaAfter!.props.value as string)).toBe("Awal diedit suara baru");
+  });
+
+  it("discards pending transcript when switching entry", async () => {
+    const { promise: delayedStop, resolve: resolveStop } = Promise.withResolvers<string>();
+    const updateItemSpy = spyOn(api, "updateItem").mockResolvedValue(makeItem(entry));
+    spies.push(updateItemSpy);
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceRecordStop").mockReturnValue(delayedStop));
+    entry.body = "Isi entri 1";
+    mount();
+
+    click(harness.render(), "Dikte");
+    await harness.settle();
+    click(harness.render(), "Hentikan rekaman dikte");
+    await harness.settle();
+
+    // Switch to another entry
+    entry = { ...makeEntry(), id: "entry-2", title: "Entri 2", body: "Isi entri 2" };
+    harness.render();
+    await harness.settle();
+
+    // Delayed transcript from entry 1 arrives
+    resolveStop("suara entri 1");
+    await harness.settle();
+
+    const textarea = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    expect((textarea!.props.value as string)).toBe("Isi entri 2");
+    // updateItem should not have been called with the discarded transcript
+    expect(updateItemSpy).not.toHaveBeenCalledWith("entry-2", expect.objectContaining({ body: expect.stringContaining("suara entri 1") }));
+  });
+
+  it("discards pending transcript when unmounted", async () => {
+    const { promise: delayedStop, resolve: resolveStop } = Promise.withResolvers<string>();
+    const updateItemSpy = spyOn(api, "updateItem").mockResolvedValue(makeItem(entry));
+    spies.push(updateItemSpy);
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
+    spies.push(spyOn(api, "voiceRecordStop").mockReturnValue(delayedStop));
+    mount();
+
+    click(harness.render(), "Dikte");
+    await harness.settle();
+    click(harness.render(), "Hentikan rekaman dikte");
+    await harness.settle();
+
+    // Unmount before transcript arrives
+    harness.dispose();
+
+    // Transcript arrives after unmount
+    resolveStop("suara terlambat");
+    const { promise: timer, resolve: resolveTimer } = Promise.withResolvers<void>();
+    setTimeout(resolveTimer, 50);
+    await timer;
+
+    // No autosave updateItem triggered
+    expect(updateItemSpy).not.toHaveBeenCalled();
+  });
 });

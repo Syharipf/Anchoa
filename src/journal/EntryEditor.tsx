@@ -55,8 +55,10 @@ export function EntryEditor({
   const [micMode, setMicMode] = useState<MicMode>("idle");
   const micModeRef = useRef(micMode);
   micModeRef.current = micMode;
+  const bodyRef = useRef(body);
+  bodyRef.current = body;
+  const dictationSessionRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
   const queue = useMemo<SaveQueue>(() => ({ pending: {}, deleting: false }), [entry.id]);
   const currentId = useRef(entry.id);
   const afterSaved = useRef(onAfterSaved);
@@ -66,11 +68,13 @@ export function EntryEditor({
   useEffect(() => {
     if (currentId.current !== entry.id) {
       currentId.current = entry.id;
+      dictationSessionRef.current++;
       setTitle(entry.title);
       setBody(entry.body);
+      bodyRef.current = entry.body;
       setSaveState("idle");
       setDeleting(false);
-      if (micMode === "recording") {
+      if (micModeRef.current === "recording") {
         api.voiceRecordStop().catch(() => {});
         setMicMode("idle");
       }
@@ -105,24 +109,27 @@ export function EntryEditor({
   useEffect(() => () => void flush(), [flush]);
 
   // Stop recording on unmount only
+  // Stop recording and cancel dictation session on unmount
   useEffect(() => () => {
+    dictationSessionRef.current++;
     if (micModeRef.current === "recording") api.voiceRecordStop().catch(() => {});
   }, []);
 
   function insertTranscript(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return;
+    const currentBody = bodyRef.current;
     const textarea = textareaRef.current;
     if (!textarea) {
-      handleBodyChange(body ? `${body} ${trimmed}` : trimmed);
+      handleBodyChange(currentBody ? `${currentBody} ${trimmed}` : trimmed);
       return;
     }
     const isFocused = typeof document !== "undefined" && document.activeElement === textarea;
     const hasExplicitCursor = isFocused || (textarea.selectionStart != null && textarea.selectionStart > 0);
-    const start = hasExplicitCursor && textarea.selectionStart != null ? textarea.selectionStart : body.length;
-    const end = hasExplicitCursor && textarea.selectionEnd != null ? textarea.selectionEnd : body.length;
-    const before = body.slice(0, start);
-    const after = body.slice(end);
+    const start = hasExplicitCursor && textarea.selectionStart != null ? textarea.selectionStart : currentBody.length;
+    const end = hasExplicitCursor && textarea.selectionEnd != null ? textarea.selectionEnd : currentBody.length;
+    const before = currentBody.slice(0, start);
+    const after = currentBody.slice(end);
     const separatorBefore = before && !before.endsWith(" ") && !before.endsWith("\n") ? " " : "";
     const separatorAfter = after && !after.startsWith(" ") && !after.startsWith("\n") ? " " : "";
     const newBody = `${before}${separatorBefore}${trimmed}${separatorAfter}${after}`;
@@ -131,14 +138,20 @@ export function EntryEditor({
 
   async function handleToggleDictation() {
     if (micMode === "recording") {
+      const token = ++dictationSessionRef.current;
       setMicMode("transcribing");
       try {
         const transcript = await api.voiceRecordStop();
+        if (token !== dictationSessionRef.current) return;
         insertTranscript(transcript);
       } catch (e) {
+        if (token !== dictationSessionRef.current) return;
         toast(errorMessage(e), "error");
+      } finally {
+        if (token === dictationSessionRef.current) {
+          setMicMode("idle");
+        }
       }
-      setMicMode("idle");
       return;
     }
     if (micMode !== "idle") return;
@@ -166,6 +179,7 @@ export function EntryEditor({
   function handleBodyChange(val: string) {
     if (queue.deleting) return;
     setBody(val);
+    bodyRef.current = val;
     queue.pending = { ...queue.pending, body: val };
     window.clearTimeout(queue.timer);
     queue.timer = window.setTimeout(() => void flush(), AUTOSAVE_MS);

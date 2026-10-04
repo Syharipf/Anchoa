@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { DownloadView } from "../api";
+import { FishProgress } from "../components/FishProgress";
 import {
   filterDownloads,
   metaText,
   progressPercent,
   progressText,
-  STATUS_BAR,
   STATUS_LABELS,
   STATUS_TEXT,
   tabCounts,
@@ -33,9 +33,9 @@ export function DownloadQueue({
   onReveal: (id: string) => void;
 }>) {
   const [tab, setTab] = useState<DownloadTab>("all");
+  const [cancelTarget, setCancelTarget] = useState<DownloadView | null>(null);
   const counts = tabCounts(items);
   const visible = filterDownloads(items, tab);
-
   return (
     <section
       aria-labelledby="antrean-judul"
@@ -154,15 +154,27 @@ export function DownloadQueue({
                 </div>
 
                 <div className="flex w-56 shrink-0 flex-col gap-1.5">
-                  <div
-                    aria-hidden="true"
-                    className="h-1 w-full overflow-hidden rounded-sm bg-line"
-                  >
-                    <div
-                      style={{ width: `${pct}%` }}
-                      className={`h-full rounded-sm transition-all ${STATUS_BAR[row.status]}`}
-                    />
-                  </div>
+                  <FishProgress
+                    value={row.totalBytes ? pct : undefined}
+                    label={`Kemajuan unduhan ${row.title}`}
+                    state={
+                      row.status === "failed"
+                        ? "error"
+                        : row.status === "done"
+                          ? "done"
+                          : row.status === "running" || row.status === "processing"
+                            ? "running"
+                            : "paused"
+                    }
+                    tone={
+                      row.status === "failed"
+                        ? "danger"
+                        : row.status === "interrupted"
+                          ? "warning"
+                          : "accent"
+                    }
+                    className="h-2.5"
+                  />
                   <span
                     className={`truncate font-mono text-[11px] ${
                       row.status === "failed" ? "text-danger" : "text-muted"
@@ -229,6 +241,26 @@ export function DownloadQueue({
                       >
                         <path d="M8 5v14l11-7z" />
                       </svg>
+                    </button>
+                  )}
+                  {row.status === "interrupted" && (
+                    <button
+                      type="button"
+                      onClick={() => onResume(row.id)}
+                      aria-label={`Lanjutkan sekarang: ${row.title}`}
+                      title="Lanjutkan sekarang"
+                      className="flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-xs font-medium text-accent hover:bg-surface-2"
+                    >
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      <span>Lanjut</span>
                     </button>
                   )}
                   {row.status === "failed" && (
@@ -306,7 +338,13 @@ export function DownloadQueue({
                   )}
                   <button
                     type="button"
-                    onClick={() => onRemove(row.id)}
+                    onClick={() => {
+                      if (row.status === "done") {
+                        onRemove(row.id);
+                      } else {
+                        setCancelTarget(row);
+                      }
+                    }}
                     aria-label={
                       row.status === "done"
                         ? `Hapus dari daftar: ${row.title}`
@@ -334,6 +372,54 @@ export function DownloadQueue({
           })
         )}
       </div>
+      {cancelTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        >
+          <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4 shadow-xl">
+            <h3 id="cancel-title" className="text-sm font-semibold text-ink">
+              Batalkan unduhan?
+            </h3>
+            <p className="mt-1 truncate text-xs text-muted">
+              {cancelTarget.title}
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onPause(cancelTarget.id);
+                  setCancelTarget(null);
+                }}
+                className="flex w-full items-center justify-between rounded-lg bg-surface-2 px-3 py-2 text-left text-xs font-medium text-ink transition-colors hover:bg-surface-3"
+              >
+                <span>Simpan bagian dan jeda</span>
+                <span className="text-[10px] text-muted">Bisa dilanjutkan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onRemove(cancelTarget.id);
+                  setCancelTarget(null);
+                }}
+                className="flex w-full items-center justify-between rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-left text-xs font-medium text-danger transition-colors hover:bg-danger/20"
+              >
+                <span>Hapus unduhan dan bagian</span>
+                <span className="text-[10px] text-danger/80">Permanen</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCancelTarget(null)}
+                className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:text-ink"
+              >
+                Kembali
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

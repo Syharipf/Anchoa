@@ -737,12 +737,15 @@ pub fn resume_download(
     downloader: State<'_, downloader::Downloader>,
     id: String,
 ) -> Result<(), AppError> {
+    let now = time::now_ms();
+    let conn = db.conn()?;
+    downloads::reset_retry(&*conn, &id, now)?;
     downloads::set_status(
-        &*db.conn()?,
+        &*conn,
         &id,
         downloads::DownloadStatus::Queued,
         None,
-        time::now_ms(),
+        now,
     )?;
     downloader.schedule(&app)
 }
@@ -885,6 +888,53 @@ pub fn save_download_settings(
     let saved = downloads::save_settings(&*db.conn()?, &settings, &home)?;
     let _ = downloader.schedule(&app);
     Ok(saved)
+}
+#[tauri::command]
+pub fn install_native_host(
+    app: AppHandle,
+    browser: String,
+    chrome_extension_id: Option<String>,
+) -> Result<downloads::native_host::NativeHostStatus, AppError> {
+    let home = app.path().home_dir()?;
+    let exe = std::env::current_exe()?;
+    let chrome_id = if browser == "chrome" {
+        chrome_extension_id.as_deref()
+    } else {
+        None
+    };
+    downloads::native_host::install(&home, &exe, chrome_id)
+}
+
+#[tauri::command]
+pub fn uninstall_native_host(
+    app: AppHandle,
+) -> Result<downloads::native_host::NativeHostStatus, AppError> {
+    let home = app.path().home_dir()?;
+    let exe = std::env::current_exe()?;
+    downloads::native_host::uninstall(&home, &exe)
+}
+
+#[tauri::command]
+pub fn native_host_status(
+    app: AppHandle,
+) -> Result<downloads::native_host::NativeHostStatus, AppError> {
+    let home = app.path().home_dir()?;
+    let exe = std::env::current_exe()?;
+    Ok(downloads::native_host::status(&home, &exe))
+}
+
+#[tauri::command]
+pub fn save_browser_integration(
+    db: State<'_, Db>,
+    enabled: bool,
+) -> Result<(), AppError> {
+    let conn = db.conn()?;
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES ('downloads.browser_integration', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [if enabled { "1" } else { "0" }],
+    )?;
+    Ok(())
 }
 
 #[tauri::command]

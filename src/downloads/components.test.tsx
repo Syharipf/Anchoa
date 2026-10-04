@@ -80,8 +80,48 @@ describe("Unduhan components", () => {
       expect(html).toContain("Selesai");
       expect(html).toContain("Buka di Berkas");
       expect(html).toContain("Hapus dari daftar");
+      expect(html).toContain("Kemajuan unduhan Tutorial Live2D");
+      expect(html).toContain("anchoa-fish-school");
     });
 
+    it("renders interrupted download with resume-now button", () => {
+      const interruptedItem: DownloadView = {
+        id: "d3",
+        title: "Large Dataset",
+        url: "https://example.com/dataset.iso",
+        kind: "file",
+        options: null,
+        status: "interrupted",
+        totalBytes: 500_000_000,
+        doneBytes: 150_000_000,
+        filePath: null,
+        error: "connection timeout",
+        createdAt: 3000,
+        finishedAt: null,
+        speed: null,
+        eta: null,
+        expectedSha256: null,
+        actualSha256: null,
+        firstInterruptedAt: 4000,
+        nextRetryAt: Date.now() + 10000,
+        retryCount: 1,
+      };
+      const html = renderToStaticMarkup(
+        <DownloadQueue
+          items={[interruptedItem]}
+          onPause={() => {}}
+          onResume={() => {}}
+          onRetry={() => {}}
+          onRemove={() => {}}
+          onOpen={() => {}}
+          onReveal={() => {}}
+        />,
+      );
+      expect(html).toContain("Large Dataset");
+      expect(html).toContain("Terputus");
+      expect(html).toContain("Lanjutkan sekarang");
+      expect(html).toContain("Kemajuan unduhan Large Dataset");
+    });
     it("renders empty message when no items", () => {
       const html = renderToStaticMarkup(
         <DownloadQueue

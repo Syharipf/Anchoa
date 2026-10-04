@@ -109,7 +109,7 @@ pub fn run() {
                         }
                     }
                     if let Ok(conn) = db.conn() {
-                        let _ = downloads::pause_interrupted(&conn);
+                        let _ = downloads::mark_interrupted(&conn, time::now_ms());
                     }
                 }
             }
@@ -139,6 +139,7 @@ pub fn run() {
                 sync_keys,
             ));
             sync::commands::spawn_scheduler(app.handle().clone());
+            downloader::spawn_scheduler(app.handle().clone());
             Ok(())
         })
         .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
@@ -256,6 +257,10 @@ pub fn run() {
             commands::download_engines,
             commands::download_settings,
             commands::save_download_settings,
+            commands::install_native_host,
+            commands::uninstall_native_host,
+            commands::native_host_status,
+            commands::save_browser_integration,
             commands::pages_tree,
             commands::create_page,
             commands::rename_page,
@@ -292,6 +297,11 @@ pub fn run() {
                 app.state::<downloader::Downloader>().stop_all();
                 app.state::<agent_runner::AgentRunner>().stop_all();
                 app.state::<assistant::voice::VoiceState>().stop_all();
+                if let Some(db) = app.try_state::<db::Db>() {
+                    if let Ok(conn) = db.conn() {
+                        let _ = downloads::mark_interrupted(&conn, time::now_ms());
+                    }
+                }
             }
         });
 }

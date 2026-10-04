@@ -39,3 +39,12 @@ tokio = { version = "1", features = ["net", "io-util", "rt", "time", "macros"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+[profile.test.package.argon2]
+opt-level = 3
+
+[profile.test.package.chacha20poly1305]
+opt-level = 3
+
+[profile.test.package.sha2]
+opt-level = 3

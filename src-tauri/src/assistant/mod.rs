@@ -10,7 +10,8 @@ pub(crate) mod test_server;
 
 use crate::{db::Db, error::AppError, time};
 use jiff::tz::TimeZone;
-use llm::{ChatMessage, ChatRequest, Endpoint};
+pub use llm::Endpoint;
+use llm::{ChatMessage, ChatRequest};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::sync::{

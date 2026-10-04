@@ -112,8 +112,7 @@ export function EntryList({
   }, [localQuery, query, onFilterChange]);
 
   const totalEntries = groups.reduce((acc, g) => acc + g.entries.length, 0);
-  const filtered = Boolean(filter.query || filter.kind || filter.tag || filter.mood);
-
+  const filtered = Boolean(filter.query || filter.kind || filter.tag || filter.mood || filter.date);
   return (
     <section
       aria-label="Daftar entri"
@@ -184,8 +183,21 @@ export function EntryList({
         })}
       </fieldset>
 
-      {(filter.tag || filter.mood) && (
+      {(filter.tag || filter.mood || filter.date) && (
         <div aria-label="Saringan aktif" className="flex flex-wrap gap-1.5">
+          {filter.date && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
+              Tanggal: {filter.date}
+              <button
+                type="button"
+                aria-label={`Hapus saringan tanggal ${filter.date}`}
+                onClick={() => onFilterChange({ date: undefined })}
+                className="ml-0.5 min-h-6 min-w-6 text-xs hover:text-ink"
+              >
+                ×
+              </button>
+            </span>
+          )}
           {filter.tag && (
             <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-muted">
               #{filter.tag}

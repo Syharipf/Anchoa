@@ -94,7 +94,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 14 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 15 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -757,7 +757,29 @@ check_journal_v2() {
   sql_becomes "SELECT count(*) FROM items WHERE title = 'Refleksi harian' AND body LIKE '%Apa yang berjalan baik hari ini?%'" "1" \
     || fail "template entry body not saved"
   shot 16-journal-template-created
+  # J-3: Kalender refleksi di kolom kanan (V8, V9)
+  sql_becomes "SELECT count(*) FROM items WHERE type = 'note' AND deleted_at IS NULL" "3" \
+    || fail "expected 3 journal notes in database"
+  shot 16-journal-calendar-side
 
+  # J-3: Kenangan sebulan lalu (V10)
+  local last_month_ms
+  last_month_ms=$(date -d "1 month ago" +%s%3N 2>/dev/null || echo "")
+  if [[ -n "$last_month_ms" ]]; then
+    sql "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES ('memory-1', 'note', 'Kenangan Bulan Lalu', 'Isi kenangan sebulan lalu', $last_month_ms, $last_month_ms)"
+    sql "INSERT INTO journal_entries (item_id, kind, mood, tags, pinned) VALUES ('memory-1', 'note', 5, 'kenangan', 0)"
+    sql_becomes "SELECT count(*) FROM items WHERE title = 'Kenangan Bulan Lalu' AND deleted_at IS NULL" "1" \
+      || fail "memory entry not created in database"
+  fi
+  xdotool key Escape
+  sleep 0.5
+  click 36 94                   # nav: Dashboard
+  sleep 1
+  xdotool key Escape
+  sleep 0.5
+  click 36 148                  # nav: Jurnal
+  sleep 2
+  shot 16-journal-memories
   stop_app
 }
 
@@ -1465,6 +1487,7 @@ check_journal
 check_journal_v2
 check_files
 check_downloads
+
 check_notes
 check_agent
 check_settings

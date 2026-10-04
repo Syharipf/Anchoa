@@ -1,5 +1,5 @@
 //! Journal entries with kind, mood, tags, and trend (spec Fase 4 §3-4).
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
@@ -96,6 +96,7 @@ pub struct ListQuery {
     pub kind: Option<EntryKind>,
     pub tag: Option<String>,
     pub mood: Option<i8>,
+    pub date: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -126,6 +127,24 @@ pub struct Side {
     pub trend: Vec<TrendDay>,
     pub write_days: i64,
     pub ideas: Vec<EntrySummary>,
+    pub memories: Vec<EntrySummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarDay {
+    pub date: String,
+    pub count: i64,
+    pub mood: Option<i8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarView {
+    pub month: String,
+    pub days: Vec<CalendarDay>,
+    pub current_streak: i64,
+    pub best_streak: i64,
 }
 
 pub fn format_time(created_at: i64, now: i64, tz: &TimeZone) -> Result<String, AppError> {
@@ -379,6 +398,13 @@ pub fn journal_list(
         sql.push_str(" AND j.mood = ?");
         params_vec.push(i64::from(mood).into());
     }
+    if let Some(date_str) = &query.date {
+        let d = crate::time::parse_date(date_str)?;
+        let (start, end) = crate::time::date_bounds(d, tz)?;
+        sql.push_str(" AND i.created_at >= ? AND i.created_at < ?");
+        params_vec.push(start.into());
+        params_vec.push(end.into());
+    }
     if let Some(raw) = &query.tag {
         let tag = normalize_tags(raw)?;
         if tag.is_empty() || tag.contains(' ') {
@@ -462,6 +488,115 @@ pub fn journal_list(
     }
 
     Ok(groups)
+}
+
+pub fn calculate_streaks(today: Date, dates: &BTreeSet<Date>) -> (i64, i64) {
+    let past: BTreeSet<Date> = dates.iter().copied().filter(|&d| d <= today).collect();
+
+    let mut current = 0;
+    let mut check_date = if past.contains(&today) {
+        Some(today)
+    } else {
+        today.yesterday().ok().filter(|y| past.contains(y))
+    };
+
+    while let Some(d) = check_date {
+        current += 1;
+        match d.yesterday() {
+            Ok(prev) if past.contains(&prev) => check_date = Some(prev),
+            _ => break,
+        }
+    }
+
+    let mut best = 0;
+    let mut run = 0;
+    let mut prev: Option<Date> = None;
+
+    for &d in &past {
+        if let Some(p) = prev {
+            if p.tomorrow().ok() == Some(d) {
+                run += 1;
+            } else {
+                run = 1;
+            }
+        } else {
+            run = 1;
+        }
+        if run > best {
+            best = run;
+        }
+        prev = Some(d);
+    }
+
+    (current, best.max(current))
+}
+
+pub fn journal_calendar(
+    conn: &Connection,
+    month: &str,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<CalendarView, AppError> {
+    let first = crate::time::first_day(month)?;
+    let days_in_month = first.days_in_month();
+
+    let mut stmt = conn.prepare(
+        "SELECT i.created_at, j.mood
+         FROM items i
+         LEFT JOIN journal_entries j ON j.item_id = i.id
+         WHERE i.type = 'note' AND i.deleted_at IS NULL",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i8>>(1)?)))?;
+
+    let mut month_data: HashMap<Date, (i64, Vec<i8>)> = HashMap::new();
+    let mut all_dates: BTreeSet<Date> = BTreeSet::new();
+
+    for row in rows {
+        let (created_at, mood) = row?;
+        if let Ok(d) = local_date(created_at, tz) {
+            all_dates.insert(d);
+            if d.year() == first.year() && d.month() == first.month() {
+                let entry = month_data.entry(d).or_insert((0, Vec::new()));
+                entry.0 += 1;
+                if let Some(m) = mood {
+                    entry.1.push(m);
+                }
+            }
+        }
+    }
+
+    let mut days = Vec::with_capacity(days_in_month as usize);
+    for d in 1..=days_in_month {
+        let date = Date::new(first.year(), first.month(), d).map_err(|e| AppError::Other(e.to_string()))?;
+        let (count, mood) = match month_data.get(&date) {
+            Some((c, moods)) => {
+                let avg_mood = if moods.is_empty() {
+                    None
+                } else {
+                    let sum: i64 = moods.iter().map(|&m| m as i64).sum();
+                    let avg = ((sum as f64) / (moods.len() as f64)).round() as i8;
+                    Some(avg.clamp(1, 5))
+                };
+                (*c, avg_mood)
+            }
+            None => (0, None),
+        };
+        days.push(CalendarDay {
+            date: date.to_string(),
+            count,
+            mood,
+        });
+    }
+
+    let today = local_date(now, tz)?;
+    let (current_streak, best_streak) = calculate_streaks(today, &all_dates);
+
+    Ok(CalendarView {
+        month: month.to_string(),
+        days,
+        current_streak,
+        best_streak,
+    })
 }
 
 pub fn journal_side(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Side, AppError> {
@@ -548,11 +683,172 @@ pub fn journal_side(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Side, 
         });
     }
 
+    let [prev_month, prev_year] = memory_dates(today)?;
+    let (m_start, m_end) = crate::time::date_bounds(prev_month, tz)?;
+    let (y_start, y_end) = crate::time::date_bounds(prev_year, tz)?;
+
+    let mut memories_stmt = conn.prepare(
+        "SELECT i.id, i.title, i.body, i.created_at, COALESCE(j.kind, 'note'), j.mood
+         FROM items i
+         LEFT JOIN journal_entries j ON j.item_id = i.id
+         WHERE i.type = 'note' AND i.deleted_at IS NULL
+           AND ((i.created_at >= ?1 AND i.created_at < ?2) OR (i.created_at >= ?3 AND i.created_at < ?4))
+         ORDER BY i.created_at DESC, i.id DESC",
+    )?;
+    let memory_rows = memories_stmt.query_map(params![m_start, m_end, y_start, y_end], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, i64>(3)?,
+            r.get::<_, EntryKind>(4)?,
+            r.get::<_, Option<i8>>(5)?,
+        ))
+    })?;
+
+    let mut memories = Vec::new();
+    for row in memory_rows {
+        let (id, title, body, created_at, kind, mood) = row?;
+        memories.push(EntrySummary {
+            id,
+            kind,
+            title,
+            preview: body.trim().to_string(),
+            mood,
+            created_at,
+            time: format_time(created_at, now, tz)?,
+        });
+    }
+
     Ok(Side {
         trend,
         write_days,
         ideas,
+        memories,
     })
+}
+
+pub fn memory_dates(today: Date) -> Result<[Date; 2], AppError> {
+    let prev_month_first = today.first_of_month().checked_sub(1.month())?;
+    let prev_month_day = today.day().clamp(1, prev_month_first.days_in_month());
+    let prev_month = Date::new(prev_month_first.year(), prev_month_first.month(), prev_month_day)
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    let prev_year_first = Date::new(today.year() - 1, today.month(), 1)
+        .map_err(|e| AppError::Other(e.to_string()))?;
+    let prev_year_day = today.day().clamp(1, prev_year_first.days_in_month());
+    let prev_year = Date::new(today.year() - 1, today.month(), prev_year_day)
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    Ok([prev_month, prev_year])
+}
+
+pub fn journal_weekly_summary(
+    conn: &Connection,
+    endpoint: &crate::assistant::Endpoint,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<Entry, AppError> {
+    let today = local_date(now, tz)?;
+    let start_date = today.checked_sub(6.days())?;
+    let (start_ms, _) = crate::time::date_bounds(start_date, tz)?;
+    let (_, end_ms) = crate::time::date_bounds(today, tz)?;
+
+    let mut stmt = conn.prepare(
+        "SELECT i.id, i.title, i.body, i.created_at, COALESCE(j.kind, 'note'), j.mood, COALESCE(j.tags, '')
+         FROM items i
+         LEFT JOIN journal_entries j ON j.item_id = i.id
+         WHERE i.type = 'note' AND i.deleted_at IS NULL
+           AND i.created_at >= ?1 AND i.created_at < ?2
+         ORDER BY i.created_at ASC, i.id ASC",
+    )?;
+    let rows = stmt.query_map(params![start_ms, end_ms], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, i64>(3)?,
+            r.get::<_, EntryKind>(4)?,
+            r.get::<_, Option<i8>>(5)?,
+            r.get::<_, String>(6)?,
+        ))
+    })?;
+
+    let mut entries = Vec::new();
+    for row in rows {
+        let (id, title, body, created_at, kind, mood, tags_str) = row?;
+        let tags: Vec<String> = if tags_str.trim().is_empty() {
+            Vec::new()
+        } else {
+            tags_str.split_whitespace().map(String::from).collect()
+        };
+        entries.push((id, title, body, created_at, kind, mood, tags));
+    }
+
+    if entries.is_empty() {
+        return Err(AppError::Invalid(
+            "Belum ada entri jurnal dalam 7 hari terakhir".into(),
+        ));
+    }
+
+    let role_config = crate::assistant::roles::get_role(conn, "recap")?;
+    let model = role_config.model;
+
+    let system_prompt = "Anda asisten lokal untuk jurnal pribadi. Bacalah entri jurnal pengguna selama 7 hari terakhir, lalu tulis ringkasan mengenai tema-tema utama yang muncul dan perkembangan suasana hati dalam bahasa Indonesia. Tulisan harus suportif, jelas, dan terstruktur dalam format Markdown. Langsung berikan isi ringkasan tanpa pengantar atau penutup basa-basi.";
+
+    let mut user_prompt = format!(
+        "Berikut adalah entri jurnal 7 hari terakhir ({start_date} s/d {today}):\n\n"
+    );
+    for (_id, title, body, created_at, _kind, mood, tags) in &entries {
+        let body_cut: String = body.chars().take(2000).collect();
+        let mood_str = match mood {
+            Some(m) => format!("{m}/5"),
+            None => "tidak ada".to_string(),
+        };
+        let tags_str = if tags.is_empty() {
+            "tidak ada".to_string()
+        } else {
+            tags.join(", ")
+        };
+        let date_str = local_date(*created_at, tz)
+            .map(|d| d.to_string())
+            .unwrap_or_else(|_| "-".to_string());
+        user_prompt.push_str(&format!(
+            "### {} ({date_str})\nSuasana hati: {}\nTag: {}\n\n{}\n\n",
+            if title.trim().is_empty() { "Tanpa judul" } else { title.trim() },
+            mood_str,
+            tags_str,
+            body_cut.trim()
+        ));
+    }
+
+    let request = crate::assistant::llm::ChatRequest {
+        model,
+        messages: vec![
+            crate::assistant::llm::ChatMessage::text("system", system_prompt),
+            crate::assistant::llm::ChatMessage::text("user", user_prompt),
+        ],
+        tools: vec![],
+    };
+
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let response = crate::assistant::llm::stream_chat(endpoint, &request, &cancel, |_| {})?;
+    let summary_text = response.content.trim().to_string();
+    if summary_text.is_empty() {
+        return Err(AppError::Other(
+            "Asisten tidak menghasilkan ringkasan".into(),
+        ));
+    }
+
+    let title = format!("Ringkasan minggu {start_date}–{today}");
+    let id = items::insert(conn, "note", &title, &summary_text, now)?;
+    conn.execute(
+        "INSERT INTO journal_entries (item_id, kind, mood, tags, task_id) VALUES (?1, ?2, NULL, 'ringkasan', NULL)",
+        params![id, EntryKind::Note],
+    )?;
+    crate::links::refresh(conn, &id, &summary_text)?;
+    after_note_saved(conn, &id, now, tz)?;
+    journal_entry(conn, &id, now, tz)
 }
 
 pub fn after_note_saved(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result<(), AppError> {
@@ -756,7 +1052,7 @@ mod tests {
                 matching.push(entry.id);
             }
         }
-        let query = ListQuery { query: Some("KOPI".into()), kind: Some(EntryKind::Idea), tag: Some("#Kerja".into()), mood: Some(4) };
+        let query = ListQuery { query: Some("KOPI".into()), kind: Some(EntryKind::Idea), tag: Some("#Kerja".into()), mood: Some(4), ..Default::default() };
         let groups = journal_list(&conn, &query, t, &tz).unwrap();
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].key, "pinned");
@@ -1378,5 +1674,399 @@ mod tests {
         crate::profile::set_notify_prefs(&conn, &off).unwrap();
         let day3 = ms("2026-10-01T20:00:00+07:00");
         assert!(!due_reminder(&conn, day3, &tz).unwrap());
+    }
+
+    #[test]
+    fn calculate_streaks_cases() {
+        let today = Date::new(2026, 10, 4).unwrap();
+        let d = |y, m, day| Date::new(y, m, day).unwrap();
+
+        // Empty dates
+        let empty = BTreeSet::new();
+        assert_eq!(calculate_streaks(today, &empty), (0, 0));
+
+        // Today only
+        let mut dates = BTreeSet::from([today]);
+        assert_eq!(calculate_streaks(today, &dates), (1, 1));
+
+        // Yesterday only
+        dates = BTreeSet::from([d(2026, 10, 3)]);
+        assert_eq!(calculate_streaks(today, &dates), (1, 1));
+
+        // 2 days ago only (streak expired)
+        dates = BTreeSet::from([d(2026, 10, 2)]);
+        assert_eq!(calculate_streaks(today, &dates), (0, 1));
+
+        // Consecutive ending today
+        dates = BTreeSet::from([d(2026, 10, 2), d(2026, 10, 3), today]);
+        assert_eq!(calculate_streaks(today, &dates), (3, 3));
+
+        // Consecutive ending yesterday (active)
+        dates = BTreeSet::from([d(2026, 10, 1), d(2026, 10, 2), d(2026, 10, 3)]);
+        assert_eq!(calculate_streaks(today, &dates), (3, 3));
+
+        // Current streak ending today with longer past streak
+        dates = BTreeSet::from([
+            d(2026, 9, 10),
+            d(2026, 9, 11),
+            d(2026, 9, 12),
+            d(2026, 9, 13),
+            d(2026, 9, 14), // run of 5
+            d(2026, 10, 3),
+            today, // current run of 2
+        ]);
+        assert_eq!(calculate_streaks(today, &dates), (2, 5));
+
+        // Future date is ignored
+        dates.insert(d(2026, 10, 10));
+        assert_eq!(calculate_streaks(today, &dates), (2, 5));
+    }
+
+    #[test]
+    fn journal_calendar_returns_days_mood_and_streaks() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_t = ms("2026-10-04T12:00:00+07:00");
+
+        // Day 1: two entries, moods 2 and 4 -> avg 3
+        let t1a = ms("2026-10-01T08:00:00+07:00");
+        let e1a = create_entry(&conn, EntryKind::Note, Some("Entri 1A"), t1a, &tz).unwrap();
+        update_entry(&conn, &e1a.id, &EntryPatch { mood: Some(Some(2)), ..Default::default() }, t1a, &tz).unwrap();
+        let t1b = ms("2026-10-01T20:00:00+07:00");
+        let e1b = create_entry(&conn, EntryKind::Note, Some("Entri 1B"), t1b, &tz).unwrap();
+        update_entry(&conn, &e1b.id, &EntryPatch { mood: Some(Some(4)), ..Default::default() }, t1b, &tz).unwrap();
+
+        // Day 2: one entry, no mood
+        let t2 = ms("2026-10-02T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Note, Some("Entri 2"), t2, &tz).unwrap();
+
+        // Day 3: one entry with mood 5
+        let t3 = ms("2026-10-03T10:00:00+07:00");
+        let e3 = create_entry(&conn, EntryKind::Note, Some("Entri 3"), t3, &tz).unwrap();
+        update_entry(&conn, &e3.id, &EntryPatch { mood: Some(Some(5)), ..Default::default() }, t3, &tz).unwrap();
+
+        // Day 4 (today): one entry with mood 1
+        let e4 = create_entry(&conn, EntryKind::Note, Some("Entri 4"), now_t, &tz).unwrap();
+        update_entry(&conn, &e4.id, &EntryPatch { mood: Some(Some(1)), ..Default::default() }, now_t, &tz).unwrap();
+
+        let cal = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal.month, "2026-10");
+        assert_eq!(cal.days.len(), 31);
+        assert_eq!(cal.days[0].date, "2026-10-01");
+        assert_eq!(cal.days[0].count, 2);
+        assert_eq!(cal.days[0].mood, Some(3));
+
+        assert_eq!(cal.days[1].date, "2026-10-02");
+        assert_eq!(cal.days[1].count, 1);
+        assert_eq!(cal.days[1].mood, None);
+
+        assert_eq!(cal.days[2].date, "2026-10-03");
+        assert_eq!(cal.days[2].count, 1);
+        assert_eq!(cal.days[2].mood, Some(5));
+
+        assert_eq!(cal.days[3].date, "2026-10-04");
+        assert_eq!(cal.days[3].count, 1);
+        assert_eq!(cal.days[3].mood, Some(1));
+
+        assert_eq!(cal.days[4].date, "2026-10-05");
+        assert_eq!(cal.days[4].count, 0);
+        assert_eq!(cal.days[4].mood, None);
+
+        // Streak: Day 1, 2, 3, 4 consecutive -> current = 4, best = 4
+        assert_eq!(cal.current_streak, 4);
+        assert_eq!(cal.best_streak, 4);
+
+        // Reject bad month
+        for bad in ["2026", "2026-13", "bad", ""] {
+            assert!(matches!(journal_calendar(&conn, bad, now_t, &tz), Err(AppError::Invalid(_))));
+        }
+    }
+
+    #[test]
+    fn journal_calendar_ignores_deleted_entries() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_t = ms("2026-10-04T12:00:00+07:00");
+        let t3 = ms("2026-10-03T12:00:00+07:00");
+
+        let e3 = create_entry(&conn, EntryKind::Note, Some("Kemarin"), t3, &tz).unwrap();
+        let e4 = create_entry(&conn, EntryKind::Note, Some("Hari ini"), now_t, &tz).unwrap();
+
+        let cal = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal.current_streak, 2);
+
+        // Delete yesterday's entry -> breaks streak
+        delete_entry(&conn, &e3.id, now_t).unwrap();
+        let cal2 = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal2.days[2].count, 0);
+        assert_eq!(cal2.current_streak, 1); // only today
+
+        // Delete today's entry -> streak 0
+        delete_entry(&conn, &e4.id, now_t).unwrap();
+        let cal3 = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal3.days[3].count, 0);
+        assert_eq!(cal3.current_streak, 0);
+    }
+
+    #[test]
+    fn journal_list_filters_by_date() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t28 = ms("2026-09-28T15:00:00+07:00");
+        let t29a = ms("2026-09-29T09:00:00+07:00");
+        let t29b = ms("2026-09-29T21:00:00+07:00");
+        let t30 = ms("2026-09-30T10:00:00+07:00");
+
+        let e28 = create_entry(&conn, EntryKind::Note, Some("Entri 28"), t28, &tz).unwrap();
+        let e29a = create_entry(&conn, EntryKind::Note, Some("Entri 29A"), t29a, &tz).unwrap();
+        let e29b = create_entry(&conn, EntryKind::Idea, Some("Entri 29B"), t29b, &tz).unwrap();
+        let _e30 = create_entry(&conn, EntryKind::Note, Some("Entri 30"), t30, &tz).unwrap();
+
+        // Filter date 2026-09-29
+        let groups = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-09-29".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids: Vec<String> = groups.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids, vec![e29b.id.clone(), e29a.id.clone()]);
+
+        // Filter date 2026-09-28
+        let groups28 = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-09-28".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids28: Vec<String> = groups28.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids28, vec![e28.id.clone()]);
+
+        // Date with no entries
+        let groups_empty = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-10-05".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        assert!(groups_empty.is_empty());
+
+        // Combine date with kind
+        let groups_kind = journal_list(
+            &conn,
+            &ListQuery {
+                date: Some("2026-09-29".into()),
+                kind: Some(EntryKind::Idea),
+                ..Default::default()
+            },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids_kind: Vec<String> = groups_kind.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids_kind, vec![e29b.id.clone()]);
+
+        // Invalid date formats reject
+        for bad in ["2026-9-29", "invalid", "", "2026-02-30"] {
+            assert!(matches!(
+                journal_list(&conn, &ListQuery { date: Some(bad.into()), ..Default::default() }, t30, &tz),
+                Err(AppError::Invalid(_))
+            ));
+        }
+
+        // Soft deleted entry is excluded
+        delete_entry(&conn, &e29a.id, t30).unwrap();
+        let groups_after_del = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-09-29".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids_del: Vec<String> = groups_after_del.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids_del, vec![e29b.id.clone()]);
+    }
+
+    #[test]
+    fn memories_finds_entries_from_last_month_and_last_year() {
+        // 1. Test date calculation & clamp edge cases
+        // Leap day
+        let leap_day = Date::new(2024, 2, 29).unwrap();
+        let [m_leap, y_leap] = memory_dates(leap_day).unwrap();
+        assert_eq!(m_leap, Date::new(2024, 1, 29).unwrap());
+        assert_eq!(y_leap, Date::new(2023, 2, 28).unwrap());
+
+        // March 31 in leap year -> 1 month ago is Feb 29
+        let mar31_leap = Date::new(2024, 3, 31).unwrap();
+        let [m_mar_leap, y_mar_leap] = memory_dates(mar31_leap).unwrap();
+        assert_eq!(m_mar_leap, Date::new(2024, 2, 29).unwrap());
+        assert_eq!(y_mar_leap, Date::new(2023, 3, 31).unwrap());
+
+        // March 31 in non-leap year -> 1 month ago is Feb 28
+        let mar31_non_leap = Date::new(2025, 3, 31).unwrap();
+        let [m_mar, y_mar] = memory_dates(mar31_non_leap).unwrap();
+        assert_eq!(m_mar, Date::new(2025, 2, 28).unwrap());
+        assert_eq!(y_mar, Date::new(2024, 3, 31).unwrap());
+
+        // May 31 -> 1 month ago is April 30
+        let may31 = Date::new(2026, 5, 31).unwrap();
+        let [m_may, y_may] = memory_dates(may31).unwrap();
+        assert_eq!(m_may, Date::new(2026, 4, 30).unwrap());
+        assert_eq!(y_may, Date::new(2025, 5, 31).unwrap());
+
+        // Jan 31 -> 1 month ago is Dec 31 previous year
+        let jan31 = Date::new(2026, 1, 31).unwrap();
+        let [m_jan, y_jan] = memory_dates(jan31).unwrap();
+        assert_eq!(m_jan, Date::new(2025, 12, 31).unwrap());
+        assert_eq!(y_jan, Date::new(2025, 1, 31).unwrap());
+
+        // 2. Test DB queries in journal_side
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_time = ms("2026-10-04T12:00:00+07:00");
+
+        // When DB is empty, memories is empty
+        let side_empty = journal_side(&conn, now_time, &tz).unwrap();
+        assert!(side_empty.memories.is_empty());
+
+        // Create entries:
+        // 1 month ago: 2026-09-04
+        let t_month = ms("2026-09-04T09:00:00+07:00");
+        let e_month = create_entry(&conn, EntryKind::Note, Some("Satu bulan lalu"), t_month, &tz).unwrap();
+
+        // 1 year ago: 2025-10-04
+        let t_year = ms("2025-10-04T15:00:00+07:00");
+        let e_year = create_entry(&conn, EntryKind::Idea, Some("Satu tahun lalu"), t_year, &tz).unwrap();
+
+        // Unrelated date: 2026-09-10
+        let t_other = ms("2026-09-10T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Vent, Some("Tanggal lain"), t_other, &tz).unwrap();
+
+        // Deleted entry on 1 month ago: 2026-09-04
+        let t_del = ms("2026-09-04T11:00:00+07:00");
+        let e_del = create_entry(&conn, EntryKind::Note, Some("Dihapus"), t_del, &tz).unwrap();
+        delete_entry(&conn, &e_del.id, now_time).unwrap();
+
+        let side = journal_side(&conn, now_time, &tz).unwrap();
+        assert_eq!(side.memories.len(), 2);
+        // Ordered created_at DESC: 1 month ago first, then 1 year ago
+        assert_eq!(side.memories[0].id, e_month.id);
+        assert_eq!(side.memories[0].title, "Satu bulan lalu");
+        assert_eq!(side.memories[1].id, e_year.id);
+        assert_eq!(side.memories[1].title, "Satu tahun lalu");
+        assert_eq!(side.memories[1].kind, EntryKind::Idea);
+    }
+
+    #[test]
+    fn weekly_summary_requires_entries_and_creates_note() {
+        use crate::assistant::test_server::{Server, sse};
+        use serde_json::json;
+
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_time = ms("2026-10-04T12:00:00+07:00");
+
+        // 1. Error when no entries in last 7 days
+        let err_empty = journal_weekly_summary(
+            &conn,
+            &crate::assistant::Endpoint::default(),
+            now_time,
+            &tz,
+        )
+        .unwrap_err();
+        assert!(matches!(&err_empty, AppError::Invalid(msg) if msg == "Belum ada entri jurnal dalam 7 hari terakhir"));
+
+        // 2. Older entry (> 7 days ago, e.g. 8 days ago: 2026-09-26) still results in empty error
+        let t_old = ms("2026-09-26T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Note, Some("Entri lama"), t_old, &tz).unwrap();
+        let err_still_empty = journal_weekly_summary(
+            &conn,
+            &crate::assistant::Endpoint::default(),
+            now_time,
+            &tz,
+        )
+        .unwrap_err();
+        assert!(matches!(&err_still_empty, AppError::Invalid(msg) if msg == "Belum ada entri jurnal dalam 7 hari terakhir"));
+
+        // 3. Entry in last 7 days exists, but Ollama server is offline
+        let t_recent = ms("2026-10-02T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Note, Some("Entri baru"), t_recent, &tz).unwrap();
+
+        let dead_endpoint = crate::assistant::Endpoint {
+            base_url: "http://127.0.0.1:59998/v1".into(),
+            api_key: None,
+        };
+        let err_offline = journal_weekly_summary(&conn, &dead_endpoint, now_time, &tz).unwrap_err();
+        assert!(err_offline.to_string().contains("Ollama"));
+
+        // Check no summary note was created
+        let count_notes: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM items WHERE type = 'note' AND title LIKE 'Ringkasan%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count_notes, 0);
+
+        // 4. Successful summary creation with mock server
+        // Add another entry with > 2000 chars body, mood, and tags to test prompt formatting
+        let long_body = "x".repeat(3000);
+        let e2 = create_entry(&conn, EntryKind::Idea, Some("Ide Menarik"), ms("2026-10-03T14:00:00+07:00"), &tz).unwrap();
+        update_entry(
+            &conn,
+            &e2.id,
+            &EntryPatch {
+                tags: Some("fokus produktif".into()),
+                mood: Some(Some(4)),
+                ..Default::default()
+            },
+            ms("2026-10-03T14:01:00+07:00"),
+            &tz,
+        )
+        .unwrap();
+        conn.execute("UPDATE items SET body = ?1 WHERE id = ?2", params![long_body, e2.id]).unwrap();
+
+        let summary_text = "## Tema Utama\nMinggu ini berfokus pada ide menarik dan produktivitas.\n\n## Suasana Hati\nSuasana hati stabil pada tingkat baik (4/5).";
+        let server = Server::new(vec![sse(&[json!({
+            "choices": [{
+                "delta": {
+                    "content": summary_text
+                }
+            }]
+        })])]);
+
+        let endpoint = crate::assistant::Endpoint {
+            base_url: server.base.clone(),
+            api_key: None,
+        };
+
+        let summary_entry = journal_weekly_summary(&conn, &endpoint, now_time, &tz).unwrap();
+
+        // Title should be "Ringkasan minggu 2026-09-28–2026-10-04"
+        assert_eq!(summary_entry.title, "Ringkasan minggu 2026-09-28–2026-10-04");
+        assert_eq!(summary_entry.kind, EntryKind::Note);
+        assert_eq!(summary_entry.tags, vec!["ringkasan".to_string()]);
+        assert_eq!(summary_entry.body, summary_text);
+
+        // Verify request received by mock server
+        let (_headers, request) = server.requests.recv().unwrap();
+        assert_eq!(request["model"], "qwen2.5:3b");
+        let messages = request["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0]["role"], "system");
+        assert_eq!(messages[1]["role"], "user");
+        let user_content = messages[1]["content"].as_str().unwrap();
+        assert!(user_content.contains("Ide Menarik"));
+        assert!(user_content.contains("fokus, produktif"));
+        assert!(user_content.contains("4/5"));
+        // Body was truncated to 2000 chars, so 3000 consecutive 'x's are not in the prompt
+        assert!(!user_content.contains(&"x".repeat(2001)));
+        assert!(user_content.contains(&"x".repeat(2000)));
+
+        server.finish();
     }
 }

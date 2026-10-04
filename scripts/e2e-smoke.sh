@@ -94,7 +94,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 14 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 15 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -398,7 +398,7 @@ check_projects() {
   sleep 1
   xdotool key Return
   sleep 1
-  click 530 380                 # + Tugas in Rencana
+  click 430 518                 # + Tugas in Rencana
   sleep 0.5
   xdotool type --delay 20 'Tugas A'
   sleep 1
@@ -771,9 +771,15 @@ check_journal_v2() {
     sql_becomes "SELECT count(*) FROM items WHERE title = 'Kenangan Bulan Lalu' AND deleted_at IS NULL" "1" \
       || fail "memory entry not created in database"
   fi
+  xdotool key Escape
+  sleep 0.5
+  click 36 94                   # nav: Dashboard
   sleep 1
+  xdotool key Escape
+  sleep 0.5
+  click 36 148                  # nav: Jurnal
+  sleep 2
   shot 16-journal-memories
-
   stop_app
 }
 

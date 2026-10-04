@@ -11,3 +11,4 @@ sync-*
 src-tauri/.tmp*
 src-tauri/sync-*
 *.part
+graphify-out/

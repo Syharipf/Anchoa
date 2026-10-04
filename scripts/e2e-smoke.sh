@@ -398,7 +398,7 @@ check_projects() {
   sleep 1
   xdotool key Return
   sleep 1
-  click 530 380                 # + Tugas in Rencana
+  click 530 400                 # + Tugas in Rencana
   sleep 0.5
   xdotool type --delay 20 'Tugas A'
   sleep 1
@@ -409,7 +409,7 @@ check_projects() {
   xdotool key Return
   xdotool key Escape            # close + Tugas input
   sleep 0.5
-  click 655 465                 # arrow on first card (Tugas A)
+  click 645 480                 # arrow on first card (Tugas A)
   sleep 1
   shot 12-projects
   proj_id=$(sql_value "SELECT item_id FROM projects")
@@ -419,9 +419,9 @@ check_projects() {
   sql_becomes "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas A')" "doing" || fail "Tugas A should be doing"
   sql_becomes "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas B')" "plan" || fail "Tugas B should be plan"
   # Task 10: subtask on Tugas B
-  click 480 520                 # click Tugas B card
+  click 480 460                 # click Tugas B card
   sleep 1
-  click 200 380                 # Tambah sub-tugas input
+  click 308 444                 # Tambah sub-tugas input
   sleep 0.5
   xdotool type --delay 20 'Sub 1'
   sleep 1

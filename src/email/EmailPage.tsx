@@ -17,9 +17,8 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [busy, setBusy] = useState(false);
-   const [composing, setComposing] = useState(false);
-  const [labelFilter, setLabelFilter] = useState<string | null>(null);
-   const [error, setError] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const active = useRef(true);
   const lists = useRef(0);
   const opens = useRef(0);
@@ -227,34 +226,15 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
           {FOLDERS.map((entry) => <button key={entry.id} type="button" aria-label={entry.label} aria-current={folder === entry.id ? "page" : undefined}
             onClick={() => selectFolder(entry.id)} className={`flex min-h-9 items-center rounded-lg px-2.5 text-left text-[13px] transition-colors hover:bg-surface-2 ${folder === entry.id ? "bg-surface-2 font-semibold text-ink" : "text-muted"}`}>{entry.label}</button>)}
           <span className="px-2.5 pt-4 pb-1.5 text-[11px] uppercase tracking-[0.08em] text-muted">Label</span>
-          {EMAIL_LABELS.map((lbl) => {
-            const isActive = labelFilter === lbl.label;
-            return (
-              <button
-                key={lbl.id}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => setLabelFilter((curr) => (curr === lbl.label ? null : lbl.label))}
-                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                  isActive ? "bg-surface-2 font-semibold text-ink" : "text-[#C9CED8] hover:bg-surface-2"
-                }`}
-              >
-                <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ backgroundColor: lbl.color }} />
-                <span>{lbl.label}</span>
-              </button>
-            );
-          })}
+          {EMAIL_LABELS.map((lbl) => (
+            <div key={lbl.id} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-[#C9CED8]">
+              <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ backgroundColor: lbl.color }} />
+              <span>{lbl.label}</span>
+            </div>
+          ))}
         </nav>
         <EmailList
-          messages={
-            labelFilter
-              ? messages.filter(
-                  (m) =>
-                    m.subject.toLowerCase().includes(labelFilter.toLowerCase()) ||
-                    m.body.toLowerCase().includes(labelFilter.toLowerCase())
-                )
-              : messages
-          }
+          messages={messages}
           folder={folder}
           filter={filter}
           loading={loading}

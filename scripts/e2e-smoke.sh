@@ -398,7 +398,7 @@ check_projects() {
   sleep 1
   xdotool key Return
   sleep 1
-  click 430 518                 # + Tugas in Rencana
+  click 530 380                 # + Tugas in Rencana
   sleep 0.5
   xdotool type --delay 20 'Tugas A'
   sleep 1
@@ -1487,6 +1487,7 @@ check_journal
 check_journal_v2
 check_files
 check_downloads
+
 check_notes
 check_agent
 check_settings

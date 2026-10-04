@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, errorMessage, type Activity, type Board, type LastActor } from "../api";
+import { api, errorMessage, type Activity, type Board, type BoardFilter, type LastActor } from "../api";
 import { useToast } from "../shell/toast";
 
 type BoardState = Readonly<{
@@ -20,6 +20,7 @@ export function useProjectBoard(
   selectedId: string | null | undefined,
   version: number,
   openTaskId: string | null = null,
+  filter: BoardFilter = {},
 ) {
   const toast = useToast();
   const [state, setState] = useState<BoardState | null>(null);
@@ -35,7 +36,7 @@ export function useProjectBoard(
     async function refresh() {
       const request = ++requests;
       try {
-        const board = await api.projectBoard(selectedId ?? null);
+        const board = await api.projectBoard(selectedId ?? null, filter);
         if (!current(request)) return;
         const agent = board.project?.agent === true;
         setState((previous) => ({
@@ -78,7 +79,7 @@ export function useProjectBoard(
       requests++;
       clearInterval(timer);
     };
-  }, [selectedId, version, toast]);
+  }, [selectedId, version, toast, filter.query, filter.tag, filter.priority, filter.due]);
 
   const visible = state?.selectedId === selectedId ? state : null;
   const taskId = visible?.board.project?.agent && openTaskId &&

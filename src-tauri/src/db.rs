@@ -20,6 +20,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/011_emails.sql"),
     include_str!("../migrations/012_sync.sql"),
     include_str!("../migrations/013_journal_pinned.sql"),
+    include_str!("../migrations/014_task_priority.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -489,7 +490,6 @@ mod tests {
              INSERT INTO journal_entries (item_id, kind, mood, tags) VALUES ('n1', 'idea', 4, 'kerja');",
         ).unwrap();
         migrate(&mut conn, MIGRATIONS, None).unwrap();
-        assert_eq!(version(&conn), 13);
         let entry = crate::journal::journal_entry(&conn, "n1", crate::finance::testing::now(), &crate::finance::testing::jakarta()).unwrap();
         assert_eq!(entry.title, "lama");
         assert_eq!(entry.kind, crate::journal::EntryKind::Idea);

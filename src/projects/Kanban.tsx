@@ -2,7 +2,8 @@ import { useState, type FormEvent } from "react";
 import type { Columns, LastActor, TaskCard, TaskStatus } from "../api";
 import { shortDate } from "../format";
 import { FIELD } from "../shell/ui";
-import { boardColumns, moveLabel, subLabel } from "./view";
+import { anchorOf, useContextMenu, type MenuEntry } from "../shell/ContextMenu";
+import { boardColumns, dropTarget, moveLabel, PRIORITY_LABELS, subLabel } from "./view";
 
 function CardActor({ lastActor }: Readonly<{ lastActor: LastActor | null }>) {
   if (!lastActor) return null;
@@ -19,18 +20,27 @@ export function Kanban({
   lastActors = {},
   onOpenItem,
   onMoveCard,
+  onDropCard,
+  onDeleteCard,
+  cardMenu,
   onCreateTask,
+  filtered = false,
 }: Readonly<{
   columns: Columns;
   agent?: boolean;
   lastActors?: Readonly<Record<string, LastActor>>;
   onOpenItem: (id: string) => void;
   onMoveCard: (card: TaskCard) => void;
+  onDropCard?: (card: TaskCard, status: TaskStatus) => void;
+  onDeleteCard?: (card: TaskCard) => void;
+  cardMenu?: (card: TaskCard) => readonly MenuEntry[];
   onCreateTask: (title: string, status: TaskStatus) => Promise<void>;
+  filtered?: boolean;
 }>) {
   const [addingCol, setAddingCol] = useState<TaskStatus | null>(null);
   const [newTitle, setNewTitle] = useState("");
-
+  const [overCol, setOverCol] = useState<TaskStatus | null>(null);
+  const { menu, open } = useContextMenu();
   async function submitNewTask(e: FormEvent, status: TaskStatus) {
     e.preventDefault();
     const title = newTitle.trim();
@@ -49,7 +59,20 @@ export function Kanban({
           <section
             key={col.status}
             aria-label={col.title}
-            className="flex min-h-0 flex-col gap-2 overflow-y-auto rounded-[14px] border border-line bg-stage p-3"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOverCol(col.status);
+            }}
+            onDragLeave={() => setOverCol((current) => (current === col.status ? null : current))}
+            onDrop={(e) => {
+              e.preventDefault();
+              setOverCol(null);
+              const card = dropTarget(columns, e.dataTransfer.getData("text/plain"), col.status);
+              if (card && onDropCard) onDropCard(card, col.status);
+            }}
+            className={`flex min-h-0 flex-col gap-2 overflow-y-auto rounded-[14px] border bg-stage p-3 transition-colors ${
+              overCol === col.status ? "border-accent ring-1 ring-accent" : "border-line"
+            }`}
           >
             <div className="flex items-center gap-2 px-1 py-0.5">
               <span className={`h-2 w-2 rounded-full ${col.dot}`} />
@@ -108,7 +131,7 @@ export function Kanban({
 
             {cards.length === 0 ? (
               <div className="rounded-[10px] border border-dashed border-line p-4 text-center text-xs text-muted">
-                Kosong
+                {filtered ? "Tidak ada yang cocok" : "Kosong"}
               </div>
             ) : (
               cards.map((c) => {
@@ -120,7 +143,18 @@ export function Kanban({
                   return (
                     <article
                       key={c.id}
-                      className="relative flex items-center gap-2.5 rounded-[10px] border border-line bg-[#151920] px-2.5 py-2 transition-colors hover:border-muted"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", c.id);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onContextMenu={(e) => {
+                        if (cardMenu) {
+                          e.preventDefault();
+                          open(anchorOf(e), cardMenu(c));
+                        }
+                      }}
+                      className="group relative flex items-center gap-2.5 rounded-[10px] border border-line bg-[#151920] px-2.5 py-2 transition-colors hover:border-muted"
                     >
                       <svg
                         width="14"
@@ -144,6 +178,31 @@ export function Kanban({
                         {agent ? <span className="block truncate line-through">{c.title || "Tanpa judul"}</span> : c.title || "Tanpa judul"}
                         <CardActor lastActor={actor} />
                       </button>
+                      {cardMenu ? (
+                        <button
+                          type="button"
+                          aria-label="Menu tugas"
+                          title="Menu tugas"
+                          onClick={(e) => open(anchorOf(e), cardMenu(c))}
+                          className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /><circle cx="5" cy="12" r="1.5" />
+                          </svg>
+                        </button>
+                      ) : onDeleteCard ? (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteCard(c)}
+                          aria-label="Hapus tugas"
+                          title="Hapus tugas"
+                          className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-danger"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+                          </svg>
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => onMoveCard(c)}
@@ -173,7 +232,18 @@ export function Kanban({
                 return (
                   <article
                     key={c.id}
-                    className="relative flex flex-col gap-2.5 rounded-[10px] border border-line bg-surface p-3 transition-colors hover:border-muted"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", c.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onContextMenu={(e) => {
+                      if (cardMenu) {
+                        e.preventDefault();
+                        open(anchorOf(e), cardMenu(c));
+                      }
+                    }}
+                    className="group relative flex flex-col gap-2.5 rounded-[10px] border border-line bg-surface p-3 transition-colors hover:border-muted"
                   >
                     <button
                       type="button"
@@ -184,6 +254,11 @@ export function Kanban({
                     </button>
                         <CardActor lastActor={actor} />
                     <div className="flex items-center gap-2">
+                      {c.priority !== null && (
+                        <span className={`rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_LABELS[c.priority].className}`}>
+                          {PRIORITY_LABELS[c.priority].label}
+                        </span>
+                      )}
                       {c.tag && (
                         <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
                           {c.tag}
@@ -216,27 +291,54 @@ export function Kanban({
                           {shortDate(c.dueAt)}
                         </span>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => onMoveCard(c)}
-                        aria-label={moveLabel(c.status, agent)}
-                        title={moveLabel(c.status, agent)}
-                        className="relative z-10 ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-accent transition-transform hover:scale-105 active:scale-95"
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
+                      <div className="ml-auto flex items-center gap-1">
+                        {cardMenu ? (
+                          <button
+                            type="button"
+                            aria-label="Menu tugas"
+                            title="Menu tugas"
+                            onClick={(e) => open(anchorOf(e), cardMenu(c))}
+                            className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                              <circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /><circle cx="5" cy="12" r="1.5" />
+                            </svg>
+                          </button>
+                        ) : onDeleteCard ? (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteCard(c)}
+                            aria-label="Hapus tugas"
+                            title="Hapus tugas"
+                            className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-danger"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+                            </svg>
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => onMoveCard(c)}
+                          aria-label={moveLabel(c.status, agent)}
+                          title={moveLabel(c.status, agent)}
+                          className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-accent transition-transform hover:scale-105 active:scale-95"
                         >
-                          <path d="M5 12h14M13 6l6 6-6 6" />
-                        </svg>
-                      </button>
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M5 12h14M13 6l6 6-6 6" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -245,6 +347,7 @@ export function Kanban({
           </section>
         );
       })}
+      {menu}
     </div>
   );
 }

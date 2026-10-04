@@ -159,7 +159,7 @@ impl AgentRunner {
     }
 }
 
-fn command_config(project: &ProjectDetail) -> Result<(&str, PathBuf), AppError> {
+pub(crate) fn command_config(project: &ProjectDetail) -> Result<(&str, PathBuf), AppError> {
     if !project.agent {
         return Err(AppError::Invalid("Proyek bukan proyek agen".into()));
     }

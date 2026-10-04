@@ -23,7 +23,7 @@ use crate::habits::{self, HabitInput, HabitRow, History as HabitHistory, Overvie
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery, Side};
 use crate::profile::{self, NotifyPrefs, Profile};
-use crate::projects::{self, Board, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
+use crate::projects::{self, Board, BoardFilter, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::settings::{self, DataOverview, UpdateCheck};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
@@ -86,8 +86,8 @@ pub fn projects_overview(db: State<'_, Db>) -> Result<ProjectsOverview, AppError
 }
 
 #[tauri::command]
-pub fn project_board(db: State<'_, Db>, id: Option<String>) -> Result<Board, AppError> {
-    projects::project_board(&*db.conn()?, id.as_deref(), time::now_ms(), &TimeZone::system())
+pub fn project_board(db: State<'_, Db>, id: Option<String>, filter: Option<BoardFilter>) -> Result<Board, AppError> {
+    projects::project_board(&*db.conn()?, id.as_deref(), &filter.unwrap_or_default(), time::now_ms(), &TimeZone::system())
 }
 
 #[tauri::command]
@@ -129,6 +129,56 @@ pub fn agent_request(
         runner.start(&app, &project_id, &task.id, &text)?;
     }
     Ok(task)
+}
+
+#[tauri::command]
+pub fn agent_launch_task(
+    app: AppHandle,
+    db: State<'_, Db>,
+    runner: State<'_, AgentRunner>,
+    project_id: String,
+    task_id: String,
+) -> Result<(), AppError> {
+    runner.ensure_idle(&project_id)?;
+    let conn = db.conn()?;
+    let now = time::now_ms();
+    let tz = TimeZone::system();
+    let _project = projects::get_project(&conn, &project_id, now, &tz)?;
+    let task_card = tasks::get_task(&conn, &task_id, now, &tz)?.card;
+    if task_card.project_id.as_deref() != Some(&project_id) {
+        return Err(AppError::Invalid("Tugas tidak berada di proyek ini".into()));
+    }
+    let _ = crate::activities::add(
+        &conn,
+        &crate::activities::NewActivity {
+            task_id: Some(task_id.clone()),
+            project_id: project_id.clone(),
+            actor: "user".into(),
+            role: crate::activities::Role::Request,
+            kind: crate::activities::Kind::Message,
+            title: task_card.title.clone(),
+            body: format!("Jalankan tugas: {}", task_card.title),
+        },
+        now,
+    );
+    if task_card.status == tasks::TaskStatus::Plan {
+        let _ = tasks::update_task(&conn, &task_id, &tasks::TaskPatch { status: Some(tasks::TaskStatus::Doing), ..Default::default() }, now, &tz);
+    }
+    runner.start(&app, &project_id, &task_id, &task_card.title)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn agent_test_setup(db: State<'_, Db>, project_id: String) -> Result<String, AppError> {
+    let conn = db.conn()?;
+    let now = time::now_ms();
+    let tz = TimeZone::system();
+    let project = projects::get_project(&conn, &project_id, now, &tz)?;
+    let (cmd, dir) = agent_runner::command_config(&project)?;
+    if !dir.is_dir() {
+        return Err(AppError::Invalid("Folder agen tidak ditemukan".into()));
+    }
+    Ok(format!("{cmd} di {}", dir.display()))
 }
 
 #[tauri::command]
@@ -204,6 +254,10 @@ pub fn delete_task(db: State<'_, Db>, id: String) -> Result<(), AppError> {
     tasks::delete_task(&*db.conn()?, &id, time::now_ms())
 }
 
+#[tauri::command]
+pub fn restore_task(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    tasks::restore_task(&*db.conn()?, &id, time::now_ms())
+}
 #[tauri::command]
 pub fn convert_to_task(db: State<'_, Db>, id: String) -> Result<TaskDetail, AppError> {
     tasks::convert_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())

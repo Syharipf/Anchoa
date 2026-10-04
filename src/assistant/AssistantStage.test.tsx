@@ -68,6 +68,7 @@ describe("AssistantStage", () => {
       subTotal: 0,
       projectId: null,
       projectName: null,
+      priority: null,
     });
     spies.push(decideSpy);
 

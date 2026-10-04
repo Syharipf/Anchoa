@@ -96,11 +96,25 @@ export function ProjectHeader({
             <p className="m-0 text-[13px] text-muted">{project.description}</p>
           )}
         </div>
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="font-mono text-[22px] font-medium">{pct}%</span>
-          <span className="text-xs text-muted">
-            {project.done} dari {project.total} tugas
-          </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onEdit}
+            title="Ubah proyek"
+            aria-label="Ubah proyek"
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-3"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            Ubah
+          </button>
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="font-mono text-[22px] font-medium">{pct}%</span>
+            <span className="text-xs text-muted">
+              {project.done} dari {project.total} tugas
+            </span>
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -156,13 +170,6 @@ export function ProjectHeader({
             Repo
           </button>
         )}
-        <button
-          type="button"
-          onClick={onEdit}
-          className="rounded-full border border-line px-3 py-1 text-xs text-ink transition-colors hover:bg-surface-2"
-        >
-          Ubah
-        </button>
       </div>
       <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-line">
         <div

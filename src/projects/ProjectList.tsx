@@ -1,19 +1,22 @@
 import type { LooseCount, ProjectSummary } from "../api";
+import { anchorOf, useContextMenu, type MenuEntry } from "../shell/ContextMenu";
 import { KIND_LABELS, STATUS_LABELS, deadlineLabel } from "./view";
-
 export function ProjectList({
   projects,
   looseCount,
   selectedId,
   onSelect,
   onCreateProject,
+  projectMenu,
 }: Readonly<{
   projects: ProjectSummary[];
   looseCount: LooseCount;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onCreateProject: () => void;
+  projectMenu?: (project: ProjectSummary) => readonly MenuEntry[];
 }>) {
+  const { menu, open } = useContextMenu();
   const loosePct =
     looseCount.total > 0 ? Math.round((looseCount.done / looseCount.total) * 100) : 0;
 
@@ -27,7 +30,7 @@ export function ProjectList({
       </h2>
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line p-4 text-center">
-          <p className="m-0 text-xs text-muted">Belum ada proyek</p>
+          <p className="m-0 text-xs text-muted">Belum ada proyek. Buat proyek untuk mengelompokkan tugas.</p>
           <button
             type="button"
             onClick={onCreateProject}
@@ -62,6 +65,12 @@ export function ProjectList({
               type="button"
               aria-pressed={isSelected}
               onClick={() => onSelect(p.id)}
+              onContextMenu={(e) => {
+                if (projectMenu) {
+                  e.preventDefault();
+                  open(anchorOf(e), projectMenu(p));
+                }
+              }}
               className={`flex w-full flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${
                 isSelected
                   ? "border-field-focus bg-surface-2"
@@ -129,6 +138,7 @@ export function ProjectList({
           </div>
         )}
       </button>
+      {menu}
     </section>
   );
 }

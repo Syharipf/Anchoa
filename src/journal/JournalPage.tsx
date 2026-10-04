@@ -421,7 +421,11 @@ export function JournalPage({
           selectedDate={filter.date}
           onSelectDate={handleDateSelect}
           onSelectPrompt={handlePromptSelect}
+          onPromptSelect={handlePromptSelect}
           onSelectIdea={handleIdeaSelect}
+          onIdeaSelect={handleIdeaSelect}
+          onSelectEntry={(id) => setSelectedId(id)}
+          onSummaryCreated={(entry) => void openCreated(entry)}
         />
       </div>
     </div>

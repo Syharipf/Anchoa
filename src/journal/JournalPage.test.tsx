@@ -422,6 +422,23 @@ describe("JournalPage actions and filters", () => {
     expect(list().filter.date).toBeUndefined();
     expect(side().selectedDate).toBeUndefined();
   });
+  it("selects an entry when memories onSelectEntry is invoked", async () => {
+    const memory = makeEntry("mem-1");
+    entries.push(memory);
+    side().onSelectEntry!("mem-1");
+    await harness.settle();
+    expect(editor().entry.id).toBe("mem-1");
+  });
+
+  it("opens created entry when onSummaryCreated is called from side", async () => {
+    const summary = makeEntry("sum-1");
+    summary.title = "Ringkasan minggu 27 Sep–3 Okt";
+    summary.tags = ["ringkasan"];
+    entries.push(summary);
+    side().onSummaryCreated!(summary);
+    await harness.settle();
+    expect(editor().entry.id).toBe("sum-1");
+  });
 });
 
 describe("EntryEditor pinning and safe deletion", () => {

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { api, errorMessage, type Entry, type EntryKind, type EntryPatch } from "../api";
+import { insertLink, linkQuery } from "../notes/blocks";
 import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { MoodPicker } from "./MoodPicker";
 import { TagInput } from "./TagInput";
 import { KIND_META, tagsToText } from "./view";
-
 const KINDS: readonly EntryKind[] = ["idea", "vent", "note"];
 const AUTOSAVE_MS = 500;
 
@@ -25,6 +25,21 @@ function computeSaveText(saveState: SaveState, body: string): string {
   if (saveState === "failed") return "Gagal menyimpan";
   const words = body.trim().split(/\s+/).filter(Boolean).length;
   return `Tersimpan · ${words} kata`;
+}
+
+export function extractWikilinks(text: string): string[] {
+  const titles: string[] = [];
+  const seen = new Set<string>();
+  const regex = /\[\[([^\]\n]+)\]\]/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const raw = match[1].split("|")[0].trim();
+    if (raw && !seen.has(raw)) {
+      seen.add(raw);
+      titles.push(raw);
+    }
+  }
+  return titles;
 }
 
 export function EntryEditor({
@@ -64,6 +79,22 @@ export function EntryEditor({
   const afterSaved = useRef(onAfterSaved);
   afterSaved.current = onAfterSaved;
 
+  const [caretPos, setCaretPos] = useState(0);
+  const caretPosRef = useRef(0);
+  caretPosRef.current = caretPos;
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const suggestionsRef = useRef(suggestions);
+  suggestionsRef.current = suggestions;
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const selectedIndexRef = useRef(0);
+  selectedIndexRef.current = selectedIndex;
+  const [dismissedLinkQuery, setDismissedLinkQuery] = useState<string | null>(null);
+
+  const lq = linkQuery(body, caretPos);
+  const showSuggestions = lq !== null && dismissedLinkQuery !== lq;
+  const showSuggestionsRef = useRef(showSuggestions);
+  showSuggestionsRef.current = showSuggestions;
+  const links = useMemo(() => extractWikilinks(body), [body]);
   // Each entry keeps its own save queue, including during navigation.
   useEffect(() => {
     if (currentId.current !== entry.id) {
@@ -74,6 +105,10 @@ export function EntryEditor({
       bodyRef.current = entry.body;
       setSaveState("idle");
       setDeleting(false);
+      setCaretPos(0);
+      setSuggestions([]);
+      setSelectedIndex(0);
+      setDismissedLinkQuery(null);
       if (micModeRef.current === "recording" || micModeRef.current === "starting") {
         api.voiceRecordStop().catch(() => {});
         setMicMode("idle");
@@ -115,6 +150,110 @@ export function EntryEditor({
       api.voiceRecordStop().catch(() => {});
     }
   }, []);
+  // Suggestions search effect
+  useEffect(() => {
+    if (lq === null || dismissedLinkQuery === lq) {
+      setSuggestions([]);
+      setSelectedIndex(0);
+      return;
+    }
+    let active = true;
+    const fetchSuggestions = async () => {
+      try {
+        if (lq) {
+          const hits = await api.searchItems(lq, false, 8);
+          if (active) {
+            setSuggestions(hits.map((h) => h.title));
+            setSelectedIndex(0);
+          }
+        } else {
+          const tree = await api.pagesTree();
+          if (active) {
+            setSuggestions(tree.map((p) => p.title));
+            setSelectedIndex(0);
+          }
+        }
+      } catch {
+        if (active) {
+          setSuggestions([]);
+          setSelectedIndex(0);
+        }
+      }
+    };
+    void fetchSuggestions();
+    return () => {
+      active = false;
+    };
+  }, [lq, dismissedLinkQuery]);
+
+  const handleSelectSuggestion = useCallback((selectedTitle: string) => {
+    const res = insertLink(bodyRef.current, caretPosRef.current, selectedTitle);
+    handleBodyChange(res.text);
+    setCaretPos(res.caret);
+    caretPosRef.current = res.caret;
+    setDismissedLinkQuery(null);
+    setSuggestions([]);
+    suggestionsRef.current = [];
+    if (textareaRef.current) {
+      textareaRef.current.value = res.text;
+      textareaRef.current.setSelectionRange(res.caret, res.caret);
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const activeSuggestions = suggestionsRef.current;
+    if (showSuggestionsRef.current && activeSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((prev) => {
+          const next = (prev + 1) % activeSuggestions.length;
+          selectedIndexRef.current = next;
+          return next;
+        });
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((prev) => {
+          const next = (prev - 1 + activeSuggestions.length) % activeSuggestions.length;
+          selectedIndexRef.current = next;
+          return next;
+        });
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const chosen = activeSuggestions[selectedIndexRef.current];
+        if (chosen) {
+          handleSelectSuggestion(chosen);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDismissedLinkQuery(lq);
+        return;
+      }
+    }
+  }
+
+  function updateCaretPos(e: { currentTarget: HTMLTextAreaElement }) {
+    setCaretPos(e.currentTarget.selectionStart);
+  }
+
+  async function handleOpenLink(linkTitle: string) {
+    try {
+      const target = await api.resolveLink(linkTitle);
+      if (target) {
+        onOpenTask(target.id);
+      } else {
+        toast(`"${linkTitle}" belum ditemukan`, "info");
+      }
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
 
   function insertTranscript(text: string) {
     const trimmed = text.trim();
@@ -387,17 +526,54 @@ export function EntryEditor({
       />
 
       {/* Body */}
-      <textarea
-        ref={textareaRef}
-        disabled={deleting}
-        value={body}
-        onChange={(e) => handleBodyChange(e.target.value)}
-        onBlur={() => void flush()}
-        placeholder="Tulis apa saja — ide yang lewat, hal yang bikin kesal, atau sekadar catatan. Tidak ada yang menilai."
-        aria-label="Isi entri"
-        className="min-h-[220px] flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.7] text-ink outline-none placeholder:text-muted focus:outline-none"
-      />
+      {/* Body with Autocomplete Popup */}
+      <div className="relative flex min-h-[220px] flex-1 flex-col">
+        <textarea
+          ref={textareaRef}
+          disabled={deleting}
+          value={body}
+          onChange={(e) => {
+            handleBodyChange(e.target.value);
+            setCaretPos(e.target.selectionStart);
+          }}
+          onKeyDown={handleKeyDown}
+          onKeyUp={updateCaretPos}
+          onClick={updateCaretPos}
+          onSelect={updateCaretPos}
+          onBlur={() => void flush()}
+          placeholder="Tulis apa saja — ide yang lewat, hal yang bikin kesal, atau sekadar catatan. Tidak ada yang menilai."
+          aria-label="Isi entri"
+          className="min-h-[220px] w-full flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.7] text-ink outline-none placeholder:text-muted focus:outline-none"
+        />
 
+        {showSuggestions && suggestions.length > 0 && (
+          <ul
+            role="listbox"
+            aria-label="Saran tautan"
+            className="absolute bottom-2 left-0 z-20 max-h-48 w-64 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-lg"
+          >
+            {suggestions.map((item, idx) => (
+              <li key={item}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={idx === selectedIndex}
+                  onClick={() => handleSelectSuggestion(item)}
+                  className={`w-full rounded px-2.5 py-1.5 text-left text-xs transition-colors ${
+                    idx === selectedIndex
+                      ? "bg-surface-2 font-medium text-ink"
+                      : "text-muted hover:bg-surface-2/60 hover:text-ink"
+                  }`}
+                >
+                  <span className="font-mono text-xs text-accent">[[</span>
+                  <span className="text-ink">{item}</span>
+                  <span className="font-mono text-xs text-accent">]]</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {/* Tags */}
       <TagInput
         tags={entry.tags}
@@ -409,6 +585,31 @@ export function EntryEditor({
       {/* Mood Picker */}
       <MoodPicker mood={entry.mood} disabled={deleting} onChange={(mood) => void handleEntryPatch({ mood })} />
 
+
+      {/* Tautan Terkait */}
+      {links.length > 0 && (
+        <section
+          aria-label="Tautan terkait"
+          className="flex flex-col gap-1.5 rounded-lg border border-line bg-surface-2/30 p-2.5"
+        >
+          <span className="text-xs font-semibold text-muted">Tautan Terkait</span>
+          <div className="flex flex-wrap gap-1.5">
+            {links.map((linkTitle) => (
+              <button
+                key={linkTitle}
+                type="button"
+                onClick={() => void handleOpenLink(linkTitle)}
+                aria-label={`Buka tautan ${linkTitle}`}
+                className="flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink transition-colors hover:border-accent hover:text-accent"
+              >
+                <span className="font-mono text-xs text-accent">[[</span>
+                <span>{linkTitle}</span>
+                <span className="font-mono text-xs text-accent">]]</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {/* Footer */}
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-line pt-3">
         <span

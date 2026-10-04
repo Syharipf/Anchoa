@@ -515,12 +515,13 @@ pub fn check_habit(db: State<'_, Db>, id: String, done: bool) -> Result<HabitRow
 pub fn journal_list(
     db: State<'_, Db>,
     query: Option<String>,
+    search: Option<String>,
     kind: Option<EntryKind>,
     tag: Option<String>,
     mood: Option<i8>,
     date: Option<String>,
 ) -> Result<JournalList, AppError> {
-    let q = ListQuery { query, kind, tag, mood, date };
+    let q = ListQuery { query, search, kind, tag, mood, date };
     let groups = journal::journal_list(&*db.conn()?, &q, time::now_ms(), &TimeZone::system())?;
     Ok(JournalList { groups })
 }

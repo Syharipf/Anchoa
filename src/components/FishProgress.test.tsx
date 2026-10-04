@@ -48,14 +48,27 @@ describe("FishProgress", () => {
     expect(html).toContain('fill="rgba(229,168,59,0.16)"');
   });
 
-  it("handles danger tone and error state by collapsing fill to 0 and showing coral track", () => {
+  it("error state collapses fill to 0 and shows coral track without fish", () => {
     const html = renderToStaticMarkup(
       <FishProgress value={30} label="Gagal" state="error" />,
     );
     expect(html).toContain("rgba(255,138,122,0.12)");
-    // Error state clears anchovies and fill
     expect(html).not.toContain("anchoa-swim");
+    expect(html).not.toContain("fish-pat");
     expect(html).toContain('aria-valuenow="30"');
+  });
+
+  it("danger tone fills bar with coral fish (meter over-budget regression)", () => {
+    const html = renderToStaticMarkup(
+      <FishProgress role="meter" value={120} label="Anggaran terlampaui" tone="danger" />,
+    );
+    // Clamped to 100 but bar must be visible, not collapsed
+    expect(html).toContain('aria-valuenow="100"');
+    expect(html).toContain('width="100%"');
+    expect(html).toContain('fill="#FF8A7A"');
+    expect(html).toContain('fill="rgba(255,138,122,0.16)"');
+    // Not the error-state zero-width / coral track
+    expect(html).not.toContain("rgba(255,138,122,0.12)");
   });
 
   it("handles paused state and freezes animations with neutral gray fish", () => {

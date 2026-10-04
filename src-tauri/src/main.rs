@@ -4,7 +4,8 @@
 fn main() {
     let mut args = std::env::args_os();
     let _ = args.next();
-    if args.next().as_deref() == Some(std::ffi::OsStr::new("agent")) {
+    let first = args.next();
+    if first.as_deref() == Some(std::ffi::OsStr::new("agent")) {
         use std::io::Write;
 
         let args = args
@@ -27,6 +28,18 @@ fn main() {
             std::process::exit(2);
         }
         std::process::exit(code);
+    } else if first.as_deref() == Some(std::ffi::OsStr::new("native-host"))
+        || first
+            .as_ref()
+            .map(|s| s.to_string_lossy().starts_with("chrome-extension://"))
+            .unwrap_or(false)
+        || first
+            .as_ref()
+            .map(|s| s.to_string_lossy().ends_with(".json") || s.to_string_lossy().contains('@'))
+            .unwrap_or(false)
+    {
+        anchoa_lib::downloads::native_host::run();
+        std::process::exit(0);
     }
     anchoa_lib::run()
 }

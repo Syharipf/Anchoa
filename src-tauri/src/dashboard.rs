@@ -526,6 +526,7 @@ mod tests {
             url: "https://example.com/done.mp4".into(),
             kind: DownloadKind::Media,
             options: None,
+            expected_sha256: None,
         }, 1000).unwrap();
         downloads::set_status(&conn, &done.id, DownloadStatus::Done, None, 1100).unwrap();
 
@@ -533,6 +534,7 @@ mod tests {
             url: "https://example.com/run1.mp4".into(),
             kind: DownloadKind::Media,
             options: None,
+            expected_sha256: None,
         }, 2000).unwrap();
         downloads::set_status(&conn, &run1.id, DownloadStatus::Running, None, 2100).unwrap();
 
@@ -540,6 +542,7 @@ mod tests {
             url: "https://example.com/run2.mp4".into(),
             kind: DownloadKind::Media,
             options: None,
+            expected_sha256: None,
         }, 3000).unwrap();
         downloads::set_status(&conn, &run2.id, DownloadStatus::Running, None, 3100).unwrap();
 
@@ -547,6 +550,7 @@ mod tests {
             url: "https://example.com/queued.mp4".into(),
             kind: DownloadKind::Media,
             options: None,
+            expected_sha256: None,
         }, 4000).unwrap();
 
         // Add live progress for run1 and run2

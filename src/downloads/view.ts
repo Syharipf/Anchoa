@@ -13,7 +13,26 @@ const MEDIA_HOSTS = [
   "bandcamp.com",
   "dailymotion.com",
   "bilibili.com",
+  "x.com",
+  "twitter.com",
 ];
+
+export function isPublicTelegramMedia(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+    if (host !== "t.me" && host !== "telegram.me") {
+      return false;
+    }
+    const path = parsed.pathname;
+    if (path.startsWith("/c/") || path.startsWith("/joinchat/") || path.startsWith("/+")) {
+      return false;
+    }
+    return /^\/[a-zA-Z0-9_]{4,}\/\d+$/.test(path);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Detects download category from URL based on spec U4 and the Unduhan artboard:
@@ -24,14 +43,18 @@ const MEDIA_HOSTS = [
  * - everything else -> invalid
  */
 export function detect(url: string): DetectedKind {
-  const s = url.trim().toLowerCase();
+  const s = url.trim();
   if (!s) {
     return "none";
   }
-  if (s.startsWith("magnet:") || /\.torrent($|\?)/.test(s)) {
+  const lower = s.toLowerCase();
+  if (lower.startsWith("magnet:") || /\.torrent($|\?)/.test(lower)) {
     return "torrent";
   }
-  const host = /^https?:\/\//.test(s) ? extractHost(s) : "";
+  if (isPublicTelegramMedia(s)) {
+    return "media";
+  }
+  const host = /^https?:\/\//i.test(s) ? extractHost(s) : "";
   if (!host) {
     return "invalid";
   }
@@ -52,6 +75,7 @@ export const STATUS_LABELS: Readonly<Record<DownloadStatus, string>> = {
   processing: "Memproses",
   done: "Selesai",
   failed: "Gagal",
+  interrupted: "Terputus",
 };
 
 /** Tailwind text class for the status label. */
@@ -62,6 +86,7 @@ export const STATUS_TEXT: Readonly<Record<DownloadStatus, string>> = {
   processing: "text-ink",
   done: "text-ink",
   failed: "text-danger",
+  interrupted: "text-amber-400",
 };
 
 /** Tailwind background class for the progress bar. */
@@ -72,6 +97,7 @@ export const STATUS_BAR: Readonly<Record<DownloadStatus, string>> = {
   processing: "bg-heat-3",
   done: "bg-heat-2",
   failed: "bg-danger",
+  interrupted: "bg-amber-400",
 };
 
 /** Formats byte rate using existing formatSize helper, e.g. "8,2 MB/s". */
@@ -165,6 +191,14 @@ export function progressText(row: DownloadView): string {
       return row.filePath ? `Tersimpan di ${row.filePath}` : "Tersimpan";
     case "failed":
       return row.error ?? "Gagal";
+    case "interrupted": {
+      const now = Date.now();
+      if (row.nextRetryAt && row.nextRetryAt > now) {
+        const secs = Math.ceil((row.nextRetryAt - now) / 1000);
+        return `Terputus · lanjut otomatis dalam ${secs} dtk`;
+      }
+      return "Terputus · koneksi terputus";
+    }
     default:
       return "";
   }
@@ -274,11 +308,19 @@ export const TAB_LABELS: Readonly<Record<DownloadTab, string>> = {
   failed: "Gagal",
 };
 
-const ACTIVE: ReadonlySet<DownloadStatus> = new Set(["queued", "running", "paused", "processing"]);
+const ACTIVE: Readonly<Record<DownloadStatus, boolean>> = {
+  queued: true,
+  running: true,
+  paused: true,
+  processing: true,
+  interrupted: true,
+  done: false,
+  failed: false,
+};
 
 const IN_TAB: Readonly<Record<DownloadTab, (x: DownloadView) => boolean>> = {
   all: () => true,
-  active: (x) => ACTIVE.has(x.status),
+  active: (x) => Boolean(ACTIVE[x.status]),
   done: (x) => x.status === "done",
   failed: (x) => x.status === "failed",
 };

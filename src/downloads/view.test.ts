@@ -48,8 +48,14 @@ describe("downloads view rules", () => {
       expect(detect("https://dailymotion.com/video/x123")).toBe("media");
       expect(detect("https://bilibili.com/video/BV123")).toBe("media");
       expect(detect("  HTTPS://YOUTUBE.COM/watch?v=xyz  ")).toBe("media");
+      expect(detect("https://x.com/user/status/123456")).toBe("media");
+      expect(detect("https://twitter.com/user/status/123456")).toBe("media");
+      expect(detect("https://t.me/europa_press/613")).toBe("media");
+      expect(detect("https://telegram.me/europa_press/613")).toBe("media");
+      expect(detect("https://t.me/c/12345/678")).toBe("file");
+      expect(detect("https://t.me/joinchat/xyz123")).toBe("file");
+      expect(detect("https://t.me/+xyz123")).toBe("file");
     });
-
     it("detects direct file URLs", () => {
       expect(detect("https://archive.org/download/contoh/dataset-suara-id.zip")).toBe("file");
       expect(detect("http://127.0.0.1:8000/contoh.bin")).toBe("file");
@@ -135,6 +141,7 @@ describe("downloads view rules", () => {
       expect(STATUS_LABELS.processing).toBe("Memproses");
       expect(STATUS_LABELS.done).toBe("Selesai");
       expect(STATUS_LABELS.failed).toBe("Gagal");
+      expect(STATUS_LABELS.interrupted).toBe("Terputus");
     });
   });
 
@@ -329,6 +336,23 @@ describe("downloads view rules", () => {
         error: null,
       });
       expect(progressText(rowNoErr)).toBe("Gagal");
+    });
+
+    it("formats interrupted row with countdown when nextRetryAt is in future", () => {
+      const future = Date.now() + 15000;
+      const row = makeRow({
+        status: "interrupted",
+        nextRetryAt: future,
+      });
+      expect(progressText(row)).toMatch(/Terputus · lanjut otomatis dalam \d+ dtk/);
+    });
+
+    it("formats interrupted row without countdown when nextRetryAt is past or null", () => {
+      const row = makeRow({
+        status: "interrupted",
+        nextRetryAt: null,
+      });
+      expect(progressText(row)).toBe("Terputus · koneksi terputus");
     });
   });
 

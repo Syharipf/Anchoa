@@ -680,7 +680,8 @@ export type DownloadStatus =
   | "paused"
   | "processing"
   | "done"
-  | "failed";
+  | "failed"
+  | "interrupted";
 
 export interface MediaOptions {
   audioOnly: boolean;
@@ -693,6 +694,7 @@ export interface NewDownload {
   url: string;
   kind: DownloadKind;
   options?: MediaOptions | null;
+  expectedSha256?: string | null;
 }
 
 export interface DownloadView {
@@ -710,6 +712,19 @@ export interface DownloadView {
   finishedAt: number | null;
   speed: number | null;
   eta: number | null;
+  expectedSha256?: string | null;
+  actualSha256?: string | null;
+  firstInterruptedAt?: number | null;
+  nextRetryAt?: number | null;
+  retryCount?: number;
+}
+
+export interface NativeHostStatus {
+  installed: boolean;
+  chromeInstalled: boolean;
+  firefoxInstalled: boolean;
+  executablePath: string;
+  chromeExtensionId: string | null;
 }
 
 export interface DownloadsPayload {
@@ -1087,6 +1102,12 @@ export const api = {
   downloadSettings: () => invoke<DownloadSettings>("download_settings"),
   saveDownloadSettings: (settings: DownloadSettings) =>
     invoke<DownloadSettings>("save_download_settings", { settings }),
+  installNativeHost: (browser: string, chromeExtensionId?: string | null) =>
+    invoke<NativeHostStatus>("install_native_host", { browser, chromeExtensionId }),
+  uninstallNativeHost: () => invoke<NativeHostStatus>("uninstall_native_host"),
+  nativeHostStatus: () => invoke<NativeHostStatus>("native_host_status"),
+  saveBrowserIntegration: (enabled: boolean) =>
+    invoke<void>("save_browser_integration", { enabled }),
   pagesTree: () => invoke<PageNode[]>("pages_tree"),
   createPage: (parentId: string | null, title: string) =>
     invoke<PageNode>("create_page", { parentId, title }),

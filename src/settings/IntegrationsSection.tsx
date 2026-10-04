@@ -1,6 +1,6 @@
 import { GithubSection } from "./GithubSection";
 import { EmailSection } from "./EmailSection";
-
+import { BrowserSection } from "./BrowserSection";
 export function IntegrationsSection({
   onChanged,
 }: Readonly<{ onChanged: () => void }>) {
@@ -8,6 +8,7 @@ export function IntegrationsSection({
     <div className="flex flex-col gap-4">
       <GithubSection onChanged={onChanged} />
       <EmailSection onChanged={onChanged} />
+      <BrowserSection onChanged={onChanged} />
     </div>
   );
 }

@@ -32,6 +32,7 @@ export function AddDownload({
   const [vf, setVf] = useState<string>("MP4");
   const [af, setAf] = useState<string>("MP3");
   const [subtitles, setSubtitles] = useState(false);
+  const [expectedSha256, setExpectedSha256] = useState("");
   const [adding, setAdding] = useState(false);
 
   const detected = detect(url);
@@ -67,9 +68,11 @@ export function AddDownload({
               subtitles: isVideo ? subtitles : false,
             }
           : null,
+        expectedSha256: !isMedia && expectedSha256.trim() ? expectedSha256.trim() : undefined,
       };
       await api.addDownload(input);
       setUrl("");
+      setExpectedSha256("");
       setForcedMedia(false);
       onAdded?.();
     } catch (e) {
@@ -178,6 +181,22 @@ export function AddDownload({
         </button>
       </div>
 
+      {!isMedia && (
+        <div className="flex items-center gap-2 px-1 text-xs">
+          <label htmlFor="sha256-input" className="text-muted shrink-0">
+            SHA-256 dari sumber (opsional):
+          </label>
+          <input
+            id="sha256-input"
+            type="text"
+            value={expectedSha256}
+            onChange={(e) => setExpectedSha256(e.target.value)}
+            placeholder="64 karakter heksadesimal"
+            maxLength={64}
+            className="flex-1 rounded border border-line bg-canvas px-2 py-1 font-mono text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
+          />
+        </div>
+      )}
       {isMedia && (
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <div

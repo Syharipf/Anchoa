@@ -1,4 +1,6 @@
 //! Downloads queue, yt-dlp arguments, and progress parsing (spec Fase 7 §3-4).
+pub mod native_host;
+
 use std::path::{Path, PathBuf};
 
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
@@ -6,7 +8,6 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DownloadKind {
@@ -43,6 +44,7 @@ pub enum DownloadStatus {
     Processing,
     Done,
     Failed,
+    Interrupted,
 }
 
 impl ToSql for DownloadStatus {
@@ -54,6 +56,7 @@ impl ToSql for DownloadStatus {
             DownloadStatus::Processing => "processing",
             DownloadStatus::Done => "done",
             DownloadStatus::Failed => "failed",
+            DownloadStatus::Interrupted => "interrupted",
         }
         .into())
     }
@@ -68,6 +71,7 @@ impl FromSql for DownloadStatus {
             "processing" => Ok(DownloadStatus::Processing),
             "done" => Ok(DownloadStatus::Done),
             "failed" => Ok(DownloadStatus::Failed),
+            "interrupted" => Ok(DownloadStatus::Interrupted),
             _ => Err(FromSqlError::InvalidType),
         }
     }
@@ -99,6 +103,28 @@ pub struct NewDownload {
     pub url: String,
     pub kind: DownloadKind,
     pub options: Option<MediaOptions>,
+    #[serde(default)]
+    pub expected_sha256: Option<String>,
+}
+
+impl NewDownload {
+    pub fn file(url: impl Into<String>) -> Self {
+        Self {
+            url: url.into(),
+            kind: DownloadKind::File,
+            options: None,
+            expected_sha256: None,
+        }
+    }
+
+    pub fn media(url: impl Into<String>, options: Option<MediaOptions>) -> Self {
+        Self {
+            url: url.into(),
+            kind: DownloadKind::Media,
+            options,
+            expected_sha256: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,6 +142,11 @@ pub struct DownloadRow {
     pub error: Option<String>,
     pub created_at: i64,
     pub finished_at: Option<i64>,
+    pub expected_sha256: Option<String>,
+    pub actual_sha256: Option<String>,
+    pub first_interrupted_at: Option<i64>,
+    pub next_retry_at: Option<i64>,
+    pub retry_count: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -198,6 +229,11 @@ fn row_from_sql(row: &rusqlite::Row<'_>) -> rusqlite::Result<DownloadRow> {
         error: row.get(9)?,
         created_at: row.get(10)?,
         finished_at: row.get(11)?,
+        expected_sha256: row.get(12)?,
+        actual_sha256: row.get(13)?,
+        first_interrupted_at: row.get(14)?,
+        next_retry_at: row.get(15)?,
+        retry_count: row.get::<_, Option<u32>>(16)?.unwrap_or(0),
     })
 }
 
@@ -213,6 +249,21 @@ pub fn add(conn: &Connection, input: &NewDownload, now: i64) -> Result<DownloadR
         return Err(AppError::Invalid("URL harus berawalan http:// atau https://".into()));
     }
 
+    let expected_sha256 = if let Some(hash) = &input.expected_sha256 {
+        let trimmed = hash.trim();
+        if trimmed.is_empty() {
+            None
+        } else if trimmed.len() != 64 || !trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(AppError::Invalid(
+                "SHA-256 harus berupa 64 digit heksadesimal".into(),
+            ));
+        } else {
+            Some(trimmed.to_ascii_lowercase())
+        }
+    } else {
+        None
+    };
+
     let id = uuid::Uuid::now_v7().to_string();
     let title = initial_title(url, input.kind);
     let options_json = match &input.options {
@@ -226,9 +277,9 @@ pub fn add(conn: &Connection, input: &NewDownload, now: i64) -> Result<DownloadR
     )?;
 
     conn.execute(
-        "INSERT INTO downloads (item_id, url, kind, options, status, total_bytes, done_bytes, file_path, error, finished_at)
-         VALUES (?1, ?2, ?3, ?4, 'queued', NULL, 0, NULL, NULL, NULL)",
-        params![id, url, input.kind, options_json],
+        "INSERT INTO downloads (item_id, url, kind, options, status, total_bytes, done_bytes, file_path, error, finished_at, expected_sha256, actual_sha256, first_interrupted_at, next_retry_at, retry_count)
+         VALUES (?1, ?2, ?3, ?4, 'queued', NULL, 0, NULL, NULL, NULL, ?5, NULL, NULL, NULL, 0)",
+        params![id, url, input.kind, options_json, expected_sha256],
     )?;
 
     get(conn, &id)
@@ -236,7 +287,7 @@ pub fn add(conn: &Connection, input: &NewDownload, now: i64) -> Result<DownloadR
 
 pub fn list(conn: &Connection) -> Result<Vec<DownloadRow>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT i.id, i.title, d.url, d.kind, d.options, d.status, d.total_bytes, d.done_bytes, d.file_path, d.error, i.created_at, d.finished_at
+        "SELECT i.id, i.title, d.url, d.kind, d.options, d.status, d.total_bytes, d.done_bytes, d.file_path, d.error, i.created_at, d.finished_at, d.expected_sha256, d.actual_sha256, d.first_interrupted_at, d.next_retry_at, d.retry_count
          FROM items i
          JOIN downloads d ON d.item_id = i.id
          WHERE i.deleted_at IS NULL
@@ -252,7 +303,7 @@ pub fn list(conn: &Connection) -> Result<Vec<DownloadRow>, AppError> {
 
 pub fn get(conn: &Connection, id: &str) -> Result<DownloadRow, AppError> {
     conn.query_row(
-        "SELECT i.id, i.title, d.url, d.kind, d.options, d.status, d.total_bytes, d.done_bytes, d.file_path, d.error, i.created_at, d.finished_at
+        "SELECT i.id, i.title, d.url, d.kind, d.options, d.status, d.total_bytes, d.done_bytes, d.file_path, d.error, i.created_at, d.finished_at, d.expected_sha256, d.actual_sha256, d.first_interrupted_at, d.next_retry_at, d.retry_count
          FROM items i
          JOIN downloads d ON d.item_id = i.id
          WHERE i.id = ?1 AND i.deleted_at IS NULL",
@@ -270,11 +321,100 @@ pub fn set_status(
     error: Option<&str>,
     now: i64,
 ) -> Result<(), AppError> {
-    // A retried or resumed download is unfinished again.
     let finished_at = matches!(status, DownloadStatus::Done | DownloadStatus::Failed).then_some(now);
+    let updated = match status {
+        DownloadStatus::Done => {
+            conn.execute(
+                "UPDATE downloads SET status = ?1, error = ?2, finished_at = ?3, first_interrupted_at = NULL, next_retry_at = NULL, retry_count = 0 WHERE item_id = ?4",
+                params![status, error, finished_at, id],
+            )?
+        }
+        DownloadStatus::Running => {
+            conn.execute(
+                "UPDATE downloads SET status = ?1, error = ?2, finished_at = ?3, next_retry_at = NULL WHERE item_id = ?4",
+                params![status, error, finished_at, id],
+            )?
+        }
+        _ => {
+            conn.execute(
+                "UPDATE downloads SET status = ?1, error = ?2, finished_at = ?3 WHERE item_id = ?4",
+                params![status, error, finished_at, id],
+            )?
+        }
+    };
+
+    if updated == 0 {
+        return Err(AppError::NotFound);
+    }
+
+    conn.execute(
+        "UPDATE items SET updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+        params![now, id],
+    )?;
+
+    Ok(())
+}
+
+pub fn reset_retry(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
+    conn.execute(
+        "UPDATE downloads SET first_interrupted_at = NULL, next_retry_at = NULL, retry_count = 0 WHERE item_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "UPDATE items SET updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+        params![now, id],
+    )?;
+    Ok(())
+}
+
+pub fn set_actual_sha256(conn: &Connection, id: &str, hash: &str) -> Result<(), AppError> {
     let updated = conn.execute(
-        "UPDATE downloads SET status = ?1, error = ?2, finished_at = ?3 WHERE item_id = ?4",
-        params![status, error, finished_at, id],
+        "UPDATE downloads SET actual_sha256 = ?1 WHERE item_id = ?2",
+        params![hash.to_ascii_lowercase(), id],
+    )?;
+    if updated == 0 {
+        return Err(AppError::NotFound);
+    }
+    Ok(())
+}
+
+pub fn set_interrupted(
+    conn: &Connection,
+    id: &str,
+    error: &str,
+    now: i64,
+) -> Result<(), AppError> {
+    let row: (Option<i64>, u32) = conn.query_row(
+        "SELECT first_interrupted_at, retry_count FROM downloads WHERE item_id = ?1",
+        params![id],
+        |r| Ok((r.get(0)?, r.get::<_, Option<u32>>(1)?.unwrap_or(0))),
+    )?;
+
+    let first = row.0.unwrap_or(now);
+    if now.saturating_sub(first) >= 24 * 3600 * 1000 {
+        set_status(conn, id, DownloadStatus::Failed, Some("Gagal dilanjutkan setelah 24 jam"), now)?;
+        return Ok(());
+    }
+
+    let retry_count = row.1 + 1;
+    let delay_secs: i64 = match retry_count {
+        1 => 30,
+        2 => 60,
+        3 => 120,
+        _ => 300,
+    };
+    let next_retry_at = now + delay_secs * 1000;
+
+    let updated = conn.execute(
+        "UPDATE downloads
+         SET status = 'interrupted',
+             error = ?1,
+             first_interrupted_at = ?2,
+             next_retry_at = ?3,
+             retry_count = ?4,
+             finished_at = NULL
+         WHERE item_id = ?5",
+        params![error, first, next_retry_at, retry_count, id],
     )?;
 
     if updated == 0 {
@@ -286,6 +426,14 @@ pub fn set_status(
         params![now, id],
     )?;
 
+    Ok(())
+}
+
+pub fn clear_interrupted(conn: &Connection, id: &str) -> Result<(), AppError> {
+    conn.execute(
+        "UPDATE downloads SET first_interrupted_at = NULL, next_retry_at = NULL, retry_count = 0 WHERE item_id = ?1",
+        params![id],
+    )?;
     Ok(())
 }
 
@@ -330,6 +478,41 @@ pub fn set_file(conn: &Connection, id: &str, file_path: &str) -> Result<(), AppE
     Ok(())
 }
 
+pub fn mark_interrupted(conn: &Connection, now: i64) -> Result<usize, AppError> {
+    let count = conn.execute(
+        "UPDATE downloads
+         SET status = 'interrupted',
+             error = 'Koneksi terputus, akan dilanjutkan otomatis',
+             first_interrupted_at = COALESCE(first_interrupted_at, ?1),
+             next_retry_at = ?1
+         WHERE status IN ('running', 'processing')
+           AND item_id IN (SELECT id FROM items WHERE deleted_at IS NULL)",
+        params![now],
+    )?;
+    Ok(count)
+}
+
+pub fn next_runnable(conn: &Connection, now: i64, limit: usize) -> Result<Vec<String>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT i.id
+         FROM items i
+         JOIN downloads d ON d.item_id = i.id
+         WHERE i.deleted_at IS NULL
+           AND (
+             d.status = 'queued'
+             OR (d.status = 'interrupted' AND d.next_retry_at IS NOT NULL AND d.next_retry_at <= ?1)
+           )
+         ORDER BY CASE WHEN d.status = 'interrupted' THEN 0 ELSE 1 END, i.created_at ASC
+         LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(params![now, limit as i64], |row| row.get(0))?;
+    let mut ids = Vec::new();
+    for r in rows {
+        ids.push(r?);
+    }
+    Ok(ids)
+}
+
 pub fn next_queued(conn: &Connection, limit: usize) -> Result<Vec<String>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT i.id
@@ -348,14 +531,7 @@ pub fn next_queued(conn: &Connection, limit: usize) -> Result<Vec<String>, AppEr
 }
 
 pub fn pause_interrupted(conn: &Connection) -> Result<usize, AppError> {
-    let count = conn.execute(
-        "UPDATE downloads
-         SET status = 'paused'
-         WHERE status IN ('running', 'queued', 'processing')
-           AND item_id IN (SELECT id FROM items WHERE deleted_at IS NULL)",
-        [],
-    )?;
-    Ok(count)
+    mark_interrupted(conn, crate::time::now_ms())
 }
 
 pub fn remove(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
@@ -513,6 +689,14 @@ pub fn build_ytdlp_args(
     args.push("--newline".to_string());
     args.push("--no-colors".to_string());
     args.push("--no-playlist".to_string());
+    args.push("--continue".to_string());
+    args.push("--retries".to_string());
+    args.push("3".to_string());
+    args.push("--fragment-retries".to_string());
+    args.push("3".to_string());
+    args.push("--concurrent-fragments".to_string());
+    args.push("4".to_string());
+    args.push("--no-overwrites".to_string());
     args.push("--progress".to_string());
     args.push("--progress-template".to_string());
     args.push(
@@ -581,8 +765,8 @@ mod tests {
     #[test]
     fn removed_downloads_leave_the_queue_restart_and_dashboard_queries() {
         let conn = open_in_memory();
-        let queued = add(&conn, &NewDownload { url: "https://example.com/queued.zip".into(), kind: DownloadKind::File, options: None }, 1).unwrap();
-        let running = add(&conn, &NewDownload { url: "https://example.com/running.zip".into(), kind: DownloadKind::File, options: None }, 2).unwrap();
+        let queued = add(&conn, &NewDownload::file("https://example.com/queued.zip"), 1).unwrap();
+        let running = add(&conn, &NewDownload::file("https://example.com/running.zip"), 2).unwrap();
         set_status(&conn, &running.id, DownloadStatus::Running, None, 3).unwrap();
         for id in [&queued.id, &running.id] {
             remove(&conn, id, 4).unwrap();
@@ -597,56 +781,32 @@ mod tests {
     fn add_rejects_bad_urls_and_torrents() {
         let conn = open_in_memory();
 
-        let empty = NewDownload {
-            url: "   ".into(),
-            kind: DownloadKind::File,
-            options: None,
-        };
+        let empty = NewDownload::file("   ");
         assert!(matches!(add(&conn, &empty, 1000), Err(AppError::Invalid(_))));
 
-        let magnet = NewDownload {
-            url: "magnet:?xt=urn:btih:1234567890abcdef".into(),
-            kind: DownloadKind::File,
-            options: None,
-        };
+        let magnet = NewDownload::file("magnet:?xt=urn:btih:1234567890abcdef");
         let err = add(&conn, &magnet, 1000).unwrap_err();
         assert_eq!(err.to_string(), "Torrent belum didukung");
 
-        let torrent_file = NewDownload {
-            url: "https://example.com/distro.iso.torrent".into(),
-            kind: DownloadKind::File,
-            options: None,
-        };
+        let torrent_file = NewDownload::file("https://example.com/distro.iso.torrent");
         let err = add(&conn, &torrent_file, 1000).unwrap_err();
         assert_eq!(err.to_string(), "Torrent belum didukung");
 
-        let bad_proto = NewDownload {
-            url: "ftp://example.com/file.zip".into(),
-            kind: DownloadKind::File,
-            options: None,
-        };
+        let bad_proto = NewDownload::file("ftp://example.com/file.zip");
         assert!(matches!(add(&conn, &bad_proto, 1000), Err(AppError::Invalid(_))));
 
-        let valid_file = NewDownload {
-            url: "https://example.com/files/archive.tar.gz".into(),
-            kind: DownloadKind::File,
-            options: None,
-        };
+        let valid_file = NewDownload::file("https://example.com/files/archive.tar.gz");
         let row = add(&conn, &valid_file, 1000).unwrap();
         assert_eq!(row.title, "archive.tar.gz");
         assert_eq!(row.kind, DownloadKind::File);
         assert_eq!(row.status, DownloadStatus::Queued);
 
-        let valid_media = NewDownload {
-            url: "https://youtube.com/watch?v=abcdef".into(),
-            kind: DownloadKind::Media,
-            options: Some(MediaOptions {
-                audio_only: false,
-                quality: "1080p".into(),
-                format: "MP4".into(),
-                subtitles: true,
-            }),
-        };
+        let valid_media = NewDownload::media("https://youtube.com/watch?v=abcdef", Some(MediaOptions {
+            audio_only: false,
+            quality: "1080p".into(),
+            format: "MP4".into(),
+            subtitles: true,
+        }));
         let row_media = add(&conn, &valid_media, 2000).unwrap();
         assert_eq!(row_media.title, "youtube.com");
         assert_eq!(row_media.kind, DownloadKind::Media);
@@ -656,38 +816,9 @@ mod tests {
     fn list_is_newest_first_and_skips_removed() {
         let conn = open_in_memory();
 
-        let d1 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/one.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            1000,
-        )
-        .unwrap();
-
-        let d2 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/two.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            2000,
-        )
-        .unwrap();
-
-        let d3 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/three.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            3000,
-        )
-        .unwrap();
+        let d1 = add(&conn, &NewDownload::file("https://example.com/one.zip"), 1000).unwrap();
+        let d2 = add(&conn, &NewDownload::file("https://example.com/two.zip"), 2000).unwrap();
+        let d3 = add(&conn, &NewDownload::file("https://example.com/three.zip"), 3000).unwrap();
 
         remove(&conn, &d2.id, 4000).unwrap();
 
@@ -701,38 +832,9 @@ mod tests {
     fn next_queued_is_fifo_and_respects_the_limit() {
         let conn = open_in_memory();
 
-        let d1 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/d1.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            1000,
-        )
-        .unwrap();
-
-        let d2 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/d2.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            2000,
-        )
-        .unwrap();
-
-        let d3 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/d3.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            3000,
-        )
-        .unwrap();
+        let d1 = add(&conn, &NewDownload::file("https://example.com/d1.zip"), 1000).unwrap();
+        let d2 = add(&conn, &NewDownload::file("https://example.com/d2.zip"), 2000).unwrap();
+        let d3 = add(&conn, &NewDownload::file("https://example.com/d3.zip"), 3000).unwrap();
 
         // Mark d1 as running
         set_status(&conn, &d1.id, DownloadStatus::Running, None, 2500).unwrap();
@@ -748,62 +850,121 @@ mod tests {
     fn interrupted_downloads_become_paused() {
         let conn = open_in_memory();
 
-        let d1 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/d1.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            1000,
-        )
-        .unwrap();
-
-        let d2 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/d2.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            2000,
-        )
-        .unwrap();
-
-        let d3 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/d3.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            3000,
-        )
-        .unwrap();
-
-        let d4 = add(
-            &conn,
-            &NewDownload {
-                url: "https://example.com/d4.zip".into(),
-                kind: DownloadKind::File,
-                options: None,
-            },
-            4000,
-        )
-        .unwrap();
+        let d1 = add(&conn, &NewDownload::file("https://example.com/d1.zip"), 1000).unwrap();
+        let d2 = add(&conn, &NewDownload::file("https://example.com/d2.zip"), 2000).unwrap();
+        let d3 = add(&conn, &NewDownload::file("https://example.com/d3.zip"), 3000).unwrap();
+        let d4 = add(&conn, &NewDownload::file("https://example.com/d4.zip"), 4000).unwrap();
 
         set_status(&conn, &d1.id, DownloadStatus::Running, None, 5000).unwrap();
         // d2 is queued
         set_status(&conn, &d3.id, DownloadStatus::Processing, None, 5000).unwrap();
         set_status(&conn, &d4.id, DownloadStatus::Done, None, 5000).unwrap();
 
-        let count = pause_interrupted(&conn).unwrap();
-        assert_eq!(count, 3);
+        let count = mark_interrupted(&conn, 6000).unwrap();
+        assert_eq!(count, 2);
 
-        assert_eq!(get(&conn, &d1.id).unwrap().status, DownloadStatus::Paused);
-        assert_eq!(get(&conn, &d2.id).unwrap().status, DownloadStatus::Paused);
-        assert_eq!(get(&conn, &d3.id).unwrap().status, DownloadStatus::Paused);
+        assert_eq!(get(&conn, &d1.id).unwrap().status, DownloadStatus::Interrupted);
+        assert_eq!(get(&conn, &d2.id).unwrap().status, DownloadStatus::Queued);
+        assert_eq!(get(&conn, &d3.id).unwrap().status, DownloadStatus::Interrupted);
         assert_eq!(get(&conn, &d4.id).unwrap().status, DownloadStatus::Done);
+    }
+
+    #[test]
+    fn expected_sha256_validation_and_storage() {
+        let conn = open_in_memory();
+        let valid_hash = "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855";
+        let dl = add(
+            &conn,
+            &NewDownload {
+                url: "https://example.com/file.iso".into(),
+                kind: DownloadKind::File,
+                options: None,
+                expected_sha256: Some(valid_hash.into()),
+            },
+            1000,
+        )
+        .unwrap();
+        assert_eq!(dl.expected_sha256.as_deref(), Some("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+
+        // Non-hex
+        let bad_hex = NewDownload {
+            url: "https://example.com/file.iso".into(),
+            kind: DownloadKind::File,
+            options: None,
+            expected_sha256: Some("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz".into()),
+        };
+        assert!(matches!(add(&conn, &bad_hex, 1000), Err(AppError::Invalid(_))));
+
+        // Invalid length
+        let bad_len = NewDownload {
+            url: "https://example.com/file.iso".into(),
+            kind: DownloadKind::File,
+            options: None,
+            expected_sha256: Some("e3b0c442".into()),
+        };
+        assert!(matches!(add(&conn, &bad_len, 1000), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
+    fn set_interrupted_exponential_backoff_and_expiration() {
+        let conn = open_in_memory();
+        let dl = add(&conn, &NewDownload::file("https://example.com/file.zip"), 1000).unwrap();
+
+        // 1st interruption: +30s
+        set_interrupted(&conn, &dl.id, "Koneksi terputus", 1000).unwrap();
+        let r1 = get(&conn, &dl.id).unwrap();
+        assert_eq!(r1.status, DownloadStatus::Interrupted);
+        assert_eq!(r1.retry_count, 1);
+        assert_eq!(r1.first_interrupted_at, Some(1000));
+        assert_eq!(r1.next_retry_at, Some(1000 + 30_000));
+
+        // 2nd interruption: +60s
+        set_interrupted(&conn, &dl.id, "Koneksi terputus", 31_000).unwrap();
+        let r2 = get(&conn, &dl.id).unwrap();
+        assert_eq!(r2.retry_count, 2);
+        assert_eq!(r2.next_retry_at, Some(31_000 + 60_000));
+
+        // 3rd interruption: +120s
+        set_interrupted(&conn, &dl.id, "Koneksi terputus", 91_000).unwrap();
+        let r3 = get(&conn, &dl.id).unwrap();
+        assert_eq!(r3.retry_count, 3);
+        assert_eq!(r3.next_retry_at, Some(91_000 + 120_000));
+
+        // 4th interruption: +300s
+        set_interrupted(&conn, &dl.id, "Koneksi terputus", 211_000).unwrap();
+        let r4 = get(&conn, &dl.id).unwrap();
+        assert_eq!(r4.retry_count, 4);
+        assert_eq!(r4.next_retry_at, Some(211_000 + 300_000));
+
+        // Over 24 hours from first interruption -> fails
+        let day_later = 1000 + 24 * 3600 * 1000;
+        set_interrupted(&conn, &dl.id, "Koneksi terputus", day_later).unwrap();
+        let r_fail = get(&conn, &dl.id).unwrap();
+        assert_eq!(r_fail.status, DownloadStatus::Failed);
+        assert_eq!(r_fail.error.as_deref(), Some("Gagal dilanjutkan setelah 24 jam"));
+    }
+
+    #[test]
+    fn next_runnable_prioritizes_due_interrupted_over_queued() {
+        let conn = open_in_memory();
+        let q1 = add(&conn, &NewDownload::file("https://example.com/q1.zip"), 1000).unwrap();
+        let int1 = add(&conn, &NewDownload::file("https://example.com/int1.zip"), 2000).unwrap();
+        let int2 = add(&conn, &NewDownload::file("https://example.com/int2.zip"), 3000).unwrap();
+
+        set_interrupted(&conn, &int1.id, "err", 2000).unwrap(); // next retry = 32_000
+        set_interrupted(&conn, &int2.id, "err", 3000).unwrap(); // next retry = 33_000
+
+        // At now = 10_000: neither interrupted is due, only q1 runnable
+        let run1 = next_runnable(&conn, 10_000, 5).unwrap();
+        assert_eq!(run1, vec![q1.id.clone()]);
+
+        // At now = 32_500: int1 is due, prioritized before q1
+        let run2 = next_runnable(&conn, 32_500, 5).unwrap();
+        assert_eq!(run2, vec![int1.id.clone(), q1.id.clone()]);
+
+        // At now = 35_000: int1 and int2 are due, before q1
+        let run3 = next_runnable(&conn, 35_000, 5).unwrap();
+        assert_eq!(run3, vec![int1.id, int2.id, q1.id]);
     }
 
     #[test]
@@ -902,8 +1063,13 @@ mod tests {
         assert!(args_video.contains(&"--newline".to_string()));
         assert!(args_video.contains(&"--no-colors".to_string()));
         assert!(args_video.contains(&"--no-playlist".to_string()));
+        assert!(args_video.contains(&"--retries".to_string()));
+        assert!(args_video.contains(&"3".to_string()));
+        assert!(args_video.contains(&"--fragment-retries".to_string()));
+        assert!(args_video.contains(&"--concurrent-fragments".to_string()));
+        assert!(args_video.contains(&"4".to_string()));
+        assert!(args_video.contains(&"--no-overwrites".to_string()));
         assert!(args_video.contains(&"--progress".to_string()));
-        assert_eq!(args_video.last(), Some(&"--".to_string()));
 
         let audio_opts = MediaOptions {
             audio_only: true,

@@ -91,7 +91,6 @@ function renderFishSchool(isRunning: boolean, animationSpec: string, fill: strin
     </g>
   );
 }
-
 export function FishProgress({
   value,
   label,

@@ -6,3 +6,8 @@ src-tauri/gen/
 .DS_Store
 Thumbs.db
 *.log
+.tmp*
+sync-*
+src-tauri/.tmp*
+src-tauri/sync-*
+*.part

@@ -8,6 +8,7 @@ import { deferred, elements, hookHarness } from "../test/hookHarness";
 import { EntryEditor } from "./EntryEditor";
 import { EntryList } from "./EntryList";
 import { JournalPage } from "./JournalPage";
+import { JournalSide } from "./JournalSide";
 import { TagInput } from "./TagInput";
 import { JOURNAL_TEMPLATES } from "./view";
 function makeEntry(id = "A"): Entry {
@@ -46,7 +47,7 @@ describe("JournalPage actions and filters", () => {
   };
   const editor = () => props<ComponentProps<typeof EntryEditor>>(EntryEditor);
   const list = () => props<ComponentProps<typeof EntryList>>(EntryList);
-
+  const side = () => props<ComponentProps<typeof JournalSide>>(JournalSide);
   beforeEach(async () => {
     entries = [makeEntry()];
     deleted = new Set();
@@ -71,7 +72,8 @@ describe("JournalPage actions and filters", () => {
         if (deleted.has(id)) throw new Error("Entri tidak ditemukan");
         return { ...entries.find((entry) => entry.id === id)! };
       }),
-      spyOn(api, "journalSide").mockResolvedValue({ trend: [], writeDays: 0, ideas: [] }),
+      spyOn(api, "journalSide").mockResolvedValue({ trend: [], writeDays: 0, ideas: [], memories: [] }),
+      spyOn(api, "journalCalendar").mockResolvedValue({ month: "2026-10", days: [], currentStreak: 0, bestStreak: 0 }),
       spyOn(api, "deleteEntry").mockImplementation(async (id) => { deleted.add(id); }),
       spyOn(api, "restoreEntry").mockImplementation(async (id) => { deleted.delete(id); }),
     ];
@@ -386,6 +388,40 @@ describe("JournalPage actions and filters", () => {
     await harness.settle();
     expect(editor().entry.id).toBe("A");
   });
+
+  it("filters journal list by date when date is selected and clears it via chip", async () => {
+    await harness.settle();
+
+    // Select date from calendar/side
+    side().onSelectDate!("2026-10-01");
+    await harness.settle();
+
+    expect(list().filter.date).toBe("2026-10-01");
+    expect(side().selectedDate).toBe("2026-10-01");
+    expect(api.journalList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ date: "2026-10-01" }),
+    );
+
+    // Toggling the same date clears it
+    side().onSelectDate!("2026-10-01");
+    await harness.settle();
+
+    expect(list().filter.date).toBeUndefined();
+    expect(side().selectedDate).toBeUndefined();
+    expect(api.journalList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ date: undefined }),
+    );
+
+    // Clearing via list filter change also clears it
+    side().onSelectDate!("2026-10-02");
+    await harness.settle();
+    expect(list().filter.date).toBe("2026-10-02");
+
+    list().onFilterChange({ date: undefined });
+    await harness.settle();
+    expect(list().filter.date).toBeUndefined();
+    expect(side().selectedDate).toBeUndefined();
+  });
 });
 
 describe("EntryEditor pinning and safe deletion", () => {
@@ -568,20 +604,23 @@ describe("EntryList chips and tag buttons", () => {
     const html = renderToStaticMarkup(
       <ToastProvider>
         <EntryList groups={[{ key: "pinned", label: "Disematkan", entries: [{ ...entry, preview: entry.body, time: "10.00" }] }]}
-          selectedId="A" onSelect={() => {}} filter={{ tag: "kerja", mood: 4 }} onFilterChange={onFilterChange} />
+          selectedId="A" onSelect={() => {}} filter={{ tag: "kerja", mood: 4, date: "2026-10-01" }} onFilterChange={onFilterChange} />
       </ToastProvider>,
     );
     expect(html).toContain("Disematkan");
     expect(html).toContain("#kerja");
     expect(html).toContain("Suasana 4");
+    expect(html).toContain("Tanggal: 2026-10-01");
     expect(html).toContain("×");
     harness = hookHarness(() => EntryList({
-      groups: [], selectedId: null, onSelect: () => {}, filter: { tag: "kerja", mood: 4 }, onFilterChange,
+      groups: [], selectedId: null, onSelect: () => {}, filter: { tag: "kerja", mood: 4, date: "2026-10-01" }, onFilterChange,
     }));
     click(harness.render(), "Hapus saringan tag kerja");
     expect(onFilterChange).toHaveBeenLastCalledWith({ tag: undefined });
     click(harness.render(), "Hapus saringan suasana hati");
     expect(onFilterChange).toHaveBeenLastCalledWith({ mood: undefined });
+    click(harness.render(), "Hapus saringan tanggal 2026-10-01");
+    expect(onFilterChange).toHaveBeenLastCalledWith({ date: undefined });
   });
 
   it("renders five mood filter buttons and toggles the selected mood", () => {
@@ -600,7 +639,7 @@ describe("EntryList chips and tag buttons", () => {
   });
 
   it("shows the filtered empty message for each active filter", () => {
-    for (const filter of [{ query: "cari" }, { kind: "idea" as const }, { tag: "kerja" }, { mood: 4 }]) {
+    for (const filter of [{ query: "cari" }, { kind: "idea" as const }, { tag: "kerja" }, { mood: 4 }, { date: "2026-10-01" }]) {
       const html = renderToStaticMarkup(<ToastProvider><EntryList groups={[]} selectedId={null}
         onSelect={() => {}} filter={filter} onFilterChange={() => {}} /></ToastProvider>);
       expect(html).toContain("Tidak ada entri yang cocok dengan saringan.");

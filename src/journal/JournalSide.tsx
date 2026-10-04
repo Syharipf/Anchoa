@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { EntrySummary, Side as JournalSideData, TrendDay } from "../api";
+import { JournalCalendar } from "./JournalCalendar";
 import { PROMPTS, nextPrompt } from "./view";
-
 const SHORT_MONTHS = [
   "Jan",
   "Feb",
@@ -61,10 +61,14 @@ function IdeaButton({
 
 export function JournalSide({
   side,
+  selectedDate,
+  onSelectDate,
   onSelectPrompt,
   onSelectIdea,
 }: Readonly<{
   side: JournalSideData | null;
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
   onSelectPrompt: (promptText: string) => void;
   onSelectIdea: (id: string) => void;
 }>) {
@@ -77,7 +81,12 @@ export function JournalSide({
   const startDateLabel = formatTrendStartDate(trend[0]?.date);
 
   return (
-    <aside aria-label="Informasi jurnal" className="flex min-h-0 flex-col gap-3.5">
+    <aside aria-label="Informasi jurnal" className="flex min-h-0 flex-col gap-3.5 overflow-y-auto">
+      <JournalCalendar
+        selectedDate={selectedDate}
+        onSelectDate={onSelectDate ?? (() => {})}
+        refreshKey={side}
+      />
       {/* 30-day Mood Trend */}
       <section
         aria-labelledby="j-trend-heading"

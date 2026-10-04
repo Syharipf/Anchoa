@@ -68,6 +68,12 @@ export function JournalPage({
     setFilter((current) => ({ ...current, ...patch }));
   }, []);
 
+  const handleDateSelect = useCallback((date: string) => {
+    setFilter((current) => ({
+      ...current,
+      date: current.date === date ? undefined : date,
+    }));
+  }, []);
   const loadList = useCallback(
     async (f: JournalFilter) => {
       const request = ++listRequest.current;
@@ -412,6 +418,8 @@ export function JournalPage({
 
         <JournalSide
           side={side}
+          selectedDate={filter.date}
+          onSelectDate={handleDateSelect}
           onSelectPrompt={handlePromptSelect}
           onSelectIdea={handleIdeaSelect}
         />

@@ -474,6 +474,7 @@ export interface JournalFilter {
   kind?: EntryKind;
   tag?: string;
   mood?: number;
+  date?: string;
 }
 
 export interface EntryPatch {
@@ -493,9 +494,23 @@ export interface Side {
   trend: TrendDay[];
   writeDays: number;
   ideas: EntrySummary[];
+  memories: EntrySummary[];
 }
 
 export type JournalSide = Side;
+
+export interface CalendarDay {
+  date: string;
+  count: number;
+  mood: number | null;
+}
+
+export interface CalendarView {
+  month: string;
+  days: CalendarDay[];
+  currentStreak: number;
+  bestStreak: number;
+}
 
 export interface Profile {
   name: string;
@@ -1069,7 +1084,7 @@ export const api = {
   checkHabit: (id: string, done: boolean) =>
     invoke<HabitRow>("check_habit", { id, done }),
   journalList: (f: JournalFilter = {}) =>
-    invoke<JournalList>("journal_list", { query: f.query, kind: f.kind, tag: f.tag, mood: f.mood }),
+    invoke<JournalList>("journal_list", { query: f.query, kind: f.kind, tag: f.tag, mood: f.mood, date: f.date }),
   journalEntry: (id: string) => invoke<Entry>("journal_entry", { id }),
   createEntry: (kind: EntryKind, title?: string) =>
     invoke<Entry>("create_entry", { kind, title }),
@@ -1079,6 +1094,8 @@ export const api = {
   restoreEntry: (id: string) => invoke<void>("restore_entry", { id }),
   entryToTask: (id: string) => invoke<Entry>("entry_to_task", { id }),
   journalSide: () => invoke<Side>("journal_side"),
+  journalCalendar: (month: string) => invoke<CalendarView>("journal_calendar", { month }),
+  journalWeeklySummary: () => invoke<Entry>("journal_weekly_summary"),
   dataPaths: () => invoke<DataPaths>("data_paths"),
   filePlaces: () => invoke<FilePlaces>("file_places"),
   listDir: (path: string, hidden: boolean) =>

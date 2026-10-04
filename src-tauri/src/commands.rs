@@ -513,6 +513,11 @@ pub fn journal_side(db: State<'_, Db>) -> Result<Side, AppError> {
     journal::journal_side(&*db.conn()?, time::now_ms(), &TimeZone::system())
 }
 
+#[tauri::command]
+pub fn dismiss_journal_reminder(db: State<'_, Db>) -> Result<(), AppError> {
+    journal::dismiss_reminder(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
 fn current_user_and_roots(app: &AppHandle) -> Result<(String, files::Roots, Vec<files::Place>), AppError> {
     let home = app.path().home_dir()?;
     let user = std::env::var("USER").unwrap_or_else(|_| {

@@ -23,13 +23,30 @@ pub struct ProfileStats {
     pub notes: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NotifyPrefs {
     pub task: bool,
     pub bill: bool,
     pub budget: bool,
     pub habit: bool,
+    pub journal: bool,
+    pub journal_at: String,
+}
+
+/// Validates an `HH:MM` string (00..23, 00..59).
+pub fn valid_hhmm(s: &str) -> bool {
+    if s.len() != 5 {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    if bytes[2] != b':' {
+        return false;
+    }
+    let Some(h) = s[..2].parse::<u8>().ok().filter(|&h| h <= 23) else { return false };
+    let Some(m) = s[3..].parse::<u8>().ok().filter(|&m| m <= 59) else { return false };
+    let _ = (h, m);
+    true
 }
 
 fn setting(conn: &Connection, key: &str) -> Result<Option<String>, AppError> {
@@ -76,16 +93,22 @@ pub fn notify_prefs(conn: &Connection) -> Result<NotifyPrefs, AppError> {
         bill: setting(conn, "notify.bill")?.as_deref() != Some("0"),
         budget: setting(conn, "notify.budget")?.as_deref() != Some("0"),
         habit: setting(conn, "notify.habit")?.as_deref() != Some("0"),
+        journal: setting(conn, "notify.journal")?.as_deref() == Some("1"),
+        journal_at: setting(conn, "notify.journal_at")?.unwrap_or_else(|| "20:00".into()),
     })
 }
 
 pub fn set_notify_prefs(conn: &Connection, prefs: &NotifyPrefs) -> Result<NotifyPrefs, AppError> {
+    if !valid_hhmm(&prefs.journal_at) {
+        return Err(AppError::Invalid("Jam pengingat jurnal harus berformat JJ:MM".into()));
+    }
     let tx = conn.unchecked_transaction()?;
     for (key, enabled) in [
         ("notify.task", prefs.task),
         ("notify.bill", prefs.bill),
         ("notify.budget", prefs.budget),
         ("notify.habit", prefs.habit),
+        ("notify.journal", prefs.journal),
     ] {
         tx.execute(
             "INSERT INTO settings (key, value) VALUES (?1, ?2)
@@ -93,8 +116,13 @@ pub fn set_notify_prefs(conn: &Connection, prefs: &NotifyPrefs) -> Result<Notify
             params![key, if enabled { "1" } else { "0" }],
         )?;
     }
+    tx.execute(
+        "INSERT INTO settings (key, value) VALUES ('notify.journal_at', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![prefs.journal_at],
+    )?;
     tx.commit()?;
-    Ok(*prefs)
+    Ok(prefs.clone())
 }
 
 #[cfg(test)]
@@ -240,19 +268,42 @@ mod tests {
     }
 
     #[test]
+    fn valid_hhmm_accepts_and_rejects() {
+        assert!(valid_hhmm("00:00"));
+        assert!(valid_hhmm("23:59"));
+        assert!(valid_hhmm("20:00"));
+        assert!(valid_hhmm("09:05"));
+        assert!(!valid_hhmm("24:00"));
+        assert!(!valid_hhmm("23:60"));
+        assert!(!valid_hhmm("2:00"));
+        assert!(!valid_hhmm("20:0"));
+        assert!(!valid_hhmm("ab:cd"));
+        assert!(!valid_hhmm(""));
+        assert!(!valid_hhmm("12-00"));
+        assert!(!valid_hhmm("12:00:00"));
+    }
+
+    #[test]
     fn notify_prefs_default_on_and_round_trip() {
         let conn = open_in_memory();
-        let all_on = NotifyPrefs { task: true, bill: true, budget: true, habit: true };
-        assert_eq!(notify_prefs(&conn).unwrap(), all_on);
+        let default = NotifyPrefs {
+            task: true, bill: true, budget: true, habit: true,
+            journal: false, journal_at: "20:00".into(),
+        };
+        assert_eq!(notify_prefs(&conn).unwrap(), default);
         conn.execute("INSERT INTO settings (key, value) VALUES ('downloads.parallel', '3'), ('notify.task', '0')", [])
             .unwrap();
-        assert_eq!(notify_prefs(&conn).unwrap(), NotifyPrefs { task: false, ..all_on });
+        assert_eq!(notify_prefs(&conn).unwrap(), NotifyPrefs { task: false, ..default.clone() });
 
+        let all_on = NotifyPrefs {
+            task: true, bill: true, budget: true, habit: true,
+            journal: true, journal_at: "21:30".into(),
+        };
         for prefs in [
-            NotifyPrefs { task: false, bill: true, budget: false, habit: true },
-            NotifyPrefs { task: true, bill: false, budget: true, habit: false },
-            NotifyPrefs { task: false, bill: false, budget: false, habit: false },
-            all_on,
+            NotifyPrefs { task: false, bill: true, budget: false, habit: true, journal: false, journal_at: "08:00".into() },
+            NotifyPrefs { task: true, bill: false, budget: true, habit: false, journal: true, journal_at: "19:00".into() },
+            NotifyPrefs { task: false, bill: false, budget: false, habit: false, journal: false, journal_at: "00:00".into() },
+            all_on.clone(),
         ] {
             assert_eq!(set_notify_prefs(&conn, &prefs).unwrap(), prefs);
             assert_eq!(notify_prefs(&conn).unwrap(), prefs);
@@ -261,14 +312,30 @@ mod tests {
                 ("notify.bill", prefs.bill),
                 ("notify.budget", prefs.budget),
                 ("notify.habit", prefs.habit),
+                ("notify.journal", prefs.journal),
             ] {
                 let stored: String =
                     conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| r.get(0)).unwrap();
                 assert_eq!(stored, if enabled { "1" } else { "0" });
             }
+            let stored_at: String =
+                conn.query_row("SELECT value FROM settings WHERE key = 'notify.journal_at'", [], |r| r.get(0)).unwrap();
+            assert_eq!(stored_at, prefs.journal_at);
         }
         let unrelated: String =
             conn.query_row("SELECT value FROM settings WHERE key = 'downloads.parallel'", [], |r| r.get(0)).unwrap();
         assert_eq!(unrelated, "3");
+    }
+
+    #[test]
+    fn set_notify_prefs_rejects_invalid_journal_at() {
+        let conn = open_in_memory();
+        let bad = NotifyPrefs {
+            task: true, bill: true, budget: true, habit: true,
+            journal: true, journal_at: "25:00".into(),
+        };
+        assert!(matches!(set_notify_prefs(&conn, &bad), Err(AppError::Invalid(_))));
+        // journal still at default
+        assert_eq!(notify_prefs(&conn).unwrap().journal_at, "20:00");
     }
 }

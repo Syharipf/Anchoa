@@ -237,6 +237,7 @@ pub fn run() {
             commands::delete_entry,
             commands::restore_entry,
             commands::journal_side,
+            commands::dismiss_journal_reminder,
             commands::data_paths,
             commands::open_folder,
             commands::file_places,

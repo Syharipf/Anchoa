@@ -51,6 +51,7 @@ export function NotifPanel({
   onOpenHabits,
   onOpenJournal,
   onDismissJournal,
+  onOpenSettings,
 }: Readonly<{
   today: DayTask[];
   finance: FinanceSummary | null;
@@ -63,11 +64,18 @@ export function NotifPanel({
   onOpenHabits: () => void;
   onOpenJournal: () => void;
   onDismissJournal?: () => void;
+  onOpenSettings?: () => void;
 }>) {
   const groups = reminders(today, finance, habitReminders, prefs, journalReminder);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [dnd, setDnd] = useState(false);
-  const count = dnd ? 0 : groups.reduce((n, g) => n + g.items.length, 0);
+  const visibleGroups = groups
+    .map((g) => ({
+      ...g,
+      items: filter === "unread" ? g.items.filter((item) => reminderText(item).tone !== "muted") : g.items,
+    }))
+    .filter((g) => g.items.length > 0);
+  const count = dnd ? 0 : visibleGroups.reduce((n, g) => n + g.items.length, 0);
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
   // Focus the panel, then give focus back to the bell when it closes.
@@ -190,7 +198,7 @@ export function NotifPanel({
           ) : count === 0 ? (
             <p className="m-0 px-4 py-12 text-center text-[13px] text-muted">Tidak ada pengingat.</p>
           ) : (
-            groups.map((g) => (
+            visibleGroups.map((g) => (
               <section key={g.title} aria-label={g.title} className="flex flex-col gap-1">
                 <h3 className="m-0 px-2 pt-3 pb-0.5 text-[11px] font-normal tracking-[0.08em] text-muted uppercase">{g.title}</h3>
                 {g.items.map((r) => (
@@ -212,6 +220,7 @@ export function NotifPanel({
             href="#profil"
             onClick={(e) => {
               e.preventDefault();
+              if (onOpenSettings) onOpenSettings();
               onClose();
             }}
             className="text-xs text-accent hover:underline"

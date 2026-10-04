@@ -14,14 +14,24 @@ function ReminderCard({ reminder, onOpen, onDismiss }: Readonly<{ reminder: Remi
           <span className={`text-xs ${TONE[text.tone]}`}>{text.detail}</span>
         </div>
         {onDismiss && (
-          <button onClick={onDismiss} aria-label={`Tutup ${text.title}`} className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted hover:text-ink">
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label={`Tutup ${text.title}`}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted hover:text-ink"
+          >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
         )}
       </div>
-      <button onClick={onOpen} aria-label={`Buka ${text.title}`} className="self-end text-xs text-accent hover:text-accent-hover">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Buka ${text.title}`}
+        className="self-end text-xs text-accent hover:text-accent-hover"
+      >
         Buka ›
       </button>
     </div>

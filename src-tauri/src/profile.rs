@@ -40,7 +40,12 @@ pub fn valid_hhmm(s: &str) -> bool {
         return false;
     }
     let bytes = s.as_bytes();
-    if bytes[2] != b':' {
+    if !bytes[0].is_ascii_digit()
+        || !bytes[1].is_ascii_digit()
+        || bytes[2] != b':'
+        || !bytes[3].is_ascii_digit()
+        || !bytes[4].is_ascii_digit()
+    {
         return false;
     }
     let Some(h) = s[..2].parse::<u8>().ok().filter(|&h| h <= 23) else { return false };
@@ -280,6 +285,8 @@ mod tests {
         assert!(!valid_hhmm("ab:cd"));
         assert!(!valid_hhmm(""));
         assert!(!valid_hhmm("12-00"));
+        assert!(!valid_hhmm("+1:00"));
+        assert!(!valid_hhmm("01:+0"));
         assert!(!valid_hhmm("12:00:00"));
     }
 

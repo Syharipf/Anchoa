@@ -53,6 +53,8 @@ export function EntryEditor({
   const [converting, setConverting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [micMode, setMicMode] = useState<MicMode>("idle");
+  const micModeRef = useRef(micMode);
+  micModeRef.current = micMode;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const queue = useMemo<SaveQueue>(() => ({ pending: {}, deleting: false }), [entry.id]);
@@ -102,10 +104,10 @@ export function EntryEditor({
   // Flush on unmount
   useEffect(() => () => void flush(), [flush]);
 
-  // Stop recording on unmount
+  // Stop recording on unmount only
   useEffect(() => () => {
-    if (micMode === "recording") api.voiceRecordStop().catch(() => {});
-  }, [micMode]);
+    if (micModeRef.current === "recording") api.voiceRecordStop().catch(() => {});
+  }, []);
 
   function insertTranscript(text: string) {
     const trimmed = text.trim();
@@ -115,8 +117,10 @@ export function EntryEditor({
       handleBodyChange(body ? `${body} ${trimmed}` : trimmed);
       return;
     }
-    const start = textarea.selectionStart ?? body.length;
-    const end = textarea.selectionEnd ?? body.length;
+    const isFocused = typeof document !== "undefined" && document.activeElement === textarea;
+    const hasExplicitCursor = isFocused || (textarea.selectionStart != null && textarea.selectionStart > 0);
+    const start = hasExplicitCursor && textarea.selectionStart != null ? textarea.selectionStart : body.length;
+    const end = hasExplicitCursor && textarea.selectionEnd != null ? textarea.selectionEnd : body.length;
     const before = body.slice(0, start);
     const after = body.slice(end);
     const separatorBefore = before && !before.endsWith(" ") && !before.endsWith("\n") ? " " : "";

@@ -62,8 +62,8 @@ export function FishProgress({
 
   const isDeterminate = typeof value === "number" && !Number.isNaN(value);
   const clamped = isDeterminate ? Math.max(0, Math.min(100, value!)) : 0;
-  const isDone = state === "done" || (isDeterminate && clamped >= 100);
-  const isError = state === "error" || tone === "danger";
+  const isDone = state === "done";
+  const isError = state === "error";
 
   // Visual parameters aligned with Unduhan.dc.html:289-299 fishBar()
   let pct = isDeterminate ? clamped : 100;
@@ -88,6 +88,11 @@ export function FishProgress({
     trackBg = "#1A1E25";
     tintBg = "rgba(91,100,117,0.16)";
     fishColor = "#5B6475";
+    isAnimated = false;
+  } else if (tone === "danger") {
+    trackBg = "#1A1E25";
+    tintBg = "rgba(255,138,122,0.16)";
+    fishColor = "#FF8A7A";
     isAnimated = false;
   } else if (tone === "warning") {
     tintBg = "rgba(229,168,59,0.16)";

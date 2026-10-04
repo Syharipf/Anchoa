@@ -4,13 +4,34 @@ import { reminders, reminderText, type Reminder, type Tone } from "./reminders";
 
 const TONE: Record<Tone, string> = { danger: "text-danger", warn: "text-warn", muted: "text-muted" };
 
-function ReminderCard({ reminder, onOpen }: Readonly<{ reminder: Reminder; onOpen: () => void }>) {
+function ReminderCard({ reminder, onOpen, onDismiss }: Readonly<{ reminder: Reminder; onOpen: () => void; onDismiss?: () => void }>) {
   const text = reminderText(reminder);
   return (
     <div className="flex flex-col gap-1 rounded-[10px] bg-surface px-2.5 py-2.5">
-      <span className="text-[13px] font-semibold">{text.title}</span>
-      <span className={`text-xs ${TONE[text.tone]}`}>{text.detail}</span>
-      <button onClick={onOpen} aria-label={`Buka ${text.title}`} className="self-end text-xs text-accent hover:text-accent-hover">
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-1">
+          <span className="text-[13px] font-semibold">{text.title}</span>
+          <span className={`text-xs ${TONE[text.tone]}`}>{text.detail}</span>
+        </div>
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label={`Tutup ${text.title}`}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted hover:text-ink"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Buka ${text.title}`}
+        className="self-end text-xs text-accent hover:text-accent-hover"
+      >
         Buka ›
       </button>
     </div>
@@ -23,21 +44,27 @@ export function NotifPanel({
   finance,
   habitReminders = [],
   prefs,
+  journalReminder = false,
   onClose,
   onOpenItem,
   onOpenFinance,
   onOpenHabits,
+  onOpenJournal,
+  onDismissJournal,
 }: Readonly<{
   today: DayTask[];
   finance: FinanceSummary | null;
   habitReminders?: HabitReminder[];
   prefs?: NotifyPrefs;
+  journalReminder?: boolean;
   onClose: () => void;
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
   onOpenHabits: () => void;
+  onOpenJournal: () => void;
+  onDismissJournal?: () => void;
 }>) {
-  const groups = reminders(today, finance, habitReminders, prefs);
+  const groups = reminders(today, finance, habitReminders, prefs, journalReminder);
   const count = groups.reduce((n, g) => n + g.items.length, 0);
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -54,6 +81,8 @@ export function NotifPanel({
       onOpenItem(r.task.id);
     } else if (r.kind === "habit") {
       onOpenHabits();
+    } else if (r.kind === "journal") {
+      onOpenJournal();
     } else {
       onOpenFinance();
     }
@@ -116,7 +145,12 @@ export function NotifPanel({
             <section key={g.title} aria-label={g.title} className="flex flex-col gap-1">
               <h3 className="m-0 px-2 pt-3 pb-0.5 text-[11px] font-normal tracking-[0.08em] text-muted uppercase">{g.title}</h3>
               {g.items.map((r) => (
-                <ReminderCard key={`${r.kind}-${r.id}`} reminder={r} onOpen={() => open(r)} />
+                <ReminderCard
+                  key={`${r.kind}-${r.id}`}
+                  reminder={r}
+                  onOpen={() => open(r)}
+                  onDismiss={r.kind === "journal" ? onDismissJournal : undefined}
+                />
               ))}
             </section>
           ))}
@@ -124,7 +158,7 @@ export function NotifPanel({
         </div>
 
         <p className="m-0 border-t border-line px-[18px] py-3 text-xs text-muted">
-          Pengingat dari tugas, tagihan, batas pengeluaran, dan habit.
+          Pengingat dari tugas, tagihan, batas pengeluaran, habit, dan jurnal.
         </p>
       </aside>
     </div>

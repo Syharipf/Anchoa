@@ -1,10 +1,10 @@
-import type { BudgetLevel, FinanceOverview } from "../api";
+import { FishProgress } from "../components/FishProgress";
+import type { FinanceOverview } from "../api";
 import { formatBalance, formatRupiah, monthLabel, monthShort, signedRupiah } from "../money";
 import { PANEL } from "../shell/ui";
 
 const CARD = `${PANEL} flex flex-col gap-1`;
 const VALUE = "font-display text-[22px] font-semibold";
-const LEVEL_BAR: Record<BudgetLevel, string> = { ok: "bg-accent", warn: "bg-warn", over: "bg-danger" };
 
 function Card({ label, value, tone = "", note }: Readonly<{ label: string; value: string; tone?: string; note: string }>) {
   return (
@@ -43,9 +43,13 @@ export function SummaryCards({ overview: o, onBudget }: Readonly<{ overview: Fin
         {o.budget ? (
           <>
             <span className="text-xs text-muted">dari {formatRupiah(o.budget.amount)}</span>
-            <span aria-hidden="true" className="mt-1 block h-1 overflow-hidden rounded-sm bg-line">
-              <span className={`block h-full rounded-sm ${LEVEL_BAR[o.budget.level]}`} style={{ width: `${used}%` }} />
-            </span>
+            <FishProgress
+              role="meter"
+              value={used}
+              label={`Pemakaian anggaran ${monthLabel(o.month)}`}
+              tone={o.budget.level === "over" ? "danger" : o.budget.level === "warn" ? "warning" : "accent"}
+              className="mt-1 h-2"
+            />
           </>
         ) : (
           <span className="text-xs text-muted">Atur batas</span>

@@ -105,6 +105,38 @@ body {
   }
 }
 
+@keyframes anchoa-swim {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes anchoa-fish-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg) scaleY(1);
+  }
+  25% {
+    transform: rotate(-2.5deg) scaleY(0.92);
+  }
+  75% {
+    transform: rotate(2.5deg) scaleY(1.08);
+  }
+}
+
+@keyframes anchoa-swim-loop {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-anim] {
     animation: none !important;

@@ -13,7 +13,8 @@ use crate::habits;
 use crate::items;
 use crate::tasks::TaskStatus;
 use crate::time::{
-    indonesian_long_month, indonesian_long_weekday, indonesian_short_month, indonesian_short_weekday, local_date,
+    day_bounds, indonesian_long_month, indonesian_long_weekday, indonesian_short_month,
+    indonesian_short_weekday, local_date,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -563,6 +564,52 @@ pub fn after_note_saved(conn: &Connection, id: &str, now: i64, tz: &TimeZone) ->
     if item.kind == "note" && !item.body.trim().is_empty() {
         habits::auto_check_journal(conn, now, tz)?;
     }
+    Ok(())
+}
+
+/// True when the journal reminder should fire: notifications on, past the
+/// configured hour, not dismissed today, and no note created today.
+pub fn due_reminder(conn: &Connection, now: i64, tz: &TimeZone) -> Result<bool, AppError> {
+    let prefs = crate::profile::notify_prefs(conn)?;
+    if !prefs.journal {
+        return Ok(false);
+    }
+    let zoned = Timestamp::from_millisecond(now)?.to_zoned(tz.clone());
+    let current_time = zoned.strftime("%H:%M").to_string();
+    if current_time.as_str() < prefs.journal_at.as_str() {
+        return Ok(false);
+    }
+    let today_str = local_date(now, tz)?.to_string();
+    let dismissed: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'notify.journal_dismissed'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if dismissed.as_deref() == Some(today_str.as_str()) {
+        return Ok(false);
+    }
+    let (start, end) = day_bounds(now, tz)?;
+    let has_entry: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM items WHERE deleted_at IS NULL AND type = 'note' AND created_at >= ?1 AND created_at < ?2)",
+        params![start, end],
+        |r| r.get(0),
+    )?;
+    if has_entry {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Dismiss the journal reminder for today.
+pub fn dismiss_reminder(conn: &Connection, now: i64, tz: &TimeZone) -> Result<(), AppError> {
+    let today_str = local_date(now, tz)?.to_string();
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES ('notify.journal_dismissed', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![today_str],
+    )?;
     Ok(())
 }
 
@@ -1285,5 +1332,51 @@ mod tests {
         assert_eq!(side.trend[28].date, "2026-09-30");
         assert_eq!(side.trend[29].date, "2026-10-01");
         assert_eq!(side.write_days, 2);
+    }
+
+    #[test]
+    fn journal_reminder_deduplication_and_day_rollover() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+
+        // Enable journal reminders at 20:00.
+        let prefs = crate::profile::NotifyPrefs {
+            task: true, bill: true, budget: true, habit: true,
+            journal: true, journal_at: "20:00".into(),
+        };
+        crate::profile::set_notify_prefs(&conn, &prefs).unwrap();
+
+        // Before 20:00 → no reminder.
+        let before_time = ms("2026-09-29T19:59:00+07:00");
+        assert!(!due_reminder(&conn, before_time, &tz).unwrap());
+
+        // At 20:00 → reminder fires.
+        let at_time = ms("2026-09-29T20:00:00+07:00");
+        assert!(due_reminder(&conn, at_time, &tz).unwrap());
+
+        // Repeated call same time → still true (idempotent).
+        assert!(due_reminder(&conn, at_time, &tz).unwrap());
+
+        // Dismiss → no reminder.
+        dismiss_reminder(&conn, at_time, &tz).unwrap();
+        assert!(!due_reminder(&conn, at_time, &tz).unwrap());
+
+        // Later same day → still dismissed.
+        let later = ms("2026-09-29T23:00:00+07:00");
+        assert!(!due_reminder(&conn, later, &tz).unwrap());
+
+        // Next day at 20:00 → reminder fires again (day rollover).
+        let next_day = ms("2026-09-30T20:00:00+07:00");
+        assert!(due_reminder(&conn, next_day, &tz).unwrap());
+
+        // Creating a note today suppresses reminder.
+        create_entry(&conn, EntryKind::Note, Some("Jurnal hari ini"), next_day, &tz).unwrap();
+        assert!(!due_reminder(&conn, next_day, &tz).unwrap());
+
+        // Disabled → no reminder.
+        let off = crate::profile::NotifyPrefs { journal: false, ..prefs };
+        crate::profile::set_notify_prefs(&conn, &off).unwrap();
+        let day3 = ms("2026-10-01T20:00:00+07:00");
+        assert!(!due_reminder(&conn, day3, &tz).unwrap());
     }
 }

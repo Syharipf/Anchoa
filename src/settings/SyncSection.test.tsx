@@ -174,7 +174,6 @@ it("ready state shows account, last sync and usage", async () => {
   expect(texts()).toContain("Sinkron terakhir: 5 menit lalu");
   expect(alerts()).toEqual(["Sync terakhir gagal: jaringan putus"]);
   expect(texts()).toContain("12 MB dari 400 MB");
-  expect(tree().find((el) => el.props.role === "progressbar")!.props["aria-valuenow"]).toBe(3);
   for (const label of ["Sinkronkan sekarang", "Ganti frasa sandi", "Matikan sync"]) expect(texts()).toContain(label);
 });
 

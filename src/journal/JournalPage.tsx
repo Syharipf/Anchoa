@@ -8,19 +8,23 @@ import {
   type JournalFilter,
   type Side as JournalSideData,
 } from "../api";
+import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { EntryEditor } from "./EntryEditor";
 import { EntryList } from "./EntryList";
 import { JournalSide } from "./JournalSide";
+import { JOURNAL_TEMPLATES, KIND_META, type JournalTemplate } from "./view";
 
 export function JournalPage({
   onOpenItem,
   onChanged,
   onOpenAssistant,
+  onOpenSettings,
 }: Readonly<{
   onOpenItem: (id: string) => void;
   onChanged?: () => void;
   onOpenAssistant: OpenAssistant;
+  onOpenSettings?: (section?: SettingsSection) => void;
 }>) {
   const toast = useToast();
   const [filter, setFilter] = useState<JournalFilter>({});
@@ -32,7 +36,34 @@ export function JournalPage({
   filterRef.current = filter;
   const listRequest = useRef(0);
   const deletedEntries = useRef(new Set<string>());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        !menuButtonRef.current?.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    };
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
   const handleFilterChange = useCallback((patch: Partial<JournalFilter>) => {
     setFilter((current) => ({ ...current, ...patch }));
   }, []);
@@ -115,6 +146,18 @@ export function JournalPage({
     const kind = filter.kind ?? "note";
     try {
       await openCreated(await api.createEntry(kind, ""));
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
+  async function handleApplyTemplate(template: JournalTemplate) {
+    setMenuOpen(false);
+    try {
+      const created = await api.createEntry(template.kind, template.title);
+      await api.updateItem(created.id, { body: template.body });
+      created.body = template.body;
+      await openCreated(created);
     } catch (e) {
       toast(errorMessage(e), "error");
     }
@@ -244,25 +287,98 @@ export function JournalPage({
             Catat lewat suara
           </button>
 
-          <button
-            type="button"
-            onClick={() => void handleNewEntry()}
-            className="flex min-h-10 items-center gap-2 rounded-[10px] bg-accent px-4 font-display text-sm font-semibold text-canvas transition-transform hover:scale-105 active:scale-95"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              aria-hidden="true"
+          <div className="relative inline-flex items-center">
+            <button
+              type="button"
+              onClick={() => void handleNewEntry()}
+              className="flex min-h-10 items-center gap-2 rounded-l-[10px] bg-accent px-4 font-display text-sm font-semibold text-canvas transition-opacity hover:opacity-90 active:opacity-80"
             >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Tulis
-          </button>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Tulis
+            </button>
+            <button
+              ref={menuButtonRef}
+              type="button"
+              aria-label="Entri baru ▾"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+              className="flex min-h-10 items-center justify-center rounded-r-[10px] border-l border-canvas/20 bg-accent px-2.5 text-canvas transition-opacity hover:opacity-90 active:opacity-80"
+            >
+              <span className="sr-only">Entri baru</span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            {menuOpen && (
+              <div
+                ref={menuRef}
+                role="menu"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setMenuOpen(false);
+                    menuButtonRef.current?.focus();
+                  }
+                }}
+                className="absolute right-0 top-full z-30 mt-1.5 flex w-72 flex-col rounded-xl border border-line bg-surface p-1.5 shadow-lg"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void handleNewEntry();
+                  }}
+                  className="flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-2"
+                >
+                  <span className="text-xs font-semibold text-ink">Entri kosong</span>
+                  <span className="text-[11px] text-muted">Mulai menulis dari halaman kosong</span>
+                </button>
+
+                <div className="my-1 h-px bg-line" role="separator" />
+
+                {JOURNAL_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void handleApplyTemplate(tmpl)}
+                    className="flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-2"
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-xs font-semibold text-ink">{tmpl.label}</span>
+                      <span className="truncate text-[11px] text-muted">{tmpl.description}</span>
+                    </div>
+                    <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-muted">
+                      {KIND_META[tmpl.kind].label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -286,6 +402,7 @@ export function JournalPage({
             onAfterSaved={handleAfterSaved}
             onDelete={handleDelete}
             onTagClick={(tag) => handleFilterChange({ tag })}
+            onOpenSettings={onOpenSettings}
           />
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-surface p-6 text-center text-sm text-muted">

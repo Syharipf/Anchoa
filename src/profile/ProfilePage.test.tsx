@@ -27,6 +27,8 @@ const defaultPrefs: NotifyPrefs = {
   bill: true,
   budget: true,
   habit: true,
+  journal: false,
+  journalAt: "20:00",
 };
 
 describe("ProfilePage", () => {
@@ -177,12 +179,16 @@ describe("ProfilePage", () => {
       bill: true,
       budget: true,
       habit: true,
+      journal: false,
+      journalAt: "20:00",
     });
     expect(capturedPrefs).toEqual({
       task: false,
       bill: true,
       budget: true,
       habit: true,
+      journal: false,
+      journalAt: "20:00",
     });
   });
 
@@ -460,5 +466,60 @@ describe("ProfilePage", () => {
     await harness.settle();
     const textNodes = elements(harness.render()).map((el) => el.props.children).flat();
     expect(textNodes).toContain(connected ? "Terhubung sebagai anchoa@gmail.com" : "Belum terhubung");
+  });
+
+  it("toggles journal notification and allows changing journalAt time", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+    setNotifyPrefsSpy = spyOn(api, "setNotifyPrefs").mockImplementation(async (p) => p);
+
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+
+    const journalSwitch = elements(harness.render()).find(
+      (el) =>
+        el.type === "button" &&
+        el.props.role === "switch" &&
+        el.props["aria-labelledby"] === "lbl-notify-journal",
+    );
+    expect(journalSwitch).toBeDefined();
+    expect(journalSwitch!.props["aria-checked"]).toBe(false);
+
+    let timeInput = elements(harness.render()).find(
+      (el) => el.type === "input" && el.props["aria-label"] === "Jam pengingat jurnal",
+    );
+    expect(timeInput).toBeUndefined();
+
+    (journalSwitch!.props.onClick as () => void)();
+    await harness.settle();
+
+    expect(setNotifyPrefsSpy).toHaveBeenCalledWith({
+      ...defaultPrefs,
+      journal: true,
+    });
+
+    timeInput = elements(harness.render()).find(
+      (el) => el.type === "input" && el.props["aria-label"] === "Jam pengingat jurnal",
+    );
+    expect(timeInput).toBeDefined();
+    expect(timeInput!.props.value).toBe("20:00");
+
+    (timeInput!.props.onChange as (e: { target: { value: string } }) => void)({
+      target: { value: "21:30" },
+    });
+    await harness.settle();
+
+    expect(setNotifyPrefsSpy).toHaveBeenCalledWith({
+      ...defaultPrefs,
+      journal: true,
+      journalAt: "21:30",
+    });
+
+    setNotifyPrefsSpy.mockClear();
+    (timeInput!.props.onChange as (e: { target: { value: string } }) => void)({
+      target: { value: "invalid" },
+    });
+    await harness.settle();
+    expect(setNotifyPrefsSpy).not.toHaveBeenCalled();
   });
 });

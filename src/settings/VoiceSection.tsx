@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   api,
@@ -272,15 +273,12 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
             <span className="font-mono">{percent}%</span>
           )}
         </div>
-        <div
-          aria-hidden="true"
-          className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2"
-        >
-          <div
-            className="h-full bg-accent transition-all duration-300"
-            style={{ width: percent !== null ? `${percent}%` : "100%" }}
-          />
-        </div>
+        <FishProgress
+          value={percent ?? undefined}
+          label={stageLabel}
+          state="running"
+          className="h-2 w-full"
+        />
       </div>
     );
   };

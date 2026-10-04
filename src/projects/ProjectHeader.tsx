@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import { api, errorMessage, type LooseCount, type ProjectDetail } from "../api";
 import { useToast } from "../shell/toast";
 import { KIND_LABELS, deadlineLabel } from "./view";
@@ -40,14 +41,12 @@ export function ProjectHeader({
             </span>
           </div>
         </div>
-        <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-line">
-          <div
-            style={{ width: `${pct}%` }}
-            className={`h-full rounded-full transition-all ${
-              looseCount.total > 0 && looseCount.done === looseCount.total ? "bg-field-focus" : "bg-accent"
-            }`}
-          />
-        </div>
+        <FishProgress
+          value={pct}
+          label="Kemajuan tugas lepas"
+          state={looseCount.total > 0 && looseCount.done === looseCount.total ? "done" : "running"}
+          className="h-2"
+        />
       </section>
     );
   }
@@ -171,14 +170,12 @@ export function ProjectHeader({
           </button>
         )}
       </div>
-      <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-line">
-        <div
-          style={{ width: `${pct}%` }}
-          className={`h-full rounded-full transition-all ${
-            project.status === "done" ? "bg-field-focus" : "bg-accent"
-          }`}
-        />
-      </div>
+      <FishProgress
+        value={pct}
+        label={`Kemajuan proyek ${project.name}`}
+        state={project.status === "done" ? "done" : "running"}
+        className="h-2"
+      />
     </section>
   );
 }

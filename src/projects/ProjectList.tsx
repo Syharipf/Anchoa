@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import type { LooseCount, ProjectSummary } from "../api";
 import { anchorOf, useContextMenu, type MenuEntry } from "../shell/ContextMenu";
 import { KIND_LABELS, STATUS_LABELS, deadlineLabel } from "./view";
@@ -92,14 +93,12 @@ export function ProjectList({
               </div>
               <span className="text-xs text-muted">{meta}</span>
               <div className="flex items-center gap-2.5">
-                <div aria-hidden="true" className="h-1 flex-1 overflow-hidden rounded-sm bg-line">
-                  <div
-                    style={{ width: `${pct}%` }}
-                    className={`h-full rounded-sm transition-all ${
-                      p.status === "done" ? "bg-field-focus" : "bg-accent"
-                    }`}
-                  />
-                </div>
+                <FishProgress
+                  value={pct}
+                  label={p.name}
+                  state={p.status === "done" ? "done" : "running"}
+                  className="h-2 flex-1"
+                />
                 <span className="min-w-[34px] text-right font-mono text-xs text-muted">{pct}%</span>
               </div>
             </button>
@@ -124,14 +123,12 @@ export function ProjectList({
         </div>
         {looseCount.total > 0 && (
           <div className="flex items-center gap-2.5">
-            <div aria-hidden="true" className="h-1 flex-1 overflow-hidden rounded-sm bg-line">
-              <div
-                style={{ width: `${loosePct}%` }}
-                className={`h-full rounded-sm transition-all ${
-                  looseCount.done === looseCount.total ? "bg-field-focus" : "bg-accent"
-                }`}
-              />
-            </div>
+            <FishProgress
+              value={loosePct}
+              label="Kemajuan tugas lepas"
+              state={looseCount.done === looseCount.total ? "done" : "running"}
+              className="h-2 flex-1"
+            />
             <span className="min-w-[34px] text-right font-mono text-xs text-muted">
               {loosePct}%
             </span>

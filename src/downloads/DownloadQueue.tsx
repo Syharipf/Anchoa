@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import { useState } from "react";
 import type { DownloadView } from "../api";
 import {
@@ -5,7 +6,6 @@ import {
   metaText,
   progressPercent,
   progressText,
-  STATUS_BAR,
   STATUS_LABELS,
   STATUS_TEXT,
   tabCounts,
@@ -14,6 +14,20 @@ import {
 } from "./view";
 
 const TABS: readonly DownloadTab[] = ["all", "active", "done", "failed"];
+
+function downloadProgressValue(status: DownloadView["status"], totalBytes: number | null, pct: number): number | undefined {
+  if (status === "done") return 100;
+  if (totalBytes && totalBytes > 0) return pct;
+  if (status === "queued" || status === "failed") return 0;
+  return undefined;
+}
+
+function downloadProgressState(status: DownloadView["status"]): "error" | "paused" | "done" | "running" {
+  if (status === "failed") return "error";
+  if (status === "paused" || status === "queued") return "paused";
+  if (status === "done") return "done";
+  return "running";
+}
 
 export function DownloadQueue({
   items,
@@ -154,15 +168,12 @@ export function DownloadQueue({
                 </div>
 
                 <div className="flex w-56 shrink-0 flex-col gap-1.5">
-                  <div
-                    aria-hidden="true"
-                    className="h-1 w-full overflow-hidden rounded-sm bg-line"
-                  >
-                    <div
-                      style={{ width: `${pct}%` }}
-                      className={`h-full rounded-sm transition-all ${STATUS_BAR[row.status]}`}
-                    />
-                  </div>
+                  <FishProgress
+                    value={downloadProgressValue(row.status, row.totalBytes, pct)}
+                    label={row.title}
+                    state={downloadProgressState(row.status)}
+                    className="h-3 w-full"
+                  />
                   <span
                     className={`truncate font-mono text-[11px] ${
                       row.status === "failed" ? "text-danger" : "text-muted"

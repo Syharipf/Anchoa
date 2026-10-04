@@ -6,7 +6,8 @@ export type Reminder =
   | { kind: "task"; id: string; task: DayTask }
   | { kind: "bill"; id: string; bill: BillView }
   | { kind: "budget"; id: string; percent: number; over: boolean }
-  | { kind: "habit"; id: string; habit: HabitReminder };
+  | { kind: "habit"; id: string; habit: HabitReminder }
+  | { kind: "journal"; id: "journal" };
 
 export interface ReminderGroup {
   title: "Terlambat" | "Hari ini";
@@ -32,6 +33,8 @@ const DEFAULT_PREFS: NotifyPrefs = {
   bill: true,
   budget: true,
   habit: true,
+  journal: false,
+  journalAt: "20:00",
 };
 
 /**
@@ -43,12 +46,14 @@ export function reminders(
   finance: FinanceSummary | null,
   habitReminders: HabitReminder[] = [],
   prefs?: NotifyPrefs,
+  journalReminder?: boolean,
 ): ReminderGroup[] {
   const p = prefs ?? DEFAULT_PREFS;
   const open = p.task ? today.filter((t) => t.completedAt === null) : [];
   const bills = p.bill ? (finance?.dueBills ?? []) : [];
   const habits = p.habit ? habitReminders : [];
   const budgets = p.budget ? limitReminder(finance) : [];
+  const journals: Reminder[] = p.journal && journalReminder ? [{ kind: "journal", id: "journal" }] : [];
 
   const groups: ReminderGroup[] = [
     {
@@ -65,6 +70,7 @@ export function reminders(
         ...bills.filter((b) => b.status === "dueToday").map(fromBill),
         ...habits.map(fromHabit),
         ...budgets,
+        ...journals,
       ],
     },
   ];
@@ -76,8 +82,9 @@ export function reminderCount(
   finance: FinanceSummary | null,
   habitReminders: HabitReminder[] = [],
   prefs?: NotifyPrefs,
+  journalReminder?: boolean,
 ): number {
-  return reminders(today, finance, habitReminders, prefs).reduce((n, g) => n + g.items.length, 0);
+  return reminders(today, finance, habitReminders, prefs, journalReminder).reduce((n, g) => n + g.items.length, 0);
 }
 
 /** Title and detail line of one reminder card. */
@@ -98,6 +105,13 @@ export function reminderText(r: Reminder): { title: string; detail: string; tone
     return {
       title: r.habit.name,
       detail: `Belum dicentang · pengingat ${time}`,
+      tone: "muted",
+    };
+  }
+  if (r.kind === "journal") {
+    return {
+      title: "Jurnal harian",
+      detail: "Belum menulis jurnal hari ini",
       tone: "muted",
     };
   }

@@ -271,6 +271,33 @@ export function EntryEditor({
           <span className="mr-1 font-mono text-xs text-muted">{entry.when}</span>
           <button
             type="button"
+            disabled={deleting || micMode === "transcribing"}
+            aria-label={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
+            title={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
+            onClick={() => void handleToggleDictation()}
+            className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 disabled:text-disabled ${
+              micMode === "recording"
+                ? "text-danger animate-pulse"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+            </svg>
+          </button>
+          <button
             disabled={deleting}
             aria-pressed={entry.pinned}
             aria-label={entry.pinned ? "Lepas sematan" : "Sematkan"}
@@ -385,39 +412,6 @@ export function EntryEditor({
             </button>
           )
         )}
-
-        <button
-          type="button"
-          disabled={deleting || micMode === "transcribing"}
-          aria-label={micMode === "recording" ? "Hentikan rekaman dikte" : undefined}
-          onClick={() => void handleToggleDictation()}
-          className={
-            micMode === "recording"
-              ? "flex min-h-[34px] items-center gap-1.5 rounded-lg border border-danger bg-transparent px-3 text-[13px] text-danger animate-pulse transition-colors hover:bg-danger-row"
-              : "flex min-h-[34px] items-center gap-1.5 rounded-lg border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
-          }
-        >
-          {micMode === "idle" && (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="22" />
-            </svg>
-          )}
-          {micMode === "idle" && "Dikte"}
-          {micMode === "recording" && "Merekam…"}
-          {micMode === "transcribing" && "Memproses…"}
-        </button>
 
         <button
           type="button"

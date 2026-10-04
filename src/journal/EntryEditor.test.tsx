@@ -100,10 +100,9 @@ describe("EntryEditor dictation", () => {
     click(harness.render(), "Dikte");
     await harness.settle();
     expect(api.voiceRecordStart).toHaveBeenCalledTimes(1);
-    // Button changes to "Merekam…"
+    // Button aria-label changes to "Hentikan rekaman dikte"
     const btn = button(harness.render(), "Hentikan rekaman dikte");
-    const children = Array.isArray(btn.props.children) ? btn.props.children : [btn.props.children];
-    expect(children.some((c: unknown) => c === "Merekam…")).toBe(true);
+    expect(btn).toBeDefined();
   });
 
   it("stops recording and inserts transcript into body", async () => {

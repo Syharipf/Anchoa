@@ -1,4 +1,3 @@
-import { FishProgress } from "../components/FishProgress";
 import type { ProjectSummary } from "../api";
 import type { PageId } from "../shell/nav";
 
@@ -43,17 +42,26 @@ export function ProjectsCard({
         list.map((p) => {
           const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
           return (
-            <div key={p.id} aria-label={`${p.name} · ${pct}%`} className="flex w-full flex-col gap-1">
+            <div key={p.id} className="flex w-full flex-col gap-1">
               <div className="flex w-full items-center justify-between gap-2 text-xs">
                 <span className="truncate text-ink">{p.name}</span>
                 <span className="shrink-0 font-mono text-muted">{pct}%</span>
               </div>
-              <FishProgress
-                value={pct}
-                label={p.name}
-                state={p.status === "done" ? "done" : "running"}
-                className="h-2"
-              />
+              <div
+                role="progressbar"
+                aria-label={p.name}
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-1 w-full overflow-hidden rounded-[2px] bg-[#262B35]"
+              >
+                <div
+                  style={{ width: `${pct}%` }}
+                  className={`h-1 rounded-[2px] transition-all duration-300 ${
+                    p.status === "done" ? "bg-field-focus" : "bg-accent"
+                  }`}
+                />
+              </div>
             </div>
           );
         })

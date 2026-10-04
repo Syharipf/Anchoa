@@ -41,10 +41,10 @@ const ROLES: readonly {
 
 const AI_PROVIDERS = [
   { id: "ollama", name: "Ollama", kind: "Lokal", dot: "#C6F36B", active: true },
-  { id: "openrouter", name: "OpenRouter", kind: "Cloud API", dot: "#5B6475", active: false },
-  { id: "openai", name: "OpenAI", kind: "Cloud API", dot: "#5B6475", active: false },
-  { id: "anthropic", name: "Anthropic", kind: "Cloud API", dot: "#5B6475", active: false },
-  { id: "custom", name: "Kustom", kind: "Komp. OpenAI", dot: "#5B6475", active: false },
+  { id: "openrouter", name: "OpenRouter", kind: "Cloud API (Segera)", dot: "#5B6475", active: false },
+  { id: "openai", name: "OpenAI", kind: "Cloud API (Segera)", dot: "#5B6475", active: false },
+  { id: "anthropic", name: "Anthropic", kind: "Cloud API (Segera)", dot: "#5B6475", active: false },
+  { id: "custom", name: "Kustom", kind: "Komp. OpenAI (Segera)", dot: "#5B6475", active: false },
 ] as const;
 
 export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
@@ -125,10 +125,12 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
               key={p.id}
               type="button"
               aria-pressed={p.active}
+              aria-disabled={!p.active}
+              title={p.active ? undefined : `${p.name} belum tersedia (segera hadir)`}
               className={`flex min-h-[64px] flex-col items-start justify-center gap-0.5 rounded-[10px] border p-2 text-left transition-colors ${
                 p.active
                   ? "border-accent/40 bg-surface-2 text-ink"
-                  : "border-line bg-stage/60 text-muted opacity-75 hover:bg-surface-2/40 hover:text-ink cursor-default"
+                  : "border-line bg-stage/60 text-muted opacity-60 cursor-not-allowed"
               }`}
             >
               <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">

@@ -971,8 +971,10 @@ pub fn journal_export(
         Some(id_list) => {
             let mut list = Vec::new();
             for id in id_list {
-                if let Ok(entry) = journal_entry(conn, &id, _now, tz) {
-                    list.push(entry);
+                match journal_entry(conn, &id, _now, tz) {
+                    Ok(entry) => list.push(entry),
+                    Err(AppError::NotFound) => {}
+                    Err(e) => return Err(e),
                 }
             }
             list
@@ -987,9 +989,7 @@ pub fn journal_export(
             let mut list = Vec::new();
             for r in rows {
                 let id = r?;
-                if let Ok(entry) = journal_entry(conn, &id, _now, tz) {
-                    list.push(entry);
-                }
+                list.push(journal_entry(conn, &id, _now, tz)?);
             }
             list
         }

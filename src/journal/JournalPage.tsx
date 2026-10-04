@@ -160,12 +160,7 @@ export function JournalPage({
 
   async function handleExportAll() {
     if (exporting) return;
-    let dir: string | null = null;
-    try {
-      dir = await api.pickDirectory();
-    } catch {
-      dir = window.prompt("Folder tujuan ekspor:")?.trim() || null;
-    }
+    const dir = await api.pickDirectory();
     if (!dir) return;
     setExporting(true);
     try {

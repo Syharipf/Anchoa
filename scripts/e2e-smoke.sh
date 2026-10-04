@@ -780,6 +780,23 @@ check_journal_v2() {
   click 36 148                  # nav: Jurnal
   sleep 2
   shot 16-journal-memories
+
+  # J-4: FTS Search di daftar jurnal
+  click 200 104                 # input cari jurnal
+  xdotool type --delay 20 'Refleksi'
+  sleep 1.5
+  shot 16-journal-fts-search
+  xdotool key ctrl+a BackSpace
+  sleep 1
+
+  # J-4: Wikilink di body
+  click 180 200                 # pilih salah satu entri
+  sleep 1
+  click 480 320                 # klik textarea isi
+  xdotool key End Return
+  xdotool type --delay 20 'Tautan ke [[Catatan Proyek]].'
+  sleep 2
+  shot 16-journal-wikilink
   stop_app
 }
 

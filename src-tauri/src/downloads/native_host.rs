@@ -185,8 +185,8 @@ pub fn handle_message(conn: &Connection, raw_json: &[u8], now: i64) -> NativeRes
                 )
                 .ok();
 
-            if let Some((download_id, status)) = existing {
-                if status == "pending" || status == "committed" {
+            if let Some((download_id, status)) = existing
+                && (status == "pending" || status == "committed") {
                     return NativeResponse {
                         version: 1,
                         request_id: req_id.into(),
@@ -195,7 +195,6 @@ pub fn handle_message(conn: &Connection, raw_json: &[u8], now: i64) -> NativeRes
                         error: None,
                     };
                 }
-            }
 
             let download_id = uuid::Uuid::now_v7().to_string();
             let expires_at = now + 60_000; // 60 seconds TTL
@@ -409,11 +408,10 @@ pub fn run() {
             Ok(Some(msg)) => {
                 let now = crate::time::now_ms();
                 let resp = handle_message(&conn, &msg, now);
-                if let Ok(resp_bytes) = serde_json::to_vec(&resp) {
-                    if write_framed_message(&mut stdout_lock, &resp_bytes).is_err() {
+                if let Ok(resp_bytes) = serde_json::to_vec(&resp)
+                    && write_framed_message(&mut stdout_lock, &resp_bytes).is_err() {
                         break;
                     }
-                }
             }
             Ok(None) => break, // EOF
             Err(e) => {
@@ -485,25 +483,21 @@ pub fn status(home: &Path, exe_path: &Path) -> NativeHostStatus {
         let manifest_path = dir.join(format!("{HOST_NAME}.json"));
         if manifest_path.exists() {
             chrome_installed = true;
-            if chrome_extension_id.is_none() {
-                if let Ok(content) = fs::read_to_string(&manifest_path) {
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                        if let Some(origins) = json.get("allowed_origins").and_then(|v| v.as_array()) {
+            if chrome_extension_id.is_none()
+                && let Ok(content) = fs::read_to_string(&manifest_path)
+                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+                        && let Some(origins) = json.get("allowed_origins").and_then(|v| v.as_array()) {
                             for origin in origins {
-                                if let Some(origin_str) = origin.as_str() {
-                                    if let Some(rest) = origin_str.strip_prefix("chrome-extension://") {
+                                if let Some(origin_str) = origin.as_str()
+                                    && let Some(rest) = origin_str.strip_prefix("chrome-extension://") {
                                         let id = rest.trim_end_matches('/');
                                         if is_valid_chrome_extension_id(id) {
                                             chrome_extension_id = Some(id.to_string());
                                             break;
                                         }
                                     }
-                                }
                             }
                         }
-                    }
-                }
-            }
         }
     }
 

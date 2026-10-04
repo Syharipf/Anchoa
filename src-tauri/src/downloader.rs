@@ -746,13 +746,12 @@ fn parse_and_validate_content_range(
             "Content-Range start {start} tidak cocok dengan permintaan {expected_start}"
         )));
     }
-    if let Some(exp_end) = expected_end {
-        if end != exp_end {
+    if let Some(exp_end) = expected_end
+        && end != exp_end {
             return Err(AppError::Other(format!(
                 "Content-Range end {end} tidak cocok dengan permintaan {exp_end}"
             )));
         }
-    }
 
     let parsed_total: Option<u64> = if total_str.trim() == "*" {
         None
@@ -765,13 +764,12 @@ fn parse_and_validate_content_range(
         )
     };
 
-    if let (Some(pt), Some(et)) = (parsed_total, expected_total) {
-        if pt != et {
+    if let (Some(pt), Some(et)) = (parsed_total, expected_total)
+        && pt != et {
             return Err(AppError::Other(format!(
                 "Content-Range total {pt} tidak cocok dengan total probe {et}"
             )));
         }
-    }
 
     Ok((start, end, parsed_total))
 }
@@ -814,7 +812,7 @@ fn classify_and_delay_retry(
         _ => Err(AppError::Other(format!("Kesalahan HTTP tidak dapat diulang: {err}"))),
     }
 }
-
+#[allow(clippy::too_many_arguments)]
 fn fetch_single_stream(
     agent: &ureq::Agent,
     opts: &FetchFileOptions<'_>,
@@ -829,15 +827,13 @@ fn fetch_single_stream(
     let mut resume_meta = load_resume_metadata(opts.part_dir, opts.url);
     let mut existing_len = 0u64;
 
-    if supports_range && validator.is_some() {
-        if let Some(ref meta) = resume_meta {
-            if meta.validator.as_deref() == validator {
+    if supports_range && validator.is_some()
+        && let Some(ref meta) = resume_meta
+            && meta.validator.as_deref() == validator {
                 let file_len = std::fs::metadata(payload_path).map(|m| m.len()).unwrap_or(0);
                 let saved_done = meta.ranges.first().map(|r| r.done).unwrap_or(0);
                 existing_len = saved_done.min(file_len);
             }
-        }
-    }
 
     let mut attempts = 0u32;
     loop {
@@ -877,14 +873,12 @@ fn fetch_single_stream(
                     continue;
                 }
             };
-            if let Some(v) = validator {
-                if let Some(resp_etag) = resp.headers().get("etag").and_then(|h| h.to_str().ok()) {
-                    if resp_etag != v {
+            if let Some(v) = validator
+                && let Some(resp_etag) = resp.headers().get("etag").and_then(|h| h.to_str().ok())
+                    && resp_etag != v {
                         existing_len = 0;
                         continue;
                     }
-                }
-            }
             let f = OpenOptions::new()
                 .write(true)
                 .open(payload_path)?;
@@ -905,15 +899,12 @@ fn fetch_single_stream(
                 .or(probe_total);
             (f, 0u64, total, total)
         } else if status == 416 {
-            if let (Some(t), Some(v)) = (probe_total, validator) {
-                if existing_len == t {
-                    if let Some(resp_etag) = resp.headers().get("etag").and_then(|h| h.to_str().ok()) {
-                        if resp_etag == v {
+            if let (Some(t), Some(v)) = (probe_total, validator)
+                && existing_len == t
+                    && let Some(resp_etag) = resp.headers().get("etag").and_then(|h| h.to_str().ok())
+                        && resp_etag == v {
                             return Ok(());
                         }
-                    }
-                }
-            }
             existing_len = 0;
             continue;
         } else {
@@ -937,11 +928,10 @@ fn fetch_single_stream(
             let start = Instant::now();
             let n = match reader.read(&mut buf) {
                 Ok(0) => {
-                    if let Some(exp) = expected_stream_bytes {
-                        if done < exp {
+                    if let Some(exp) = expected_stream_bytes
+                        && done < exp {
                             read_failed = true;
                         }
-                    }
                     break;
                 }
                 Ok(n) => n,
@@ -1017,7 +1007,7 @@ fn fetch_single_stream(
         return Ok(());
     }
 }
-
+#[allow(clippy::too_many_arguments)]
 fn fetch_multi_range(
     agent: &ureq::Agent,
     opts: &FetchFileOptions<'_>,
@@ -1047,8 +1037,8 @@ fn fetch_multi_range(
     }
 
     // Check existing resume.json
-    if let Some(meta) = load_resume_metadata(opts.part_dir, opts.url) {
-        if meta.validator.as_deref() == validator
+    if let Some(meta) = load_resume_metadata(opts.part_dir, opts.url)
+        && meta.validator.as_deref() == validator
             && meta.total == Some(total)
             && meta.ranges.len() == NUM_WORKERS
         {
@@ -1058,12 +1048,11 @@ fn fetch_multi_range(
                 }
             }
         }
-    }
 
     // Pre-allocate payload.part
     let file = OpenOptions::new()
-        .write(true)
         .create(true)
+        .truncate(false)
         .open(payload_path)?;
     file.set_len(total)?;
     drop(file);
@@ -1161,14 +1150,12 @@ fn fetch_multi_range(
                         return;
                     }
 
-                    if let Some(ref v) = validator_str {
-                        if let Some(resp_etag) = resp.headers().get("etag").and_then(|h| h.to_str().ok()) {
-                            if resp_etag != v {
+                    if let Some(ref v) = validator_str
+                        && let Some(resp_etag) = resp.headers().get("etag").and_then(|h| h.to_str().ok())
+                            && resp_etag != v {
                                 let _ = err_tx.send(format!("Worker {worker_idx} ETag mismatch: {resp_etag} != {v}"));
                                 return;
                             }
-                        }
-                    }
 
                     if let Err(e) = worker_file.seek(SeekFrom::Start(fetch_start)) {
                         let _ = err_tx.send(format!("Worker {worker_idx} seek gagal: {e}"));

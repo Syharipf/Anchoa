@@ -301,11 +301,10 @@ pub fn run() {
                 app.state::<downloader::Downloader>().stop_all();
                 app.state::<agent_runner::AgentRunner>().stop_all();
                 app.state::<assistant::voice::VoiceState>().stop_all();
-                if let Some(db) = app.try_state::<db::Db>() {
-                    if let Ok(conn) = db.conn() {
+                if let Some(db) = app.try_state::<db::Db>()
+                    && let Ok(conn) = db.conn() {
                         let _ = downloads::mark_interrupted(&conn, time::now_ms());
                     }
-                }
             }
         });
 }

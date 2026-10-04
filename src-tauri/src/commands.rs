@@ -798,9 +798,9 @@ pub fn resume_download(
 ) -> Result<(), AppError> {
     let now = time::now_ms();
     let conn = db.conn()?;
-    downloads::reset_retry(&*conn, &id, now)?;
+    downloads::reset_retry(&conn, &id, now)?;
     downloads::set_status(
-        &*conn,
+        &conn,
         &id,
         downloads::DownloadStatus::Queued,
         None,

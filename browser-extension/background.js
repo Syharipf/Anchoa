@@ -58,6 +58,27 @@ function handoffDownload(url, filename, referrer, browserDownloadId) {
   });
 }
 
+function safeBasename(filename) {
+  if (!filename || typeof filename !== "string") return undefined;
+  const parts = filename.split(/[/\\]/);
+  const base = parts[parts.length - 1].trim();
+  return base || undefined;
+}
+
+function recoverDownloadInBrowser(url, filename) {
+  const base = safeBasename(filename);
+  const options = { url };
+  if (base) {
+    options.filename = base;
+  }
+  chrome.downloads.download(options, () => {
+    if (chrome.runtime.lastError) {
+      // Fallback: retry bare url without filename
+      chrome.downloads.download({ url });
+    }
+  });
+}
+
 function commitWithRecovery(requestId, url, filename, maxRetries = 3) {
   let attempt = 0;
   function tryCommit() {
@@ -72,8 +93,8 @@ function commitWithRecovery(requestId, url, filename, maxRetries = 3) {
         if (attempt < maxRetries) {
           setTimeout(tryCommit, attempt * 1000);
         } else {
-          // Recovery: restart in browser if native host failed after cancel
-          chrome.downloads.download({ url, filename: filename || undefined });
+          // Recovery: restart in browser safely
+          recoverDownloadInBrowser(url, filename);
         }
       }
     );

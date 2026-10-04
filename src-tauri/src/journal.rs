@@ -1,5 +1,8 @@
 //! Journal entries with kind, mood, tags, and trend (spec Fase 4 §3-4).
 use std::collections::{BTreeSet, HashMap};
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::Path;
 
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
@@ -907,6 +910,124 @@ pub fn dismiss_reminder(conn: &Connection, now: i64, tz: &TimeZone) -> Result<()
         params![today_str],
     )?;
     Ok(())
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportResult {
+    pub count: usize,
+    pub dir: String,
+}
+
+fn slugify(title: &str) -> String {
+    let mut slug = String::new();
+    let mut last_dash = false;
+
+    for c in title.chars() {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c.to_ascii_lowercase());
+            last_dash = false;
+        } else if !last_dash {
+            slug.push('-');
+            last_dash = true;
+        }
+    }
+
+    let trimmed = slug.trim_matches('-');
+    if trimmed.is_empty() {
+        "entri".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+pub fn journal_export(
+    conn: &Connection,
+    dir: &Path,
+    ids: Option<Vec<String>>,
+    _now: i64,
+    tz: &TimeZone,
+) -> Result<ExportResult, AppError> {
+    std::fs::create_dir_all(dir)?;
+
+    let entries: Vec<Entry> = match ids {
+        Some(id_list) => {
+            let mut list = Vec::new();
+            for id in id_list {
+                if let Ok(entry) = journal_entry(conn, &id, _now, tz) {
+                    list.push(entry);
+                }
+            }
+            list
+        }
+        None => {
+            let mut stmt = conn.prepare(
+                "SELECT i.id FROM items i
+                 WHERE i.type = 'note' AND i.deleted_at IS NULL
+                 ORDER BY i.created_at ASC, i.id ASC",
+            )?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            let mut list = Vec::new();
+            for r in rows {
+                let id = r?;
+                if let Ok(entry) = journal_entry(conn, &id, _now, tz) {
+                    list.push(entry);
+                }
+            }
+            list
+        }
+    };
+
+    let mut count = 0;
+    for entry in entries {
+        let zoned = Timestamp::from_millisecond(entry.created_at)?.to_zoned(tz.clone());
+        let date_str = zoned.strftime("%Y-%m-%d").to_string();
+        let time_str = zoned.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string();
+        let slug = slugify(&entry.title);
+        let base_name = format!("{date_str}-{slug}");
+
+        let mut file_path = dir.join(format!("{base_name}.md"));
+        let mut counter = 2;
+        let mut file = loop {
+            match OpenOptions::new().write(true).create_new(true).open(&file_path) {
+                Ok(f) => break f,
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                    file_path = dir.join(format!("{base_name}-{counter}.md"));
+                    counter += 1;
+                }
+                Err(e) => return Err(e.into()),
+            }
+        };
+        let kind_str = match entry.kind {
+            EntryKind::Idea => "idea",
+            EntryKind::Vent => "vent",
+            EntryKind::Note => "note",
+        };
+        let mood_str = match entry.mood {
+            Some(m) => m.to_string(),
+            None => "null".to_string(),
+        };
+        let tags_str = entry.tags.join(", ");
+
+        let body = if entry.body.is_empty() {
+            String::new()
+        } else if entry.body.ends_with('\n') {
+            entry.body
+        } else {
+            format!("{}\n", entry.body)
+        };
+
+        let content = format!(
+            "---\njenis: {kind_str}\nsuasana: {mood_str}\ntag: [{tags_str}]\ndibuat: {time_str}\n---\n{body}"
+        );
+
+        file.write_all(content.as_bytes())?;
+        count += 1;
+    }
+
+    Ok(ExportResult {
+        count,
+        dir: dir.to_string_lossy().to_string(),
+    })
 }
 
 #[cfg(test)]
@@ -2068,5 +2189,79 @@ mod tests {
         assert!(user_content.contains(&"x".repeat(2000)));
 
         server.finish();
+    }
+
+    #[test]
+    fn journal_export_all_and_single_entry_with_yaml_frontmatter() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = ms("2026-10-04T10:30:00+07:00");
+        let e1 = create_entry(&conn, EntryKind::Note, Some("Refleksi Pagi"), t, &tz).unwrap();
+        let patch = EntryPatch {
+            mood: Some(Some(4)),
+            tags: Some("ide kerja".into()),
+            ..Default::default()
+        };
+        update_entry(&conn, &e1.id, &patch, t, &tz).unwrap();
+        conn.execute("UPDATE items SET body = 'Hari ini cerah dan produktif.' WHERE id = ?1", [&e1.id]).unwrap();
+
+        let _e2 = create_entry(&conn, EntryKind::Idea, Some(""), t + 1000, &tz).unwrap();
+
+        // 1. Export single entry
+        let temp_single = tempfile::tempdir().unwrap();
+        let res_single = journal_export(&conn, temp_single.path(), Some(vec![e1.id.clone()]), t, &tz).unwrap();
+        assert_eq!(res_single.count, 1);
+        let single_file = temp_single.path().join("2026-10-04-refleksi-pagi.md");
+        assert!(single_file.is_file());
+        let single_content = std::fs::read_to_string(&single_file).unwrap();
+        let expected_single = "---\njenis: note\nsuasana: 4\ntag: [ide, kerja]\ndibuat: 2026-10-04T10:30:00+07:00\n---\nHari ini cerah dan produktif.\n";
+        assert_eq!(single_content, expected_single);
+
+        // 2. Export all entries
+        let temp_all = tempfile::tempdir().unwrap();
+        let res_all = journal_export(&conn, temp_all.path(), None, t, &tz).unwrap();
+        assert_eq!(res_all.count, 2);
+        assert_eq!(res_all.dir, temp_all.path().to_string_lossy().to_string());
+
+        let e2_file = temp_all.path().join("2026-10-04-entri.md");
+        assert!(e2_file.is_file());
+        let e2_content = std::fs::read_to_string(&e2_file).unwrap();
+        let expected_e2 = "---\njenis: idea\nsuasana: null\ntag: []\ndibuat: 2026-10-04T10:30:01+07:00\n---\n";
+        assert_eq!(e2_content, expected_e2);
+    }
+
+    #[test]
+    fn journal_export_resolves_name_collision_without_overwriting() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = ms("2026-10-04T10:30:00+07:00");
+        let _e1 = create_entry(&conn, EntryKind::Note, Some("Judul Sama"), t, &tz).unwrap();
+        let _e2 = create_entry(&conn, EntryKind::Note, Some("Judul Sama"), t + 1, &tz).unwrap();
+
+        let temp = tempfile::tempdir().unwrap();
+        let result = journal_export(&conn, temp.path(), None, t, &tz).unwrap();
+        assert_eq!(result.count, 2);
+
+        let file1 = temp.path().join("2026-10-04-judul-sama.md");
+        let file2 = temp.path().join("2026-10-04-judul-sama-2.md");
+        assert!(file1.is_file());
+        assert!(file2.is_file());
+    }
+
+    #[test]
+    fn journal_export_skips_deleted_entries() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = ms("2026-10-04T10:30:00+07:00");
+        let _e1 = create_entry(&conn, EntryKind::Note, Some("Aktif"), t, &tz).unwrap();
+        let _e2 = create_entry(&conn, EntryKind::Note, Some("Dihapus"), t + 1, &tz).unwrap();
+        delete_entry(&conn, &_e2.id, t + 2).unwrap();
+
+        let temp = tempfile::tempdir().unwrap();
+        let result = journal_export(&conn, temp.path(), None, t, &tz).unwrap();
+        assert_eq!(result.count, 1);
+
+        assert!(temp.path().join("2026-10-04-aktif.md").is_file());
+        assert!(!temp.path().join("2026-10-04-dihapus.md").exists());
     }
 }

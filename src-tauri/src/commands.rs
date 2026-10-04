@@ -21,7 +21,7 @@ use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
 use crate::habits::{self, HabitInput, HabitRow, History as HabitHistory, Overview as HabitsOverview};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
-use crate::journal::{self, CalendarView, Entry, EntryKind, EntryPatch, JournalList, ListQuery, Side};
+use crate::journal::{self, CalendarView, Entry, EntryKind, EntryPatch, ExportResult, JournalList, ListQuery, Side};
 use crate::profile::{self, NotifyPrefs, Profile};
 use crate::projects::{self, Board, BoardFilter, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
@@ -589,6 +589,12 @@ pub async fn journal_weekly_summary(app: AppHandle, db: State<'_, Db>) -> Result
 #[tauri::command]
 pub fn dismiss_journal_reminder(db: State<'_, Db>) -> Result<(), AppError> {
     journal::dismiss_reminder(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn journal_export(db: State<'_, Db>, dir: String, ids: Option<Vec<String>>) -> Result<ExportResult, AppError> {
+    use std::path::Path;
+    journal::journal_export(&*db.conn()?, Path::new(&dir), ids, time::now_ms(), &TimeZone::system())
 }
 
 fn current_user_and_roots(app: &AppHandle) -> Result<(String, files::Roots, Vec<files::Place>), AppError> {

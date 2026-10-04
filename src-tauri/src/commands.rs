@@ -21,7 +21,7 @@ use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
 use crate::habits::{self, HabitInput, HabitRow, History as HabitHistory, Overview as HabitsOverview};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
-use crate::journal::{self, Entry, EntryKind, EntryPatch, JournalList, ListQuery, Side};
+use crate::journal::{self, CalendarView, Entry, EntryKind, EntryPatch, JournalList, ListQuery, Side};
 use crate::profile::{self, NotifyPrefs, Profile};
 use crate::projects::{self, Board, BoardFilter, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
@@ -518,8 +518,9 @@ pub fn journal_list(
     kind: Option<EntryKind>,
     tag: Option<String>,
     mood: Option<i8>,
+    date: Option<String>,
 ) -> Result<JournalList, AppError> {
-    let q = ListQuery { query, kind, tag, mood };
+    let q = ListQuery { query, kind, tag, mood, date };
     let groups = journal::journal_list(&*db.conn()?, &q, time::now_ms(), &TimeZone::system())?;
     Ok(JournalList { groups })
 }
@@ -565,6 +566,11 @@ pub fn restore_entry(db: State<'_, Db>, id: String) -> Result<(), AppError> {
 #[tauri::command]
 pub fn journal_side(db: State<'_, Db>) -> Result<Side, AppError> {
     journal::journal_side(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn journal_calendar(db: State<'_, Db>, month: String) -> Result<CalendarView, AppError> {
+    journal::journal_calendar(&*db.conn()?, &month, time::now_ms(), &TimeZone::system())
 }
 
 #[tauri::command]

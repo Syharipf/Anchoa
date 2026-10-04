@@ -1,5 +1,5 @@
 //! Journal entries with kind, mood, tags, and trend (spec Fase 4 §3-4).
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
@@ -96,6 +96,7 @@ pub struct ListQuery {
     pub kind: Option<EntryKind>,
     pub tag: Option<String>,
     pub mood: Option<i8>,
+    pub date: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -126,6 +127,23 @@ pub struct Side {
     pub trend: Vec<TrendDay>,
     pub write_days: i64,
     pub ideas: Vec<EntrySummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarDay {
+    pub date: String,
+    pub count: i64,
+    pub mood: Option<i8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarView {
+    pub month: String,
+    pub days: Vec<CalendarDay>,
+    pub current_streak: i64,
+    pub best_streak: i64,
 }
 
 pub fn format_time(created_at: i64, now: i64, tz: &TimeZone) -> Result<String, AppError> {
@@ -379,6 +397,13 @@ pub fn journal_list(
         sql.push_str(" AND j.mood = ?");
         params_vec.push(i64::from(mood).into());
     }
+    if let Some(date_str) = &query.date {
+        let d = crate::time::parse_date(date_str)?;
+        let (start, end) = crate::time::date_bounds(d, tz)?;
+        sql.push_str(" AND i.created_at >= ? AND i.created_at < ?");
+        params_vec.push(start.into());
+        params_vec.push(end.into());
+    }
     if let Some(raw) = &query.tag {
         let tag = normalize_tags(raw)?;
         if tag.is_empty() || tag.contains(' ') {
@@ -462,6 +487,115 @@ pub fn journal_list(
     }
 
     Ok(groups)
+}
+
+pub fn calculate_streaks(today: Date, dates: &BTreeSet<Date>) -> (i64, i64) {
+    let past: BTreeSet<Date> = dates.iter().copied().filter(|&d| d <= today).collect();
+
+    let mut current = 0;
+    let mut check_date = if past.contains(&today) {
+        Some(today)
+    } else {
+        today.yesterday().ok().filter(|y| past.contains(y))
+    };
+
+    while let Some(d) = check_date {
+        current += 1;
+        match d.yesterday() {
+            Ok(prev) if past.contains(&prev) => check_date = Some(prev),
+            _ => break,
+        }
+    }
+
+    let mut best = 0;
+    let mut run = 0;
+    let mut prev: Option<Date> = None;
+
+    for &d in &past {
+        if let Some(p) = prev {
+            if p.tomorrow().ok() == Some(d) {
+                run += 1;
+            } else {
+                run = 1;
+            }
+        } else {
+            run = 1;
+        }
+        if run > best {
+            best = run;
+        }
+        prev = Some(d);
+    }
+
+    (current, best.max(current))
+}
+
+pub fn journal_calendar(
+    conn: &Connection,
+    month: &str,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<CalendarView, AppError> {
+    let first = crate::time::first_day(month)?;
+    let days_in_month = first.days_in_month();
+
+    let mut stmt = conn.prepare(
+        "SELECT i.created_at, j.mood
+         FROM items i
+         LEFT JOIN journal_entries j ON j.item_id = i.id
+         WHERE i.type = 'note' AND i.deleted_at IS NULL",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i8>>(1)?)))?;
+
+    let mut month_data: HashMap<Date, (i64, Vec<i8>)> = HashMap::new();
+    let mut all_dates: BTreeSet<Date> = BTreeSet::new();
+
+    for row in rows {
+        let (created_at, mood) = row?;
+        if let Ok(d) = local_date(created_at, tz) {
+            all_dates.insert(d);
+            if d.year() == first.year() && d.month() == first.month() {
+                let entry = month_data.entry(d).or_insert((0, Vec::new()));
+                entry.0 += 1;
+                if let Some(m) = mood {
+                    entry.1.push(m);
+                }
+            }
+        }
+    }
+
+    let mut days = Vec::with_capacity(days_in_month as usize);
+    for d in 1..=days_in_month {
+        let date = Date::new(first.year(), first.month(), d).map_err(|e| AppError::Other(e.to_string()))?;
+        let (count, mood) = match month_data.get(&date) {
+            Some((c, moods)) => {
+                let avg_mood = if moods.is_empty() {
+                    None
+                } else {
+                    let sum: i64 = moods.iter().map(|&m| m as i64).sum();
+                    let avg = ((sum as f64) / (moods.len() as f64)).round() as i8;
+                    Some(avg.clamp(1, 5))
+                };
+                (*c, avg_mood)
+            }
+            None => (0, None),
+        };
+        days.push(CalendarDay {
+            date: date.to_string(),
+            count,
+            mood,
+        });
+    }
+
+    let today = local_date(now, tz)?;
+    let (current_streak, best_streak) = calculate_streaks(today, &all_dates);
+
+    Ok(CalendarView {
+        month: month.to_string(),
+        days,
+        current_streak,
+        best_streak,
+    })
 }
 
 pub fn journal_side(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Side, AppError> {
@@ -756,7 +890,7 @@ mod tests {
                 matching.push(entry.id);
             }
         }
-        let query = ListQuery { query: Some("KOPI".into()), kind: Some(EntryKind::Idea), tag: Some("#Kerja".into()), mood: Some(4) };
+        let query = ListQuery { query: Some("KOPI".into()), kind: Some(EntryKind::Idea), tag: Some("#Kerja".into()), mood: Some(4), ..Default::default() };
         let groups = journal_list(&conn, &query, t, &tz).unwrap();
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].key, "pinned");
@@ -1378,5 +1512,219 @@ mod tests {
         crate::profile::set_notify_prefs(&conn, &off).unwrap();
         let day3 = ms("2026-10-01T20:00:00+07:00");
         assert!(!due_reminder(&conn, day3, &tz).unwrap());
+    }
+
+    #[test]
+    fn calculate_streaks_cases() {
+        let today = Date::new(2026, 10, 4).unwrap();
+        let d = |y, m, day| Date::new(y, m, day).unwrap();
+
+        // Empty dates
+        let empty = BTreeSet::new();
+        assert_eq!(calculate_streaks(today, &empty), (0, 0));
+
+        // Today only
+        let mut dates = BTreeSet::from([today]);
+        assert_eq!(calculate_streaks(today, &dates), (1, 1));
+
+        // Yesterday only
+        dates = BTreeSet::from([d(2026, 10, 3)]);
+        assert_eq!(calculate_streaks(today, &dates), (1, 1));
+
+        // 2 days ago only (streak expired)
+        dates = BTreeSet::from([d(2026, 10, 2)]);
+        assert_eq!(calculate_streaks(today, &dates), (0, 1));
+
+        // Consecutive ending today
+        dates = BTreeSet::from([d(2026, 10, 2), d(2026, 10, 3), today]);
+        assert_eq!(calculate_streaks(today, &dates), (3, 3));
+
+        // Consecutive ending yesterday (active)
+        dates = BTreeSet::from([d(2026, 10, 1), d(2026, 10, 2), d(2026, 10, 3)]);
+        assert_eq!(calculate_streaks(today, &dates), (3, 3));
+
+        // Current streak ending today with longer past streak
+        dates = BTreeSet::from([
+            d(2026, 9, 10),
+            d(2026, 9, 11),
+            d(2026, 9, 12),
+            d(2026, 9, 13),
+            d(2026, 9, 14), // run of 5
+            d(2026, 10, 3),
+            today, // current run of 2
+        ]);
+        assert_eq!(calculate_streaks(today, &dates), (2, 5));
+
+        // Future date is ignored
+        dates.insert(d(2026, 10, 10));
+        assert_eq!(calculate_streaks(today, &dates), (2, 5));
+    }
+
+    #[test]
+    fn journal_calendar_returns_days_mood_and_streaks() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_t = ms("2026-10-04T12:00:00+07:00");
+
+        // Day 1: two entries, moods 2 and 4 -> avg 3
+        let t1a = ms("2026-10-01T08:00:00+07:00");
+        let e1a = create_entry(&conn, EntryKind::Note, Some("Entri 1A"), t1a, &tz).unwrap();
+        update_entry(&conn, &e1a.id, &EntryPatch { mood: Some(Some(2)), ..Default::default() }, t1a, &tz).unwrap();
+        let t1b = ms("2026-10-01T20:00:00+07:00");
+        let e1b = create_entry(&conn, EntryKind::Note, Some("Entri 1B"), t1b, &tz).unwrap();
+        update_entry(&conn, &e1b.id, &EntryPatch { mood: Some(Some(4)), ..Default::default() }, t1b, &tz).unwrap();
+
+        // Day 2: one entry, no mood
+        let t2 = ms("2026-10-02T10:00:00+07:00");
+        create_entry(&conn, EntryKind::Note, Some("Entri 2"), t2, &tz).unwrap();
+
+        // Day 3: one entry with mood 5
+        let t3 = ms("2026-10-03T10:00:00+07:00");
+        let e3 = create_entry(&conn, EntryKind::Note, Some("Entri 3"), t3, &tz).unwrap();
+        update_entry(&conn, &e3.id, &EntryPatch { mood: Some(Some(5)), ..Default::default() }, t3, &tz).unwrap();
+
+        // Day 4 (today): one entry with mood 1
+        let e4 = create_entry(&conn, EntryKind::Note, Some("Entri 4"), now_t, &tz).unwrap();
+        update_entry(&conn, &e4.id, &EntryPatch { mood: Some(Some(1)), ..Default::default() }, now_t, &tz).unwrap();
+
+        let cal = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal.month, "2026-10");
+        assert_eq!(cal.days.len(), 31);
+        assert_eq!(cal.days[0].date, "2026-10-01");
+        assert_eq!(cal.days[0].count, 2);
+        assert_eq!(cal.days[0].mood, Some(3));
+
+        assert_eq!(cal.days[1].date, "2026-10-02");
+        assert_eq!(cal.days[1].count, 1);
+        assert_eq!(cal.days[1].mood, None);
+
+        assert_eq!(cal.days[2].date, "2026-10-03");
+        assert_eq!(cal.days[2].count, 1);
+        assert_eq!(cal.days[2].mood, Some(5));
+
+        assert_eq!(cal.days[3].date, "2026-10-04");
+        assert_eq!(cal.days[3].count, 1);
+        assert_eq!(cal.days[3].mood, Some(1));
+
+        assert_eq!(cal.days[4].date, "2026-10-05");
+        assert_eq!(cal.days[4].count, 0);
+        assert_eq!(cal.days[4].mood, None);
+
+        // Streak: Day 1, 2, 3, 4 consecutive -> current = 4, best = 4
+        assert_eq!(cal.current_streak, 4);
+        assert_eq!(cal.best_streak, 4);
+
+        // Reject bad month
+        for bad in ["2026", "2026-13", "bad", ""] {
+            assert!(matches!(journal_calendar(&conn, bad, now_t, &tz), Err(AppError::Invalid(_))));
+        }
+    }
+
+    #[test]
+    fn journal_calendar_ignores_deleted_entries() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let now_t = ms("2026-10-04T12:00:00+07:00");
+        let t3 = ms("2026-10-03T12:00:00+07:00");
+
+        let e3 = create_entry(&conn, EntryKind::Note, Some("Kemarin"), t3, &tz).unwrap();
+        let e4 = create_entry(&conn, EntryKind::Note, Some("Hari ini"), now_t, &tz).unwrap();
+
+        let cal = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal.current_streak, 2);
+
+        // Delete yesterday's entry -> breaks streak
+        delete_entry(&conn, &e3.id, now_t).unwrap();
+        let cal2 = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal2.days[2].count, 0);
+        assert_eq!(cal2.current_streak, 1); // only today
+
+        // Delete today's entry -> streak 0
+        delete_entry(&conn, &e4.id, now_t).unwrap();
+        let cal3 = journal_calendar(&conn, "2026-10", now_t, &tz).unwrap();
+        assert_eq!(cal3.days[3].count, 0);
+        assert_eq!(cal3.current_streak, 0);
+    }
+
+    #[test]
+    fn journal_list_filters_by_date() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t28 = ms("2026-09-28T15:00:00+07:00");
+        let t29a = ms("2026-09-29T09:00:00+07:00");
+        let t29b = ms("2026-09-29T21:00:00+07:00");
+        let t30 = ms("2026-09-30T10:00:00+07:00");
+
+        let e28 = create_entry(&conn, EntryKind::Note, Some("Entri 28"), t28, &tz).unwrap();
+        let e29a = create_entry(&conn, EntryKind::Note, Some("Entri 29A"), t29a, &tz).unwrap();
+        let e29b = create_entry(&conn, EntryKind::Idea, Some("Entri 29B"), t29b, &tz).unwrap();
+        let _e30 = create_entry(&conn, EntryKind::Note, Some("Entri 30"), t30, &tz).unwrap();
+
+        // Filter date 2026-09-29
+        let groups = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-09-29".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids: Vec<String> = groups.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids, vec![e29b.id.clone(), e29a.id.clone()]);
+
+        // Filter date 2026-09-28
+        let groups28 = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-09-28".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids28: Vec<String> = groups28.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids28, vec![e28.id.clone()]);
+
+        // Date with no entries
+        let groups_empty = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-10-05".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        assert!(groups_empty.is_empty());
+
+        // Combine date with kind
+        let groups_kind = journal_list(
+            &conn,
+            &ListQuery {
+                date: Some("2026-09-29".into()),
+                kind: Some(EntryKind::Idea),
+                ..Default::default()
+            },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids_kind: Vec<String> = groups_kind.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids_kind, vec![e29b.id.clone()]);
+
+        // Invalid date formats reject
+        for bad in ["2026-9-29", "invalid", "", "2026-02-30"] {
+            assert!(matches!(
+                journal_list(&conn, &ListQuery { date: Some(bad.into()), ..Default::default() }, t30, &tz),
+                Err(AppError::Invalid(_))
+            ));
+        }
+
+        // Soft deleted entry is excluded
+        delete_entry(&conn, &e29a.id, t30).unwrap();
+        let groups_after_del = journal_list(
+            &conn,
+            &ListQuery { date: Some("2026-09-29".into()), ..Default::default() },
+            t30,
+            &tz,
+        )
+        .unwrap();
+        let ids_del: Vec<String> = groups_after_del.into_iter().flat_map(|g| g.entries).map(|e| e.id).collect();
+        assert_eq!(ids_del, vec![e29b.id.clone()]);
     }
 }

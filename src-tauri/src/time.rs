@@ -20,7 +20,7 @@ pub fn month_of(now_ms: i64, tz: &TimeZone) -> Result<String, jiff::Error> {
 }
 
 /// First day of a `YYYY-MM` month.
-fn first_day(month: &str) -> Result<Date, AppError> {
+pub fn first_day(month: &str) -> Result<Date, AppError> {
     let invalid = || AppError::Invalid(format!("Bulan tidak valid: {month}"));
     let (year, mon) = month.split_once('-').ok_or_else(invalid)?;
     if year.len() != 4 || mon.len() != 2 {
@@ -29,6 +29,30 @@ fn first_day(month: &str) -> Result<Date, AppError> {
     let year: i16 = year.parse().map_err(|_| invalid())?;
     let mon: i8 = mon.parse().map_err(|_| invalid())?;
     Date::new(year, mon, 1).map_err(|_| invalid())
+}
+
+/// Parse "YYYY-MM-DD" into a civil Date.
+pub fn parse_date(s: &str) -> Result<Date, AppError> {
+    let invalid = || AppError::Invalid(format!("Tanggal tidak valid: {s}"));
+    if s.len() != 10 {
+        return Err(invalid());
+    }
+    let (year, rest) = s.split_once('-').ok_or_else(invalid)?;
+    let (mon, day) = rest.split_once('-').ok_or_else(invalid)?;
+    if year.len() != 4 || mon.len() != 2 || day.len() != 2 {
+        return Err(invalid());
+    }
+    let year: i16 = year.parse().map_err(|_| invalid())?;
+    let mon: i8 = mon.parse().map_err(|_| invalid())?;
+    let day: i8 = day.parse().map_err(|_| invalid())?;
+    Date::new(year, mon, day).map_err(|_| invalid())
+}
+
+/// Start (inclusive) and end (exclusive) in ms of a civil date in the given timezone.
+pub fn date_bounds(date: Date, tz: &TimeZone) -> Result<(i64, i64), AppError> {
+    let start = date.to_zoned(tz.clone())?;
+    let end = date.tomorrow()?.to_zoned(tz.clone())?;
+    Ok((start.timestamp().as_millisecond(), end.timestamp().as_millisecond()))
 }
 
 /// Start (inclusive) and end (exclusive) of a local month given as `YYYY-MM`.
@@ -207,6 +231,20 @@ mod tests {
             assert!(month_of(bad, &jakarta()).is_err());
             assert!(local_date(bad, &jakarta()).is_err());
             assert!(next_month_due(bad, 31, &jakarta()).is_err());
+        }
+    }
+
+    #[test]
+    fn parse_date_and_date_bounds() {
+        let tz = jakarta();
+        let d = parse_date("2026-09-29").unwrap();
+        assert_eq!(d.to_string(), "2026-09-29");
+        let (start, end) = date_bounds(d, &tz).unwrap();
+        assert_eq!(start, ms("2026-09-29T00:00:00+07:00"));
+        assert_eq!(end, ms("2026-09-30T00:00:00+07:00"));
+
+        for bad in ["2026-9-29", "2026-09-9", "2026-02-30", "2026-13-01", "2026-09", "", "2026-09-29-extra"] {
+            assert!(matches!(parse_date(bad), Err(AppError::Invalid(_))), "{bad}");
         }
     }
 }

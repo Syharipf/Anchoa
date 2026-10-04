@@ -10,3 +10,7 @@ export const PRIMARY =
 export const SECONDARY =
   "min-h-10 rounded-full border border-line px-4 text-[13px] text-ink transition-colors hover:bg-surface-2";
 export const ROW = "rounded-lg transition-colors hover:bg-surface-2";
+export const HEADER_PRIMARY =
+  "flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-accent px-4 font-display text-sm font-semibold text-canvas transition-transform hover:scale-105 active:scale-95 disabled:bg-disabled disabled:text-muted";
+export const HEADER_SECONDARY =
+  "flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-disabled";

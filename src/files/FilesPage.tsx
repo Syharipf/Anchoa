@@ -270,8 +270,18 @@ export function FilesPage({
 
   return (
     <div className="flex h-full flex-col gap-3.5">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h1 className={H1}>Berkas</h1>
+        <button
+          type="button"
+          onClick={() => toast("Fitur buat folder baru akan segera hadir", "info")}
+          className="flex min-h-[38px] items-center gap-2 rounded-[10px] bg-accent px-3.5 font-display text-[13px] font-semibold text-canvas transition-transform hover:scale-105 active:scale-95"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Folder baru
+        </button>
       </div>
 
       <FilesToolbar

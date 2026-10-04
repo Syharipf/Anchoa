@@ -9,7 +9,7 @@ import {
 } from "../api";
 import { fullDate } from "../format";
 import { useToast } from "../shell/toast";
-import { H1, PRIMARY, SECONDARY } from "../shell/ui";
+import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
 import { HabitDetail } from "./HabitDetail";
 import { HabitForm } from "./HabitForm";
 import { SummaryCards } from "./SummaryCards";
@@ -147,7 +147,7 @@ export function HabitsPage({
           <button
             type="button"
             onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={`${SECONDARY} flex items-center gap-2`}
+            className={HEADER_SECONDARY}
           >
             <MicIcon />
             <span>Catat lewat suara</span>
@@ -155,7 +155,7 @@ export function HabitsPage({
           <button
             type="button"
             onClick={() => setFormOpen({})}
-            className={`${PRIMARY} flex items-center gap-1.5`}
+            className={HEADER_PRIMARY}
           >
             <PlusIcon />
             <span>Habit</span>
@@ -163,8 +163,8 @@ export function HabitsPage({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-4">
-        <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_392px] gap-4">
+        <div className="flex min-h-0 flex-col gap-3.5">
           <SummaryCards
             todayDone={overview.todayDone}
             todayTotal={overview.todayTotal}

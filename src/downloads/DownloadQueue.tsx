@@ -173,7 +173,7 @@ export function DownloadQueue({
                     label={`Kemajuan unduhan ${row.title}`}
                     state={downloadProgressState(row.status)}
                     tone={downloadProgressTone(row.status)}
-                    className="h-2.5"
+                    className="h-3"
                   />
                   <span
                     className={`truncate font-mono text-[11px] ${

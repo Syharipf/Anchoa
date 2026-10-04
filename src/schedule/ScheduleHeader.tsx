@@ -1,6 +1,6 @@
 import type { ItemKind } from "../api";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
-import { H1, SECONDARY } from "../shell/ui";
+import { H1, HEADER_SECONDARY } from "../shell/ui";
 import { ALL_KINDS, KIND_COLORS, KIND_LABELS } from "./layout";
 
 export function ScheduleHeader({
@@ -137,7 +137,7 @@ export function ScheduleHeader({
         <button
           type="button"
           onClick={onToday}
-          className="min-h-9 rounded-[10px] border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2"
+          className="min-h-9 rounded-[10px] border border-line bg-transparent px-3 font-display text-[13px] font-medium text-ink transition-colors hover:bg-surface-2"
         >
           Hari ini
         </button>
@@ -146,7 +146,7 @@ export function ScheduleHeader({
           <button
             type="button"
             onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={`${SECONDARY} flex items-center gap-2`}
+            className={HEADER_SECONDARY}
           >
             <svg
               width="16"
@@ -163,7 +163,7 @@ export function ScheduleHeader({
               <path d="M5 11a7 7 0 0 0 14 0" />
               <path d="M12 18v3" />
             </svg>
-            Tambah tugas lewat suara
+            <span>Tambah tugas lewat suara</span>
           </button>
         </div>
       </div>

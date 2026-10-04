@@ -206,6 +206,21 @@ export function DownloadSettingsPanel({
           })}
         </div>
       </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
+        <span id="pantau-clipboard-label" className="text-xs text-ink">
+          Pantau clipboard
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked="true"
+          aria-labelledby="pantau-clipboard-label"
+          className="flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full bg-accent p-0.5"
+        >
+          <span className="h-[18px] w-[18px] rounded-full bg-[#12151B] transition-transform translate-x-[18px]" />
+        </button>
+      </div>
     </section>
   );
 }

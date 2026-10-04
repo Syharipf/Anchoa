@@ -132,12 +132,12 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
       <form onSubmit={submit} className="flex shrink-0 flex-col gap-2 border-t border-line bg-stage py-3 pr-[88px] pl-5">
         {assistance && <div role="group" aria-label="Saran balasan" className="flex flex-wrap gap-1.5">
           {assistance.replies.map((suggestion) => <button key={suggestion} type="button" disabled={busy || sending.busy}
-            onClick={() => setReply(suggestion)} className={`${SECONDARY} min-h-7 px-2.5 text-xs disabled:opacity-50`}>{suggestion}</button>)}
+            onClick={() => setReply(suggestion)} className="min-h-7 rounded-full border border-disabled px-2.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-50">{suggestion}</button>)}
         </div>}
         <label htmlFor="email-reply" className="text-xs text-muted">Balas ke {recipients.join(", ")}</label>
         <div className="flex items-end gap-2">
           <textarea id="email-reply" rows={2} required disabled={busy || sending.busy} value={reply}
-            onChange={(e) => setReply(e.target.value)} placeholder="Tulis balasan…" className={`${FIELD} min-w-0 flex-1 resize-y`} />
+            onChange={(e) => setReply(e.target.value)} placeholder="Tulis balasan, atau tekan mikrofon untuk mendikte…" className={`${FIELD} min-w-0 flex-1 resize-y`} />
           <button type="submit" aria-label="Kirim balasan" disabled={busy || sending.busy || !reply.trim()} className={PRIMARY}>{sending.busy ? "Mengirim…" : "Kirim"}</button>
         </div>
         {sending.error && <p role="alert" className="m-0 text-sm text-danger">{sending.error}</p>}

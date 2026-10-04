@@ -200,7 +200,7 @@ export function SchedulePage({
       />
 
       {view === "calendar" && (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] items-start gap-[18px]">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_300px] items-start gap-[18px]">
           <CalendarView
             month={month}
             today={today}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  JOURNAL_TEMPLATES,
   KIND_META,
   MOODS,
   PROMPTS,
@@ -80,5 +81,31 @@ describe("journal view rules", () => {
     expect(tagsToText([])).toBe("");
     expect(tagsToText(["anchoa", "kuliah"])).toBe("anchoa kuliah");
     expect(tagsToText(["anchoa", "", "kuliah"])).toBe("anchoa kuliah");
+  });
+
+  it("provides 4 built-in journal templates with required properties", () => {
+    expect(JOURNAL_TEMPLATES).toHaveLength(4);
+
+    const ids = JOURNAL_TEMPLATES.map((t) => t.id);
+    expect(ids).toEqual(["daily-reflection", "gratitude", "weekly-review", "guided-vent"]);
+
+    for (const t of JOURNAL_TEMPLATES) {
+      expect(t.id).toBeDefined();
+      expect(t.label.length).toBeGreaterThan(0);
+      expect(t.description.length).toBeGreaterThan(0);
+      expect(["note", "vent", "idea"]).toContain(t.kind);
+      expect(t.title.length).toBeGreaterThan(0);
+      expect(t.body.length).toBeGreaterThan(0);
+    }
+
+    const daily = JOURNAL_TEMPLATES.find((t) => t.id === "daily-reflection");
+    expect(daily?.label).toBe("Refleksi harian");
+    expect(daily?.kind).toBe("note");
+    expect(daily?.body).toContain("Apa yang berjalan baik hari ini?");
+
+    const vent = JOURNAL_TEMPLATES.find((t) => t.id === "guided-vent");
+    expect(vent?.label).toBe("Curhat terarah");
+    expect(vent?.kind).toBe("vent");
+    expect(vent?.body).toContain("Apa yang sedang kurasakan?");
   });
 });

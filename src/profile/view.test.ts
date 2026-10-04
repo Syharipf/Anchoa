@@ -66,7 +66,7 @@ describe("profileStatsList", () => {
 });
 
 describe("NOTIFY_PREF_OPTIONS", () => {
-  it("contains the four notification switch keys in order", () => {
-    expect(NOTIFY_PREF_OPTIONS.map((o) => o.key)).toEqual(["task", "bill", "budget", "habit"]);
+  it("contains the five notification switch keys in order", () => {
+    expect(NOTIFY_PREF_OPTIONS.map((o) => o.key)).toEqual(["task", "bill", "budget", "habit", "journal"]);
   });
 });

@@ -17,7 +17,8 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
   const timers = new Map<number, () => void>();
   const intervals = new Map<number, { run: () => void; delay: number | undefined }>();
   let timerId = 0;
-  const listeners = new Map<string, Set<() => void>>();
+  const listeners = new Map<string, Set<((e?: unknown) => void)>>();
+  const docListeners = new Map<string, Set<((e?: unknown) => void)>>();
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
   const previousSetTimeout = globalThis.setTimeout;
@@ -45,6 +46,11 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
   } });
   Object.defineProperty(globalThis, "document", { configurable: true, value: {
     activeElement: null, getElementById: () => null,
+    addEventListener: (name: string, run: (e?: unknown) => void) => {
+      if (!docListeners.has(name)) docListeners.set(name, new Set());
+      docListeners.get(name)!.add(run);
+    },
+    removeEventListener: (name: string, run: (e?: unknown) => void) => docListeners.get(name)?.delete(run),
   } });
   const sameDeps = (a?: React.DependencyList, b?: React.DependencyList) =>
     a !== undefined && b !== undefined && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type ProjectSummary, type TaskDetail, type TaskPatch, type TaskStatus } from "../api";
+import { api, type Priority, type ProjectSummary, type TaskDetail, type TaskPatch, type TaskStatus } from "../api";
 import { dateInputToMs, msToDateInput } from "../format";
 import { Segmented } from "../finance/fields";
 import { FIELD } from "../shell/ui";
@@ -91,6 +91,10 @@ export function TaskFields({
   async function handleStartAtChange(ms: number | null) {
     await saveTaskPatch({ startAt: ms });
   }
+  async function handlePriorityChange(priority: Priority | null) {
+    await saveTaskPatch({ priority });
+  }
+
 
   async function handleDueAtChange(ms: number | null) {
     onSaveState("saving");
@@ -195,6 +199,23 @@ export function TaskFields({
             onBlur={() => void flushTag()}
             className={`${FIELD} py-1 px-2.5 text-xs`}
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label htmlFor="task-priority" className="text-muted">
+            Prioritas
+          </label>
+          <select
+            id="task-priority"
+            value={task.priority ?? ""}
+            onChange={(e) => void handlePriorityChange(e.target.value ? (Number(e.target.value) as Priority) : null)}
+            className={`${FIELD} py-1 px-2.5 text-xs`}
+          >
+            <option value="">Tanpa prioritas</option>
+            <option value="1">Tinggi</option>
+            <option value="2">Sedang</option>
+            <option value="3">Rendah</option>
+          </select>
         </div>
       </div>
     </div>

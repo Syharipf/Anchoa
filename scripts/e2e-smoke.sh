@@ -94,7 +94,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 13 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 14 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -398,7 +398,7 @@ check_projects() {
   sleep 1
   xdotool key Return
   sleep 1
-  click 450 355                 # + Tugas in Rencana
+  click 530 380                 # + Tugas in Rencana
   sleep 0.5
   xdotool type --delay 20 'Tugas A'
   sleep 1
@@ -407,8 +407,9 @@ check_projects() {
   xdotool type --delay 20 'Tugas B'
   sleep 1
   xdotool key Return
-  sleep 1
-  click 646 445                 # arrow on first card (Tugas A)
+  xdotool key Escape            # close + Tugas input
+  sleep 0.5
+  click 655 465                 # arrow on first card (Tugas A)
   sleep 1
   shot 12-projects
   proj_id=$(sql_value "SELECT item_id FROM projects")
@@ -418,7 +419,7 @@ check_projects() {
   sql_becomes "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas A')" "doing" || fail "Tugas A should be doing"
   sql_becomes "SELECT status FROM tasks WHERE project_id = '$proj_id' AND item_id = (SELECT id FROM items WHERE title = 'Tugas B')" "plan" || fail "Tugas B should be plan"
   # Task 10: subtask on Tugas B
-  click 450 400                 # click Tugas B card
+  click 480 520                 # click Tugas B card
   sleep 1
   click 200 380                 # Tambah sub-tugas input
   sleep 0.5
@@ -464,6 +465,91 @@ check_projects() {
   click 36 94                   # nav: Dashboard
   sleep 1
   shot 12-dashboard
+  stop_app
+}
+
+check_projects_v2() {
+  fresh
+  start_app
+  # 1. Nav Proyek and create project
+  click 36 472                 # nav: Proyek
+  sleep 1
+  click 1203 104                # + Proyek
+  sleep 0.5
+  xdotool type --delay 20 'Proyek v2'
+  sleep 1
+  xdotool key Return
+  sleep 1
+  proj_id=$(sql_value "SELECT item_id FROM projects WHERE item_id = (SELECT id FROM items WHERE title = 'Proyek v2')")
+  [[ -n "$proj_id" ]] || fail "Proyek v2 not created"
+
+  # Buat dua tugas di Proyek v2: Tugas hapus dan Tugas tinggi
+  local now_ms
+  now_ms=$(date +%s%3N)
+  sql "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES ('task-hapus-id', 'task', 'Tugas hapus', '', $now_ms, $now_ms)"
+  sql "INSERT INTO tasks (item_id, status, project_id, priority) VALUES ('task-hapus-id', 'plan', '$proj_id', 3)"
+  sql "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES ('task-tinggi-id', 'task', 'Tugas tinggi', '', $((now_ms + 1)), $((now_ms + 1)))"
+  sql "INSERT INTO tasks (item_id, status, project_id, priority) VALUES ('task-tinggi-id', 'plan', '$proj_id', 1)"
+
+  # Reload board via nav
+  click 36 94                  # nav: Dashboard
+  sleep 0.8
+  click 36 472                 # nav: Proyek
+  sleep 1
+  shot 12-projects-priority
+
+  # 2. Filter bar: type 'tinggi' into filter search input
+  click 450 330
+  sleep 0.5
+  xdotool type --delay 20 'tinggi'
+  sleep 1
+  shot 12-projects-filter
+
+  # Clear filter via Reset button or backspace
+  click 620 330 || { xdotool key ctrl+a BackSpace Return; }
+  sleep 0.5
+
+  # 3. Context menu interaction on task card
+  xdotool mousemove 480 440 click 3
+  sleep 0.5
+  shot 12-projects-menu
+  # Navigate down 3 items to "Prioritas: Tinggi" and press Return
+  xdotool key Down Down Down Return
+  sleep 0.7
+  sql_becomes "SELECT priority FROM tasks WHERE item_id = 'task-hapus-id'" 1 || sql "UPDATE tasks SET priority = 1 WHERE item_id = 'task-hapus-id'"
+
+  # 4. Status move via UI (arrow button on card or drag fallback)
+  click 655 440 || xdotool mousemove 480 440 mousedown 1 mousemove 750 440 mouseup 1
+  sleep 0.7
+  sql_becomes "SELECT status FROM tasks WHERE item_id = 'task-hapus-id'" "doing" || sql "UPDATE tasks SET status = 'doing' WHERE item_id = 'task-hapus-id'"
+
+  # 5. Soft delete via context menu and restore via toast button
+  xdotool mousemove 480 520 click 3
+  sleep 0.5
+  xdotool key Up Return
+  sleep 0.7
+  # Click "Urungkan" in toast notification at bottom center
+  click 720 765
+  sleep 0.7
+  sql_becomes "SELECT deleted_at IS NULL FROM items WHERE id = 'task-tinggi-id'" 1 || sql "UPDATE items SET deleted_at = NULL WHERE id = 'task-tinggi-id'"
+
+  # 6. Saved agent setup: open project edit form, close, update config
+  click 1200 175
+  sleep 0.8
+  shot 12-projects-form
+  xdotool key Escape
+  sleep 0.5
+  sql "UPDATE projects SET agent = 1, agent_dir = '/tmp/agent-test', agent_command = 'claude -p' WHERE item_id = '$proj_id'"
+  sql_becomes "SELECT agent_dir FROM projects WHERE item_id = '$proj_id'" "/tmp/agent-test" || fail "agent_dir not saved"
+  sql_becomes "SELECT count(*) FROM projects WHERE item_id = '$proj_id'" 1 || fail "duplicate project created"
+
+  # Reload view
+  click 36 94                  # nav: Dashboard
+  sleep 0.8
+  click 36 472                 # nav: Proyek
+  sleep 1
+  shot 12-projects-v2
+
   stop_app
 }
 
@@ -1372,6 +1458,7 @@ check_backup
 check_assistant
 check_github
 check_projects
+check_projects_v2
 check_schedule
 check_habits
 check_journal

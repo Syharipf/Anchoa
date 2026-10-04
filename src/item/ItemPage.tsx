@@ -101,6 +101,13 @@ export function ItemPage({
     try {
       if (item?.type === "task") {
         await api.deleteTask(id);
+        const title = item.title;
+        toast(`Tugas "${title || "Tanpa judul"}" dihapus.`, "info", {
+          label: "Urungkan",
+          run: () => {
+            void api.restoreTask(id).catch((e) => toast(errorMessage(e), "error"));
+          },
+        });
       } else {
         await api.deleteItem(id);
       }

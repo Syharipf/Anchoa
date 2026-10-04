@@ -15,7 +15,7 @@ const project: ProjectDetail = {
   agentCommand: 'claude -p "$ANCHOA_REQUEST"', status: "active", done: 0, total: 1,
 };
 const task: TaskCard = { id: "task", title: "Buat fitur", status: "plan", tag: null,
-  dueAt: null, overdue: false, subDone: 0, subTotal: 0, projectId: project.id, projectName: project.name };
+  dueAt: null, overdue: false, subDone: 0, subTotal: 0, projectId: project.id, projectName: project.name, priority: null };
 const activity: Activity = { id: "activity", taskId: task.id, projectId: project.id,
   actor: "Claude Code", role: "implement", kind: "message", title: "", body: "**Selesai**\n\n```ts\nlet a = 1;\n\nlet b = 2;\n```", createdAt: Date.now() };
 const event = { preventDefault() {} } as FormEvent;
@@ -303,5 +303,27 @@ describe("agent project components", () => {
     (dialog!.props as ComponentProps<typeof ConnectAgentDialog>).onClose();
     harness.render();
     expect(elements(harness.render()).some((e) => e.type === ConnectAgentDialog)).toBe(false);
+  });
+
+  it("ConnectAgentDialog preserves project id on save avoiding duplicate project", async () => {
+    const saveSpy = spyOn(api, "saveProject").mockResolvedValue(project);
+    spies.push(saveSpy);
+    harness = hookHarness(() =>
+      ConnectAgentDialog({
+        project,
+        onClose: () => {},
+        onSaved: () => {},
+      }),
+    );
+    harness.render();
+    const saveBtn = control("button", (props) => props.children === "Simpan");
+    (saveBtn.onClick as () => void)();
+    await harness.settle();
+    expect(saveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: project.id,
+        agent: true,
+      }),
+    );
   });
 });

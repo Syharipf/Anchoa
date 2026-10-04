@@ -53,6 +53,16 @@ pub fn definitions() -> Vec<Value> {
             &["id"],
         ),
         schema(
+            "update_task",
+            "Usulkan perubahan tugas: status, prioritas (1 tinggi, 2 sedang, 3 rendah, null kosong), tenggat, atau tag. Menunggu persetujuan pengguna.",
+            json!({"id":{"type":"string"},
+                "status":{"type":"string","enum":["plan","doing","test","review","done"]},
+                "priority":{"type":["integer","null"],"minimum":1,"maximum":3},
+                "dueAt":{"type":["integer","null"],"description":"Tenggat, epoch milidetik UTC; null mengosongkan"},
+                "tag":{"type":["string","null"]}}),
+            &["id"],
+        ),
+        schema(
             "add_transaction",
             "Usulkan transaksi baru. Uang bilangan bulat satuan terkecil; amount positif, kind menentukan arah.",
             json!({"kind":{"type":"string","enum":["expense","income"]},"title":{"type":"string"},"body":{"type":"string"},"amount":{"type":"integer","minimum":1},"accountId":{"type":"string"},"occurredAt":{"type":"integer","description":"Epoch milidetik UTC"},"category":{"type":"string"}}),
@@ -119,6 +129,19 @@ struct TaskArgs {
 struct IdArgs {
     id: String,
 }
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct UpdateTaskArgs {
+    id: String,
+    status: Option<tasks::TaskStatus>,
+    #[serde(default, deserialize_with = "tasks::present_opt")]
+    priority: Option<Option<i64>>,
+    #[serde(default, deserialize_with = "tasks::present_opt")]
+    due_at: Option<Option<i64>>,
+    #[serde(default, deserialize_with = "tasks::present_opt")]
+    tag: Option<Option<String>>,
+}
+
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -210,6 +233,22 @@ pub fn propose(name: &str, args: &Value) -> Result<Proposal, AppError> {
                 .unwrap_or_default();
             format!("Buat tugas “{}”{due}", args.title.trim())
         }
+        "update_task" => {
+            let a: UpdateTaskArgs = decode(name, args)?;
+            let fields: Vec<&str> = [
+                a.status.map(|_| "status"),
+                a.priority.map(|_| "prioritas"),
+                a.due_at.map(|_| "tenggat"),
+                a.tag.as_ref().map(|_| "tag"),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            if fields.is_empty() {
+                return Err(AppError::Invalid("Tidak ada perubahan tugas".into()));
+            }
+            format!("Ubah {} tugas {}", fields.join(", "), a.id)
+        }
         "complete_task" => format!("Selesaikan tugas {}", decode::<IdArgs>(name, args)?.id),
         "add_transaction" => {
             let args = transaction_args(args)?;
@@ -295,6 +334,22 @@ pub fn apply(
                 tz,
             )?)
         }
+        "update_task" => {
+            let a: UpdateTaskArgs = decode(name, args)?;
+            if let Some(Some(ms)) = a.due_at {
+                jiff::Timestamp::from_millisecond(ms)?;
+            }
+            let tx = conn.unchecked_transaction()?;
+            let patch = tasks::TaskPatch { status: a.status, priority: a.priority, tag: a.tag, ..Default::default() };
+            // Validates the task first, so the due date below never lands on a missing item.
+            tasks::update_task_in_transaction(&tx, &a.id, &patch, now)?;
+            if let Some(due) = a.due_at {
+                items::update(&tx, &a.id, &items::ItemPatch { due_at: Some(due), ..Default::default() }, now)?;
+            }
+            let value = encode(tasks::get_task(&tx, &a.id, now, tz)?.card)?;
+            tx.commit()?;
+            Ok(value)
+        }
         "add_transaction" => encode(finance::save_transaction(
             conn,
             &transaction_args(args)?,
@@ -346,6 +401,7 @@ mod tests {
         for (name, args) in [
             ("create_task", json!({"title":"Beli teri"})),
             ("complete_task", json!({"id":"task"})),
+            ("update_task", json!({"id":"task","priority":2})),
             (
                 "add_transaction",
                 json!({"title":"Teri", "kind":"expense", "amount":1000,"accountId":"account","occurredAt":now()}),
@@ -378,6 +434,45 @@ mod tests {
                 .title,
             "Beli teri"
         );
+    }
+
+    #[test]
+    fn apply_update_task_changes_fields_atomically() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let task = tasks::create_task(&conn, &tasks::NewTask { title: "Teri".into(), ..Default::default() }, now(), &tz).unwrap();
+
+        let proposal = propose(
+            "update_task",
+            &json!({"id": task.id, "priority": 1, "dueAt": now(), "status": "doing", "tag": "dapur"}),
+        )
+        .unwrap();
+        assert!(proposal.summary.contains("prioritas"), "{}", proposal.summary);
+        let result = apply(&conn, &proposal, now(), &tz).unwrap();
+        assert_eq!(result["priority"], 1);
+        assert_eq!(result["status"], "doing");
+        assert_eq!(result["dueAt"], now());
+        assert_eq!(result["tag"], "dapur");
+
+        let clear = propose("update_task", &json!({"id": task.id, "priority": null, "dueAt": null})).unwrap();
+        let result = apply(&conn, &clear, now(), &tz).unwrap();
+        assert_eq!(result["priority"], Value::Null);
+        assert_eq!(result["dueAt"], Value::Null);
+        assert_eq!(result["status"], "doing");
+
+        assert!(propose("update_task", &json!({"id": task.id})).is_err()); // nothing to change
+        assert!(propose("update_task", &json!({"id": task.id, "delete": true})).is_err());
+
+        // A bad priority leaves the due date untouched.
+        let bad = Proposal { id: "p".into(), summary: "".into(), name: "update_task".into(),
+            args: json!({"id": task.id, "priority": 9, "dueAt": now() + 1}) };
+        assert!(matches!(apply(&conn, &bad, now(), &tz), Err(AppError::Invalid(_))));
+        assert_eq!(items::get(&conn, &task.id).unwrap().due_at, None);
+
+        let missing = Proposal { id: "p".into(), summary: "".into(), name: "update_task".into(),
+            args: json!({"id": "missing", "priority": 2}) };
+        assert!(matches!(apply(&conn, &missing, now(), &tz), Err(AppError::NotFound)));
+        assert!(!definitions().iter().any(|d| d["function"]["name"] == "delete_task"));
     }
 
     #[test]

@@ -11,8 +11,9 @@ function board(id: string | null, agent = true): Board {
     },
     columns: { plan: [{
       id: `${id}-task`, title: "Tugas", status: "plan", tag: null, dueAt: null,
-      overdue: false, subDone: 0, subTotal: 0, projectId: id, projectName: id,
+      overdue: false, subDone: 0, subTotal: 0, projectId: id, projectName: id, priority: null,
     }], doing: [], test: [], review: [], done: [] },
+    tags: [],
   };
 }
 
@@ -266,5 +267,14 @@ describe("project board polling", () => {
     poll();
     await harness.settle();
     expect(harness.render().activities?.[0].actor).toBe("Kamu");
+  });
+
+  it("passes active filter to projectBoard", async () => {
+    const projectBoardSpy = spyOn(api, "projectBoard").mockResolvedValue(board("A", false));
+    spies.push(projectBoardSpy);
+    harness = hookHarness(() => useProjectBoard("A", 1, null, { query: "fitur", due: "week" }));
+    harness.render();
+    await harness.settle();
+    expect(projectBoardSpy).toHaveBeenCalledWith("A", { query: "fitur", due: "week" });
   });
 });

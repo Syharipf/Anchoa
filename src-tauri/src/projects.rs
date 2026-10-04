@@ -1,4 +1,5 @@
 //! Projects, overview, and kanban board (spec Fase 3A §3-4).
+use jiff::ToSpan;
 use jiff::tz::TimeZone;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -8,7 +9,7 @@ use crate::error::AppError;
 use crate::finance::invalid;
 use crate::items;
 use crate::tasks::{self, TaskCard, TaskStatus};
-use crate::time::local_date;
+use crate::time::{day_bounds, local_date};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -119,11 +120,36 @@ pub struct Columns {
     pub done: Vec<TaskCard>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DueFilter {
+    Overdue,
+    Week,
+    #[serde(rename = "none")]
+    NoDue,
+}
+
+/// Kanban filter (spec Proyek v2 R4). Every field narrows the board; all are computed here.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardFilter {
+    pub query: Option<String>,
+    pub tag: Option<String>,
+    pub priority: Option<i64>,
+    pub due: Option<DueFilter>,
+}
+
+/// `%text%` for `LIKE … ESCAPE '\'`, so user `%` and `_` match literally.
+fn like_escape(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Board {
     pub project: Option<ProjectDetail>,
     pub columns: Columns,
+    pub tags: Vec<String>,
 }
 
 fn validate_repo_url(url: &str) -> bool {
@@ -405,6 +431,7 @@ pub fn projects_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<O
 pub fn project_board(
     conn: &Connection,
     id: Option<&str>,
+    filter: &BoardFilter,
     now: i64,
     tz: &TimeZone,
 ) -> Result<Board, AppError> {
@@ -413,18 +440,55 @@ pub fn project_board(
         None => None,
     };
 
-    let (clause, params): (&str, Vec<rusqlite::types::Value>) = match id {
-        Some(proj_id) => (
-            "i.parent_id IS NULL AND t.project_id = ?1 ORDER BY CASE WHEN i.due_at IS NULL THEN 1 ELSE 0 END, i.due_at, i.created_at, i.id",
-            vec![proj_id.to_string().into()],
-        ),
-        None => (
-            "i.parent_id IS NULL AND t.project_id IS NULL ORDER BY CASE WHEN i.due_at IS NULL THEN 1 ELSE 0 END, i.due_at, i.created_at, i.id",
-            vec![],
-        ),
-    };
+    let mut clause = String::from("i.parent_id IS NULL AND t.project_id IS ?");
+    let mut params: Vec<rusqlite::types::Value> = vec![id.map(str::to_string).into()];
+    if let Some(query) = filter.query.as_deref().map(str::trim).filter(|q| !q.is_empty()) {
+        clause.push_str(" AND (i.title LIKE ? ESCAPE '\\' OR i.body LIKE ? ESCAPE '\\')");
+        let pattern = format!("%{}%", like_escape(query));
+        params.push(pattern.clone().into());
+        params.push(pattern.into());
+    }
+    if let Some(raw) = &filter.tag {
+        let tag = raw.trim().trim_start_matches('#').to_lowercase();
+        if tag.is_empty() || tag.contains(char::is_whitespace) {
+            return Err(invalid("Saring satu tag saja"));
+        }
+        // Tags are space-separated (spec R10); pad so "kerja" does not match "kerjaan".
+        clause.push_str(" AND (' ' || lower(COALESCE(t.tag, '')) || ' ') LIKE ? ESCAPE '\\'");
+        params.push(format!("% {} %", like_escape(&tag)).into());
+    }
+    if let Some(priority) = filter.priority {
+        if !(1..=3).contains(&priority) {
+            return Err(invalid("Prioritas harus 1, 2, atau 3"));
+        }
+        clause.push_str(" AND t.priority = ?");
+        params.push(priority.into());
+    }
+    if let Some(due) = filter.due {
+        let (today_start, _) = day_bounds(now, tz)?;
+        match due {
+            DueFilter::Overdue => {
+                clause.push_str(" AND i.due_at < ? AND t.status != 'done'");
+                params.push(today_start.into());
+            }
+            DueFilter::Week => {
+                let week_end = crate::time::local_date(now, tz)?
+                    .checked_add(7.days())?
+                    .to_zoned(tz.clone())?
+                    .timestamp()
+                    .as_millisecond();
+                clause.push_str(" AND i.due_at >= ? AND i.due_at < ?");
+                params.push(today_start.into());
+                params.push(week_end.into());
+            }
+            DueFilter::NoDue => clause.push_str(" AND i.due_at IS NULL"),
+        }
+    }
+    clause.push_str(
+        " ORDER BY t.priority IS NULL, t.priority, i.due_at IS NULL, i.due_at, i.created_at, i.id",
+    );
 
-    let cards = tasks::card_query(conn, clause, rusqlite::params_from_iter(params), now, tz)?;
+    let cards = tasks::card_query(conn, &clause, rusqlite::params_from_iter(params), now, tz)?;
     let mut plan = Vec::new();
     let mut doing = Vec::new();
     let mut test = Vec::new();
@@ -446,7 +510,20 @@ pub fn project_board(
     Ok(Board {
         project,
         columns: Columns { plan, doing, test, review, done },
+        tags: board_tags(conn, id)?,
     })
+}
+
+/// Distinct lower-case tags of the board's top-level tasks, ignoring the filter.
+fn board_tags(conn: &Connection, id: Option<&str>) -> Result<Vec<String>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT t.tag FROM tasks t JOIN items i ON i.id = t.item_id
+         WHERE i.deleted_at IS NULL AND i.parent_id IS NULL AND t.tag IS NOT NULL AND t.project_id IS ?1",
+    )?;
+    let raw = stmt.query_map([id], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+    let tags: std::collections::BTreeSet<String> =
+        raw.iter().flat_map(|t| t.split_whitespace()).map(str::to_lowercase).collect();
+    Ok(tags.into_iter().collect())
 }
 
 pub fn repo_url(conn: &Connection, id: &str) -> Result<String, AppError> {
@@ -486,7 +563,7 @@ mod tests {
     use crate::db::open_in_memory;
     use crate::finance::testing::{jakarta, ms, now};
     use crate::items::{ItemPatch, update};
-    use crate::tasks::{NewTask, create_task, update_task};
+    use crate::tasks::{NewTask, TaskPatch, create_task, update_task};
 
     #[test]
     fn board_has_test_and_review_columns() {
@@ -502,7 +579,7 @@ mod tests {
             })).unwrap();
             create_task(&conn, &task, now(), &jakarta()).unwrap();
         }
-        let board = project_board(&conn, Some(&project.summary.id), now(), &jakarta()).unwrap();
+        let board = project_board(&conn, Some(&project.summary.id), &BoardFilter::default(), now(), &jakarta()).unwrap();
         let json = serde_json::to_value(&board).unwrap();
         assert_eq!(json["project"]["agent"], true);
         assert_eq!(json["project"]["agentCommand"], "claude -p test");
@@ -515,12 +592,12 @@ mod tests {
             "id": project.summary.id, "name": "Agen", "kind": "app", "description": "", "agent": false
         })).unwrap();
         save_project(&conn, &input, now(), &jakarta()).unwrap();
-        let board = project_board(&conn, Some(&project.summary.id), now(), &jakarta()).unwrap();
+        let board = project_board(&conn, Some(&project.summary.id), &BoardFilter::default(), now(), &jakarta()).unwrap();
         let json = serde_json::to_value(&board).unwrap();
         assert_eq!(json["columns"]["test"], serde_json::json!([]));
         assert_eq!(json["columns"]["review"], serde_json::json!([]));
         assert_eq!(board.columns.doing.len(), 2);
-        let loose = serde_json::to_value(project_board(&conn, None, now(), &jakarta()).unwrap()).unwrap();
+        let loose = serde_json::to_value(project_board(&conn, None, &BoardFilter::default(), now(), &jakarta()).unwrap()).unwrap();
         assert_eq!(loose["columns"]["test"], serde_json::json!([]));
         assert_eq!(loose["columns"]["review"], serde_json::json!([]));
     }
@@ -800,7 +877,7 @@ mod tests {
         let t_d1 = create_task(&conn, &NewTask { title: "Due 1".into(), status: TaskStatus::Plan, ..Default::default() }, now(), &jakarta()).unwrap();
         update(&conn, &t_d1.id, &ItemPatch { due_at: Some(Some(d1)), ..Default::default() }, now()).unwrap();
 
-        let board_loose = project_board(&conn, None, now(), &jakarta()).unwrap();
+        let board_loose = project_board(&conn, None, &BoardFilter::default(), now(), &jakarta()).unwrap();
         assert!(board_loose.project.is_none());
         assert_eq!(board_loose.columns.plan.len(), 3);
         let plan_titles: Vec<&str> = board_loose.columns.plan.iter().map(|t| t.title.as_str()).collect();
@@ -812,7 +889,7 @@ mod tests {
         let pt_doing = create_task(&conn, &NewTask { title: "Doing".into(), project_id: Some(p.summary.id.clone()), status: TaskStatus::Doing, ..Default::default() }, now(), &jakarta()).unwrap();
         let pt_done = create_task(&conn, &NewTask { title: "Done".into(), project_id: Some(p.summary.id.clone()), status: TaskStatus::Done, ..Default::default() }, now(), &jakarta()).unwrap();
 
-        let board_proj = project_board(&conn, Some(&p.summary.id), now(), &jakarta()).unwrap();
+        let board_proj = project_board(&conn, Some(&p.summary.id), &BoardFilter::default(), now(), &jakarta()).unwrap();
         assert_eq!(board_proj.project.as_ref().map(|p| p.summary.name.as_str()), Some("Proyek Board"));
         assert_eq!(board_proj.columns.doing.len(), 1);
         assert_eq!(board_proj.columns.doing[0].id, pt_doing.id);
@@ -891,10 +968,10 @@ mod tests {
         assert_eq!((overview.projects[0].done, overview.projects[0].total, overview.active_count), (0, 1, 1));
         assert_eq!((overview.loose.done, overview.loose.total), (0, 0));
         assert!(overview.upcoming.is_empty());
-        let board = project_board(&conn, Some(&project.summary.id), now(), &jakarta()).unwrap();
+        let board = project_board(&conn, Some(&project.summary.id), &BoardFilter::default(), now(), &jakarta()).unwrap();
         assert_eq!(board.columns.plan, [live]);
         assert!(board.columns.done.is_empty());
-        let loose = project_board(&conn, None, now(), &jakarta()).unwrap();
+        let loose = project_board(&conn, None, &BoardFilter::default(), now(), &jakarta()).unwrap();
         assert!(loose.columns.plan.is_empty() && loose.columns.done.is_empty());
     }
 
@@ -907,9 +984,79 @@ mod tests {
         assert!(projects_overview(&conn, now(), &jakarta()).unwrap().projects.is_empty());
         assert!(active_projects(&conn, now(), &jakarta(), 2).unwrap().is_empty());
         assert!(matches!(get_project(&conn, &id, now(), &jakarta()), Err(AppError::NotFound)));
-        assert!(matches!(project_board(&conn, Some(&id), now(), &jakarta()), Err(AppError::NotFound)));
+        assert!(matches!(project_board(&conn, Some(&id), &BoardFilter::default(), now(), &jakarta()), Err(AppError::NotFound)));
         assert!(matches!(repo_url(&conn, &id), Err(AppError::NotFound)));
         let edit = ProjectInput { id: Some(id), name: "Ubah".into(), ..Default::default() };
         assert!(matches!(save_project(&conn, &edit, now(), &jakarta()), Err(AppError::NotFound)));
+    }
+
+    #[test]
+    fn board_sorts_by_priority_then_due() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let d1 = ms("2026-09-30T00:00:00+07:00");
+        let mk = |title: &str, priority: Option<i64>, due: Option<i64>| {
+            let t = create_task(&conn, &NewTask { title: title.into(), ..Default::default() }, now(), &tz).unwrap();
+            update_task(&conn, &t.id, &TaskPatch { priority: Some(priority), ..Default::default() }, now(), &tz).unwrap();
+            update(&conn, &t.id, &ItemPatch { due_at: Some(due), ..Default::default() }, now()).unwrap();
+        };
+        mk("Tanpa", None, Some(d1));
+        mk("Rendah", Some(3), None);
+        mk("Tinggi tanpa tenggat", Some(1), None);
+        mk("Tinggi", Some(1), Some(d1));
+        let board = project_board(&conn, None, &BoardFilter::default(), now(), &tz).unwrap();
+        let titles: Vec<&str> = board.columns.plan.iter().map(|t| t.title.as_str()).collect();
+        assert_eq!(titles, vec!["Tinggi", "Tinggi tanpa tenggat", "Rendah", "Tanpa"]);
+    }
+
+    #[test]
+    fn board_filter_matches_query_tag_priority_and_due() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        // now() is 2026-09-29 12:00 in Jakarta, so "week" is [29 Sep, 6 Oct).
+        let yesterday = ms("2026-09-28T00:00:00+07:00");
+        let in_six_days = ms("2026-10-05T00:00:00+07:00");
+        let in_seven_days = ms("2026-10-06T00:00:00+07:00");
+        let mk = |title: &str, body: &str, tag: Option<&str>, priority: Option<i64>, due: Option<i64>| -> String {
+            let t = create_task(&conn, &NewTask { title: title.into(), ..Default::default() }, now(), &tz).unwrap();
+            let patch = TaskPatch { tag: Some(tag.map(String::from)), priority: Some(priority), ..Default::default() };
+            update_task(&conn, &t.id, &patch, now(), &tz).unwrap();
+            update(&conn, &t.id, &ItemPatch { body: Some(body.into()), due_at: Some(due), ..Default::default() }, now()).unwrap();
+            t.id
+        };
+        let late = mk("Laporan 100%", "", Some("kerja"), Some(1), Some(yesterday));
+        let soon = mk("Belanja", "beli TERI", Some("kerjaan rumah"), None, Some(in_six_days));
+        let later = mk("Nanti", "", None, Some(1), Some(in_seven_days));
+        let no_due = mk("Ide", "", Some("Kerja"), Some(3), None);
+
+        let ids = |f: BoardFilter| -> Vec<String> {
+            let mut v: Vec<String> = project_board(&conn, None, &f, now(), &tz).unwrap()
+                .columns.plan.into_iter().map(|c| c.id).collect();
+            v.sort();
+            v
+        };
+        let sorted = |mut v: Vec<String>| { v.sort(); v };
+        let q = |s: &str| BoardFilter { query: Some(s.into()), ..Default::default() };
+
+        assert_eq!(ids(q("teri")), vec![soon.clone()]); // body, case-insensitive
+        assert_eq!(ids(q("%")), vec![late.clone()]); // % is a literal, not a wildcard
+        assert_eq!(ids(q("  ")), sorted(vec![late.clone(), soon.clone(), later.clone(), no_due.clone()]));
+        assert_eq!(ids(BoardFilter { tag: Some("#Kerja".into()), ..Default::default() }), sorted(vec![late.clone(), no_due.clone()]));
+        assert_eq!(ids(BoardFilter { priority: Some(1), ..Default::default() }), sorted(vec![late.clone(), later.clone()]));
+        assert_eq!(ids(BoardFilter { due: Some(DueFilter::Overdue), ..Default::default() }), vec![late.clone()]);
+        assert_eq!(ids(BoardFilter { due: Some(DueFilter::Week), ..Default::default() }), vec![soon.clone()]);
+        assert_eq!(ids(BoardFilter { due: Some(DueFilter::NoDue), ..Default::default() }), vec![no_due.clone()]);
+        assert_eq!(ids(BoardFilter { tag: Some("kerja".into()), priority: Some(3), ..Default::default() }), vec![no_due.clone()]);
+
+        let bad_priority = BoardFilter { priority: Some(0), ..Default::default() };
+        assert!(matches!(project_board(&conn, None, &bad_priority, now(), &tz), Err(AppError::Invalid(_))));
+        let two_tags = BoardFilter { tag: Some("dua kata".into()), ..Default::default() };
+        assert!(matches!(project_board(&conn, None, &two_tags, now(), &tz), Err(AppError::Invalid(_))));
+
+        // Tag options come from the whole board, not the filtered cards.
+        assert_eq!(project_board(&conn, None, &q("teri"), now(), &tz).unwrap().tags, vec!["kerja", "kerjaan", "rumah"]);
+
+        let parsed: BoardFilter = serde_json::from_value(serde_json::json!({ "due": "none", "priority": 2 })).unwrap();
+        assert_eq!((parsed.due, parsed.priority), (Some(DueFilter::NoDue), Some(2)));
     }
 }

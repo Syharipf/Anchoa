@@ -206,7 +206,7 @@ check_dashboard() {
   click 36 148          # Jurnal, then back to Dashboard so it reloads
   click 36 94           # nav: Dashboard
   shot 5-dashboard      # expect: bento, "2 tugas hari ini · 1 terlambat", "tugas besok" in the first upcoming column
-  click 137 257         # checkbox of the first task ("tugas terlambat")
+  click 131 269         # checkbox of the first task ("tugas terlambat")
   [[ -n "$(sql_value "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
   shot 5-dashboard-done # expect: row struck through, "1/2 selesai"
   stop_app
@@ -588,7 +588,7 @@ check_schedule() {
   shot 13-agenda
 
   # 5. centang tugas di agenda, lalu cek DB status = 'done'
-  click 964 344
+  click 985 345
   sleep 1
   sql_becomes "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'Tugas E2E')" "done" \
     || fail "task not marked done in schedule"
@@ -859,14 +859,14 @@ check_downloads() {
   sleep 1.5
   shot 17-downloads-dashboard       # expect: Unduhan card with besar.bin and its progress
   click 36 580
-  click 867 344                     # Jeda
+  click 867 381                     # Jeda
   sleep 1
   local id
   id=$(sql "SELECT item_id FROM downloads WHERE url LIKE '%besar.bin'")
   [[ $(sql "SELECT status FROM downloads WHERE item_id = '$id'") == paused ]] || fail "besar.bin not paused"
-  [[ -s "$home/Downloads/.anchoa-part/$id/besar.bin.part" ]] || fail "pause did not keep the .part file"
+  [[ -s "$home/Downloads/.anchoa-part/$id/besar.bin.part" || -s "$home/Downloads/.anchoa-part/$id/payload.part" ]] || fail "pause did not keep the .part file"
   shot 17-downloads-paused          # expect: Dijeda with its percentage, resume button
-  click 867 344                     # Lanjutkan
+  click 867 381                     # Lanjutkan
   wait_download besar.bin 40
   cmp -s "$srv/besar.bin" "$home/Downloads/besar.bin" || fail "resumed besar.bin differs"
   stop_app

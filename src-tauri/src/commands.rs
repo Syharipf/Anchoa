@@ -823,15 +823,17 @@ pub fn resume_download(
     id: String,
 ) -> Result<(), AppError> {
     let now = time::now_ms();
-    let conn = db.conn()?;
-    downloads::reset_retry(&conn, &id, now)?;
-    downloads::set_status(
-        &conn,
-        &id,
-        downloads::DownloadStatus::Queued,
-        None,
-        now,
-    )?;
+    {
+        let conn = db.conn()?;
+        downloads::reset_retry(&conn, &id, now)?;
+        downloads::set_status(
+            &conn,
+            &id,
+            downloads::DownloadStatus::Queued,
+            None,
+            now,
+        )?;
+    }
     downloader.schedule(&app)
 }
 

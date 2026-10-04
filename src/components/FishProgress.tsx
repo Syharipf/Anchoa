@@ -123,7 +123,7 @@ export function FishProgress({
       aria-valuemin={isDeterminate ? 0 : undefined}
       aria-valuemax={isDeterminate ? 100 : undefined}
       aria-valuenow={isDeterminate ? Math.round(clamped) : undefined}
-      className={`relative w-full overflow-hidden rounded-full border border-line/60 bg-surface-2 ${heightClass} ${className}`}
+      className={`relative w-full overflow-hidden rounded-full border border-line/60 bg-[#1A1E25] ${heightClass} ${className}`}
     >
       <svg
         data-anim
@@ -167,7 +167,7 @@ export function FishProgress({
               height="100%"
               rx="9999"
               fill="currentColor"
-              opacity="0.12"
+              opacity="0.14"
               className={toneClass}
             />
             {renderFishSchool(isRunning, "anchoa-swim-loop 3s linear", "currentColor", toneClass)}

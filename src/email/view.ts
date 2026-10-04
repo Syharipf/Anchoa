@@ -6,6 +6,12 @@ export const FOLDERS: readonly Readonly<{ id: EmailFolder; label: string }>[] = 
   { id: "sent", label: "Terkirim" },
 ];
 
+export const EMAIL_LABELS: readonly Readonly<{ id: string; label: string; color: string }>[] = [
+  { id: "proyek", label: "Proyek", color: "#3987E5" },
+  { id: "tagihan", label: "Tagihan", color: "#C98500" },
+  { id: "pribadi", label: "Pribadi", color: "#D55181" },
+];
+
 export function connectionLabel(status: EmailStatus | null): string {
   if (!status) return "Memuat…";
   return status.connected && status.address ? `Terhubung sebagai ${status.address}` : "Belum terhubung";

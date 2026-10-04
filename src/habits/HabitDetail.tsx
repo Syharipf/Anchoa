@@ -78,7 +78,7 @@ export function HabitDetail({
     return (
       <aside
         aria-labelledby="h-detail"
-        className="flex w-[340px] shrink-0 flex-col items-center justify-center rounded-[14px] border border-line bg-surface p-6 text-center text-muted"
+        className="flex min-h-0 w-full flex-col items-center justify-center rounded-[14px] border border-line bg-surface p-6 text-center text-muted"
       >
         <h2 id="h-detail" className="sr-only">
           Detail habit
@@ -115,7 +115,7 @@ export function HabitDetail({
   return (
     <aside
       aria-labelledby="h-detail"
-      className="flex w-[340px] shrink-0 flex-col gap-3.5 overflow-y-auto rounded-[14px] border border-line bg-surface p-4"
+      className="flex min-h-0 w-full flex-col gap-3.5 overflow-y-auto rounded-[14px] border border-line bg-surface p-4"
     >
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2">

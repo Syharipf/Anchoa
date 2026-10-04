@@ -299,6 +299,7 @@ export function App() {
           onOpenHabits={() => go("habit")}
           onOpenJournal={() => go("jurnal")}
           onDismissJournal={() => { void api.dismissJournalReminder().then(reload); }}
+          onOpenSettings={() => go("profil")}
         />
       )}
     </div>

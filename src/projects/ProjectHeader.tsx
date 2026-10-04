@@ -1,4 +1,3 @@
-import { FishProgress } from "../components/FishProgress";
 import { api, errorMessage, type LooseCount, type ProjectDetail } from "../api";
 import { useToast } from "../shell/toast";
 import { KIND_LABELS, deadlineLabel } from "./view";
@@ -25,11 +24,11 @@ export function ProjectHeader({
     return (
       <section
         aria-labelledby="proyek-judul"
-        className="flex shrink-0 flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-4"
+        className="flex shrink-0 flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-[16px_18px]"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h2 id="proyek-judul" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
+            <h2 id="proyek-judul" aria-live="polite" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
               Tugas lepas
             </h2>
             <p className="m-0 text-[13px] text-muted">Tugas yang tidak terikat pada proyek tertentu.</p>
@@ -41,12 +40,16 @@ export function ProjectHeader({
             </span>
           </div>
         </div>
-        <FishProgress
-          value={pct}
-          label="Kemajuan tugas lepas"
-          state={looseCount.total > 0 && looseCount.done === looseCount.total ? "done" : "running"}
-          className="h-2"
-        />
+        <div aria-hidden="true" className="h-1.5 w-full overflow-hidden rounded-[3px] bg-line">
+          <div
+            style={{ width: `${pct}%` }}
+            className={`h-1.5 rounded-[3px] transition-all duration-300 ${
+              looseCount.total > 0 && looseCount.done === looseCount.total
+                ? "bg-field-focus"
+                : "bg-accent"
+            }`}
+          />
+        </div>
       </section>
     );
   }
@@ -57,12 +60,12 @@ export function ProjectHeader({
   return (
     <section
       aria-labelledby="proyek-judul"
-      className="flex shrink-0 flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-4"
+      className="flex shrink-0 flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-[16px_18px]"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 id="proyek-judul" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
+            <h2 id="proyek-judul" aria-live="polite" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
               {project.name}
             </h2>
             {project.agent && (
@@ -170,12 +173,14 @@ export function ProjectHeader({
           </button>
         )}
       </div>
-      <FishProgress
-        value={pct}
-        label={`Kemajuan proyek ${project.name}`}
-        state={project.status === "done" ? "done" : "running"}
-        className="h-2"
-      />
+      <div aria-hidden="true" className="h-1.5 w-full overflow-hidden rounded-[3px] bg-line">
+        <div
+          style={{ width: `${pct}%` }}
+          className={`h-1.5 rounded-[3px] transition-all duration-300 ${
+            project.status === "done" ? "bg-field-focus" : "bg-accent"
+          }`}
+        />
+      </div>
     </section>
   );
 }

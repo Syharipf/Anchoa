@@ -39,6 +39,14 @@ const ROLES: readonly {
   },
 ] as const;
 
+const AI_PROVIDERS = [
+  { id: "ollama", name: "Ollama", kind: "Lokal", dot: "#C6F36B", active: true },
+  { id: "openrouter", name: "OpenRouter", kind: "Cloud API", dot: "#5B6475", active: false },
+  { id: "openai", name: "OpenAI", kind: "Cloud API", dot: "#5B6475", active: false },
+  { id: "anthropic", name: "Anthropic", kind: "Cloud API", dot: "#5B6475", active: false },
+  { id: "custom", name: "Kustom", kind: "Komp. OpenAI", dot: "#5B6475", active: false },
+] as const;
+
 export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [roles, setRoles] = useState<AiRoles | null>(null);
@@ -111,6 +119,26 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
     <div className="flex flex-col gap-4">
       {/* Ollama Status & Connection */}
       <section aria-labelledby="ai-ollama-heading" className={PANEL}>
+        <div role="group" aria-label="Pilih penyedia" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          {AI_PROVIDERS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={p.active}
+              className={`flex min-h-[64px] flex-col items-start justify-center gap-0.5 rounded-[10px] border p-2 text-left transition-colors ${
+                p.active
+                  ? "border-accent/40 bg-surface-2 text-ink"
+                  : "border-line bg-stage/60 text-muted opacity-75 hover:bg-surface-2/40 hover:text-ink cursor-default"
+              }`}
+            >
+              <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
+                {p.name}
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: p.dot }} />
+              </span>
+              <span className="text-[11px] text-muted">{p.kind}</span>
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <h2 id="ai-ollama-heading" className={H2}>
@@ -258,10 +286,10 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
               aria-disabled="true"
               disabled
               title="Terkunci aktif demi privasi"
-              className="relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed items-center rounded-full bg-accent/40 p-1 opacity-80"
+              className="relative inline-flex h-[22px] w-10 shrink-0 cursor-not-allowed items-center rounded-full bg-accent/40 p-0.5 opacity-80"
             >
               <span
-                className="inline-block h-4 w-4 transform rounded-full bg-accent transition-transform translate-x-5"
+                className="inline-block h-[18px] w-[18px] transform rounded-full bg-accent transition-transform translate-x-[18px]"
                 aria-hidden="true"
               />
             </button>

@@ -1,4 +1,3 @@
-import { FishProgress } from "../components/FishProgress";
 import type { LooseCount, ProjectSummary } from "../api";
 import { anchorOf, useContextMenu, type MenuEntry } from "../shell/ContextMenu";
 import { KIND_LABELS, STATUS_LABELS, deadlineLabel } from "./view";
@@ -72,7 +71,7 @@ export function ProjectList({
                   open(anchorOf(e), projectMenu(p));
                 }
               }}
-              className={`flex w-full flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${
+              className={`flex w-full flex-col gap-2 rounded-xl border p-[12px_14px] text-left transition-colors ${
                 isSelected
                   ? "border-field-focus bg-surface-2"
                   : "border-line bg-surface hover:bg-surface-2"
@@ -86,19 +85,21 @@ export function ProjectList({
                 >
                   {p.name}
                 </span>
-                <span className={`flex shrink-0 items-center gap-1.5 text-[11px] ${toneClass}`}>
+                <span className={`flex shrink-0 items-center gap-[5px] text-[11px] ${toneClass}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${dotBg}`} />
                   {status.label}
                 </span>
               </div>
               <span className="text-xs text-muted">{meta}</span>
               <div className="flex items-center gap-2.5">
-                <FishProgress
-                  value={pct}
-                  label={p.name}
-                  state={p.status === "done" ? "done" : "running"}
-                  className="h-2 flex-1"
-                />
+                <span className="h-1 flex-1 overflow-hidden rounded-[2px] bg-line">
+                  <span
+                    style={{ width: `${pct}%` }}
+                    className={`block h-1 rounded-[2px] transition-all duration-300 ${
+                      p.status === "done" ? "bg-field-focus" : "bg-accent"
+                    }`}
+                  />
+                </span>
                 <span className="min-w-[34px] text-right font-mono text-xs text-muted">{pct}%</span>
               </div>
             </button>
@@ -111,7 +112,7 @@ export function ProjectList({
         type="button"
         aria-pressed={selectedId === null}
         onClick={() => onSelect(null)}
-        className={`flex w-full flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${
+        className={`flex w-full flex-col gap-2 rounded-xl border p-[12px_14px] text-left transition-colors ${
           selectedId === null
             ? "border-field-focus bg-surface-2"
             : "border-line bg-surface hover:bg-surface-2"
@@ -123,12 +124,14 @@ export function ProjectList({
         </div>
         {looseCount.total > 0 && (
           <div className="flex items-center gap-2.5">
-            <FishProgress
-              value={loosePct}
-              label="Kemajuan tugas lepas"
-              state={looseCount.done === looseCount.total ? "done" : "running"}
-              className="h-2 flex-1"
-            />
+            <span className="h-1 flex-1 overflow-hidden rounded-[2px] bg-line">
+              <span
+                style={{ width: `${loosePct}%` }}
+                className={`block h-1 rounded-[2px] transition-all duration-300 ${
+                  looseCount.done === looseCount.total ? "bg-field-focus" : "bg-accent"
+                }`}
+              />
+            </span>
             <span className="min-w-[34px] text-right font-mono text-xs text-muted">
               {loosePct}%
             </span>

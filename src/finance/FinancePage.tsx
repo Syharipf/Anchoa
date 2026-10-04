@@ -11,7 +11,7 @@ import {
 } from "../api";
 import { addMonths, formatRupiah, monthLabel } from "../money";
 import { useToast } from "../shell/toast";
-import { H1, PRIMARY, SECONDARY } from "../shell/ui";
+import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
 import { AccountForm } from "./AccountForm";
 import { AccountsSection } from "./AccountsSection";
 import { BillForm } from "./BillForm";
@@ -33,9 +33,29 @@ type OpenForm =
 const MONTH_NAV =
   "flex h-8 w-8 items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-2 disabled:text-disabled disabled:hover:bg-transparent";
 
+function MicIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#C6F36B"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+    </svg>
+  );
+}
+
 function Chevron({ d }: Readonly<{ d: string }>) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={d} />
     </svg>
   );
@@ -99,11 +119,11 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
     <>
       <div className="flex items-center gap-4">
         <h1 className={H1}>Keuangan</h1>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 rounded-[10px] border border-line bg-surface p-0.5">
           <button aria-label="Bulan sebelumnya" onClick={() => setMonth(addMonths(overview.month, -1))} className={MONTH_NAV}>
             <Chevron d="M15 6l-6 6 6 6" />
           </button>
-          <span aria-live="polite" className="min-w-[150px] text-center font-display text-base font-semibold">
+          <span aria-live="polite" className="min-w-[128px] text-center font-mono text-[13px] text-ink">
             {monthLabel(overview.month)}
           </span>
           <button
@@ -115,16 +135,20 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
             <Chevron d="M9 6l6 6-6 6" />
           </button>
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2.5">
           <button
             type="button"
             onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={SECONDARY}
+            className={HEADER_SECONDARY}
           >
-            Catat lewat suara
+            <MicIcon />
+            <span>Catat lewat suara</span>
           </button>
-          <button onClick={() => setOpen({ form: "transaction" })} className={PRIMARY}>
-            + Transaksi
+          <button onClick={() => setOpen({ form: "transaction" })} className={HEADER_PRIMARY}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>Transaksi</span>
           </button>
         </div>
       </div>

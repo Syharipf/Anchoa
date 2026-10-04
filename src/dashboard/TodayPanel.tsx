@@ -1,7 +1,6 @@
 import type { DayTask } from "../api";
 import { shortDate } from "../format";
-import { H2, PANEL } from "../shell/ui";
-
+import type { PageId } from "../shell/nav";
 function dueLabel(t: DayTask, late: boolean): string {
   if (!t.overdue) return "hari ini";
   return late ? `${shortDate(t.dueAt)} · terlambat` : shortDate(t.dueAt);
@@ -16,22 +15,49 @@ export function TodayPanel({
   tasks,
   onToggle,
   onOpen,
-}: Readonly<{ tasks?: DayTask[]; onToggle: (task: DayTask) => void; onOpen: (id: string) => void }>) {
+  onSelect,
+}: Readonly<{
+  tasks?: DayTask[];
+  onToggle: (task: DayTask) => void;
+  onOpen: (id: string) => void;
+  onSelect?: (page: PageId) => void;
+}>) {
   const list = tasks ?? [];
   const done = list.filter((t) => t.completedAt !== null).length;
 
   return (
-    <section className={`${PANEL} col-span-2 flex flex-col gap-1`}>
-      <div className="flex items-baseline justify-between">
-        <h2 className={H2}>Hari ini</h2>
-        <span className="font-mono text-xs text-muted">
+    <section aria-labelledby="c-hari" className="col-span-2 flex flex-col gap-1.5 overflow-hidden rounded-[14px] border border-line bg-surface p-3 px-3.5">
+      <div className="flex items-center gap-2">
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-muted"
+          aria-hidden="true"
+        >
+          <path d="M4 12l5 5L20 6" />
+        </svg>
+        <h2 id="c-hari" className="m-0 font-display text-sm font-semibold text-ink">Hari ini</h2>
+        <div aria-hidden="true" className="ml-2 flex w-[72px] gap-[3px]">
+          {list.map((t) => (
+            <span key={t.id} className={`h-1 flex-1 rounded-[2px] transition-colors ${segmentColor(t)}`} />
+          ))}
+        </div>
+        <span className="ml-auto font-mono text-[11px] text-muted">
           {done}/{list.length} selesai
         </span>
-      </div>
-      <div aria-hidden="true" className="mb-2 flex gap-1 py-1">
-        {list.map((t) => (
-          <span key={t.id} className={`h-1 flex-1 rounded-sm transition-colors ${segmentColor(t)}`} />
-        ))}
+        {onSelect ? (
+          <button type="button" onClick={() => onSelect("jadwal")} className="text-xs text-accent hover:underline">
+            Jadwal ›
+          </button>
+        ) : (
+          <span className="text-xs text-accent">Jadwal ›</span>
+        )}
       </div>
       {tasks?.length === 0 && <p className="m-0 text-sm text-muted">Tidak ada tugas hari ini</p>}
       {list.map((t) => {
@@ -40,14 +66,14 @@ export function TodayPanel({
         return (
           <div
             key={t.id}
-            className={`flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface-2 ${late ? "bg-danger-row" : ""}`}
+            className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] transition-colors hover:bg-surface-2 ${late ? "bg-danger-row" : ""}`}
           >
             <input
               type="checkbox"
               checked={isDone}
               onChange={() => onToggle(t)}
               aria-label={`Tandai selesai: ${t.title || "Tanpa judul"}`}
-              className="m-0 h-4 w-4 cursor-pointer accent-accent"
+              className="m-0 h-[15px] w-[15px] cursor-pointer accent-accent"
             />
             <button
               onClick={() => onOpen(t.id)}
@@ -55,7 +81,7 @@ export function TodayPanel({
             >
               {t.title || "Tanpa judul"}
             </button>
-            <span className={`shrink-0 font-mono text-xs ${late ? "text-danger" : "text-muted"}`}>{dueLabel(t, late)}</span>
+            <span className={`shrink-0 font-mono text-[11px] ${late ? "text-danger" : "text-muted"}`}>{dueLabel(t, late)}</span>
           </div>
         );
       })}

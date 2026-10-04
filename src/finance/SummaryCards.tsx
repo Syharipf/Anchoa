@@ -1,10 +1,9 @@
 import { FishProgress } from "../components/FishProgress";
 import type { FinanceOverview } from "../api";
 import { formatBalance, formatRupiah, monthLabel, monthShort, signedRupiah } from "../money";
-import { PANEL } from "../shell/ui";
 
-const CARD = `${PANEL} flex flex-col gap-1`;
-const VALUE = "font-display text-[22px] font-semibold";
+const CARD = "rounded-[14px] border border-line bg-surface p-4 sm:p-[18px] flex flex-col gap-1.5";
+const VALUE = "font-mono text-2xl font-medium";
 
 function Card({ label, value, tone = "", note }: Readonly<{ label: string; value: string; tone?: string; note: string }>) {
   return (

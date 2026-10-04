@@ -2,7 +2,6 @@ import { FishProgress } from "../components/FishProgress";
 import type { DownloadsSummary } from "../api";
 import { formatEta, formatSpeed } from "../downloads/view";
 import type { PageId } from "../shell/nav";
-import { H2, PANEL } from "../shell/ui";
 
 /** Bento card: lists up to two active downloads with progress bars. Opens Unduhan. */
 export function DownloadsCard({
@@ -13,37 +12,36 @@ export function DownloadsCard({
   onSelect: (page: PageId) => void;
 }>) {
   const items = downloads?.items ?? [];
-
   return (
     <button
       type="button"
       onClick={() => onSelect("unduhan")}
-      className={`${PANEL} flex w-full flex-col items-start gap-2.5 text-left transition-colors hover:bg-surface-2`}
+      className="flex w-full flex-col items-start gap-2 overflow-hidden rounded-[14px] border border-line bg-surface p-3 px-3.5 text-left text-ink transition-colors hover:bg-surface-2"
     >
-      <div className="flex w-full items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-muted"
-            aria-hidden="true"
-          >
-            <path d="M12 4v11M7 10l5 5 5-5" />
-            <path d="M5 20h14" />
-          </svg>
-          <span className={`${H2} block`}>Unduhan</span>
-        </div>
+      <div className="flex w-full items-center gap-2">
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-muted"
+          aria-hidden="true"
+        >
+          <path d="M12 4v11M7 10l5 5 5-5" />
+          <path d="M5 20h14" />
+        </svg>
+        <span id="c-unduh" className="font-display text-sm font-semibold text-ink">Unduhan</span>
         {downloads && downloads.speed > 0 ? (
-          <span className="font-mono text-[11px] text-accent">
+          <span className="ml-auto font-mono text-[11px] text-accent">
             ↓ {formatSpeed(downloads.speed)}
           </span>
-        ) : null}
+        ) : (
+          <span className="ml-auto text-xs text-accent">›</span>
+        )}
       </div>
       {items.length === 0 ? (
         <span className="text-xs text-muted">Tidak ada unduhan aktif</span>

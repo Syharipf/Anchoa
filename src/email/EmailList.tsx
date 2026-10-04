@@ -29,9 +29,9 @@ export function EmailList({ messages, folder, filter, loading, selectedId, busy,
         {loading && <p role="status" className="m-0 p-3 text-sm text-muted">Memuat email…</p>}
         {!loading && messages.length === 0 && <p className="m-0 p-6 text-center text-sm text-muted">{filter === "unread" ? "Semua sudah dibaca." : "Belum ada email."}</p>}
         {messages.map((message) => (
-          <div key={message.id} className={`relative mb-1 rounded-lg border ${selectedId === message.id ? "border-field-focus bg-surface-2" : "border-transparent"}`}>
+          <div key={message.id} className={`relative mb-1 rounded-lg border ${selectedId === message.id ? "border-field-focus bg-surface-2 shadow-[inset_2px_0_0_#C6F36B]" : "border-transparent"}`}>
             <button type="button" onClick={() => onOpen(message.id)} aria-pressed={selectedId === message.id}
-              className="flex w-full flex-col gap-1 rounded-lg py-3 pr-10 pl-6 text-left transition-colors hover:bg-surface-2">
+              className="flex w-full flex-col gap-1 rounded-lg py-2.5 pr-11 pl-6 text-left transition-colors hover:bg-surface-2">
               {message.unread && <>
                 <span aria-hidden="true" className="absolute top-4 left-2 h-1.5 w-1.5 rounded-full bg-accent" />
                 <span className="sr-only">Belum dibaca</span>

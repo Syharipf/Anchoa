@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage, type EmailFilter, type EmailFolder, type EmailMessage, type EmailStatus } from "../api";
-import { H1, PRIMARY, SECONDARY } from "../shell/ui";
+import { H1, HEADER_PRIMARY, HEADER_SECONDARY, SECONDARY } from "../shell/ui";
 import { ComposeDialog } from "./ComposeDialog";
 import { ConnectionForm } from "./ConnectionForm";
 import { EmailList } from "./EmailList";
 import { ReadingPane } from "./ReadingPane";
-import { FOLDERS } from "./view";
+import { EMAIL_LABELS, FOLDERS } from "./view";
 
-export function EmailPage({ onChanged }: Readonly<{ onChanged?: () => void }>) {
+export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?: () => void; onOpenAssistant?: (req: { kind: "voice" }) => void }>) {
   const [status, setStatus] = useState<EmailStatus | null>(null);
   const [folder, setFolder] = useState<EmailFolder>("inbox");
   const [filter, setFilter] = useState<EmailFilter>("all");
@@ -166,14 +166,54 @@ export function EmailPage({ onChanged }: Readonly<{ onChanged?: () => void }>) {
 
   return (
     <>
-      <div className="flex items-center gap-3.5">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className={H1}>Email</h1>
         {connected && <>
-          <span className="min-w-0 truncate text-xs text-muted">{status.address}</span>
-          <button type="button" aria-label="Sinkronkan" disabled={syncing || busy} onClick={() => void sync()} className={`${SECONDARY} ml-auto`}>
-            {syncing ? "Menyinkronkan…" : "Sinkronkan"}
-          </button>
-          <button type="button" onClick={() => setComposing(true)} className={PRIMARY}>Tulis</button>
+          <span className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 font-mono text-xs text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            {status.address}
+          </span>
+          <span className="text-xs text-muted">{syncing ? "Menyinkronkan…" : "Disinkronkan"}</span>
+          <div className="ml-auto flex items-center gap-2.5">
+            <button
+              type="button"
+              aria-label="Sinkronkan"
+              disabled={syncing || busy}
+              onClick={() => void sync()}
+              className={HEADER_SECONDARY}
+            >
+              {syncing ? "Menyinkronkan…" : "Sinkronkan"}
+            </button>
+            <button
+              type="button"
+              aria-label="Tulis lewat suara"
+              onClick={() => onOpenAssistant?.({ kind: "voice" })}
+              className={HEADER_SECONDARY}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#C6F36B"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0" />
+                <path d="M12 18v3" />
+              </svg>
+              <span>Tulis lewat suara</span>
+            </button>
+            <button type="button" aria-label="Tulis" onClick={() => setComposing(true)} className={`${HEADER_PRIMARY} flex items-center gap-1.5`}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 20h4L19 9l-4-4L4 16z" />
+              </svg>
+              <span>Tulis</span>
+            </button>
+          </div>
         </>}
       </div>
       {error && <p role="alert" className="m-0 text-sm text-danger">{error}</p>}
@@ -182,12 +222,28 @@ export function EmailPage({ onChanged }: Readonly<{ onChanged?: () => void }>) {
       </div>}
       {status && !connected && <ConnectionForm onConnected={setStatus} />}
       {connected && <div className="flex min-h-0 flex-1 gap-3.5">
-        <nav aria-label="Folder email" className="flex w-[176px] shrink-0 flex-col gap-1">
+        <nav aria-label="Folder email" className="flex w-[176px] shrink-0 flex-col gap-0.5">
           {FOLDERS.map((entry) => <button key={entry.id} type="button" aria-label={entry.label} aria-current={folder === entry.id ? "page" : undefined}
-            onClick={() => selectFolder(entry.id)} className={`min-h-9 rounded-lg px-3 text-left text-[13px] transition-colors hover:bg-surface-2 ${folder === entry.id ? "bg-surface-2 font-semibold text-ink" : "text-muted"}`}>{entry.label}</button>)}
+            onClick={() => selectFolder(entry.id)} className={`flex min-h-9 items-center rounded-lg px-2.5 text-left text-[13px] transition-colors hover:bg-surface-2 ${folder === entry.id ? "bg-surface-2 font-semibold text-ink" : "text-muted"}`}>{entry.label}</button>)}
+          <span className="px-2.5 pt-4 pb-1.5 text-[11px] uppercase tracking-[0.08em] text-muted">Label</span>
+          {EMAIL_LABELS.map((lbl) => (
+            <div key={lbl.id} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-[#C9CED8]">
+              <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ backgroundColor: lbl.color }} />
+              <span>{lbl.label}</span>
+            </div>
+          ))}
         </nav>
-        <EmailList messages={messages} folder={folder} filter={filter} loading={loading} selectedId={openingId ?? selected?.id ?? null}
-          busy={busy} onFilter={selectFilter} onOpen={open} onStar={star} />
+        <EmailList
+          messages={messages}
+          folder={folder}
+          filter={filter}
+          loading={loading}
+          selectedId={openingId ?? selected?.id ?? null}
+          busy={busy}
+          onFilter={selectFilter}
+          onOpen={open}
+          onStar={star}
+        />
         {selected ? <ReadingPane key={selected.id} message={selected} busy={busy} onStar={star} onArchive={archive} onSent={() => void sync()} onChanged={onChanged} /> : (
           <div className="flex min-w-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-surface p-5 text-sm text-muted">
             <span role="status">{openingId ? "Membuka email…" : "Pilih email untuk dibaca."}</span>

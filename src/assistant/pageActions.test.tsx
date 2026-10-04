@@ -42,7 +42,7 @@ describe("module assistant actions", () => {
   it.each([
     { name: "finance", label: "Catat lewat suara", states: { 1: finance, 2: [], 3: [] },
       render: (onOpenAssistant: OpenAssistant) => FinancePage({ newTransaction: false, onChanged: () => {}, onOpenAssistant }) },
-    { name: "projects", label: "Tambah tugas lewat suara", states: { 0: projects },
+    { name: "projects", label: "Tambah lewat suara", states: { 0: projects },
       render: (onOpenAssistant: OpenAssistant) => ProjectsPage({ onOpenItem: () => {}, onChanged: () => {}, onOpenAssistant }) },
     { name: "habits", label: "Catat lewat suara", states: { 0: habits },
       render: (onOpenAssistant: OpenAssistant) => HabitsPage({ onOpenAssistant }) },

@@ -1051,6 +1051,7 @@ fn fetch_multi_range(
 
     // Pre-allocate payload.part
     let file = OpenOptions::new()
+        .write(true)
         .create(true)
         .truncate(false)
         .open(payload_path)?;

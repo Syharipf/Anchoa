@@ -8,6 +8,7 @@ import {
   type JournalFilter,
   type Side as JournalSideData,
 } from "../api";
+import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { EntryEditor } from "./EntryEditor";
 import { EntryList } from "./EntryList";
@@ -17,10 +18,12 @@ export function JournalPage({
   onOpenItem,
   onChanged,
   onOpenAssistant,
+  onOpenSettings,
 }: Readonly<{
   onOpenItem: (id: string) => void;
   onChanged?: () => void;
   onOpenAssistant: OpenAssistant;
+  onOpenSettings?: (section?: SettingsSection) => void;
 }>) {
   const toast = useToast();
   const [filter, setFilter] = useState<JournalFilter>({});
@@ -286,6 +289,7 @@ export function JournalPage({
             onAfterSaved={handleAfterSaved}
             onDelete={handleDelete}
             onTagClick={(tag) => handleFilterChange({ tag })}
+            onOpenSettings={onOpenSettings}
           />
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-surface p-6 text-center text-sm text-muted">

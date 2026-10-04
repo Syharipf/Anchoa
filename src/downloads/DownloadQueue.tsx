@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import { useState } from "react";
 import type { DownloadView } from "../api";
 import { FishProgress } from "../components/FishProgress";
@@ -14,6 +15,26 @@ import {
 } from "./view";
 
 const TABS: readonly DownloadTab[] = ["all", "active", "done", "failed"];
+
+function downloadProgressValue(status: DownloadView["status"], totalBytes: number | null, pct: number): number | undefined {
+  if (status === "done") return 100;
+  if (totalBytes && totalBytes > 0) return pct;
+  if (status === "queued" || status === "failed") return 0;
+  return undefined;
+}
+
+function downloadProgressState(status: DownloadView["status"]): "error" | "paused" | "done" | "running" {
+  if (status === "failed") return "error";
+  if (status === "done") return "done";
+  if (status === "running" || status === "processing") return "running";
+  return "paused";
+}
+
+function downloadProgressTone(status: DownloadView["status"]): "accent" | "warning" | "danger" {
+  if (status === "failed") return "danger";
+  if (status === "interrupted") return "warning";
+  return "accent";
+}
 
 export function DownloadQueue({
   items,
@@ -157,22 +178,8 @@ export function DownloadQueue({
                   <FishProgress
                     value={row.totalBytes ? pct : undefined}
                     label={`Kemajuan unduhan ${row.title}`}
-                    state={
-                      row.status === "failed"
-                        ? "error"
-                        : row.status === "done"
-                          ? "done"
-                          : row.status === "running" || row.status === "processing"
-                            ? "running"
-                            : "paused"
-                    }
-                    tone={
-                      row.status === "failed"
-                        ? "danger"
-                        : row.status === "interrupted"
-                          ? "warning"
-                          : "accent"
-                    }
+                    state={downloadProgressState(row.status)}
+                    tone={downloadProgressTone(row.status)}
                     className="h-2.5"
                   />
                   <span

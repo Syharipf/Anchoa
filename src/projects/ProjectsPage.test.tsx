@@ -14,7 +14,7 @@ const agent: ProjectDetail = { id: "agent", name: "Agen", kind: "app", descripti
   deadlineDays: null, repoUrl: null, agent: true, agentDir: null, agentCommand: null, status: "active", done: 0, total: 2 };
 const ordinary = { ...agent, id: "ordinary", name: "Biasa", agent: false };
 const task: TaskCard = { id: "0199a1b0-0000-7000-8000-000000000001", title: "Tugas", status: "doing", tag: null, dueAt: null,
-  overdue: false, subDone: 0, subTotal: 0, projectId: agent.id, projectName: agent.name };
+  overdue: false, subDone: 0, subTotal: 0, projectId: agent.id, projectName: agent.name, priority: null };
 const request: Activity = { id: "request", taskId: task.id, projectId: agent.id, actor: "Kamu",
   role: "request", kind: "message", title: "Tugas", body: "Tugas", createdAt: 1 };
 
@@ -45,6 +45,7 @@ describe("project page agent routing", () => {
       spyOn(api, "projectBoard").mockImplementation(async (id): Promise<Board> => ({
         project: id === agent.id ? agent : ordinary,
         columns: { plan: [], doing: [task], test: [], review: [], done: [] },
+        tags: [],
       })),
       spyOn(api, "taskActivities").mockResolvedValue([request]),
       spyOn(api, "projectActivities").mockResolvedValue([request]),
@@ -93,7 +94,7 @@ describe("project page agent routing", () => {
     const second = { ...task, id: "0199a1b0-0000-7000-8000-000000000002" };
     // Newest, but only moved by the user: no agent ran for it, so its log is not the one to show.
     const manual = { ...task, id: "0199a1b0-0000-7000-8000-000000000003" };
-    spyOn(api, "projectBoard").mockResolvedValue({ project: agent, columns: { plan: [second, manual], doing: [task], test: [], review: [], done: [] } });
+    spyOn(api, "projectBoard").mockResolvedValue({ project: agent, columns: { plan: [second, manual], doing: [task], test: [], review: [], done: [] }, tags: [] });
     spyOn(api, "agentLastActors").mockResolvedValue({
       [task.id]: { actor: "Sol", role: "implement" },
       [second.id]: { actor: "Kamu", role: "request" },
@@ -147,7 +148,7 @@ describe("project page agent routing", () => {
 
   it("discards a pending thread after selecting a different card", async () => {
     const second = { ...task, id: "second" };
-    spyOn(api, "projectBoard").mockResolvedValue({ project: agent, columns: { plan: [second], doing: [task], test: [], review: [], done: [] } });
+    spyOn(api, "projectBoard").mockResolvedValue({ project: agent, columns: { plan: [second], doing: [task], test: [], review: [], done: [] }, tags: [] });
     header().onTabChange?.("agent");
     await harness.settle();
     agentTab().onRefresh();
@@ -206,5 +207,43 @@ describe("project page agent routing", () => {
     expect(header().tab).toBe("kanban");
     expect(elements(harness.render()).some((e) => e.type === Kanban)).toBe(true);
     expect(thread().task.id).toBe(task.id);
+  });
+
+  it("handles dropping a card to a new column", async () => {
+    kanban().onDropCard?.(task, "test");
+    await harness.settle();
+    expect(api.updateTask).toHaveBeenCalledWith(task.id, { status: "test" });
+    expect(changed).toHaveBeenCalled();
+  });
+
+  it("provides card context menu with delete and undo restore", async () => {
+    const deleteTaskSpy = spyOn(api, "deleteTask").mockResolvedValue();
+    const restoreTaskSpy = spyOn(api, "restoreTask").mockResolvedValue();
+    spies.push(deleteTaskSpy, restoreTaskSpy);
+
+    const menu = kanban().cardMenu?.(task);
+    expect(menu).toBeDefined();
+    const deleteEntry = menu?.find((e) => typeof e === "object" && e.label === "Hapus");
+    expect(deleteEntry && typeof deleteEntry === "object" && deleteEntry.danger).toBe(true);
+
+    if (deleteEntry && typeof deleteEntry === "object") {
+      deleteEntry.onSelect();
+      await harness.settle();
+      expect(deleteTaskSpy).toHaveBeenCalledWith(task.id);
+    }
+  });
+
+  it("provides launch with agent in task context menu for agent projects", async () => {
+    const launchSpy = spyOn(api, "agentLaunchTask").mockResolvedValue();
+    spies.push(launchSpy);
+
+    const menu = kanban().cardMenu?.(task);
+    const launchEntry = menu?.find((e) => typeof e === "object" && e.label === "Jalankan dengan agen");
+    expect(launchEntry).toBeDefined();
+    if (launchEntry && typeof launchEntry === "object") {
+      launchEntry.onSelect();
+      await harness.settle();
+      expect(launchSpy).toHaveBeenCalledWith(agent.id, task.id);
+    }
   });
 });

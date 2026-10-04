@@ -54,6 +54,43 @@ const TONE_CLASSES: Readonly<Record<FishProgressTone, string>> = {
  * Uses native SVG + CSS transform animations (no React RAF timers).
  * Automatically obeys prefers-reduced-motion via [data-anim].
  */
+function renderFishSchool(isRunning: boolean, animationSpec: string, fill: string, className?: string) {
+  return (
+    <g
+      data-anim
+      className="anchoa-fish-school"
+      style={{
+        animation: isRunning ? `${animationSpec} infinite` : "none",
+        animationPlayState: isRunning ? "running" : "paused",
+      }}
+    >
+      {FISH_SCHOOL.map((f, i) => (
+        <svg
+          key={i}
+          x={`${f.x}%`}
+          y={`${f.y}%`}
+          width={f.width}
+          height={f.height}
+          viewBox="-10.5 -3.5 18 7"
+          overflow="visible"
+          aria-hidden="true"
+          style={{ overflow: "visible" }}
+        >
+          <g
+            data-anim
+            style={{
+              animation: isRunning ? `anchoa-fish-wiggle 1.2s ease-in-out ${f.delay}s infinite` : "none",
+              animationPlayState: isRunning ? "running" : "paused",
+              transformOrigin: "0 0",
+            }}
+          >
+            <path d={BODY} fill={fill} fillOpacity={f.opacity} className={className} />
+          </g>
+        </svg>
+      ))}
+    </g>
+  );
+}
 export function FishProgress({
   value,
   label,
@@ -118,39 +155,7 @@ export function FishProgress({
             />
 
             {/* Anchovy silhouettes swimming inside filled region */}
-            <g
-              data-anim
-              className="anchoa-fish-school"
-              style={{
-                animation: isRunning ? "anchoa-swim 3.5s ease-in-out infinite" : "none",
-                animationPlayState: isRunning ? "running" : "paused",
-              }}
-            >
-              {FISH_SCHOOL.map((f, i) => (
-                <svg
-                  key={i}
-                  x={`${f.x}%`}
-                  y={`${f.y}%`}
-                  width={f.width}
-                  height={f.height}
-                  viewBox="-10.5 -3.5 18 7"
-                  overflow="visible"
-                  aria-hidden="true"
-                  style={{ overflow: "visible" }}
-                >
-                  <g
-                    data-anim
-                    style={{
-                      animation: isRunning ? `anchoa-fish-wiggle 1.2s ease-in-out ${f.delay}s infinite` : "none",
-                      animationPlayState: isRunning ? "running" : "paused",
-                      transformOrigin: "0 0",
-                    }}
-                  >
-                    <path d={BODY} fill="#0F1115" fillOpacity={f.opacity} />
-                  </g>
-                </svg>
-              ))}
-            </g>
+            {renderFishSchool(isRunning, "anchoa-swim 3.5s ease-in-out", "#0F1115")}
           </g>
         ) : (
           /* Indeterminate state: fish loop continuously across the track */
@@ -165,44 +170,7 @@ export function FishProgress({
               opacity="0.12"
               className={toneClass}
             />
-            <g
-              data-anim
-              className="anchoa-fish-school"
-              style={{
-                animation: isRunning ? "anchoa-swim-loop 3s linear infinite" : "none",
-                animationPlayState: isRunning ? "running" : "paused",
-              }}
-            >
-              {FISH_SCHOOL.map((f, i) => (
-                <svg
-                  key={i}
-                  x={`${f.x}%`}
-                  y={`${f.y}%`}
-                  width={f.width}
-                  height={f.height}
-                  viewBox="-10.5 -3.5 18 7"
-                  overflow="visible"
-                  aria-hidden="true"
-                  style={{ overflow: "visible" }}
-                >
-                  <g
-                    data-anim
-                    style={{
-                      animation: isRunning ? `anchoa-fish-wiggle 1.2s ease-in-out ${f.delay}s infinite` : "none",
-                      animationPlayState: isRunning ? "running" : "paused",
-                      transformOrigin: "0 0",
-                    }}
-                  >
-                    <path
-                      d={BODY}
-                      fill="currentColor"
-                      fillOpacity={f.opacity}
-                      className={toneClass}
-                    />
-                  </g>
-                </svg>
-              ))}
-            </g>
+            {renderFishSchool(isRunning, "anchoa-swim-loop 3s linear", "currentColor", toneClass)}
           </g>
         )}
       </svg>

@@ -186,6 +186,7 @@ export function App() {
           data?.finance ?? null,
           data?.habitReminders ?? [],
           notifyPrefs,
+          data?.journalReminder ?? false,
         )}
         notificationsOpen={overlay === "notifications"}
         onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
@@ -193,7 +194,7 @@ export function App() {
       <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} onOpenAssistant={openAssistant} />}
-        {page.name === "jurnal" && <JournalPage key={`${captures}:${assistantDataVersion}`} onOpenItem={openItem} onChanged={reload} onOpenAssistant={openAssistant} />}
+        {page.name === "jurnal" && <JournalPage key={`${captures}:${assistantDataVersion}`} onOpenItem={openItem} onChanged={reload} onOpenAssistant={openAssistant} onOpenSettings={openSettings} />}
         {page.name === "catatan" && (
           <NotesPage
             key={`${page.intent ?? 0}:${assistantDataVersion}`}
@@ -291,10 +292,13 @@ export function App() {
           finance={data?.finance ?? null}
           habitReminders={data?.habitReminders ?? []}
           prefs={notifyPrefs}
+          journalReminder={data?.journalReminder ?? false}
           onClose={() => setOverlay(null)}
           onOpenItem={openItem}
           onOpenFinance={() => go("keuangan")}
           onOpenHabits={() => go("habit")}
+          onOpenJournal={() => go("jurnal")}
+          onDismissJournal={() => { void api.dismissJournalReminder().then(reload); }}
         />
       )}
     </div>

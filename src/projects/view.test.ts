@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Columns, Priority, TaskCard } from "../api";
 import {
   ACTIVITY_FILTERS,
   AGENT_QUICK_BUTTONS,
@@ -17,6 +18,9 @@ import {
   parentLabel,
   subLabel,
   toggleTaskStatus,
+  PRIORITY_LABELS,
+  dropTarget,
+  hasFilter,
 } from "./view";
 
 describe("project view helpers", () => {
@@ -210,6 +214,22 @@ describe("project view helpers", () => {
       "Lanjutkan tugas berikutnya",
       "Ringkas progres hari ini",
     ]);
+  });
+
+  test("dropTarget only returns cards that change column", () => {
+    const card: TaskCard = { id: "a", title: "A", status: "plan", tag: null, dueAt: null, overdue: false,
+      subDone: 0, subTotal: 0, projectId: null, projectName: null, priority: null };
+    const columns: Columns = { plan: [card], doing: [], test: [], review: [], done: [] };
+    expect(dropTarget(columns, "a", "doing")).toBe(card);
+    expect(dropTarget(columns, "a", "plan")).toBeNull();
+    expect(dropTarget(columns, "missing", "doing")).toBeNull();
+  });
+
+  test("hasFilter ignores a blank search and priority labels follow the spec", () => {
+    expect(hasFilter({})).toBe(false);
+    expect(hasFilter({ query: "  " })).toBe(false);
+    expect(hasFilter({ due: "none" })).toBe(true);
+    expect([1, 2, 3].map((p) => PRIORITY_LABELS[p as Priority].label)).toEqual(["Tinggi", "Sedang", "Rendah"]);
   });
 });
 

@@ -177,12 +177,15 @@ describe("App profile navigation", () => {
       projects: [],
       habitReminders: [],
       downloads: { speed: 0, items: [] },
+      journalReminder: false,
     });
     prefsSpy = spyOn(api, "getNotifyPrefs").mockResolvedValue({
       task: true,
       bill: false,
       budget: true,
       habit: true,
+      journal: false,
+      journalAt: "20:00",
     });
     harness = hookHarness(App, { 0: { path: "/db", error: null }, 8: { pinEnabled: false, locked: false } });
     const render = () => harness.render(false);
@@ -197,6 +200,8 @@ describe("App profile navigation", () => {
       bill: false,
       budget: true,
       habit: true,
+      journal: false,
+      journalAt: "20:00",
     });
     secSpy.mockRestore();
     dbSpy.mockRestore();

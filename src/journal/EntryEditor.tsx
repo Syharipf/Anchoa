@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { api, errorMessage, type Entry, type EntryKind, type EntryPatch } from "../api";
+import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { MoodPicker } from "./MoodPicker";
 import { TagInput } from "./TagInput";
@@ -10,6 +11,7 @@ const KINDS: readonly EntryKind[] = ["idea", "vent", "note"];
 const AUTOSAVE_MS = 500;
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
+type MicMode = "idle" | "starting" | "recording" | "transcribing";
 type TextPatch = { title?: string; body?: string };
 type SaveQueue = {
   pending: TextPatch;
@@ -33,6 +35,7 @@ export function EntryEditor({
   onOpenAssistant,
   onDelete,
   onTagClick,
+  onOpenSettings,
 }: Readonly<{
   entry: Entry;
   onEntryChanged: (updated: Entry) => void;
@@ -41,6 +44,7 @@ export function EntryEditor({
   onOpenAssistant: OpenAssistant;
   onDelete: (id: string) => Promise<boolean | void> | boolean | void;
   onTagClick: (tag: string) => void;
+  onOpenSettings?: (section?: SettingsSection) => void;
 }>) {
   const toast = useToast();
   const [title, setTitle] = useState(entry.title);
@@ -48,7 +52,13 @@ export function EntryEditor({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [converting, setConverting] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
+  const [micMode, setMicMode] = useState<MicMode>("idle");
+  const micModeRef = useRef(micMode);
+  micModeRef.current = micMode;
+  const bodyRef = useRef(body);
+  bodyRef.current = body;
+  const dictationSessionRef = useRef(0);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const queue = useMemo<SaveQueue>(() => ({ pending: {}, deleting: false }), [entry.id]);
   const currentId = useRef(entry.id);
   const afterSaved = useRef(onAfterSaved);
@@ -58,10 +68,16 @@ export function EntryEditor({
   useEffect(() => {
     if (currentId.current !== entry.id) {
       currentId.current = entry.id;
+      dictationSessionRef.current++;
       setTitle(entry.title);
       setBody(entry.body);
+      bodyRef.current = entry.body;
       setSaveState("idle");
       setDeleting(false);
+      if (micModeRef.current === "recording" || micModeRef.current === "starting") {
+        api.voiceRecordStop().catch(() => {});
+        setMicMode("idle");
+      }
     }
   }, [entry.id, entry.title, entry.body]);
 
@@ -92,6 +108,76 @@ export function EntryEditor({
   // Flush on unmount
   useEffect(() => () => void flush(), [flush]);
 
+  // Stop recording and cancel dictation session on unmount
+  useEffect(() => () => {
+    dictationSessionRef.current++;
+    if (micModeRef.current === "recording" || micModeRef.current === "starting") {
+      api.voiceRecordStop().catch(() => {});
+    }
+  }, []);
+
+  function insertTranscript(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const currentBody = bodyRef.current;
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      handleBodyChange(currentBody ? `${currentBody} ${trimmed}` : trimmed);
+      return;
+    }
+    const isFocused = typeof document !== "undefined" && document.activeElement === textarea;
+    const hasExplicitCursor = isFocused || (textarea.selectionStart != null && textarea.selectionStart > 0);
+    const start = hasExplicitCursor && textarea.selectionStart != null ? textarea.selectionStart : currentBody.length;
+    const end = hasExplicitCursor && textarea.selectionEnd != null ? textarea.selectionEnd : currentBody.length;
+    const before = currentBody.slice(0, start);
+    const after = currentBody.slice(end);
+    const separatorBefore = before && !before.endsWith(" ") && !before.endsWith("\n") ? " " : "";
+    const separatorAfter = after && !after.startsWith(" ") && !after.startsWith("\n") ? " " : "";
+    const newBody = `${before}${separatorBefore}${trimmed}${separatorAfter}${after}`;
+    handleBodyChange(newBody);
+  }
+
+  async function handleToggleDictation() {
+    if (micMode === "recording") {
+      const token = ++dictationSessionRef.current;
+      setMicMode("transcribing");
+      try {
+        const transcript = await api.voiceRecordStop();
+        if (token !== dictationSessionRef.current) return;
+        insertTranscript(transcript);
+      } catch (e) {
+        if (token !== dictationSessionRef.current) return;
+        toast(errorMessage(e), "error");
+      } finally {
+        if (token === dictationSessionRef.current) {
+          setMicMode("idle");
+        }
+      }
+      return;
+    }
+    if (micMode !== "idle") return;
+    const token = ++dictationSessionRef.current;
+    setMicMode("starting");
+    try {
+      const status = await api.voiceStatus();
+      if (token !== dictationSessionRef.current) return;
+      if (!status.whisper || !status.whisperModel) {
+        setMicMode("idle");
+        toast("Model Whisper belum terpasang", "error", { label: "Pengaturan", run: () => onOpenSettings?.("suara") });
+        return;
+      }
+      await api.voiceRecordStart();
+      if (token !== dictationSessionRef.current) {
+        api.voiceRecordStop().catch(() => {});
+        return;
+      }
+      setMicMode("recording");
+    } catch (e) {
+      if (token !== dictationSessionRef.current) return;
+      toast(errorMessage(e), "error");
+      setMicMode("idle");
+    }
+  }
   function handleTitleChange(val: string) {
     if (queue.deleting) return;
     setTitle(val);
@@ -103,6 +189,7 @@ export function EntryEditor({
   function handleBodyChange(val: string) {
     if (queue.deleting) return;
     setBody(val);
+    bodyRef.current = val;
     queue.pending = { ...queue.pending, body: val };
     window.clearTimeout(queue.timer);
     queue.timer = window.setTimeout(() => void flush(), AUTOSAVE_MS);
@@ -212,6 +299,33 @@ export function EntryEditor({
           <span className="mr-1 font-mono text-xs text-muted">{entry.when}</span>
           <button
             type="button"
+            disabled={deleting || micMode === "transcribing" || micMode === "starting"}
+            aria-label={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
+            title={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
+            onClick={() => void handleToggleDictation()}
+            className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 disabled:text-disabled ${
+              micMode === "recording"
+                ? "text-danger animate-pulse"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+            </svg>
+          </button>
+          <button
             disabled={deleting}
             aria-pressed={entry.pinned}
             aria-label={entry.pinned ? "Lepas sematan" : "Sematkan"}
@@ -274,6 +388,7 @@ export function EntryEditor({
 
       {/* Body */}
       <textarea
+        ref={textareaRef}
         disabled={deleting}
         value={body}
         onChange={(e) => handleBodyChange(e.target.value)}

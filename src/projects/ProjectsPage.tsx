@@ -3,22 +3,27 @@ import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
+  type BoardFilter,
+  type Priority,
   type ProjectDetail,
   type ProjectsOverview,
+  type ProjectSummary,
   type TaskCard,
   type TaskStatus,
 } from "../api";
 import { useToast } from "../shell/toast";
 import { H1, PRIMARY, SECONDARY } from "../shell/ui";
+import { type MenuEntry } from "../shell/ContextMenu";
 import { AgentTab } from "./AgentTab";
 import { AgentThread } from "./AgentThread";
+import { BoardFilterBar } from "./BoardFilterBar";
 import { Kanban } from "./Kanban";
 import { ProjectForm } from "./ProjectForm";
 import { ProjectHeader } from "./ProjectHeader";
 import { ProjectList } from "./ProjectList";
 import { UpcomingList } from "./UpcomingList";
 import { useProjectBoard } from "./useProjectBoard";
-import { boardColumns, nextStatus } from "./view";
+import { boardColumns, hasFilter, nextStatus } from "./view";
 
 export function ProjectsPage({
   onOpenItem,
@@ -35,11 +40,13 @@ export function ProjectsPage({
   const [formOpen, setFormOpen] = useState<{ edit?: ProjectDetail | null } | null>(null);
   const [version, setVersion] = useState(0);
   const [tab, setTab] = useState<"kanban" | "agent">("kanban");
+  const [filter, setFilter] = useState<BoardFilter>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
   const selectedProject = useRef(selectedId);
   selectedProject.current = selectedId;
   const openTaskId = panel && panel.projectId === selectedId && !panel.log ? panel.taskId : null;
-  const { board, lastActors, activities, running } = useProjectBoard(selectedId, version, openTaskId);
+  const { board, lastActors, activities, running } = useProjectBoard(selectedId, version, openTaskId, filter);
   const agentProject = board?.project?.agent ? board.project : null;
   const activeTab = agentProject ? tab : "kanban";
   const cards = board ? Object.values(board.columns).flat() : [];
@@ -86,6 +93,114 @@ export function ProjectsPage({
   async function handleMoveCard(card: TaskCard) {
     try {
       await api.updateTask(card.id, { status: nextStatus(card.status, agentProject !== null) });
+      setVersion((v) => v + 1);
+      onChanged();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+  async function handleDropCard(card: TaskCard, status: TaskStatus) {
+    try {
+      await api.updateTask(card.id, { status });
+      setVersion((v) => v + 1);
+      onChanged();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
+  async function handleDeleteTask(card: TaskCard) {
+    try {
+      await api.deleteTask(card.id);
+      setVersion((v) => v + 1);
+      onChanged();
+      toast(`Tugas "${card.title || "Tanpa judul"}" dihapus.`, "info", {
+        label: "Urungkan",
+        run: () => {
+          void api.restoreTask(card.id).then(() => {
+            setVersion((v) => v + 1);
+            onChanged();
+          }).catch((e) => toast(errorMessage(e), "error"));
+        },
+      });
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
+  async function handleLaunchTask(taskId: string) {
+    if (!board?.project) return;
+    try {
+      await api.agentLaunchTask(board.project.id, taskId);
+      setVersion((v) => v + 1);
+      onChanged();
+      toast("Agen mulai menjalankan tugas.");
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
+  async function handleSetPriority(card: TaskCard, priority: Priority | null) {
+    try {
+      await api.updateTask(card.id, { priority });
+      setVersion((v) => v + 1);
+      onChanged();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
+  function taskMenu(card: TaskCard): readonly MenuEntry[] {
+    const entries: MenuEntry[] = [
+      { label: "Buka", onSelect: () => handleOpenCard(card.id) },
+      { label: "Pindah status", onSelect: () => void handleMoveCard(card) },
+      "separator",
+      { label: "Prioritas: Tanpa prioritas", checked: card.priority === null, onSelect: () => void handleSetPriority(card, null) },
+      { label: "Prioritas: Tinggi", checked: card.priority === 1, onSelect: () => void handleSetPriority(card, 1) },
+      { label: "Prioritas: Sedang", checked: card.priority === 2, onSelect: () => void handleSetPriority(card, 2) },
+      { label: "Prioritas: Rendah", checked: card.priority === 3, onSelect: () => void handleSetPriority(card, 3) },
+    ];
+    if (board?.project?.agent) {
+      entries.push(
+        "separator",
+        { label: "Jalankan dengan agen", onSelect: () => void handleLaunchTask(card.id) },
+      );
+    }
+    entries.push(
+      "separator",
+      { label: "Hapus", danger: true, onSelect: () => void handleDeleteTask(card) },
+    );
+    return entries;
+  }
+
+  function projectMenu(project: ProjectSummary): readonly MenuEntry[] {
+    return [
+      {
+        label: "Ubah",
+        onSelect: async () => {
+          try {
+            const b = await api.projectBoard(project.id);
+            if (b.project) setFormOpen({ edit: b.project });
+          } catch (e) {
+            toast(errorMessage(e), "error");
+          }
+        },
+      },
+      {
+        label: "Hapus",
+        danger: true,
+        onSelect: () => setDeleteConfirm({ id: project.id, name: project.name }),
+      },
+    ];
+  }
+
+  async function confirmDeleteProject() {
+    if (!deleteConfirm) return;
+    const { id } = deleteConfirm;
+    setDeleteConfirm(null);
+    try {
+      await api.deleteProject(id);
+      if (selectedId === id) setSelectedId(undefined);
       setVersion((v) => v + 1);
       onChanged();
     } catch (e) {
@@ -202,6 +317,7 @@ export function ProjectsPage({
             selectedId={selectedId ?? null}
             onSelect={(id) => setSelectedId(id)}
             onCreateProject={() => setFormOpen({})}
+            projectMenu={projectMenu}
           />
           <UpcomingList tasks={overview.upcoming} onOpenItem={onOpenItem} />
         </div>
@@ -233,18 +349,37 @@ export function ProjectsPage({
               onEditProject={() => setFormOpen({ edit: agentProject })}
             />
           ) : board ? (
-            <div className="flex min-h-0 flex-1 gap-3.5">
-              <Kanban
-                key={selectedId ?? "loose"}
-                columns={board.columns}
-                agent={agentProject !== null}
-                lastActors={lastActors}
-                onOpenItem={handleOpenCard}
-                onMoveCard={handleMoveCard}
-                onCreateTask={handleCreateTask}
+            <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+              <BoardFilterBar
+                filter={filter}
+                tags={board.tags}
+                onChange={setFilter}
               />
-              {panelTask && <AgentThread key={panelTask.id} task={panelTask} activities={activities}
-                showLog={panel?.log} onChanged={handleAgentChanged} onClose={() => setPanel(null)} onOpenItem={onOpenItem} />}
+              <div className="flex min-h-0 flex-1 gap-3.5">
+                <Kanban
+                  key={selectedId ?? "loose"}
+                  columns={board.columns}
+                  agent={agentProject !== null}
+                  lastActors={lastActors}
+                  onOpenItem={handleOpenCard}
+                  onMoveCard={handleMoveCard}
+                  onDropCard={handleDropCard}
+                  cardMenu={taskMenu}
+                  filtered={hasFilter(filter)}
+                  onCreateTask={handleCreateTask}
+                />
+                {panelTask && (
+                  <AgentThread
+                    key={panelTask.id}
+                    task={panelTask}
+                    activities={activities}
+                    showLog={panel?.log}
+                    onChanged={handleAgentChanged}
+                    onClose={() => setPanel(null)}
+                    onOpenItem={onOpenItem}
+                  />
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid min-h-0 flex-1 grid-cols-3 gap-3.5">
@@ -260,6 +395,34 @@ export function ProjectsPage({
           onClose={() => setFormOpen(null)}
           onSaved={handleSaved}
         />
+      )}
+      {deleteConfirm !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div role="dialog" aria-labelledby="hapus-proyek-judul" className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+            <h2 id="hapus-proyek-judul" className="m-0 text-base font-semibold text-ink">
+              Hapus proyek?
+            </h2>
+            <p className="m-0 text-xs text-muted">
+              Hapus proyek &ldquo;{deleteConfirm.name}&rdquo;? Tugasnya pindah ke Tugas lepas.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:bg-surface-2 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteProject()}
+                className="rounded-lg bg-danger px-3 py-1.5 text-xs text-white hover:bg-danger/80 transition-colors"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

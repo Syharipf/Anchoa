@@ -38,6 +38,7 @@ function createMockAssistant(
       subTotal: 0,
       projectId: null,
       projectName: null,
+      priority: null,
     }),
     setMode: () => {},
     clearError: () => {},

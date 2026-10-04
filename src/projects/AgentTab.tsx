@@ -11,7 +11,7 @@ import { relativeTime } from "../format";
 import { splitBlocks } from "../notes/blocks";
 import { BlockPreview } from "../notes/markdown";
 import { useToast } from "../shell/toast";
-import { H2, PRIMARY } from "../shell/ui";
+import { FIELD, H2, PRIMARY } from "../shell/ui";
 import { AgentRequest } from "./AgentRequest";
 import {
   ACTIVITY_FILTERS,
@@ -173,15 +173,60 @@ const runStarts = new Map<string, number>();
 export function ConnectAgentDialog({
   project,
   onClose,
+  onSaved,
   onEditProject,
 }: Readonly<{
   project: ProjectDetail;
   onClose: () => void;
+  onSaved?: () => void;
   onEditProject?: () => void;
 }>) {
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const toast = useToast();
   const [copiedId, setCopiedId] = useState(false);
+  const [dir, setDir] = useState(project.agentDir ?? "");
+  const [cmd, setCmd] = useState(project.agentCommand ?? "");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
+  async function handleSaveConfig() {
+    setSaving(true);
+    try {
+      await api.saveProject({
+        id: project.id,
+        name: project.name,
+        kind: project.kind,
+        description: project.description,
+        deadlineAt: project.deadlineAt,
+        repoUrl: project.repoUrl,
+        agent: true,
+        agentDir: dir.trim() || null,
+        agentCommand: cmd.trim() || null,
+      });
+      toast("Pengaturan agen disimpan");
+      onSaved?.();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTestSetup() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await api.agentTestSetup(project.id);
+      setTestResult(`✓ ${res}`);
+      toast("Konfigurasi agen valid");
+    } catch (e) {
+      setTestResult(`✕ ${errorMessage(e)}`);
+      toast(errorMessage(e), "error");
+    } finally {
+      setTesting(false);
+    }
+  }
   async function handleCopy(text: string, isSnippet: boolean) {
     try {
       await navigator.clipboard.writeText(text);
@@ -228,20 +273,51 @@ export function ConnectAgentDialog({
             1
           </span>
           <div className="flex flex-col gap-2 min-w-0 flex-1">
-            <span className="text-sm font-medium text-ink">Isi perintah agen dan folder di pengaturan proyek</span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex flex-col gap-1 rounded-[9px] border border-line bg-stage p-2.5">
-                <span className="text-[11px] text-muted">Folder repo</span>
-                <span className="font-mono text-ink truncate" title={project.agentDir || "Belum diisi"}>
-                  {project.agentDir || "Belum diisi"}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1 rounded-[9px] border border-line bg-stage p-2.5">
+            <span className="text-sm font-medium text-ink">Perintah dan folder kerja agen</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] text-muted">Folder kerja agen</span>
+                <input
+                  type="text"
+                  value={dir}
+                  placeholder="/home/user/repo"
+                  onChange={(e) => setDir(e.target.value)}
+                  className={`${FIELD} py-1.5 text-xs`}
+                />
+              </label>
+              <label className="flex flex-col gap-1">
                 <span className="text-[11px] text-muted">Perintah agen</span>
-                <span className="font-mono text-ink truncate" title={project.agentCommand || "Belum diisi"}>
-                  {project.agentCommand || "Belum diisi"}
+                <input
+                  type="text"
+                  value={cmd}
+                  placeholder="claude"
+                  onChange={(e) => setCmd(e.target.value)}
+                  className={`${FIELD} py-1.5 text-xs`}
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => void handleSaveConfig()}
+                disabled={saving}
+                className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-3 transition-colors disabled:opacity-50"
+              >
+                {saving ? "Menyimpan…" : "Simpan"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleTestSetup()}
+                disabled={testing}
+                className="rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors disabled:opacity-50"
+              >
+                {testing ? "Menguji…" : "Uji konfigurasi"}
+              </button>
+              {testResult && (
+                <span className={`text-xs ${testResult.startsWith("✓") ? "text-accent" : "text-danger"}`}>
+                  {testResult}
                 </span>
-              </div>
+              )}
             </div>
             {onEditProject && (
               <button
@@ -518,7 +594,7 @@ export function AgentTab({
                       <span className="truncate text-[13px] font-medium text-ink">{agent.name}</span>
                       <span className="text-[11px] text-muted">aktif {relativeTime(agent.lastActiveAt, now)}</span>
                     </div>
-                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+                    <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent" : "bg-disabled"}`} />
                   </div>
                 ))}
               </div>
@@ -541,6 +617,7 @@ export function AgentTab({
         <ConnectAgentDialog
           project={project}
           onClose={() => setConnectOpen(false)}
+          onSaved={onRefresh}
           onEditProject={onEditProject}
         />
       )}

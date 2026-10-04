@@ -49,21 +49,36 @@ function handoffDownload(url, filename, referrer, browserDownloadId) {
           });
           return;
         }
-        // Step 3: Commit the download to Anchoa queue
-        chrome.runtime.sendNativeMessage(HOST_NAME, {
-          version: 1,
-          action: "commit",
-          requestId
-        });
+        // Step 3: Commit with retry and browser recovery fallback
+        commitWithRecovery(requestId, url, filename);
       });
     } else {
-      chrome.runtime.sendNativeMessage(HOST_NAME, {
-        version: 1,
-        action: "commit",
-        requestId
-      });
+      commitWithRecovery(requestId, url, filename);
     }
   });
+}
+
+function commitWithRecovery(requestId, url, filename, maxRetries = 3) {
+  let attempt = 0;
+  function tryCommit() {
+    attempt++;
+    chrome.runtime.sendNativeMessage(
+      HOST_NAME,
+      { version: 1, action: "commit", requestId },
+      (res) => {
+        if (!chrome.runtime.lastError && res && res.accepted) {
+          return;
+        }
+        if (attempt < maxRetries) {
+          setTimeout(tryCommit, attempt * 1000);
+        } else {
+          // Recovery: restart in browser if native host failed after cancel
+          chrome.downloads.download({ url, filename: filename || undefined });
+        }
+      }
+    );
+  }
+  tryCommit();
 }
 
 // Context Menu setup

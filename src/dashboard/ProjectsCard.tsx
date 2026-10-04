@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import type { ProjectSummary } from "../api";
 import type { PageId } from "../shell/nav";
 import { H2, PANEL } from "../shell/ui";
@@ -30,14 +31,12 @@ export function ProjectsCard({
                 <span className="truncate text-ink">{p.name}</span>
                 <span className="shrink-0 font-mono text-muted">{pct}%</span>
               </div>
-              <div aria-hidden="true" className="h-1 w-full overflow-hidden rounded-sm bg-line">
-                <div
-                  style={{ width: `${pct}%` }}
-                  className={`h-full rounded-sm transition-all ${
-                    p.status === "done" ? "bg-field-focus" : "bg-accent"
-                  }`}
-                />
-              </div>
+              <FishProgress
+                value={pct}
+                label={p.name}
+                state={p.status === "done" ? "done" : "running"}
+                className="h-2"
+              />
             </div>
           );
         })

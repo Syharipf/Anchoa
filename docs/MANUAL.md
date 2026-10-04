@@ -136,19 +136,22 @@ Untuk pencatatan uang secara manual: akun, transaksi, tagihan, dan batas bulanan
 
 Untuk proyek, tugas lepas, sub-tugas, dan aktivitas agen kode.
 
-1. Klik **Proyek** pada tombol tambah. Isi nama, jenis, deskripsi, serta tenggat atau URL repo GitHub bila perlu, lalu **Simpan**.
+1. Klik **Proyek** pada tombol tambah di daftar kiri. Isi nama, jenis, deskripsi, serta tenggat atau URL repo GitHub bila perlu, lalu **Simpan**. Tombol **Ubah** di kanan atas proyek membuka pengaturan proyek.
 2. Pilih proyek atau **Tugas lepas** di daftar kiri. Klik **Tugas** pada kolom Kanban, isi judul, lalu Enter.
-3. Klik kartu tugas untuk mengubah judul, isi Markdown, **Status**, **Proyek**, **Mulai**, **Tenggat**, dan **Tag**. Perubahan tersimpan otomatis. Isi **Tambah sub-tugas…** lalu Enter untuk membuat sub-tugas.
-4. Gunakan tombol panah kartu: **Pindah ke Dikerjakan**, **Pindah ke Selesai**, atau **Kembalikan ke Rencana**. Menghapus proyek lewat **Ubah** > **Hapus proyek** memindahkan tugas ke **Tugas lepas**.
-5. Untuk menghapus tugas, buka detail, klik **Hapus**, lalu **Ya, hapus**. Sub-tugasnya ikut dihapus.
+3. Klik kartu tugas untuk mengubah judul, isi Markdown, **Status**, **Prioritas** (Tinggi, Sedang, Rendah), **Proyek**, **Mulai**, **Tenggat**, dan **Tag**. Perubahan tersimpan otomatis. Isi **Tambah sub-tugas…** lalu Enter untuk membuat sub-tugas.
+4. Geser dan lepas (*drag-and-drop*) kartu antar kolom, atau gunakan tombol panah fallback keyboard pada kartu. Kartu diurutkan berdasarkan prioritas tertinggi lalu tenggat terdekat.
+5. Gunakan bilah filter di atas papan untuk menyaring tugas berdasarkan kata kunci pencarian, tag, prioritas, atau status tenggat (**Terlambat**, **7 hari ke depan**, **Tanpa tenggat**). Klik **Reset** untuk mengosongkan filter.
+6. Klik kanan pada kartu tugas (atau tombol menu **⋯**) untuk membuka menu konteks: ubah prioritas, pindah kolom, jalankan tugas dengan agen, atau hapus tugas. Klik kanan pada proyek di daftar kiri untuk membuka menu **Ubah** atau **Hapus**.
+7. Menghapus tugas memunculkan notifikasi dengan tombol **Urungkan** (berlaku 6 detik). Menghapus proyek lewat menu memindahkan tugas-tugasnya ke **Tugas lepas**.
 
 Untuk papan agen:
 
-1. Di formulir proyek, aktifkan **Proyek agen**. Isi **Folder repo** yang sudah ada di dalam home. Isi **Perintah agen (opsional)** jika ingin Anchoa menjalankannya.
-2. Kanban agen memiliki **Rencana**, **Dikerjakan**, **Tes**, **Review**, dan **Selesai**. Klik kartu untuk membuka **Utas**, ubah status, atau tulis pesan lalu **Balas**.
-3. Pilih **Agen kode**, isi **Permintaan ke agen**, lalu **Kirim**. Tombol seperti **Jalankan tes** hanya mengisi kolom permintaan; tetap klik **Kirim**.
-4. Tanpa perintah agen, tugas menunggu di Rencana. Dengan perintah, Anchoa langsung menjalankannya di folder repo. Klik **Hentikan** untuk menghentikan proses, atau **Lihat log** untuk melihat keluarannya.
-5. Agen luar melapor melalui CLI `anchoa agent …` ke database yang sama. Gunakan petunjuk koneksi di tab **Agen kode**. Contoh baca daftar proyek dan permintaan:
+1. Di tab **Agen kode** atau pengaturan proyek, aktifkan proyek agen. Isi **Folder repo** dan **Perintah agen** langsung di formulir koneksi, lalu klik **Simpan**.
+2. Klik **Uji konfigurasi** untuk memeriksa apakah folder dan perintah agen valid sebelum dijalankan. Indikator status agen menampilkan titik hijau saat agen aktif menjalankan proses dan abu-abu saat berhenti.
+3. Kanban agen memiliki kolom **Rencana**, **Dikerjakan**, **Tes**, **Review**, dan **Selesai**. Klik kartu untuk membuka **Utas**, ubah status, atau tulis pesan lalu **Balas**.
+4. Pilih **Agen kode**, isi **Permintaan ke agen**, lalu **Kirim**. Tombol seperti **Jalankan tes** hanya mengisi kolom permintaan; tetap klik **Kirim**.
+5. Dengan perintah agen terpasang, klik **Jalankan dengan agen** pada menu tugas untuk mengeksekusi tugas langsung. Klik **Hentikan** untuk menghentikan proses, atau **Lihat log** untuk melihat keluarannya.
+6. Agen luar melapor melalui CLI `anchoa agent …` ke database yang sama. Gunakan petunjuk koneksi di tab **Agen kode**. Contoh baca daftar proyek dan permintaan:
 
    ```bash
    anchoa agent projects

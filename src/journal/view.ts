@@ -21,6 +21,50 @@ export const KIND_META: Record<EntryKind, KindMeta> = {
   },
 };
 
+export interface JournalTemplate {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly kind: EntryKind;
+  readonly title: string;
+  readonly body: string;
+}
+
+export const JOURNAL_TEMPLATES: readonly JournalTemplate[] = [
+  {
+    id: "daily-reflection",
+    label: "Refleksi harian",
+    description: "Evaluasi hari ini dan apa yang dipelajari",
+    kind: "note",
+    title: "Refleksi harian",
+    body: "### Apa yang berjalan baik hari ini?\n\n\n### Apa tantangan yang dihadapi?\n\n\n### Apa pelajaran untuk besok?\n",
+  },
+  {
+    id: "gratitude",
+    label: "3 hal yang disyukuri",
+    description: "Latihan bersyukur untuk hal-hal bermakna",
+    kind: "note",
+    title: "3 hal yang disyukuri",
+    body: "1. \n2. \n3. \n",
+  },
+  {
+    id: "weekly-review",
+    label: "Review mingguan",
+    description: "Kilas balik pencapaian dan arah minggu depan",
+    kind: "note",
+    title: "Review mingguan",
+    body: "### Pencapaian terbesar minggu ini\n\n\n### Hal yang belum selesai atau tertunda\n\n\n### Fokus utama minggu depan\n",
+  },
+  {
+    id: "guided-vent",
+    label: "Curhat terarah",
+    description: "Uraikan emosi dan cari titik kendali",
+    kind: "vent",
+    title: "Curhat terarah",
+    body: "### Apa yang sedang kurasakan?\n\n\n### Mengapa hal ini menggangguku?\n\n\n### Apa yang berada dalam kendaliku?\n",
+  },
+];
+
 export const MOODS = ["Berat", "Kurang", "Biasa", "Baik", "Senang"] as const;
 
 export interface MoodBar {

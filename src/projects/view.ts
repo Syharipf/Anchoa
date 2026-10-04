@@ -1,4 +1,14 @@
-import type { Activity, ActivityRole, ProjectKind, ProjectStatus, TaskCard, TaskStatus } from "../api";
+import type {
+  Activity,
+  ActivityRole,
+  BoardFilter,
+  Columns,
+  Priority,
+  ProjectKind,
+  ProjectStatus,
+  TaskCard,
+  TaskStatus,
+} from "../api";
 import { shortDate } from "../format";
 
 export const KIND_LABELS: Record<ProjectKind, string> = {
@@ -13,6 +23,22 @@ export const STATUS_LABELS: Record<ProjectStatus, { label: string; tone: "accent
   late: { label: "Terlambat", tone: "danger" },
   done: { label: "Selesai", tone: "muted" },
 };
+export const PRIORITY_LABELS: Readonly<Record<Priority, { label: string; className: string }>> = {
+  1: { label: "Tinggi", className: "text-danger" },
+  2: { label: "Sedang", className: "text-warn" },
+  3: { label: "Rendah", className: "text-muted" },
+};
+
+/** The card being dropped, or null when it stays in its own column. */
+export function dropTarget(columns: Columns, id: string, status: TaskStatus): TaskCard | null {
+  const card = Object.values(columns).flat().find((c) => c.id === id);
+  return card && card.status !== status ? card : null;
+}
+
+export function hasFilter(filter: BoardFilter): boolean {
+  return Boolean(filter.query?.trim() || filter.tag || filter.priority || filter.due);
+}
+
 
 const AGENT_COLUMNS: readonly Readonly<{ status: TaskStatus; title: string; dot: string }>[] = [
   { status: "plan", title: "Rencana", dot: "bg-muted" },

@@ -28,7 +28,7 @@ const EXTENSIONS: &[Extension] = &[
     Extension {
         kind: "task",
         table: "tasks",
-        columns: &["item_id", "status", "project_id", "start_at", "tag"],
+        columns: &["item_id", "status", "project_id", "start_at", "tag", "priority"],
         references: &["project_id"],
     },
     Extension { kind: "project", table: "projects", columns: &["item_id", "kind", "deadline_at", "repo_url"], references: &[] },
@@ -490,7 +490,7 @@ mod tests {
         ),
         ("budget", "budgets", "INSERT INTO budgets VALUES ('budget', NULL, 5000)", "amount = 6000"),
         ("habit", "habits", "INSERT INTO habits VALUES ('habit', 127, '08:00', 1, 1)", "days = 31"),
-        ("task", "tasks", "INSERT INTO tasks VALUES ('task', 'doing', 'project', 90, 'tag')", "status = 'review'"),
+        ("task", "tasks", "INSERT INTO tasks (item_id, status, project_id, start_at, tag, priority) VALUES ('task', 'doing', 'project', 90, 'tag', 2)", "status = 'review'"),
         ("note", "journal_entries", "INSERT INTO journal_entries (item_id, kind, mood, tags, task_id) VALUES ('note', 'idea', 4, 'tag', 'task')", "mood = 5"),
     ];
 
@@ -539,6 +539,20 @@ mod tests {
 
     fn applying(conn: &Connection) -> String {
         conn.query_row("SELECT value FROM sync_state WHERE key = 'applying'", [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn changing_task_priority_is_captured() {
+        let conn = open_in_memory();
+        fixtures(&conn);
+        for change in ["priority = 1", "priority = NULL"] {
+            clear_outbox(&conn);
+            conn.execute(&format!("UPDATE tasks SET {change} WHERE item_id = 'task'"), []).unwrap();
+            only_outbox(&conn, "task");
+        }
+        clear_outbox(&conn);
+        conn.execute("UPDATE tasks SET priority = priority WHERE item_id = 'task'", []).unwrap();
+        assert!(outbox(&conn).is_empty());
     }
 
     #[test]

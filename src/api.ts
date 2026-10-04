@@ -262,9 +262,19 @@ export interface Columns {
   done: TaskCard[];
 }
 
+export type Priority = 1 | 2 | 3;
+export type DueFilter = "overdue" | "week" | "none";
+export interface BoardFilter {
+  query?: string;
+  tag?: string;
+  priority?: Priority;
+  due?: DueFilter;
+}
+
 export interface Board {
   project: ProjectDetail | null;
   columns: Columns;
+  tags: string[];
 }
 
 export type TaskStatus = "plan" | "doing" | "test" | "review" | "done";
@@ -310,6 +320,7 @@ export interface TaskCard {
   subTotal: number;
   projectId: string | null;
   projectName: string | null;
+  priority: Priority | null;
 }
 
 export interface TaskDetail {
@@ -323,6 +334,7 @@ export interface TaskDetail {
   subTotal: number;
   projectId: string | null;
   projectName: string | null;
+  priority: Priority | null;
   startAt: number | null;
   parentId: string | null;
   parentTitle: string | null;
@@ -341,6 +353,7 @@ export interface TaskPatch {
   projectId?: string | null;
   startAt?: number | null;
   tag?: string | null;
+  priority?: Priority | null;
 }
 
 export interface Dashboard {
@@ -352,6 +365,7 @@ export interface Dashboard {
   projects: ProjectSummary[];
   habitReminders: HabitReminder[];
   downloads: DownloadsSummary;
+  journalReminder: boolean;
 }
 
 export type DayState = "blank" | "future" | "off" | "done" | "todo" | "miss";
@@ -501,6 +515,8 @@ export interface NotifyPrefs {
   bill: boolean;
   budget: boolean;
   habit: boolean;
+  journal: boolean;
+  journalAt: string;
 }
 
 export interface SecurityStatus {
@@ -783,7 +799,7 @@ export interface AssistantMessage {
   tool_call_id?: string;
 }
 
-export type AssistantWriteTool = "create_task" | "complete_task" | "add_transaction" | "add_journal_entry" | "check_habit";
+export type AssistantWriteTool = "create_task" | "complete_task" | "update_task" | "add_transaction" | "add_journal_entry" | "check_habit";
 
 export interface AssistantProposal {
   id: string;
@@ -989,13 +1005,16 @@ export const api = {
   updateItem: (id: string, patch: ItemPatch) => invoke<Item>("update_item", { id, patch }),
   deleteItem: (id: string) => invoke<void>("delete_item", { id }),
   projectsOverview: () => invoke<ProjectsOverview>("projects_overview"),
-  projectBoard: (id: string | null) => invoke<Board>("project_board", { id }),
+  projectBoard: (id: string | null, filter: BoardFilter = {}) => invoke<Board>("project_board", { id, filter }),
   saveProject: (input: ProjectInput) => invoke<ProjectDetail>("save_project", { input }),
   deleteProject: (id: string) => invoke<void>("delete_project", { id }),
   openRepo: (id: string) => invoke<void>("open_repo", { id }),
   agentRequest: (projectId: string, text: string) => invoke<TaskCard>("agent_request", { projectId, text }),
   agentStop: (projectId: string) => invoke<void>("agent_stop", { projectId }),
   agentRunning: () => invoke<string[]>("agent_running"),
+  agentLaunchTask: (projectId: string, taskId: string) =>
+    invoke<void>("agent_launch_task", { projectId, taskId }),
+  agentTestSetup: (projectId: string) => invoke<string>("agent_test_setup", { projectId }),
   agentLastActors: (projectId: string) => invoke<Record<string, LastActor>>("agent_last_actors", { projectId }),
   taskActivities: (taskId: string) => invoke<Activity[]>("task_activities", { taskId }),
   projectActivities: (projectId: string, limit = 200) =>
@@ -1006,6 +1025,7 @@ export const api = {
   getTask: (id: string) => invoke<TaskDetail>("get_task", { id }),
   updateTask: (id: string, patch: TaskPatch) => invoke<TaskDetail>("update_task", { id, patch }),
   deleteTask: (id: string) => invoke<void>("delete_task", { id }),
+  restoreTask: (id: string) => invoke<void>("restore_task", { id }),
   convertToTask: (id: string) => invoke<TaskDetail>("convert_to_task", { id }),
   listInbox: () => invoke<ItemSummary[]>("list_inbox"),
   getDashboard: () => invoke<Dashboard>("get_dashboard"),
@@ -1040,6 +1060,7 @@ export const api = {
   setProfileName: (name: string) => invoke<Profile>("set_profile_name", { name }),
   getNotifyPrefs: () => invoke<NotifyPrefs>("get_notify_prefs"),
   setNotifyPrefs: (prefs: NotifyPrefs) => invoke<NotifyPrefs>("set_notify_prefs", { prefs }),
+  dismissJournalReminder: () => invoke<void>("dismiss_journal_reminder"),
   habitsOverview: () => invoke<HabitsOverview>("habits_overview"),
   habitHistory: (id: string, month: string) =>
     invoke<HabitHistory>("habit_history", { id, month }),

@@ -7,6 +7,7 @@ use crate::downloader::LiveProgress;
 use crate::downloads::{self, DownloadStatus};
 use crate::error::AppError;
 use crate::finance;
+use crate::journal;
 use crate::habits::{self, HabitReminder};
 use crate::items::{ItemSummary, summaries};
 use crate::overview::{self, BudgetView};
@@ -72,6 +73,7 @@ pub struct Dashboard {
     pub projects: Vec<ProjectSummary>,
     pub habit_reminders: Vec<HabitReminder>,
     pub downloads: DownloadsSummary,
+    pub journal_reminder: bool,
 }
 
 /// The Keuangan card, the bell and the notification panel (spec Fase 2 §5).
@@ -220,6 +222,7 @@ pub fn get(
         projects: projects::active_projects(conn, now, tz, 2)?,
         habit_reminders: habits::due_reminders(conn, now, tz)?,
         downloads: downloads_summary(conn, live)?,
+        journal_reminder: journal::due_reminder(conn, now, tz)?,
     })
 }
 
@@ -580,5 +583,23 @@ mod tests {
         let d = get(&conn, &live, 5000, &jakarta()).unwrap();
         assert_eq!(d.downloads.speed, 400_000.0);
         assert_eq!(d.downloads.items.len(), 2);
+    }
+
+    #[test]
+    fn dashboard_journal_reminder_is_populated() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        // default: journal off → no reminder
+        let d = get_test(&conn, ms("2026-09-29T20:30:00+07:00"), &tz).unwrap();
+        assert!(!d.journal_reminder);
+
+        // Enable journal reminder
+        let prefs = crate::profile::NotifyPrefs {
+            task: true, bill: true, budget: true, habit: true,
+            journal: true, journal_at: "20:00".into(),
+        };
+        crate::profile::set_notify_prefs(&conn, &prefs).unwrap();
+        let d = get_test(&conn, ms("2026-09-29T20:30:00+07:00"), &tz).unwrap();
+        assert!(d.journal_reminder);
     }
 }

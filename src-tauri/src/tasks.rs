@@ -59,8 +59,8 @@ pub struct TaskCard {
     pub sub_total: i64,
     pub project_id: Option<String>,
     pub project_name: Option<String>,
+    pub priority: Option<i64>,
 }
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskDetail {
@@ -91,9 +91,11 @@ pub struct TaskPatch {
     pub start_at: Option<Option<i64>>,
     #[serde(default, deserialize_with = "present_opt")]
     pub tag: Option<Option<String>>,
+    #[serde(default, deserialize_with = "present_opt")]
+    pub priority: Option<Option<i64>>,
 }
 
-fn present_opt<'de, T: Deserialize<'de>, D: Deserializer<'de>>(d: D) -> Result<Option<Option<T>>, D::Error> {
+pub(crate) fn present_opt<'de, T: Deserialize<'de>, D: Deserializer<'de>>(d: D) -> Result<Option<Option<T>>, D::Error> {
     Option::<T>::deserialize(d).map(Some)
 }
 
@@ -104,7 +106,8 @@ const CARD_SELECT: &str = "
            (SELECT COUNT(*) FROM items sub_i
             WHERE sub_i.parent_id = i.id AND sub_i.deleted_at IS NULL AND sub_i.type = 'task') AS sub_total,
            t.project_id,
-           (SELECT pi.title FROM items pi WHERE pi.id = t.project_id AND pi.deleted_at IS NULL) AS project_name
+           (SELECT pi.title FROM items pi WHERE pi.id = t.project_id AND pi.deleted_at IS NULL) AS project_name,
+           t.priority
     FROM tasks t
     JOIN items i ON i.id = t.item_id
     WHERE i.deleted_at IS NULL";
@@ -141,6 +144,7 @@ pub fn card_query(
             sub_total: r.get(6)?,
             project_id: r.get(7)?,
             project_name: r.get(8)?,
+            priority: r.get(9)?,
         })
     })?;
     Ok(rows.collect::<Result<_, _>>()?)
@@ -271,14 +275,13 @@ pub fn get_task(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result<
     })
 }
 
-pub fn update_task(
-    conn: &Connection,
+pub(crate) fn update_task_in_transaction(
+    tx: &Connection,
     id: &str,
     patch: &TaskPatch,
     now: i64,
-    tz: &TimeZone,
-) -> Result<TaskDetail, AppError> {
-    let task_row: Option<(Option<String>, Option<String>)> = conn
+) -> Result<(), AppError> {
+    let task_row: Option<(Option<String>, Option<String>)> = tx
         .query_row(
             "SELECT i.parent_id, t.project_id FROM items i JOIN tasks t ON t.item_id = i.id WHERE i.id = ?1 AND i.deleted_at IS NULL",
             [id],
@@ -288,11 +291,10 @@ pub fn update_task(
 
     let (parent_id, _) = task_row.ok_or(AppError::NotFound)?;
 
-    let tx = conn.unchecked_transaction()?;
     let unassigning = matches!(patch.project_id, Some(None));
     // Keep the original project on the status activity when this patch makes the task loose.
     if let Some(status) = patch.status.filter(|_| unassigning) {
-        crate::activities::set_status_in_transaction(&tx, id, status, "Kamu", now)?;
+        crate::activities::set_status_in_transaction(tx, id, status, "Kamu", now)?;
     }
 
     if let Some(maybe_proj) = &patch.project_id {
@@ -301,7 +303,7 @@ pub fn update_task(
         }
         let new_proj = match maybe_proj {
             Some(pid) => {
-                validate_project(&tx, pid)?;
+                validate_project(tx, pid)?;
                 Some(pid.clone())
             }
             None => None,
@@ -320,7 +322,7 @@ pub fn update_task(
     }
 
     if let Some(status) = patch.status.filter(|_| !unassigning) {
-        crate::activities::set_status_in_transaction(&tx, id, status, "Kamu", now)?;
+        crate::activities::set_status_in_transaction(tx, id, status, "Kamu", now)?;
     }
 
     if let Some(maybe_start) = patch.start_at {
@@ -340,6 +342,26 @@ pub fn update_task(
         tx.execute("UPDATE items SET updated_at = ?2 WHERE id = ?1", params![id, now])?;
     }
 
+    if let Some(priority) = patch.priority {
+        if priority.is_some_and(|p| !(1..=3).contains(&p)) {
+            return Err(invalid("Prioritas harus 1 (tinggi), 2 (sedang), atau 3 (rendah)"));
+        }
+        tx.execute("UPDATE tasks SET priority = ?2 WHERE item_id = ?1", params![id, priority])?;
+        tx.execute("UPDATE items SET updated_at = ?2 WHERE id = ?1", params![id, now])?;
+    }
+
+    Ok(())
+}
+
+pub fn update_task(
+    conn: &Connection,
+    id: &str,
+    patch: &TaskPatch,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<TaskDetail, AppError> {
+    let tx = conn.unchecked_transaction()?;
+    update_task_in_transaction(&tx, id, patch, now)?;
     tx.commit()?;
     get_task(conn, id, now, tz)
 }
@@ -354,12 +376,28 @@ pub fn delete_task(conn: &Connection, id: &str, now: i64) -> Result<(), AppError
         return Err(AppError::NotFound);
     }
     let tx = conn.unchecked_transaction()?;
-    items::soft_delete(&tx, id, now)?;
     tx.execute(
-        "UPDATE items SET deleted_at = ?2 WHERE parent_id = ?1 AND deleted_at IS NULL",
+        "UPDATE items SET deleted_at = ?2, updated_at = ?2
+         WHERE (id = ?1 OR parent_id = ?1) AND deleted_at IS NULL",
         params![id, now],
     )?;
     tx.commit()?;
+    Ok(())
+}
+
+/// Undo for `delete_task` (spec Proyek v2 R5): brings back the task and the subtasks deleted
+/// in the same call (same `deleted_at`). A live task is left alone.
+pub fn restore_task(conn: &Connection, id: &str, now: i64) -> Result<(), AppError> {
+    let deleted_at: Option<i64> = conn
+        .query_row("SELECT deleted_at FROM items WHERE id = ?1 AND type = 'task'", [id], |r| r.get(0))
+        .optional()?
+        .ok_or(AppError::NotFound)?;
+    let Some(at) = deleted_at else { return Ok(()) };
+    conn.execute(
+        "UPDATE items SET deleted_at = NULL, updated_at = ?3
+         WHERE (id = ?1 OR parent_id = ?1) AND deleted_at = ?2",
+        params![id, at, now],
+    )?;
     Ok(())
 }
 
@@ -888,5 +926,53 @@ mod tests {
         assert_eq!(sub1_detail.parent_id.as_deref(), Some(parent.id.as_str()));
         assert_eq!(sub1_detail.parent_title.as_deref(), Some("Induk"));
         assert!(sub1_detail.subtasks.is_empty());
+    }
+
+    #[test]
+    fn priority_round_trips_and_rejects_out_of_range() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let t = create_task(&conn, &NewTask { title: "P".into(), ..Default::default() }, now(), &tz).unwrap();
+        assert_eq!(t.priority, None);
+
+        let set = TaskPatch { priority: Some(Some(1)), ..Default::default() };
+        assert_eq!(update_task(&conn, &t.id, &set, now(), &tz).unwrap().card.priority, Some(1));
+
+        let bad = TaskPatch { priority: Some(Some(4)), ..Default::default() };
+        assert!(matches!(update_task(&conn, &t.id, &bad, now(), &tz), Err(AppError::Invalid(_))));
+        assert_eq!(get_task(&conn, &t.id, now(), &tz).unwrap().card.priority, Some(1));
+
+        let missing: TaskPatch = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(missing.priority, None);
+        let clear: TaskPatch = serde_json::from_value(serde_json::json!({ "priority": null })).unwrap();
+        assert_eq!(clear.priority, Some(None));
+        assert_eq!(update_task(&conn, &t.id, &clear, now(), &tz).unwrap().card.priority, None);
+    }
+
+    #[test]
+    fn restore_task_brings_back_parent_and_the_subtasks_deleted_with_it() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let parent = create_task(&conn, &NewTask { title: "Induk".into(), ..Default::default() }, now(), &tz).unwrap();
+        let earlier = create_task(&conn, &NewTask { title: "Lama".into(), parent_id: Some(parent.id.clone()), ..Default::default() }, now(), &tz).unwrap();
+        let sub = create_task(&conn, &NewTask { title: "Sub".into(), parent_id: Some(parent.id.clone()), ..Default::default() }, now(), &tz).unwrap();
+        delete_task(&conn, &earlier.id, now()).unwrap(); // deleted on its own, before the parent
+        delete_task(&conn, &parent.id, now() + 10).unwrap();
+        let updated = |id: &str| -> i64 {
+            conn.query_row("SELECT updated_at FROM items WHERE id = ?1", [id], |r| r.get(0)).unwrap()
+        };
+        assert_eq!(updated(&sub.id), now() + 10);
+
+        restore_task(&conn, &parent.id, now() + 20).unwrap();
+        let detail = get_task(&conn, &parent.id, now(), &tz).unwrap();
+        assert_eq!(detail.subtasks.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec![sub.id.as_str()]);
+        assert_eq!(updated(&parent.id), now() + 20);
+        assert_eq!(updated(&sub.id), now() + 20);
+
+        restore_task(&conn, &parent.id, now() + 30).unwrap(); // live task: no change
+        assert_eq!(updated(&parent.id), now() + 20);
+        assert!(matches!(restore_task(&conn, "missing", now()), Err(AppError::NotFound)));
+        let note = items::insert(&conn, "note", "Catatan", "", now()).unwrap();
+        assert!(matches!(restore_task(&conn, &note, now()), Err(AppError::NotFound)));
     }
 }

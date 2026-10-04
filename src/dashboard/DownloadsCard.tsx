@@ -1,3 +1,4 @@
+import { FishProgress } from "../components/FishProgress";
 import type { DownloadsSummary } from "../api";
 import { formatEta, formatSpeed } from "../downloads/view";
 import type { PageId } from "../shell/nav";
@@ -69,12 +70,20 @@ export function DownloadsCard({
                 <span className="truncate text-ink">{item.title}</span>
                 <span className="shrink-0 font-mono text-muted">{item.progress}%</span>
               </div>
-              <div aria-hidden="true" className="h-1 w-full overflow-hidden rounded-sm bg-line">
-                <div
-                  style={{ width: `${item.progress}%` }}
-                  className="h-full rounded-sm bg-accent transition-all"
-                />
-              </div>
+              <FishProgress
+                value={item.status === "done" ? 100 : item.progress}
+                label={item.title}
+                state={
+                  item.status === "done"
+                    ? "done"
+                    : item.status === "failed"
+                      ? "error"
+                      : item.status === "paused"
+                        ? "paused"
+                        : "running"
+                }
+                className="h-2"
+              />
               <span className="truncate font-mono text-[11px] text-muted">{secondary}</span>
             </div>
           );

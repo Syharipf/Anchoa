@@ -484,6 +484,11 @@ export interface EntryPatch {
   pinned?: boolean;
 }
 
+export interface ExportResult {
+  count: number;
+  dir: string;
+}
+
 export interface TrendDay {
   date: string;
   mood: number | null;
@@ -1000,6 +1005,11 @@ export const api = {
     const path = await openFileDialog({ multiple: false, directory: false, filters: [{ name: "Suara Piper", extensions: ["onnx"] }] });
     return typeof path === "string" ? path : null;
   },
+  /** Native folder picker for exports. */
+  pickDirectory: async (): Promise<string | null> => {
+    const path = await openFileDialog({ multiple: false, directory: true });
+    return typeof path === "string" ? path : null;
+  },
   assistantSend: (text: string, onEvent: (event: AssistantEvent) => void) => {
     const channel = new Channel<AssistantEvent>();
     channel.onmessage = onEvent;
@@ -1096,6 +1106,8 @@ export const api = {
   journalSide: () => invoke<Side>("journal_side"),
   journalCalendar: (month: string) => invoke<CalendarView>("journal_calendar", { month }),
   journalWeeklySummary: () => invoke<Entry>("journal_weekly_summary"),
+  journalExport: (dir: string, ids?: string[]) =>
+    invoke<ExportResult>("journal_export", { dir, ids }),
   dataPaths: () => invoke<DataPaths>("data_paths"),
   filePlaces: () => invoke<FilePlaces>("file_places"),
   listDir: (path: string, hidden: boolean) =>

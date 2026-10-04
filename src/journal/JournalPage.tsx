@@ -37,6 +37,7 @@ export function JournalPage({
   const listRequest = useRef(0);
   const deletedEntries = useRef(new Set<string>());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -154,6 +155,21 @@ export function JournalPage({
       await openCreated(await api.createEntry(kind, ""));
     } catch (e) {
       toast(errorMessage(e), "error");
+    }
+  }
+
+  async function handleExportAll() {
+    if (exporting) return;
+    const dir = await api.pickDirectory();
+    if (!dir) return;
+    setExporting(true);
+    try {
+      const res = await api.journalExport(dir);
+      toast(`Diekspor ${res.count} entri ke ${res.dir}`, "info");
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -291,6 +307,28 @@ export function JournalPage({
               <path d="M12 18v3" />
             </svg>
             Catat lewat suara
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleExportAll()}
+            disabled={exporting}
+            className="flex min-h-10 items-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
+              <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+            </svg>
+            Ekspor Semua
           </button>
 
           <div className="relative inline-flex items-center">

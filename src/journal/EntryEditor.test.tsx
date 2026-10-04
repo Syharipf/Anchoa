@@ -291,3 +291,165 @@ describe("EntryEditor dictation", () => {
     expect(startSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("EntryEditor wikilinks & tautan terkait", () => {
+  let harness: ReturnType<typeof hookHarness<ReactNode>>;
+  let entry: Entry;
+  let spies: { mockRestore: () => void }[];
+  const onOpenTask = mock((_taskId: string) => {});
+  let toastCalls: { text: string; kind?: string }[];
+
+  beforeEach(() => {
+    entry = makeEntry();
+    toastCalls = [];
+    onOpenTask.mockClear();
+    spies = [
+      spyOn(api, "updateItem").mockImplementation(async (id, patch) =>
+        ({ ...makeItem(entry), id, ...patch })),
+    ];
+  });
+
+  function mount() {
+    const toastFn = (text: string, kind?: string) => {
+      toastCalls.push({ text, kind });
+    };
+    spies.push(spyOn(toastModule, "useToast").mockReturnValue(toastFn));
+    harness = hookHarness(() => EntryEditor({
+      entry,
+      onEntryChanged: (updated) => { entry = updated; },
+      onOpenTask,
+      onOpenAssistant: () => {},
+      onDelete: async () => {},
+      onTagClick: () => {},
+    }));
+    harness.render();
+  }
+
+  afterEach(() => {
+    harness?.dispose();
+    spies.forEach((spy) => spy.mockRestore());
+  });
+
+  it("renders panel tautan terkait when body contains wikilinks", async () => {
+    entry.body = "Melihat [[Catatan Penting]] dan juga [[Tugas Utama|alias]]";
+    mount();
+    await harness.settle();
+
+    const panel = elements(harness.render()).find((e) => e.props["aria-label"] === "Tautan terkait");
+    expect(panel).toBeDefined();
+
+    const linkBtn1 = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Catatan Penting");
+    const linkBtn2 = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Tugas Utama");
+    expect(linkBtn1).toBeDefined();
+    expect(linkBtn2).toBeDefined();
+  });
+
+  it("does not render panel tautan terkait when body has no wikilinks", async () => {
+    entry.body = "Teks biasa tanpa kurung siku ganda";
+    mount();
+    await harness.settle();
+
+    const panel = elements(harness.render()).find((e) => e.props["aria-label"] === "Tautan terkait");
+    expect(panel).toBeUndefined();
+  });
+
+  it("navigates to item when clicking a link in panel tautan terkait", async () => {
+    entry.body = "Rujukan ke [[Rencana]]";
+    spies.push(spyOn(api, "resolveLink").mockResolvedValue({
+      id: "item-123",
+      type: "page",
+      title: "Rencana",
+      dueAt: null,
+      lastActivityAt: 1,
+    }));
+    mount();
+    await harness.settle();
+
+    const linkBtn = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Rencana");
+    expect(linkBtn).toBeDefined();
+    (linkBtn!.props.onClick as () => void)();
+    await harness.settle();
+
+    expect(api.resolveLink).toHaveBeenCalledWith("Rencana");
+    expect(onOpenTask).toHaveBeenCalledWith("item-123");
+  });
+
+  it("shows toast when resolved link is not found", async () => {
+    entry.body = "Rujukan ke [[Halaman Ghaib]]";
+    spies.push(spyOn(api, "resolveLink").mockResolvedValue(null));
+    mount();
+    await harness.settle();
+
+    const linkBtn = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Halaman Ghaib");
+    expect(linkBtn).toBeDefined();
+    (linkBtn!.props.onClick as () => void)();
+    await harness.settle();
+
+    expect(toastCalls.some((c) => c.text.includes("Halaman Ghaib"))).toBe(true);
+  });
+
+  it("shows link suggestions when typing [[ and inserts wikilink on selection", async () => {
+    spies.push(spyOn(api, "pagesTree").mockResolvedValue([{ id: "1", title: "Rencana Proyek" } as never, { id: "2", title: "Catatan Mingguan" } as never]));
+    entry.body = "";
+    mount();
+    await harness.settle();
+
+    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    expect(textareaEl).toBeDefined();
+
+    // Ketik "[["
+    (textareaEl!.props.onChange as (e: { target: { value: string; selectionStart: number } }) => void)({
+      target: { value: "Halo [[", selectionStart: 7 },
+    });
+    await harness.settle();
+
+    expect(api.pagesTree).toHaveBeenCalled();
+
+    // Cek dropdown saran terbuka
+    const listbox = elements(harness.render()).find((e) => e.props["role"] === "listbox");
+    expect(listbox).toBeDefined();
+
+    const options = elements(harness.render()).filter((e) => e.props["role"] === "option");
+    expect(options.length).toBe(2);
+
+    // Klik opsi pertama
+    (options[0].props.onClick as () => void)();
+    await harness.settle();
+
+    // Body harus menjadi "Halo [[Rencana Proyek]]"
+    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    expect(textareaAfter!.props.value as string).toBe("Halo [[Rencana Proyek]]");
+  });
+
+  it("supports keyboard navigation in autocomplete suggestions", async () => {
+    spies.push(spyOn(api, "pagesTree").mockResolvedValue([{ id: "1", title: "Pilihan A" } as never, { id: "2", title: "Pilihan B" } as never]));
+    entry.body = "";
+    mount();
+    await harness.settle();
+
+    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+
+    // Ketik "[["
+    (textareaEl!.props.onChange as (e: { target: { value: string; selectionStart: number } }) => void)({
+      target: { value: "Lihat [[", selectionStart: 8 },
+    });
+    await harness.settle();
+
+    // Tekan ArrowDown lalu Enter
+    (textareaEl!.props.onKeyDown as (e: { key: string; preventDefault: () => void }) => void)({
+      key: "ArrowDown",
+      preventDefault: () => {},
+    });
+    await harness.settle();
+
+    (textareaEl!.props.onKeyDown as (e: { key: string; preventDefault: () => void }) => void)({
+      key: "Enter",
+      preventDefault: () => {},
+    });
+    await harness.settle();
+
+    // Pilihan B terpilih
+    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    expect(textareaAfter!.props.value as string).toBe("Lihat [[Pilihan B]]");
+  });
+});

@@ -244,6 +244,7 @@ pub fn run() {
             commands::journal_calendar,
             commands::journal_weekly_summary,
             commands::dismiss_journal_reminder,
+            commands::journal_export,
             commands::data_paths,
             commands::open_folder,
             commands::file_places,

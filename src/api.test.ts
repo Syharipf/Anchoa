@@ -117,6 +117,8 @@ const cases: Case[] = [
   ["createEntry", () => api.createEntry("vent"), "create_entry", { kind: "vent", title: undefined }],
   ["createEntry", () => api.createEntry("idea", "Ide"), "create_entry", { kind: "idea", title: "Ide" }],
   ["updateEntry", () => api.updateEntry("entry", { mood: null, tags: "#kerja" }), "update_entry", { id: "entry", patch: { mood: null, tags: "#kerja" } }],
+  ["journalExport", () => api.journalExport("/home/kamu"), "journal_export", { dir: "/home/kamu", ids: undefined }],
+  ["journalExport", () => api.journalExport("/home/kamu", ["id1", "id2"]), "journal_export", { dir: "/home/kamu", ids: ["id1", "id2"] }],
   ["openFolder", () => api.openFolder("data"), "open_folder", { kind: "data" }],
   ["listDir", () => api.listDir("/home/kamu", false), "list_dir", { path: "/home/kamu", hidden: false }],
   ["readText", () => api.readText("/home/kamu/a.txt"), "read_text", { path: "/home/kamu/a.txt" }],
@@ -164,7 +166,7 @@ describe("API IPC contract", () => {
   });
 
   it("accounts for every wrapper, including the existing email and security suites", () => {
-    const separatelyTested: (keyof typeof api)[] = ["emailStatus", "emailConnect", "emailDisconnect", "emailSync", "emailList", "emailOpen", "emailSetFlag", "emailArchive", "emailSend", "securityStatus", "unlock", "disablePin", "assistantSend", "voiceInstall", "pickVoiceModel"];
+    const separatelyTested: (keyof typeof api)[] = ["emailStatus", "emailConnect", "emailDisconnect", "emailSync", "emailList", "emailOpen", "emailSetFlag", "emailArchive", "emailSend", "securityStatus", "unlock", "disablePin", "assistantSend", "voiceInstall", "pickVoiceModel", "pickDirectory"];
     expect<string[]>([...new Set([...cases.map(([name]) => name), ...separatelyTested])].sort()).toEqual(Object.keys(api).sort());
   });
 
@@ -221,6 +223,14 @@ describe("API IPC contract", () => {
       expect(spy).toHaveBeenCalledWith({ multiple: false, directory: false, filters: [{ name: "Suara Piper", extensions: ["onnx"] }] });
       expect(await api.pickVoiceModel()).toBeNull();
       expect(await api.pickVoiceModel()).toBeNull();
+    } finally { spy.mockRestore(); }
+  });
+  it("uses a folder picker and handles cancellation", async () => {
+    const spy = spyOn(dialog, "open").mockResolvedValueOnce("/home/kamu/export").mockResolvedValueOnce(null);
+    try {
+      expect(await api.pickDirectory()).toBe("/home/kamu/export");
+      expect(spy).toHaveBeenCalledWith({ multiple: false, directory: true });
+      expect(await api.pickDirectory()).toBeNull();
     } finally { spy.mockRestore(); }
   });
 

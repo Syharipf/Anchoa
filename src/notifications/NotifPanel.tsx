@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DayTask, FinanceSummary, HabitReminder, NotifyPrefs } from "../api";
 import { reminders, reminderText, type Reminder, type Tone } from "./reminders";
 
@@ -65,10 +65,11 @@ export function NotifPanel({
   onDismissJournal?: () => void;
 }>) {
   const groups = reminders(today, finance, habitReminders, prefs, journalReminder);
-  const count = groups.reduce((n, g) => n + g.items.length, 0);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [dnd, setDnd] = useState(false);
+  const count = dnd ? 0 : groups.reduce((n, g) => n + g.items.length, 0);
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
-
   // Focus the panel, then give focus back to the bell when it closes.
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -144,15 +145,21 @@ export function NotifPanel({
             <div role="group" aria-label="Filter notifikasi" className="flex items-center gap-1">
               <button
                 type="button"
-                aria-pressed="true"
-                className="min-h-7 rounded-[7px] bg-surface-2 px-2.5 text-xs font-medium text-ink"
+                aria-pressed={filter === "all"}
+                onClick={() => setFilter("all")}
+                className={`min-h-7 rounded-[7px] px-2.5 text-xs font-medium transition-colors ${
+                  filter === "all" ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"
+                }`}
               >
                 Semua
               </button>
               <button
                 type="button"
-                aria-pressed="false"
-                className="min-h-7 rounded-[7px] px-2.5 text-xs text-muted hover:text-ink"
+                aria-pressed={filter === "unread"}
+                onClick={() => setFilter("unread")}
+                className={`min-h-7 rounded-[7px] px-2.5 text-xs font-medium transition-colors ${
+                  filter === "unread" ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"
+                }`}
               >
                 Belum dibaca
               </button>
@@ -161,30 +168,42 @@ export function NotifPanel({
             <button
               type="button"
               role="switch"
-              aria-checked="false"
+              aria-checked={dnd}
               aria-labelledby="np-dnd"
-              className="flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-disabled p-0.5 transition-colors"
+              onClick={() => setDnd((v) => !v)}
+              className={`flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors ${
+                dnd ? "bg-accent" : "bg-disabled"
+              }`}
             >
-              <span className="h-4 w-4 rounded-full bg-muted transition-transform translate-x-0" />
+              <span
+                className={`h-4 w-4 rounded-full transition-transform ${
+                  dnd ? "translate-x-4 bg-canvas" : "translate-x-0 bg-muted"
+                }`}
+              />
             </button>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pt-1 pb-3">
-          {groups.map((g) => (
-            <section key={g.title} aria-label={g.title} className="flex flex-col gap-1">
-              <h3 className="m-0 px-2 pt-3 pb-0.5 text-[11px] font-normal tracking-[0.08em] text-muted uppercase">{g.title}</h3>
-              {g.items.map((r) => (
-                <ReminderCard
-                  key={`${r.kind}-${r.id}`}
-                  reminder={r}
-                  onOpen={() => open(r)}
-                  onDismiss={r.kind === "journal" ? onDismissJournal : undefined}
-                />
-              ))}
-            </section>
-          ))}
-          {count === 0 && <p className="m-0 px-4 py-12 text-center text-[13px] text-muted">Tidak ada pengingat.</p>}
+          {dnd ? (
+            <p className="m-0 px-4 py-12 text-center text-[13px] text-muted">Mode Jangan Ganggu aktif. Notifikasi disenyapkan.</p>
+          ) : count === 0 ? (
+            <p className="m-0 px-4 py-12 text-center text-[13px] text-muted">Tidak ada pengingat.</p>
+          ) : (
+            groups.map((g) => (
+              <section key={g.title} aria-label={g.title} className="flex flex-col gap-1">
+                <h3 className="m-0 px-2 pt-3 pb-0.5 text-[11px] font-normal tracking-[0.08em] text-muted uppercase">{g.title}</h3>
+                {g.items.map((r) => (
+                  <ReminderCard
+                    key={`${r.kind}-${r.id}`}
+                    reminder={r}
+                    onOpen={() => open(r)}
+                    onDismiss={r.kind === "journal" ? onDismissJournal : undefined}
+                  />
+                ))}
+              </section>
+            ))
+          )}
         </div>
 
         <div className="flex shrink-0 items-center justify-between border-t border-line px-[18px] py-3 text-xs text-muted">

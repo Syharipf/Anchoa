@@ -402,7 +402,7 @@ describe("email UI", () => {
     list.mockResolvedValue([]);
     (element("button", "aria-label", "Terkirim").props.onClick as () => void)();
     await harness.settle();
-    (element("button", "children", "Tulis").props.onClick as () => void)();
+    ((element("button", "aria-label", "Tulis") || element("button", "children", "Tulis")).props.onClick as () => void)();
     const onSent = element(ComposeDialog).props.onSent as () => void;
     const pending = deferred<{ headers: number }>();
     const followUp = deferred<{ headers: number }>();

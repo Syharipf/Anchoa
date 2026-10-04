@@ -11,7 +11,7 @@ const KINDS: readonly EntryKind[] = ["idea", "vent", "note"];
 const AUTOSAVE_MS = 500;
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
-type MicMode = "idle" | "recording" | "transcribing";
+type MicMode = "idle" | "starting" | "recording" | "transcribing";
 type TextPatch = { title?: string; body?: string };
 type SaveQueue = {
   pending: TextPatch;
@@ -74,7 +74,7 @@ export function EntryEditor({
       bodyRef.current = entry.body;
       setSaveState("idle");
       setDeleting(false);
-      if (micModeRef.current === "recording") {
+      if (micModeRef.current === "recording" || micModeRef.current === "starting") {
         api.voiceRecordStop().catch(() => {});
         setMicMode("idle");
       }
@@ -108,11 +108,12 @@ export function EntryEditor({
   // Flush on unmount
   useEffect(() => () => void flush(), [flush]);
 
-  // Stop recording on unmount only
   // Stop recording and cancel dictation session on unmount
   useEffect(() => () => {
     dictationSessionRef.current++;
-    if (micModeRef.current === "recording") api.voiceRecordStop().catch(() => {});
+    if (micModeRef.current === "recording" || micModeRef.current === "starting") {
+      api.voiceRecordStop().catch(() => {});
+    }
   }, []);
 
   function insertTranscript(text: string) {
@@ -155,19 +156,28 @@ export function EntryEditor({
       return;
     }
     if (micMode !== "idle") return;
+    const token = ++dictationSessionRef.current;
+    setMicMode("starting");
     try {
       const status = await api.voiceStatus();
+      if (token !== dictationSessionRef.current) return;
       if (!status.whisper || !status.whisperModel) {
+        setMicMode("idle");
         toast("Model Whisper belum terpasang", "error", { label: "Pengaturan", run: () => onOpenSettings?.("suara") });
         return;
       }
       await api.voiceRecordStart();
+      if (token !== dictationSessionRef.current) {
+        api.voiceRecordStop().catch(() => {});
+        return;
+      }
       setMicMode("recording");
     } catch (e) {
+      if (token !== dictationSessionRef.current) return;
       toast(errorMessage(e), "error");
+      setMicMode("idle");
     }
   }
-
   function handleTitleChange(val: string) {
     if (queue.deleting) return;
     setTitle(val);
@@ -289,7 +299,7 @@ export function EntryEditor({
           <span className="mr-1 font-mono text-xs text-muted">{entry.when}</span>
           <button
             type="button"
-            disabled={deleting || micMode === "transcribing"}
+            disabled={deleting || micMode === "transcribing" || micMode === "starting"}
             aria-label={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
             title={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
             onClick={() => void handleToggleDictation()}

@@ -244,4 +244,50 @@ describe("EntryEditor dictation", () => {
     // No autosave updateItem triggered
     expect(updateItemSpy).not.toHaveBeenCalled();
   });
+
+  it("stops recording if voiceRecordStart finishes after unmount", async () => {
+    const { promise: startPromise, resolve: resolveStart } = Promise.withResolvers<void>();
+    const stopSpy = spyOn(api, "voiceRecordStop").mockResolvedValue("");
+    spies.push(stopSpy);
+    spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
+    spies.push(spyOn(api, "voiceRecordStart").mockReturnValue(startPromise));
+    mount();
+
+    click(harness.render(), "Dikte");
+    await harness.settle();
+
+    // Unmount while starting
+    harness.dispose();
+
+    // Start completes after unmount
+    resolveStart();
+    const { promise: timer, resolve: resolveTimer } = Promise.withResolvers<void>();
+    setTimeout(resolveTimer, 50);
+    await timer;
+
+    // Orphaned start must be stopped immediately
+    expect(stopSpy).toHaveBeenCalled();
+  });
+
+  it("does not start recording if voiceStatus finishes after unmount", async () => {
+    const { promise: statusPromise, resolve: resolveStatus } = Promise.withResolvers<VoiceStatus>();
+    const startSpy = spyOn(api, "voiceRecordStart").mockResolvedValue(undefined);
+    spies.push(startSpy);
+    spies.push(spyOn(api, "voiceStatus").mockReturnValue(statusPromise));
+    mount();
+
+    click(harness.render(), "Dikte");
+    await harness.settle();
+
+    // Unmount while checking status
+    harness.dispose();
+
+    // Status arrives after unmount
+    resolveStatus(baseVoiceStatus);
+    const { promise: timer, resolve: resolveTimer } = Promise.withResolvers<void>();
+    setTimeout(resolveTimer, 50);
+    await timer;
+
+    expect(startSpy).not.toHaveBeenCalled();
+  });
 });

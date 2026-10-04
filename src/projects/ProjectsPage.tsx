@@ -12,7 +12,7 @@ import {
   type TaskStatus,
 } from "../api";
 import { useToast } from "../shell/toast";
-import { H1, PRIMARY, SECONDARY } from "../shell/ui";
+import { H1 } from "../shell/ui";
 import { type MenuEntry } from "../shell/ContextMenu";
 import { AgentTab } from "./AgentTab";
 import { AgentThread } from "./AgentThread";
@@ -268,18 +268,19 @@ export function ProjectsPage({
           <button
             type="button"
             onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={`${SECONDARY} flex items-center gap-2`}
+            className="flex min-h-10 items-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm text-ink transition-colors hover:bg-surface-2"
           >
             <svg
               width="16"
               height="16"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#C6F36B"
+              stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
+              className="text-accent"
             >
               <rect x="9" y="3" width="6" height="11" rx="3" />
               <path d="M5 11a7 7 0 0 0 14 0" />
@@ -290,7 +291,7 @@ export function ProjectsPage({
           <button
             type="button"
             onClick={() => setFormOpen({})}
-            className={`${PRIMARY} flex items-center gap-2`}
+            className="flex min-h-10 items-center gap-2 rounded-[10px] bg-accent px-4 text-sm font-semibold text-canvas transition-transform hover:scale-105 active:scale-95"
           >
             <svg
               width="16"
@@ -309,7 +310,7 @@ export function ProjectsPage({
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] items-start gap-4">
+      <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] items-start gap-[18px]">
         <div className="flex flex-col gap-3.5">
           <ProjectList
             projects={overview.projects}

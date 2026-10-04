@@ -154,28 +154,36 @@ export function Kanban({
                           open(anchorOf(e), cardMenu(c));
                         }
                       }}
-                      className="group relative flex items-center gap-2.5 rounded-[10px] border border-line bg-[#151920] px-2.5 py-2 transition-colors hover:border-muted"
+                      className="group relative flex items-center gap-2.5 rounded-[10px] border border-[#1F242D] bg-[#151920] px-2.5 py-2 transition-colors hover:border-muted"
                     >
                       <svg
                         width="14"
                         height="14"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="#C6F36B"
+                        stroke="currentColor"
                         strokeWidth="2.4"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         aria-hidden="true"
-                        className="shrink-0"
+                        className="shrink-0 text-accent"
                       >
                         <path d="M5 12l5 5 9-10" />
                       </svg>
                       <button
                         type="button"
                         onClick={() => onOpenItem(c.id)}
-                        className={agent ? "min-w-0 flex-1 text-left text-[13px] text-done hover:text-ink before:absolute before:inset-0" : "flex-1 truncate text-left text-[13px] text-done line-through hover:text-ink before:absolute before:inset-0"}
+                        className={
+                          agent
+                            ? "min-w-0 flex-1 text-left text-[13px] text-done hover:text-ink before:absolute before:inset-0"
+                            : "flex-1 truncate text-left text-[13px] text-done hover:text-ink before:absolute before:inset-0"
+                        }
                       >
-                        {agent ? <span className="block truncate line-through">{c.title || "Tanpa judul"}</span> : c.title || "Tanpa judul"}
+                        {agent ? (
+                          <span className="block truncate">{c.title || "Tanpa judul"}</span>
+                        ) : (
+                          c.title || "Tanpa judul"
+                        )}
                         <CardActor lastActor={actor} />
                       </button>
                       {cardMenu ? (
@@ -208,7 +216,7 @@ export function Kanban({
                         onClick={() => onMoveCard(c)}
                         aria-label={moveLabel(c.status, agent)}
                         title="Buka lagi"
-                        className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+                        className="relative z-10 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
                       >
                         <svg
                           width="13"

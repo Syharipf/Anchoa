@@ -11,9 +11,9 @@ export function UpcomingList({
   return (
     <section
       aria-labelledby="tenggat-judul"
-      className="flex flex-col gap-1 rounded-[14px] border border-line bg-surface p-4"
+      className="flex flex-col gap-1 rounded-[14px] border border-line bg-surface p-[14px_16px]"
     >
-      <h2 id="tenggat-judul" className="m-0 mb-1 font-display text-[15px] font-semibold">
+      <h2 id="tenggat-judul" className="m-0 mb-1.5 font-display text-[15px] font-semibold">
         Tenggat terdekat
       </h2>
       {tasks.length === 0 ? (

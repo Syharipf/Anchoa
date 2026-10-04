@@ -6,12 +6,30 @@
 set -euo pipefail
 
 BIN=$(realpath "${1:?usage: e2e-smoke.sh <anchoa binary>}")
-WORK=${E2E_DIR:-$HOME/.cache/anchoa-e2e}
+if [[ -n "${E2E_DISPLAY:-}" ]]; then
+  DISPLAY="$E2E_DISPLAY"
+else
+  disp=99
+  while [[ -e "/tmp/.X$disp-lock" || -e "/tmp/.X11-unix/X$disp" || -e "/tmp/.anchoa-e2e-$disp.lock" ]]; do
+    disp=$((disp + 1))
+  done
+  DISPLAY=":$disp"
+fi
+touch "/tmp/.anchoa-e2e-${DISPLAY#:}.lock" 2>/dev/null || true
+
+if [[ -n "${E2E_DIR:-}" ]]; then
+  WORK="$E2E_DIR"
+elif [[ "$DISPLAY" = ":99" && ! -d "$HOME/.cache/anchoa-e2e" ]]; then
+  WORK="$HOME/.cache/anchoa-e2e"
+else
+  WORK="$HOME/.cache/anchoa-e2e-${DISPLAY#:}"
+fi
+
 APPDATA="$WORK/data/io.github.syharipf.anchoa"
 APPCONFIG="$WORK/config/io.github.syharipf.anchoa"
 DB="$APPDATA/anchoa.db"
 # Private data AND config dirs: the real GitHub token lives in the config dir.
-export DISPLAY=${E2E_DISPLAY:-:99} XDG_DATA_HOME="$WORK/data" XDG_CONFIG_HOME="$WORK/config"
+export DISPLAY XDG_DATA_HOME="$WORK/data" XDG_CONFIG_HOME="$WORK/config"
 
 rm -rf "$WORK" && mkdir -p "$WORK/data" "$WORK/config"
 Xvfb "$DISPLAY" -screen 0 1280x800x24 >/dev/null 2>&1 &
@@ -20,7 +38,7 @@ XVFB=$!
 export DBUS_SESSION_BUS_ADDRESS
 APP=
 SERVER=
-trap 'kill $APP $SERVER $DBUS_PID $XVFB 2>/dev/null || true' EXIT
+trap 'kill $APP $SERVER $DBUS_PID $XVFB 2>/dev/null || true; rm -f "/tmp/.anchoa-e2e-${DISPLAY#:}.lock"' EXIT
 sleep 1
 
 fail() { echo "FAIL: $*"; exit 1; }
@@ -1175,10 +1193,12 @@ check_assistant_ai() {
   shot 22-assistant-offline     # expect: card "Ollama belum berjalan"
   stop_app
 
-  python3 "$(dirname "$0")/fake-llm.py" 18434 &
+  local llm_port
+  llm_port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+  python3 "$(dirname "$0")/fake-llm.py" "$llm_port" &
   SERVER=$!
   sleep 1
-  ANCHOA_AI_BASE=http://127.0.0.1:18434/v1 start_app
+  ANCHOA_AI_BASE="http://127.0.0.1:$llm_port/v1" start_app
   click 1011 750               # keyboard
   click 1070 677               # message field
   xdotool type --delay 20 'buat tugas beli teri'
@@ -1299,10 +1319,12 @@ check_email() {
 
 check_email_assist() {
   fresh
-  python3 "$(dirname "$0")/fake-llm.py" 18434 &
+  local llm_port
+  llm_port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+  python3 "$(dirname "$0")/fake-llm.py" "$llm_port" &
   SERVER=$!
   sleep 1
-  ANCHOA_FAKE_MAIL=1 ANCHOA_AI_BASE=http://127.0.0.1:18434/v1 start_app
+  ANCHOA_FAKE_MAIL=1 ANCHOA_AI_BASE="http://127.0.0.1:$llm_port/v1" start_app
   click 36 256                 # nav: Email
   xdotool type --delay 20 'anchoa@gmail.com'
   xdotool key Tab

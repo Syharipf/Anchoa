@@ -15,6 +15,20 @@ import {
 
 const TABS: readonly DownloadTab[] = ["all", "active", "done", "failed"];
 
+function downloadProgressValue(status: DownloadView["status"], totalBytes: number | null, pct: number): number | undefined {
+  if (status === "done") return 100;
+  if (totalBytes && totalBytes > 0) return pct;
+  if (status === "queued" || status === "failed") return 0;
+  return undefined;
+}
+
+function downloadProgressState(status: DownloadView["status"]): "error" | "paused" | "done" | "running" {
+  if (status === "failed") return "error";
+  if (status === "paused" || status === "queued") return "paused";
+  if (status === "done") return "done";
+  return "running";
+}
+
 export function DownloadQueue({
   items,
   onPause,
@@ -155,25 +169,9 @@ export function DownloadQueue({
 
                 <div className="flex w-56 shrink-0 flex-col gap-1.5">
                   <FishProgress
-                    value={
-                      row.status === "done"
-                        ? 100
-                        : row.totalBytes && row.totalBytes > 0
-                          ? pct
-                          : row.status === "queued" || row.status === "failed"
-                            ? 0
-                            : undefined
-                    }
+                    value={downloadProgressValue(row.status, row.totalBytes, pct)}
                     label={row.title}
-                    state={
-                      row.status === "failed"
-                        ? "error"
-                        : row.status === "paused" || row.status === "queued"
-                          ? "paused"
-                          : row.status === "done"
-                            ? "done"
-                            : "running"
-                    }
+                    state={downloadProgressState(row.status)}
                     className="h-3 w-full"
                   />
                   <span

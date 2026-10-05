@@ -118,6 +118,17 @@ pub fn run() {
             app.manage(downloader::Downloader::default());
             app.manage(agent_runner::AgentRunner::default());
             app.manage(assistant::AssistantState::default());
+            #[cfg(debug_assertions)]
+            let ai_keys = if std::env::var_os("ANCHOA_FAKE_SYNC").is_some() {
+                keystore::KeyringStore::with_builder(Box::new(keystore::FileCredentialBuilder::new(
+                    data_dir.join("fake_ai_keyring.json"),
+                )))
+            } else {
+                keystore::KeyringStore::default()
+            };
+            #[cfg(not(debug_assertions))]
+            let ai_keys = keystore::KeyringStore::default();
+            app.manage(ai_keys);
             app.manage(email::EmailState::default());
             app.manage(assistant::voice::VoiceState::new(data_dir.clone()));
             let sync_server = sync::server::configured_server().unwrap_or_else(|e| {
@@ -165,6 +176,11 @@ pub fn run() {
             assistant::ai_status,
             assistant::ai_roles,
             assistant::set_ai_role,
+            assistant::providers::ai_custom_config,
+            assistant::providers::save_ai_custom,
+            assistant::providers::set_ai_custom_key,
+            assistant::providers::delete_ai_custom_key,
+            assistant::providers::ai_provider_status,
             assistant::voice::voice_status,
             assistant::voice::voice_install,
             assistant::voice::voice_record_start,

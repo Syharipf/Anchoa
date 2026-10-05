@@ -792,14 +792,26 @@ export interface DownloadSettings {
 
 export type AiRole = "chat" | "journal" | "recap" | "email";
 
+export type AiProvider = "ollama" | "custom";
+
+export interface CustomAiConfig {
+  name: string;
+  baseUrl: string;
+  hasKey: boolean;
+}
+
+export const AI_CONFIG_CHANGED = "anchoa-ai-config-changed";
+
 export interface RoleConfig {
-  provider: "ollama";
+  provider: AiProvider;
   model: string;
 }
 
 export type AiRoles = Record<AiRole, RoleConfig>;
 
 export interface AiStatus {
+  provider?: AiProvider;
+  name?: string;
   available: boolean;
   models: string[];
   error: string | null;
@@ -1020,6 +1032,11 @@ export const api = {
   assistantPending: () => invoke<AssistantProposal[]>("assistant_pending"),
   assistantReset: () => invoke<void>("assistant_reset"),
   aiStatus: () => invoke<AiStatus>("ai_status"),
+  aiProviderStatus: (provider: AiProvider) => invoke<AiStatus>("ai_provider_status", { provider }),
+  aiCustomConfig: () => invoke<CustomAiConfig>("ai_custom_config"),
+  saveAiCustom: (name: string, baseUrl: string) => invoke<CustomAiConfig>("save_ai_custom", { name, baseUrl }),
+  setAiCustomKey: (key: string) => invoke<CustomAiConfig>("set_ai_custom_key", { key }),
+  deleteAiCustomKey: () => invoke<CustomAiConfig>("delete_ai_custom_key"),
   aiRoles: () => invoke<AiRoles>("ai_roles"),
   setAiRole: (role: AiRole, provider: RoleConfig["provider"], model: string) =>
     invoke<RoleConfig>("set_ai_role", { role, provider, model }),

@@ -65,7 +65,7 @@ fn assist_with(
         )
     };
     // Reuse the tool schema without giving the model any executable tools or DB context.
-    let definitions: Vec<_> = tools::definitions()
+    let definitions: Vec<_> = tools::definitions(tools::Policy::Local)
         .into_iter()
         .filter(|definition| definition["function"]["name"] == "create_task")
         .collect();
@@ -108,7 +108,7 @@ fn assist_with(
             if action.name != "create_task" {
                 return Err(invalid_output());
             }
-            let proposal = tools::propose(&action.name, &action.args)?;
+            let proposal = tools::propose(tools::Policy::Local, &action.name, &action.args)?;
             state.queue_proposal(proposal, generation)
         })
         .transpose()?;
@@ -126,7 +126,7 @@ pub async fn email_assist(app: AppHandle, id: String) -> Result<Assistance, AppE
         let state = app
             .try_state::<AssistantState>()
             .ok_or_else(|| AppError::Other("State asisten tidak tersedia".into()))?;
-        assist(&db, &state, &Endpoint::default(), &id)
+        assist(&db, &state, &super::providers::local_endpoint()?, &id)
     })
     .await
     .map_err(|_| AppError::Other("Proses asisten email gagal".into()))?

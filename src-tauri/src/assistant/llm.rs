@@ -36,6 +36,19 @@ pub struct Endpoint {
     pub api_key: Option<String>,
 }
 
+impl Endpoint {
+    fn clear_key(&mut self) {
+        use zeroize::Zeroize;
+        if let Some(key) = &mut self.api_key { key.zeroize(); }
+    }
+}
+
+impl Drop for Endpoint {
+    fn drop(&mut self) {
+        self.clear_key();
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolFunction {
     pub name: String,
@@ -98,18 +111,16 @@ fn idle_error() -> AppError {
 
 fn http_error(error: ureq::Error, base: &str) -> AppError {
     let message = match error {
-        ureq::Error::StatusCode(status) => format!("Ollama menolak permintaan (HTTP {status})"),
-        ureq::Error::Timeout(_) => "Waktu tunggu Ollama habis".into(),
+        ureq::Error::StatusCode(401 | 403) => "Autentikasi penyedia AI gagal; periksa API key".into(),
+        ureq::Error::StatusCode(429) => "Quota atau batas permintaan penyedia AI tercapai".into(),
+        ureq::Error::StatusCode(400 | 422) => "Penyedia AI menolak format permintaan; pastikan model mendukung tools".into(),
+        ureq::Error::StatusCode(status) => format!("Penyedia AI menolak permintaan (HTTP {status})"),
+        ureq::Error::Timeout(_) => "Waktu tunggu penyedia AI habis".into(),
         ureq::Error::Io(ref e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
-            let address = base
-                .trim_start_matches("http://")
-                .trim_start_matches("https://")
-                .split('/')
-                .next()
-                .unwrap_or(base);
-            format!("Ollama belum berjalan di {address}")
+            let _ = base;
+            "Ollama belum berjalan atau penyedia Kustom tidak dapat dihubungi".into()
         }
-        _ => "Tidak dapat menghubungi Ollama; periksa alamat dan koneksinya".into(),
+        _ => "Tidak dapat menghubungi penyedia AI; periksa alamat dan koneksinya".into(),
     };
     AppError::Other(message)
 }
@@ -193,6 +204,7 @@ impl Drop for AbortOnDrop {
 fn agent(abort: Arc<AtomicBool>, idle: Duration) -> ureq::Agent {
     let config = ureq::Agent::config_builder()
         .proxy(None)
+        .max_redirects(0)
         .timeout_resolve(Some(CONNECT_TIMEOUT))
         .timeout_connect(Some(CONNECT_TIMEOUT))
         .timeout_send_request(Some(CONNECT_TIMEOUT))
@@ -453,6 +465,31 @@ pub fn list_models(base: &str) -> Result<Vec<String>, AppError> {
     Ok(names)
 }
 
+pub fn list_custom_models(endpoint: &Endpoint) -> Result<Vec<String>, AppError> {
+    let client = agent(Arc::new(AtomicBool::new(false)), CONNECT_TIMEOUT);
+    let mut request = client.get(format!("{}/models", endpoint.base_url.trim_end_matches('/')));
+    if let Some(key) = &endpoint.api_key {
+        request = request.header("Authorization", format!("Bearer {key}"));
+    }
+    let mut response = request.config().timeout_global(Some(CONNECT_TIMEOUT)).build().call()
+        .map_err(|error| http_error(error, &endpoint.base_url))?;
+    let mut bytes = Vec::new();
+    response.body_mut().as_reader().take((MAX_EVENT_BYTES + 1) as u64).read_to_end(&mut bytes)
+        .map_err(|_| AppError::Other("Gagal membaca daftar model".into()))?;
+    if bytes.len() > MAX_EVENT_BYTES { return Err(AppError::Other("Daftar model terlalu besar".into())); }
+    let invalid = || AppError::Other("Daftar model penyedia AI tidak valid".into());
+    let data: Value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+    let rows = data.get("data").and_then(Value::as_array).ok_or_else(invalid)?;
+    let mut names = rows.iter().map(|row| {
+        row.get("id").and_then(Value::as_str)
+            .filter(|id| !id.trim().is_empty() && id.len() <= 256 && !id.chars().any(char::is_control))
+            .map(str::to_owned).ok_or_else(invalid)
+    }).collect::<Result<Vec<_>, _>>()?;
+    names.sort();
+    names.dedup();
+    Ok(names)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -526,22 +563,20 @@ mod tests {
     }
 
     #[test]
-    fn reports_connection_refused_in_indonesian() {
+    fn connection_refused_returns_sanitized_error() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}/v1", listener.local_addr().unwrap());
         drop(listener);
         let error =
             stream_chat(&endpoint(base), &request(), &AtomicBool::new(false), |_| {}).unwrap_err();
-        assert!(
-            error.to_string().contains("Ollama belum berjalan"),
-            "{error}"
-        );
+        assert!(matches!(error, AppError::Other(_)));
+        assert!(!error.to_string().contains("http://"));
     }
 
     #[test]
     fn http_error_status_is_an_error() {
-        for status in ["400 Bad Request", "500 Internal Server Error"] {
-            let server = Server::new(vec![response(status, "{}")]);
+        for status in ["400 Bad Request", "401 Unauthorized", "429 Too Many Requests", "500 Internal Server Error"] {
+            let server = Server::new(vec![response(status, "SECRET_PROVIDER_BODY")]);
             let error = stream_chat(
                 &endpoint(server.base.clone()),
                 &request(),
@@ -549,7 +584,11 @@ mod tests {
                 |_| {},
             )
             .unwrap_err();
-            assert!(error.to_string().contains(&status[..3]), "{error}");
+            assert!(matches!(error, AppError::Other(_)));
+            assert!(!error.to_string().contains("SECRET_PROVIDER_BODY"));
+            if status.starts_with("500") {
+                assert!(error.to_string().contains("500"));
+            }
             server.finish();
         }
     }
@@ -606,12 +645,17 @@ mod tests {
         }
         let error = http_error(
             ureq::Error::Io(std::io::ErrorKind::ConnectionRefused.into()),
-            "http://127.0.0.1:11434/v1",
+            "https://user:SECRET_URL@example.com/v1",
         );
-        assert_eq!(
-            error.to_string(),
-            "Ollama belum berjalan di 127.0.0.1:11434"
-        );
+        assert!(matches!(error, AppError::Other(_)));
+        assert!(!error.to_string().contains("SECRET_URL"));
+        assert!(!error.to_string().contains("example.com"));
+        let auth = http_error(ureq::Error::StatusCode(401), "https://example.com/v1");
+        let rate_limit = http_error(ureq::Error::StatusCode(429), "https://example.com/v1");
+        let unsupported = http_error(ureq::Error::StatusCode(400), "https://example.com/v1");
+        assert_ne!(auth.to_string(), rate_limit.to_string());
+        assert_ne!(auth.to_string(), error.to_string());
+        assert_ne!(unsupported.to_string(), auth.to_string());
     }
 
     #[test]
@@ -752,5 +796,12 @@ mod tests {
         release.send(()).unwrap();
         canceller.join().unwrap();
         server.finish();
+    }
+
+    #[test]
+    fn endpoint_secret_is_zeroized_on_cleanup() {
+        let mut endpoint = Endpoint { base_url: "http://localhost/v1".into(), api_key: Some("SECRET_SENTINEL".into()) };
+        endpoint.clear_key();
+        assert!(endpoint.api_key.as_ref().unwrap().is_empty());
     }
 }

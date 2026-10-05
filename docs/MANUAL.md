@@ -52,7 +52,7 @@ Ringkasan tugas, agenda, keuangan, proyek, unduhan, dan catatan terbaru. Panel A
 3. Klik item di **Catatan terbaru** untuk membukanya.
 4. Untuk kontribusi GitHub, sambungkan token melalui Pengaturan > Integrasi. Integrasi ini membaca kalender kontribusi.
 
-**Batas:** **Dengarkan rekap** masih nonaktif. Buka modul untuk detail yang tidak ditampilkan di ringkasan.
+**Batas:** **Dengarkan rekap** membacakan ringkasan Dashboard saat data tersedia, bukan rekap yang diproses AI. Buka modul untuk detail yang tidak ditampilkan di ringkasan.
 
 ## Jurnal
 
@@ -202,21 +202,21 @@ Untuk nama tampilan, statistik pemakaian, keamanan, dan preferensi pengingat.
 
 Untuk mengatur layanan dan data perangkat ini.
 
-1. Pilih **Asisten & AI** untuk **Tes koneksi** Ollama dan model per tugas; lihat [Asisten](#asisten).
+1. Pilih **Asisten & AI** untuk mengatur Ollama atau **Kustom**, **Tes koneksi**, dan model per tugas; lihat [Asisten](#asisten).
 2. Pilih **Suara** untuk memasang model/binary, menguji mikrofon, memilih atau mengimpor suara, dan mengatur kecepatan, ekspresi, serta variasi.
 3. Pilih **Sinkron & data**. Bagian atas berisi kartu **Sinkron antarperangkat**: masuk dengan Google atau GitHub, buat atau buka kunci frasa sandi sync, lalu **Sinkronkan sekarang**. Bagian bawah berisi ukuran database, ringkasan item, daftar backup, **Backup sekarang**, **Buka folder backup**, dan **Buka folder data**.
 4. Pilih **Integrasi** untuk Gmail dan GitHub. Untuk kalender kontribusi GitHub, isi **Token GitHub** lalu **Sambungkan**. **Muat ulang data** mengambil ulang kalender; **Putuskan** menghapus token dan cache kontribusi.
 5. Pilih **Tentang** untuk melihat versi, memeriksa pembaruan, membuka **Repositori GitHub**/**Catatan Rilis**, dan melihat lisensi. Pembaruan RPM dipasang melalui `sudo dnf upgrade anchoa`.
 
-**Batas:** **Avatar Live2D** masih menampilkan avatar statis. SFTP dari HP belum aktif. Penyedia AI hanya Ollama; belum ada pemasangan pembaruan aplikasi otomatis dari panel Tentang. Sync memerlukan Supabase yang dikonfigurasi saat build.
+**Batas:** **Avatar Live2D** masih menampilkan avatar statis. SFTP dari HP belum aktif. OpenRouter, OpenAI, dan Anthropic belum tersedia sebagai penyedia langsung; endpoint kompatibel OpenAI dapat dipakai lewat **Kustom**. Belum ada pemasangan pembaruan aplikasi otomatis dari panel Tentang. Sync memerlukan Supabase yang dikonfigurasi saat build.
 
 ## Asisten
 
 Asisten penuh ada di Dashboard. Pada halaman lain, buka tombol Asisten di kanan bawah; **Buka asisten penuh** kembali ke Dashboard.
 
-### Ollama dan percakapan
+### Penyedia dan percakapan
 
-1. Pasang dan siapkan model bawaan:
+1. Untuk Ollama lokal, pasang dan siapkan model bawaan:
 
    ```bash
    sudo dnf install ollama
@@ -224,10 +224,18 @@ Asisten penuh ada di Dashboard. Pada halaman lain, buka tombol Asisten di kanan 
    ollama pull qwen2.5:3b
    ```
 
-2. Buka Pengaturan > **Asisten & AI**, klik **Tes koneksi**, lalu pilih model yang telah diunduh. Alamat bawaan Ollama `http://127.0.0.1:11434`.
+2. Buka Pengaturan > **Asisten & AI**, pilih **Ollama**, klik **Tes koneksi**, lalu pilih model yang telah diunduh untuk **Percakapan & aksi**. Alamat bawaan Ollama `http://127.0.0.1:11434`. Untuk memakai endpoint kompatibel OpenAI seperti 9router, ikuti langkah Kustom di bawah.
 3. Klik **Ketik pesan**, isi pesan, lalu **Kirim** atau Enter. Asisten dapat membaca ringkasan hari ini, mencari item yang diizinkan, dan melihat tugas.
 4. Untuk perubahan data, baca kartu usulan lalu **Setujui** atau **Tolak**. Aksi tersedia: membuat/menyelesaikan tugas, menambah transaksi atau entri jurnal, dan mencentang habit.
 5. Klik **Hentikan** untuk menghentikan jawaban yang sedang diproses.
+
+Untuk **Kustom / 9router**:
+
+1. Jalankan 9router, pilih **Kustom**, isi **Nama penyedia** (misalnya `9router`) dan **Base URL** `http://127.0.0.1:20128/v1`, lalu **Simpan metadata**. URL lain harus HTTPS; HTTP hanya diizinkan untuk `localhost`, `127.0.0.1`, atau `::1`.
+2. **API key opsional**: server lokal boleh tanpa key. Jika diperlukan, isi key lalu **Ganti key**. Key disimpan di keyring OS dan tidak ditampilkan kembali; **Hapus key** menghapusnya.
+3. Klik **Tes koneksi**. Pada **Percakapan & aksi**, pilih penyedia **Kustom**, pilih model yang ditemukan atau isi **ID model manual**, lalu **Simpan model Percakapan & aksi**. Menyimpan metadata saja tidak mengganti penyedia/model peran.
+
+Mengubah URL menghapus key lama dan mereset sesi chat. Mengganti atau menghapus key, maupun mengganti penyedia/model **Percakapan & aksi**, mereset riwayat dan usulan yang belum disetujui. Menyimpan metadata dengan URL yang sama tidak mengubah key atau mereset sesi. Tidak ada fallback penyedia otomatis.
 
 ### Suara
 
@@ -249,12 +257,12 @@ Rekaman dibatasi 60 detik. Whisper memakai bahasa Indonesia. pw-record merekam; 
 
 | Peran di UI | Pemakaian pada versi ini |
 | --- | --- |
-| Percakapan & aksi | Percakapan dan usulan aksi di panel Asisten. |
-| Tanggapan jurnal | Model dapat diatur; tombol Minta tanggapan di Jurnal masih nonaktif. |
-| Rekap harian | Model dapat diatur; tombol Dengarkan rekap di Dashboard masih nonaktif. |
-| Asisten email | Ringkasan, saran balasan, dan usulan tugas dari email terpilih. |
+| Percakapan & aksi | Aktif: percakapan dan usulan aksi di panel Asisten, memakai Ollama atau Kustom. |
+| Tanggapan jurnal | Wajib Ollama lokal; model dapat diatur, tetapi tombol Minta tanggapan di Jurnal masih nonaktif. |
+| Rekap harian | Pemrosesan AI belum tersedia; pengaturan peran nonaktif. Dengarkan rekap di Dashboard hanya membacakan ringkasan biasa. |
+| Asisten email | Wajib Ollama lokal: ringkasan, saran balasan, dan usulan tugas dari email terpilih. |
 
-**Batas:** semua peran memakai Ollama. Riwayat percakapan ada di memori dan hilang saat aplikasi ditutup. Usulan dapat salah atau gagal dijalankan. Asisten tidak punya tool hapus, pengelolaan file, unduhan, atau menjalankan perintah shell. Isi jurnal tidak otomatis masuk konteks percakapan umum. Avatar masih statis.
+**Batas:** peran privat jurnal dan email terkunci ke Ollama lokal, bukan Kustom. Riwayat percakapan ada di memori dan hilang saat aplikasi ditutup atau sesi direset. Usulan dapat salah atau gagal dijalankan. Asisten tidak punya tool hapus, pengelolaan file, unduhan, atau menjalankan perintah shell. Isi jurnal, email, dan tugas turunan jurnal tidak otomatis masuk konteks percakapan umum. Avatar masih statis.
 
 ## Notifikasi
 
@@ -274,7 +282,7 @@ Data modul tersimpan dalam SQLite lokal di laptop. File asli dan hasil unduhan t
 | Fitur | Yang berada di perangkat | Yang keluar dari perangkat |
 | --- | --- | --- |
 | Modul harian | Jurnal, Catatan, tugas, jadwal, habit, keuangan, profil, pengaturan. | Jika sync aktif: record dienkripsi end-to-end (XChaCha20-Poly1305) dan dikirim ke Supabase. Server hanya menyimpan ciphertext. Tanpa sync, tidak ada data ke cloud. |
-| Asisten | Prompt, konteks, jawaban, riwayat dalam memori; pemrosesan Ollama di localhost secara bawaan. | Pengunduhan model Ollama menghubungi sumber model. |
+| Asisten | Prompt, konteks, jawaban, riwayat dalam memori; pemrosesan Ollama di localhost secara bawaan. API key Kustom di keyring OS. | Pengunduhan model Ollama menghubungi sumber model. Kustom mengirim pesan/riwayat sesi, nama profil, konteks tugas/tagihan/habit/akun, dan hasil tool yang diizinkan ke endpoint pilihan. Data sensitif yang diketik sendiri juga dikirim. |
 | Suara | Rekaman sementara, Whisper, Piper, model suara; pemrosesan lokal. | Unduhan binary Piper dari GitHub dan model Whisper/suara dari Hugging Face. |
 | Email | Alamat akun dan cache email di database; App Password di keyring. | Login/pengambilan ke `imap.gmail.com:993`; pengiriman ke `smtp.gmail.com:465`, melalui TLS. Ringkas email mengirim isi email terpilih ke Ollama lokal. |
 | GitHub opsional | Token di `github-token` dengan izin file 0600; kalender kontribusi di SQLite. | Token dan permintaan kalender kontribusi ke API GraphQL GitHub. |
@@ -283,7 +291,7 @@ Data modul tersimpan dalam SQLite lokal di laptop. File asli dan hasil unduhan t
 | Cek rilis dan tautan | Versi aplikasi. | Cek pembaruan menghubungi API GitHub; membuka tautan memakai browser/aplikasi sistem. |
 | Sync opsional | Frasa sandi dan recovery key tidak disimpan; DEK dan token OAuth disimpan di keyring sistem. | Login OAuth ke Supabase Auth (Google/GitHub). Record terenkripsi dikirim/ditarik lewat REST Supabase. Server tidak bisa membaca isi. |
 
-Alamat AI dapat diganti lewat variabel lingkungan `ANCHOA_AI_BASE`; jika diarahkan keluar localhost, pesan/konteks dikirim ke alamat itu. Pengaturan UI tidak menyediakan penyedia cloud. Pemrosesan tetap di laptop hanya jika alamat AI serta program agen yang dipilih juga lokal.
+Endpoint **Kustom** diatur lewat Pengaturan > **Asisten & AI** dan dapat berupa server lokal atau remote. Jurnal, email, dan tugas turunan jurnal tidak disertakan otomatis dalam percakapan Kustom; peran jurnal/email tetap memakai Ollama lokal. Alamat Ollama dapat diganti lewat variabel lingkungan `ANCHOA_AI_BASE`; jika diarahkan keluar localhost, pesan/konteks dikirim ke alamat itu. Pemrosesan tetap di laptop hanya jika endpoint AI serta program agen yang dipilih juga lokal; layanan seperti 9router dapat meneruskan permintaan ke penyedia luar sesuai konfigurasinya.
 
 ## Kunci PIN
 

@@ -579,9 +579,12 @@ pub async fn journal_weekly_summary(app: AppHandle, db: State<'_, Db>) -> Result
     let _ = db;
     tauri::async_runtime::spawn_blocking(move || {
         let db = app.state::<Db>();
-        let conn = db.conn()?;
-        let endpoint = crate::assistant::Endpoint::default();
-        journal::journal_weekly_summary(&conn, &endpoint, time::now_ms(), &TimeZone::system())
+        let tz = TimeZone::system();
+        let now = time::now_ms();
+        let (request, title) = journal::prepare_weekly_summary(&*db.conn()?, now, &tz)?;
+        let endpoint = crate::assistant::providers::local_endpoint()?;
+        let response = crate::assistant::llm::stream_chat(&endpoint, &request, &std::sync::atomic::AtomicBool::new(false), |_| {})?;
+        journal::save_weekly_summary(&*db.conn()?, &title, &response.content, now, &tz)
     })
     .await
     .map_err(blocking_error)?

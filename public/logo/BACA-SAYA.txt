@@ -1,0 +1,10 @@
+Logo resmi Anchoa (dari app-icon.png milik Syharipf, dibuat ulang sebagai vektor).
+
+anchoa-ikon-app-1024.png   sumber untuk: npx tauri icon static/logo/anchoa-ikon-app-1024.png
+svg/                       ikon app (bulat), persegi, versi kecil (<= 32 px), logo, mono putih/gelap,
+                           android-foreground (latar adaptif #10303A), favicon
+animasi/                   intro (2,2 dtk sekali), loading (loop 2,4 dtk), idle (loop 3,6 dtk)
+linux-hicolor/             16-512 px + scalable, siap disalin ke /usr/share/icons/hicolor
+sumber-app-icon.png        file asli 5167 px
+
+Di dalam app pakai src/lib/brand/AnchoaLogo.svelte, bukan PNG.

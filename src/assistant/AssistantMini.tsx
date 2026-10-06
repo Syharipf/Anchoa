@@ -4,7 +4,7 @@ import {
   useState,
 } from "react";
 import { AssistantCaption, AssistantFeedback, STATUS } from "./AssistantFeedback";
-import { School } from "./School";
+import { AnchoaPet, type PetStatus } from "../pet/AnchoaPet";
 import { useAssistant } from "./useAssistant";
 import { usePageVisible } from "./usePageVisible";
 import { useAssistantRequest, type AssistantRequest } from "./useAssistantRequest";
@@ -21,12 +21,6 @@ const ROUND =
 const ICON_BUTTON =
   "flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 cursor-pointer";
 
-const FACE = (
-  <>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M9 10h.01M15 10h.01M9 15c1.7 1.3 4.3 1.3 6 0" />
-  </>
-);
 const MIC = (
   <>
     <rect x="9" y="3" width="6" height="11" rx="3" />
@@ -68,9 +62,17 @@ export function AssistantMini({
   const mode = assistant.mode;
   const listening = mode === "listening";
   const thinking = mode === "thinking";
-  const running = mode !== "idle" && visible;
   const status = STATUS[mode];
-
+  const petStatus: PetStatus =
+    assistant.error
+      ? "sad"
+      : mode === "listening"
+      ? "listening"
+      : mode === "thinking"
+      ? "thinking"
+      : mode === "speaking"
+      ? "speaking"
+      : "idle";
   useEffect(() => {
     if (open !== wasOpen.current) (open ? mic : trigger).current?.focus();
     wasOpen.current = open;
@@ -86,7 +88,13 @@ export function AssistantMini({
         title="Asisten"
         className={`${ROUND} fixed right-6 bottom-6 z-30 h-[60px] w-[60px] border border-line bg-surface-2 text-muted shadow-[0_16px_40px] shadow-canvas/45`}
       >
-        <Icon size={28}>{FACE}</Icon>
+        <AnchoaPet
+          size={48}
+          crop="head"
+          status={petStatus}
+          paused={!visible}
+          shadow={false}
+        />
         <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-canvas">
           <Icon size={11}>{MIC}</Icon>
         </span>
@@ -111,18 +119,14 @@ export function AssistantMini({
       className="fixed right-6 bottom-6 z-30 flex w-[304px] flex-col gap-3 rounded-[18px] border border-line bg-surface p-4 shadow-[0_16px_40px] shadow-canvas/45"
     >
       <div className="flex items-center gap-3">
-        <div className="relative h-11 w-11 shrink-0">
-          <School
-            size={72}
-            period="12s"
-            color={status.color}
-            dimmed={mode === "idle"}
-            running={running}
-            className="absolute top-1/2 left-1/2 -mt-9 -ml-9"
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-line bg-surface-2 flex items-center justify-center">
+          <AnchoaPet
+            size={44}
+            crop="head"
+            status={petStatus}
+            paused={!visible}
+            shadow={false}
           />
-          <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-muted">
-            <Icon size={24}>{FACE}</Icon>
-          </span>
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="font-display text-sm font-semibold">Anchoa</span>

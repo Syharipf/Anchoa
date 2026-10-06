@@ -1,6 +1,6 @@
 # Anchoa — Spesifikasi Desain (untuk implementasi)
 
-Dashboard pribadi dengan asisten suara (STT + TTS, avatar Live2D). Tema: **Studio Malam** (gelap).
+Dashboard pribadi dengan asisten suara (STT + TTS, pet teri **Ako**). Tema: **Studio Malam** (gelap).
 Stack: **Tauri 2 + SvelteKit (Svelte 5) + Rust** — aturan teknis ada di `CLAUDE.md`.
 Acuan desktop: **1280×800**.
 
@@ -51,7 +51,7 @@ Dashboard · Jurnal · Email · Jadwal · Habit · Keuangan · Proyek · Berkas 
 ## 2. Halaman
 
 ### Loading (saat app dibuka)
-Latar `--sidebar`. Tempat logo 96px di tengah, dikelilingi cincin kawanan teri (≈26 ikan) yang berputar 7s. Nama "Anchoa", bar progres 240×3 (scaleX), teks tahap: data lokal → model suara → avatar Live2D → sinkron jadwal & email → "Siap.". Setelah siap: cincin berhenti & meredup. **Target < 2 detik**: tampilkan Dashboard secepatnya, muat Live2D & model suara di latar belakang.
+Latar `--sidebar`. Logo resmi 280px di tengah: animasi **intro** (2,2 dtk), lalu **loading** (loop) sampai siap, lalu diam. Nama "Anchoa", bar progres 240×3 (scaleX), teks tahap: data lokal → model suara → Ako → sinkron jadwal & email → "Siap.". Setelah siap: animasi berhenti. **Target < 2 detik**: tampilkan Dashboard secepatnya, muat model suara di latar belakang.
 
 ### Dashboard (rekap cepat)
 - Sapaan + ringkasan satu baris + tombol **Dengarkan rekap** (asisten membacakan rekap di panel kanan).
@@ -108,19 +108,27 @@ Sidebar Tempat/Perangkat, tombol kembali/maju/naik, breadcrumb, tampilan ikon/da
 ### Unduhan
 Kotak tautan dengan deteksi jenis: media (yt-dlp) · file langsung (aria2) · magnet/.torrent. Opsi media: Video/Audio saja, resolusi atau bitrate, format, subtitle. Antrean dengan tab Semua/Aktif/Selesai/Torrent/Gagal; status: Mengunduh, Dijeda, Menunggu, Memproses (ffmpeg), Membagikan, Selesai, Gagal. Panel mesin (yt-dlp + Perbarui, ffmpeg, aria2, **Torrent opsional**) dan pengaturan (folder, unduhan bersamaan, batas kecepatan, pantau clipboard, rasio seeding).
 - yt-dlp perlu pembaruan berkala (cek otomatis). ffmpeg wajib untuk menggabungkan video+audio resolusi tinggi. Torrent **mati secara default** (IP terlihat oleh peer); aria2 sudah mendukung BitTorrent, libtorrent jika butuh fitur lebih.
+- **Progress kawanan teri** (artboard `ProgressKawanan`, komponen `FishProgress.svelte`). Dipakai di semua bar unduhan/transfer: Unduhan (desktop & HP), kartu Unduhan di Dashboard, *Simpan ke HP* di File laptop. **Tidak** dipakai untuk progres proyek dan scrubber video.
+  - Tinggi 12 px (10 px di kartu Dashboard), radius penuh, jalur `#1A1E25`.
+  - Isi dipotong tepat di persen (`overflow: hidden`, transisi lebar 0,3 s) dengan rona lime 14 %; di dalamnya pola SVG 72×12 px berisi 7 teri (ukuran & transparansi beragam) diulang horizontal. Pola digeser `translateX(-72px → 0)` tanpa henti.
+  - Laju = kecepatan unduh: durasi satu putaran `clamp(0.9s, 9 / (MB/s + 0.5), 4s)`.
+  - Ikan pemimpin (21×12 px, sedikit lebih besar, garis tepi gelap) di ujung depan isi; ekor bergoyang ±6° per 0,45 s.
+  - Status → tampilan: Mengunduh = lime, berenang; Dijeda = abu-abu, diam; Menunggu = 3 teri abu-abu menjelajah jalur kosong; Memproses = penuh, `#86B33A`, pelan; Membagikan = penuh, pola dibalik dan berenang ke kiri (mengunggah); Selesai = penuh, `#4E6A26`, diam; Gagal = jalur coral 12 % tanpa ikan.
+  - Hanya `transform` yang beranimasi; satu pola dipakai ulang; hentikan saat halaman/jendela tidak terlihat. `prefers-reduced-motion` → pola tetap tampil tapi diam.
+  - Aksesibilitas: kontainer `role="progressbar"` + `aria-valuenow/min/max` + `aria-valuetext` ("63 %, 19 detik lagi"); teks persen tetap tampil di bawah bar.
 
 ### Pengaturan (3 artboard: `Pengaturan`, `PengaturanAvatar`, `PengaturanSinkron`)
-Sub-nav kiri 212px (6 bagian, tiap item punya status kecil): Asisten & AI · Avatar Live2D · Suara · Sinkron & data · Laptop (SFTP) · Tentang. Ketiga artboard adalah file yang sama dengan bagian awal berbeda.
+Sub-nav kiri 212px (6 bagian, tiap item punya status kecil): Asisten & AI · Avatar · Suara · Sinkron & data · Laptop (SFTP) · Tentang. Ketiga artboard adalah file yang sama dengan bagian awal berbeda.
 - **Asisten & AI**: 5 tile penyedia (Anthropic, OpenAI, Google Gemini, OpenRouter, Ollama lokal; titik = status kunci). Kolom kunci API tampil **termasking** (hanya 4 karakter terakhir) + *Tes koneksi* / *Ganti*. Hasil tes dalam kotak status: valid (lime), kuota habis 429 (kuning), ditolak 401 (coral), belum ada kunci (abu), sedang menguji. **Model per tugas**: perintah suara, ringkasan email, tanggapan jurnal, rekap harian — tombol yang mengganti model; daftar model diambil dari API penyedia setelah kunci valid. Kanan: pemakaian bulan ini (dari `ai_usage`) dan *Privasi AI* (jurnal hanya ke model lokal, sertakan konteks jadwal, simpan riwayat).
-- **Avatar Live2D**: galeri model (bawaan, contoh SDK, *Impor model…* berupa .zip berisi model3.json/moc3/tekstur), **pemeriksaan model** (model3.json terbaca, versi moc3 cocok Cubism Core, ukuran tekstur, gerakan idle, parameter mulut untuk lip-sync, kedip mata — ok/peringatan/gagal), pratinjau dengan *Uji bicara*, performa (FPS maks 30/60, sensitivitas lip-sync, mata ikut kursor, gambar statis di perangkat lemah).
+- **Ako (pet)**: pratinjau dengan tombol status, *Tampil di* (panel asisten, tombol asisten mini, melayang di desktop: mati bawaan, di i3 perlu picom), *Mood harian* (hanya naik), *Gerak* Penuh/Hemat/Diam + gerak mulut ikut suara, *Tidur saat tidak dipakai* (2 menit), *Mata mengikuti kursor*.
 - **Suara**: STT di perangkat (whisper.cpp tiny/base/small + ukuran) atau cloud; pilih mikrofon + meter level; TTS Piper lokal atau cloud, pilihan suara + contoh; kata pemanggil; selalu tampilkan teks.
 - **Sinkron & data**: status Supabase (region, latensi, sinkron terakhir, antrean offline), ukuran DB vs 500 MB, cache di perangkat + *Bersihkan*, perangkat terdaftar + *Cabut akses*, backup terenkripsi terakhir, aturan pembersihan otomatis.
 - **Laptop (SFTP)**: host Tailscale, pengguna, folder akar, kunci SSH (fingerprint, salin kunci publik), *Tes koneksi*, sakelar izinkan HP mengunggah (default mati), daftar cek keamanan laptop.
-- **Tentang**: versi, cek pembaruan, lisensi pihak ketiga (Live2D Cubism, yt-dlp, ffmpeg, whisper.cpp, Piper, Tauri).
+- **Tentang**: versi, cek pembaruan, lisensi pihak ketiga (yt-dlp, ffmpeg, whisper.cpp, Piper, Tauri).
 
 ### Masuk & penyiapan pertama (`Login`, `Onboarding`)
-- **Masuk** (tanpa nav): panel merek kiri 560px (logo + kawanan teri), form kanan 380px: email, kata sandi, *Masuk*, *Kirim tautan masuk ke email* (magic link), *Masuk dengan GitHub*. Error = kotak coral di atas form; tautan terkirim = kotak lime. **Pendaftaran ditutup** (Supabase: matikan sign-up), sesi di keyring.
-- **Penyiapan pertama** (5 langkah, kolom langkah kiri 300px, tombol Kembali/Lewati/Lanjut di bawah): 1 Asisten AI (penyedia + kunci + Tes, atau Ollama lokal, atau Nanti), 2 Suara & mikrofon (izin, uji "Hai Anchoa", pilih suara), 3 Avatar (pilih model + *Uji performa* → memilih Live2D penuh atau statis), 4 Laptop opsional (langkah Tailscale + SFTP, *Hubungkan*), 5 Ringkasan → *Buka Dashboard*.
+- **Masuk** (tanpa nav): panel merek kiri 560px (logo resmi, animasi idle), form kanan 380px: email, kata sandi, *Masuk*, *Kirim tautan masuk ke email* (magic link), *Masuk dengan GitHub*. Error = kotak coral di atas form; tautan terkirim = kotak lime. **Pendaftaran ditutup** (Supabase: matikan sign-up), sesi di keyring.
+- **Penyiapan pertama** (5 langkah, kolom langkah kiri 300px, tombol Kembali/Lewati/Lanjut di bawah): 1 Asisten AI (penyedia + kunci + Tes, atau Ollama lokal, atau Nanti), 2 Suara & mikrofon (izin, uji "Hai Anchoa", pilih suara), 3 Avatar (pilih model + *Uji performa* → memilih avatar 3D penuh atau gambar diam), 4 Laptop opsional (langkah Tailscale + SFTP, *Hubungkan*), 5 Ringkasan → *Buka Dashboard*.
 
 ### Versi HP (390×844, 19 artboard di dua halaman canvas: *HP · Utama* dan *HP · Modul*)
 Semua menu desktop ada di HP. Daftar: `HpMasuk`, `HpBeranda`, `HpBerandaRoda`, `HpAsisten`, `HpCari`, `HpNotif`, `HpJurnal`, `HpHabit`, `HpJadwal`, `HpKeuangan`, `HpProyek`, `HpAgen`, `HpEmail`, `HpEmailBaca`, `HpBerkas`, `HpUnduhan`, `HpPengaturan`, `HpPengaturanAI`, `HpProfil`.
@@ -169,6 +177,21 @@ Kartu profil (avatar + cincin teri, statistik), Keamanan (PIN, enkripsi data lok
 
 Tap mikrofon: `listening` ↔ `idle`. Teks balasan TTS selalu tampil sebagai caption (aksesibilitas + lingkungan bising).
 
+### Pet Ako
+Ako adalah teri dari logo yang jadi hidup (canvas halaman **Maskot**, `artboards/PetAko.dc.html`; komponen `src/lib/pet/AnchoaPet.svelte`): badan ramping lime, moncong menjorok, mata besar di depan, tutup insang, sirip punggung dan dubur, ekor bercabang dalam, celah gelap seperti logo, headset putih, dan kawanan kecil (gradasi perak → lime) yang ikut bereaksi. Di panel asisten, Asisten HP, dan Pengaturan Ako berenang di depan latar bawah laut (`LautAko.svelte`: sinar cahaya, gelembung, partikel, rumput laut, dasar pasir; `<AnchoaPet shadow={false}>`). Ukuran: panel 290 px (desktop) / 300 px (HP), 96 px ke bawah tanpa kawanan dan efek, avatar bulat 44–60 px memakai potongan kepala.
+
+| Status | Animasi |
+|---|---|
+| `idle` | kedip, napas, ekor bergoyang; tidur setelah 2 menit tanpa interaksi |
+| `listening` | mata membesar, gelombang suara |
+| `thinking` | melirik ke atas, gelembung titik |
+| `speaking` | mulut mengikuti volume TTS |
+| `happy` | melompat + kilau (habit dicentang, tugas selesai) |
+| `surprised` | melonjak, tanda seru (jatuh tempo, email penting) |
+| `sad` | hanya untuk error sistem, bukan untuk kebiasaan pengguna |
+
+Mood harian hanya naik (biasa → cerah → berbinar), tidak pernah turun di bawah biasa. Di ≤ 48 px tanpa kawanan dan efek.
+
 ## 4. Komponen (ringkas)
 - **Tombol:** primer (lime, teks `--on-accent`, 600), sekunder (surface + border), hantu, bahaya (outline coral), ikon 32–38px, mikrofon 64 (penuh) / 44 (mini).
 - **Input:** tinggi 40–44, radius 10, border `--border`; fokus → border `--done`.
@@ -181,10 +204,13 @@ Tap mikrofon: `listening` ↔ `idle`. Teks balasan TTS selalu tampil sebagai cap
 Satu bentuk (badan lensa + ekor bercabang), path SVG: `M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z`.
 Dipakai sebagai **kawanan melingkar** di sekitar avatar (dashboard, popup mini, loading, profil) dan di **roda menu HP** — bukan logo. Bagian depan kawanan lebih rapat/terang. Warna = warna state. Logo resmi memakai berkas logo pemilik.
 
+## 5a. Logo
+Logo resmi: `static/logo/`, `src/lib/brand/AnchoaLogo.svelte`, canvas halaman **Logo**. Latar ikon #10303A, teri #C6F36B, kawanan kecil gradasi #CFE3EA → #C6F36B, titik tujuan #FFFFFF. ≤ 32 px pakai versi kecil (tanpa kawanan kecil). Animasi: intro 2,2 dtk sekali, loading loop 2,4 dtk, idle 3,6 dtk; tidak ada animasi di ≤ 48 px. Jangan mengubah warna, memberi outline/bayangan, atau memutar logo (titik putih selalu di kanan).
+
 ## 6. Aturan performa (wajib)
 1. Animasi hanya `transform` dan `opacity`.
 2. Semua animasi berulang **pause saat idle** dan saat tab/jendela tidak terlihat (`document.visibilityState`).
-3. Render loop Live2D ikut berhenti / turun FPS saat idle; di popup mini pakai gambar statis, bukan Live2D.
+3. Render loop avatar berhenti 6 detik setelah idle (hanya bangun untuk berkedip), FPS maks 30; di popup mini pakai gambar diam `ako-diam.png`, bukan 3D.
 4. `prefers-reduced-motion` → matikan semua animasi.
 5. Tanpa `backdrop-filter`/blur, partikel, atau animasi hitung-naik angka.
 
@@ -199,4 +225,4 @@ Dipakai sebagai **kawanan melingkar** di sekitar avatar (dashboard, popup mini, 
 Lihat `docs/ARCHITECTURE.md` — data di Supabase (Postgres + RLS), file di laptop via Tailscale + SFTP, email & unduhan di perangkat, AI lewat Edge Function `ai-gateway`.
 
 ## 9. Urutan pengerjaan
-Lihat `docs/ROADMAP.md` (Fase 0 = uji coba Live2D & performa sebagai gerbang keputusan).
+Lihat `docs/ROADMAP.md` (Fase 0 = uji coba animasi & performa sebagai gerbang keputusan).

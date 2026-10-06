@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorMessage } from "../api";
 import { FIELD, H1, PRIMARY } from "../shell/ui";
+import { AnchoaLogo } from "../brand/AnchoaLogo";
 
 export function LockScreen({
   onUnlocked,
@@ -74,26 +75,7 @@ export function LockScreen({
   return (
     <div className="flex h-full w-full flex-col items-center justify-center bg-canvas p-6 text-ink">
       <div className="flex w-full max-w-[360px] flex-col items-center gap-6">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-line bg-surface">
-          <svg
-            width="40"
-            height="40"
-            viewBox="0 0 40 40"
-            role="img"
-            aria-label="Logo Anchoa"
-            className="shrink-0"
-          >
-            <rect width="40" height="40" rx="12" className="fill-accent" />
-            <text
-              x="20"
-              y="26"
-              textAnchor="middle"
-              className="fill-canvas font-display text-lg font-semibold"
-            >
-              A
-            </text>
-          </svg>
-        </div>
+        <AnchoaLogo tile size={64} label="Logo Anchoa" />
 
         <div className="flex flex-col items-center gap-1.5 text-center">
           <h1 className={H1}>Anchoa terkunci</h1>

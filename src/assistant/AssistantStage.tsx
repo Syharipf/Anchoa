@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AssistantCaption, AssistantFeedback, STATUS } from "./AssistantFeedback";
-import { School } from "./School";
+import { AnchoaPet, type PetStatus } from "../pet/AnchoaPet";
+import { LautAko } from "../pet/LautAko";
 import { useAssistant } from "./useAssistant";
 import { usePageVisible } from "./usePageVisible";
 import { useAssistantRequest, type AssistantRequest } from "./useAssistantRequest";
@@ -37,6 +38,16 @@ export function AssistantStage({
   const mode = assistant.mode;
   const running = mode !== "idle" && visible;
   const status = STATUS[mode];
+  const petStatus: PetStatus =
+    assistant.error
+      ? "sad"
+      : mode === "listening"
+      ? "listening"
+      : mode === "thinking"
+      ? "thinking"
+      : mode === "speaking"
+      ? "speaking"
+      : "idle";
 
   return (
     <section
@@ -44,38 +55,16 @@ export function AssistantStage({
       className="flex min-h-0 flex-1 flex-col gap-3 px-5 pt-4 pb-[18px]"
     >
       <div className="relative flex min-h-[220px] flex-1 items-end justify-center overflow-hidden rounded-[18px] border border-line bg-stage">
-        <div className="absolute bottom-[143px] left-1/2 -ml-[130px] h-[260px] w-[260px] rounded-full bg-stage-disc" />
-        <School
-          color={status.color}
-          dimmed={mode === "idle"}
-          running={running}
-          className="absolute bottom-[123px] left-1/2 -ml-[150px]"
+        <LautAko paused={!running && mode === "idle"} />
+        <AnchoaPet
+          status={petStatus}
+          size={240}
+          shadow={false}
+          paused={!running && mode === "idle"}
+          className="relative z-10 -mb-2"
         />
-        <svg
-          width="250"
-          height="384"
-          viewBox="0 0 150 230"
-          fill="none"
-          stroke="var(--color-muted)"
-          strokeWidth="1.6"
-          className="relative -mb-2"
-          aria-hidden="true"
-        >
-          <path
-            d="M40 230c0-58 16-110 35-110s35 52 35 110"
-            fill="var(--color-surface-2)"
-          />
-          <circle cx="75" cy="62" r="34" fill="var(--color-surface-2)" />
-          <path
-            d="M41 58c4-30 64-34 68 0"
-            fill="var(--color-disabled)"
-          />
-          <circle cx="63" cy="66" r="3" fill="var(--color-muted)" />
-          <circle cx="87" cy="66" r="3" fill="var(--color-muted)" />
-          <path d="M67 80c5 4 11 4 16 0" />
-        </svg>
 
-        <div className="absolute top-3 left-3 flex items-center gap-2 rounded-full border border-line bg-sidebar px-2.5 py-[5px] text-xs">
+        <div className="absolute top-3 left-3 z-20 flex items-center gap-2 rounded-full border border-line bg-sidebar px-2.5 py-[5px] text-xs">
           <div aria-hidden="true" className="flex h-3 items-center gap-0.5">
             {WAVE_DELAYS.map((delay) => (
               <span
@@ -93,11 +82,11 @@ export function AssistantStage({
           </div>
           <span aria-live="polite">{status.text}</span>
         </div>
-        <span className="absolute top-4 right-3.5 text-[11px] text-muted">
+        <span className="absolute top-4 right-3.5 z-20 text-[11px] text-muted">
           Avatar statis
         </span>
 
-        <div className="absolute right-3 bottom-3 left-3 flex flex-col gap-1.5 rounded-[14px] border border-line bg-sidebar/90 px-3.5 py-3">
+        <div className="absolute right-3 bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-[14px] border border-line bg-sidebar/90 px-3.5 py-3">
           <AssistantCaption assistant={assistant} onOpenAiSettings={onOpenAiSettings} onOpenVoiceSettings={onOpenVoiceSettings} />
         </div>
       </div>

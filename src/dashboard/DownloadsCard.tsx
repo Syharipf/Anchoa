@@ -76,9 +76,9 @@ export function DownloadsCard({
                     ? "done"
                     : item.status === "failed"
                       ? "error"
-                      : item.status === "paused"
-                        ? "paused"
-                        : "running"
+                      : item.status === "running" || item.status === "processing"
+                        ? "running"
+                        : "paused"
                 }
                 className="h-2"
               />

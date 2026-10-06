@@ -348,6 +348,24 @@ describe("useAssistant", () => {
     harness.focus();
     expect(statusSpy).toHaveBeenCalledTimes(2);
   });
+  it("refreshes provider and clears local context on config reset without another backend reset", async () => {
+    const custom = { provider: "custom" as const, name: "9router", available: true, models: ["remote"], error: null };
+    const status = spyOn(api, "aiStatus").mockResolvedValueOnce(online).mockResolvedValue(custom);
+    const reset = spyOn(api, "assistantReset").mockResolvedValue(undefined);
+    const stop = spyOn(api, "assistantStop").mockResolvedValue(undefined);
+    const voice = spyOn(api, "voiceStop").mockResolvedValue(undefined);
+    spies.push(status, reset, stop, voice);
+    harness = hookHarness(() => useAssistant()); harness.render();
+    expect((await harness.settle()).pendingProposals).toHaveLength(1);
+    window.dispatchEvent(new CustomEvent("anchoa-ai-config-changed", { detail: { reset: true } }));
+    const assistant = await harness.settle();
+    expect(assistant.pendingProposals).toHaveLength(0);
+    expect(assistant.messages).toHaveLength(0);
+    expect(assistant.aiStatus).toEqual(custom);
+    expect(reset).not.toHaveBeenCalled();
+    expect(voice).toHaveBeenCalled();
+    expect(status).toHaveBeenCalledTimes(2);
+  });
 
   it("keeps the recovered status when an older offline check finishes later", async () => {
     const oldStatus = deferred<AiStatus>();

@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AssistantMessage, AssistantProposal } from "../api";
 import { elements } from "../test/hookHarness";
-import { AssistantFeedback } from "./AssistantFeedback";
+import { AssistantCaption, AssistantFeedback } from "./AssistantFeedback";
 import { ProposalCard } from "./ProposalCard";
 import type { useAssistant } from "./useAssistant";
 
@@ -48,6 +48,14 @@ function createMockAssistant(
 }
 
 describe("AssistantFeedback", () => {
+  it("shows custom failure without directing user to start Ollama", () => {
+    const assistant = createMockAssistant({ aiStatus: { provider: "custom", name: "9router", available: false, models: [], error: "Autentikasi gagal" } });
+    const html = renderToStaticMarkup(AssistantCaption({ assistant }));
+    expect(html).toContain("9router tidak tersedia");
+    expect(html).toContain("Autentikasi gagal");
+    expect(html).not.toContain("systemctl");
+    expect(html).not.toContain("Ollama belum berjalan");
+  });
   it("renders nothing when there is no error, no proposals, and no messages", () => {
     const assistant = createMockAssistant();
     const tree = AssistantFeedback({ assistant });

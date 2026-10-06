@@ -6,6 +6,11 @@ use serde_json::{Value, json};
 
 pub fn today_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Value, AppError> {
     let dashboard = dashboard::get(conn, &std::collections::HashMap::new(), now, tz)?;
+    let mut statement = conn.prepare("SELECT item_id FROM journal_entries UNION SELECT task_id FROM journal_entries WHERE task_id IS NOT NULL")?;
+    let private_tasks = statement.query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<std::collections::HashSet<_>, _>>()?;
+    let tasks: Vec<_> = dashboard.today.into_iter()
+        .filter(|task| !private_tasks.contains(&task.id)).collect();
     let habits = habits::habits_overview(conn, now, tz)?
         .habits
         .into_iter()
@@ -14,7 +19,7 @@ pub fn today_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Valu
         .collect::<Vec<_>>();
     // In particular, never serialize dashboard.recent: notes are journal entries.
     Ok(
-        json!({"tasks":dashboard.today,"bills":dashboard.finance.due_bills,"habits":habits,
+        json!({"tasks":tasks,"bills":dashboard.finance.due_bills,"habits":habits,
         "accounts":finance::list_accounts(conn, now, tz)?}),
     )
 }

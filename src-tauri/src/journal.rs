@@ -767,6 +767,13 @@ pub fn journal_weekly_summary(
     now: i64,
     tz: &TimeZone,
 ) -> Result<Entry, AppError> {
+    let (request, title) = prepare_weekly_summary(conn, now, tz)?;
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let response = crate::assistant::llm::stream_chat(endpoint, &request, &cancel, |_| {})?;
+    save_weekly_summary(conn, &title, &response.content, now, tz)
+}
+
+pub fn prepare_weekly_summary(conn: &Connection, now: i64, tz: &TimeZone) -> Result<(crate::assistant::llm::ChatRequest, String), AppError> {
     let today = local_date(now, tz)?;
     let start_date = today.checked_sub(6.days())?;
     let (start_ms, _) = crate::time::date_bounds(start_date, tz)?;
@@ -809,7 +816,7 @@ pub fn journal_weekly_summary(
         ));
     }
 
-    let role_config = crate::assistant::roles::get_role(conn, "recap")?;
+    let role_config = crate::assistant::roles::get_role(conn, "journal")?;
     let model = role_config.model;
 
     let system_prompt = "Anda asisten lokal untuk jurnal pribadi. Bacalah entri jurnal pengguna selama 7 hari terakhir, lalu tulis ringkasan mengenai tema-tema utama yang muncul dan perkembangan suasana hati dalam bahasa Indonesia. Tulisan harus suportif, jelas, dan terstruktur dalam format Markdown. Langsung berikan isi ringkasan tanpa pengantar atau penutup basa-basi.";
@@ -849,17 +856,18 @@ pub fn journal_weekly_summary(
         tools: vec![],
     };
 
-    let cancel = std::sync::atomic::AtomicBool::new(false);
-    let response = crate::assistant::llm::stream_chat(endpoint, &request, &cancel, |_| {})?;
-    let summary_text = response.content.trim().to_string();
+    Ok((request, format!("Ringkasan minggu {start_date}–{today}")))
+}
+
+pub fn save_weekly_summary(conn: &Connection, title: &str, text: &str, now: i64, tz: &TimeZone) -> Result<Entry, AppError> {
+    let summary_text = text.trim().to_string();
     if summary_text.is_empty() {
         return Err(AppError::Other(
             "Asisten tidak menghasilkan ringkasan".into(),
         ));
     }
 
-    let title = format!("Ringkasan minggu {start_date}–{today}");
-    let id = items::insert(conn, "note", &title, &summary_text, now)?;
+    let id = items::insert(conn, "note", title, &summary_text, now)?;
     conn.execute(
         "INSERT INTO journal_entries (item_id, kind, mood, tags, task_id) VALUES (?1, ?2, NULL, 'ringkasan', NULL)",
         params![id, EntryKind::Note],
@@ -2168,6 +2176,16 @@ mod tests {
         )
         .unwrap();
         conn.execute("UPDATE items SET body = ?1 WHERE id = ?2", params![long_body, e2.id]).unwrap();
+        // A configured Kustom endpoint must stay silent: summaries use journal role on local Ollama.
+        let cloud = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        cloud.set_nonblocking(true).unwrap();
+        conn.execute(
+            "INSERT INTO settings(key,value) VALUES('ai.custom.base_url',?1)",
+            [format!("http://{}/v1", cloud.local_addr().unwrap())],
+        )
+        .unwrap();
+        crate::assistant::roles::set_role(&conn, "recap", "custom", "cloud-model").unwrap();
+        crate::assistant::roles::set_role(&conn, "journal", "ollama", "journal-model").unwrap();
 
         let summary_text = "## Tema Utama\nMinggu ini berfokus pada ide menarik dan produktivitas.\n\n## Suasana Hati\nSuasana hati stabil pada tingkat baik (4/5).";
         let server = Server::new(vec![sse(&[json!({
@@ -2193,7 +2211,8 @@ mod tests {
 
         // Verify request received by mock server
         let (_headers, request) = server.requests.recv().unwrap();
-        assert_eq!(request["model"], "qwen2.5:3b");
+        assert_eq!(request["model"], "journal-model");
+        assert!(cloud.accept().is_err(), "journal summary contacted Kustom endpoint");
         let messages = request["messages"].as_array().unwrap();
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0]["role"], "system");

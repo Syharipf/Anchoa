@@ -7,6 +7,25 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Policy {
+    Local,
+    Custom,
+}
+
+impl Policy {
+    pub fn for_provider(provider: &str) -> Self {
+        if provider == "custom" { Self::Custom } else { Self::Local }
+    }
+
+    fn allow(self, name: &str) -> Result<(), AppError> {
+        if self == Self::Custom && name == "add_journal_entry" {
+            return Err(AppError::Invalid("Tool jurnal hanya tersedia untuk AI lokal".into()));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Proposal {
     pub id: String,
@@ -20,8 +39,8 @@ fn schema(name: &str, description: &str, properties: Value, required: &[&str]) -
         "parameters":{"type":"object","properties":properties,"required":required,"additionalProperties":false}}})
 }
 
-pub fn definitions() -> Vec<Value> {
-    vec![
+pub fn definitions(policy: Policy) -> Vec<Value> {
+    let mut definitions = vec![
         schema(
             "today_overview",
             "Tugas dan tagihan hari ini, habit yang belum dicentang, serta akun. Tanpa jurnal.",
@@ -80,7 +99,9 @@ pub fn definitions() -> Vec<Value> {
             json!({"id":{"type":"string"}}),
             &["id"],
         ),
-    ]
+    ];
+    definitions.retain(|definition| policy.allow(definition["function"]["name"].as_str().unwrap_or("")).is_ok());
+    definitions
 }
 
 pub fn is_read(name: &str) -> bool {
@@ -199,7 +220,7 @@ pub fn run_read(
             let args: ListArgs = decode(name, args)?;
             encode(tasks::card_query(
                 conn,
-                "(?1 IS NULL OR t.status = ?1) AND (?2 IS NULL OR t.project_id = ?2) ORDER BY i.due_at IS NULL, i.due_at, i.title, i.id LIMIT ?3",
+                "NOT EXISTS (SELECT 1 FROM journal_entries j WHERE j.task_id = i.id OR j.item_id = i.id) AND (?1 IS NULL OR t.status = ?1) AND (?2 IS NULL OR t.project_id = ?2) ORDER BY i.due_at IS NULL, i.due_at, i.title, i.id LIMIT ?3",
                 params![
                     args.status,
                     args.project_id,
@@ -213,7 +234,8 @@ pub fn run_read(
     }
 }
 
-pub fn propose(name: &str, args: &Value) -> Result<Proposal, AppError> {
+pub fn propose(policy: Policy, name: &str, args: &Value) -> Result<Proposal, AppError> {
+    policy.allow(name)?;
     let summary = match name {
         "create_task" => {
             let args: TaskArgs = decode(name, args)?;
@@ -284,12 +306,14 @@ fn encode(value: impl Serialize) -> Result<Value, AppError> {
 }
 
 pub fn apply(
+    policy: Policy,
     conn: &Connection,
     proposal: &Proposal,
     now: i64,
     tz: &TimeZone,
 ) -> Result<Value, AppError> {
     let name = proposal.name.as_str();
+    policy.allow(name)?;
     let args = &proposal.args;
     match name {
         "create_task" => {
@@ -413,7 +437,7 @@ mod tests {
             ("check_habit", json!({"id":"habit"})),
         ] {
             let before = conn.total_changes();
-            let proposal = propose(name, &args).unwrap();
+            let proposal = propose(Policy::Local, name, &args).unwrap();
             assert!(!proposal.id.is_empty());
             assert!(!proposal.summary.is_empty());
             assert_eq!(proposal.args, args);
@@ -424,8 +448,8 @@ mod tests {
     #[test]
     fn apply_create_task_creates_it() {
         let conn = open_in_memory();
-        let proposal = propose("create_task", &json!({"title":"Beli teri"})).unwrap();
-        let result = apply(&conn, &proposal, now(), &jakarta()).unwrap();
+        let proposal = propose(Policy::Local, "create_task", &json!({"title":"Beli teri"})).unwrap();
+        let result = apply(Policy::Local, &conn, &proposal, now(), &jakarta()).unwrap();
         let id = result["id"].as_str().unwrap();
         assert_eq!(
             tasks::get_task(&conn, id, now(), &jakarta())
@@ -442,46 +466,46 @@ mod tests {
         let tz = jakarta();
         let task = tasks::create_task(&conn, &tasks::NewTask { title: "Teri".into(), ..Default::default() }, now(), &tz).unwrap();
 
-        let proposal = propose(
+        let proposal = propose(Policy::Local, 
             "update_task",
             &json!({"id": task.id, "priority": 1, "dueAt": now(), "status": "doing", "tag": "dapur"}),
         )
         .unwrap();
         assert!(proposal.summary.contains("prioritas"), "{}", proposal.summary);
-        let result = apply(&conn, &proposal, now(), &tz).unwrap();
+        let result = apply(Policy::Local, &conn, &proposal, now(), &tz).unwrap();
         assert_eq!(result["priority"], 1);
         assert_eq!(result["status"], "doing");
         assert_eq!(result["dueAt"], now());
         assert_eq!(result["tag"], "dapur");
 
-        let clear = propose("update_task", &json!({"id": task.id, "priority": null, "dueAt": null})).unwrap();
-        let result = apply(&conn, &clear, now(), &tz).unwrap();
+        let clear = propose(Policy::Local, "update_task", &json!({"id": task.id, "priority": null, "dueAt": null})).unwrap();
+        let result = apply(Policy::Local, &conn, &clear, now(), &tz).unwrap();
         assert_eq!(result["priority"], Value::Null);
         assert_eq!(result["dueAt"], Value::Null);
         assert_eq!(result["status"], "doing");
 
-        assert!(propose("update_task", &json!({"id": task.id})).is_err()); // nothing to change
-        assert!(propose("update_task", &json!({"id": task.id, "delete": true})).is_err());
+        assert!(propose(Policy::Local, "update_task", &json!({"id": task.id})).is_err()); // nothing to change
+        assert!(propose(Policy::Local, "update_task", &json!({"id": task.id, "delete": true})).is_err());
 
         // A bad priority leaves the due date untouched.
         let bad = Proposal { id: "p".into(), summary: "".into(), name: "update_task".into(),
             args: json!({"id": task.id, "priority": 9, "dueAt": now() + 1}) };
-        assert!(matches!(apply(&conn, &bad, now(), &tz), Err(AppError::Invalid(_))));
+        assert!(matches!(apply(Policy::Local, &conn, &bad, now(), &tz), Err(AppError::Invalid(_))));
         assert_eq!(items::get(&conn, &task.id).unwrap().due_at, None);
 
         let missing = Proposal { id: "p".into(), summary: "".into(), name: "update_task".into(),
             args: json!({"id": "missing", "priority": 2}) };
-        assert!(matches!(apply(&conn, &missing, now(), &tz), Err(AppError::NotFound)));
-        assert!(!definitions().iter().any(|d| d["function"]["name"] == "delete_task"));
+        assert!(matches!(apply(Policy::Local, &conn, &missing, now(), &tz), Err(AppError::NotFound)));
+        assert!(!definitions(Policy::Local).iter().any(|d| d["function"]["name"] == "delete_task"));
     }
 
     #[test]
     fn unknown_tool_is_an_error() {
         let conn = open_in_memory();
         assert!(run_read(&conn, "delete_item", &json!({}), now(), &jakarta()).is_err());
-        assert!(propose("delete_item", &json!({})).is_err());
+        assert!(propose(Policy::Local, "delete_item", &json!({})).is_err());
         assert!(
-            apply(
+            apply(Policy::Local,
                 &conn,
                 &Proposal {
                     id: "p".into(),
@@ -641,22 +665,24 @@ mod tests {
         let conn = open_in_memory();
         let tz = jakarta();
         let task = apply(
+            Policy::Local,
             &conn,
-            &propose("create_task", &json!({"title":"Tugas"})).unwrap(),
+            &propose(Policy::Local, "create_task", &json!({"title":"Tugas"})).unwrap(),
             now(),
             &tz,
         )
         .unwrap();
         let complete = apply(
+            Policy::Local,
             &conn,
-            &propose("complete_task", &json!({"id":task["id"]})).unwrap(),
+            &propose(Policy::Local, "complete_task", &json!({"id":task["id"]})).unwrap(),
             now(),
             &tz,
         )
         .unwrap();
         assert_eq!(complete["status"], "done");
         let account = crate::finance::testing::account(&conn, "Tunai", 10000);
-        let transaction = apply(&conn, &propose("add_transaction", &json!({
+        let transaction = apply(Policy::Local, &conn, &propose(Policy::Local, "add_transaction", &json!({
             "title":"Teri","kind":"expense","amount":1000,"accountId":account,"occurredAt":now()
         })).unwrap(), now(), &tz).unwrap();
         assert_eq!(transaction["amount"], -1000);
@@ -691,8 +717,9 @@ mod tests {
         )
         .unwrap();
         let entry = apply(
+            Policy::Local,
             &conn,
-            &propose(
+            &propose(Policy::Local, 
                 "add_journal_entry",
                 &json!({"title":"Hari ini","body":"Senang","kind":"idea"}),
             )
@@ -711,8 +738,9 @@ mod tests {
                 .any(|habit| habit.id == journal_habit.id && habit.done_today)
         );
         let checked = apply(
+            Policy::Local,
             &conn,
-            &propose("check_habit", &json!({"id":manual_habit.id})).unwrap(),
+            &propose(Policy::Local, "check_habit", &json!({"id":manual_habit.id})).unwrap(),
             now(),
             &tz,
         )
@@ -723,16 +751,16 @@ mod tests {
     #[test]
     fn dated_task_creation_rolls_back_when_due_date_cannot_be_saved() {
         let conn = open_in_memory();
-        let proposal = propose("create_task", &json!({"title":"Beli teri","dueAt":now()})).unwrap();
+        let proposal = propose(Policy::Local, "create_task", &json!({"title":"Beli teri","dueAt":now()})).unwrap();
         conn.execute_batch("CREATE TRIGGER refuse_due BEFORE UPDATE OF due_at ON items BEGIN SELECT RAISE(ABORT, 'blocked'); END;").unwrap();
-        assert!(apply(&conn, &proposal, now(), &jakarta()).is_err());
+        assert!(apply(Policy::Local, &conn, &proposal, now(), &jakarta()).is_err());
         assert_eq!(
             conn.query_row("SELECT COUNT(*) FROM items", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
             0
         );
         conn.execute_batch("DROP TRIGGER refuse_due;").unwrap();
-        let item = apply(&conn, &proposal, now(), &jakarta()).unwrap();
+        let item = apply(Policy::Local, &conn, &proposal, now(), &jakarta()).unwrap();
         assert_eq!(item["dueAt"], now());
     }
 
@@ -799,11 +827,45 @@ mod tests {
                 json!({"title":"Teri","kind":"expense","amount":1.5,"accountId":"account","occurredAt":now()}),
             ),
         ] {
-            assert!(propose(name, &args).is_err(), "{name}: {args}");
+            assert!(propose(Policy::Local, name, &args).is_err(), "{name}: {args}");
         }
         assert_eq!(conn.total_changes(), before);
-        let invalid = propose("add_transaction", &json!({"title":"Teri","kind":"expense","amount":-1000,"accountId":"account","occurredAt":now()})).unwrap();
-        assert!(apply(&conn, &invalid, now(), &jakarta()).is_err());
+        let invalid = propose(Policy::Local, "add_transaction", &json!({"title":"Teri","kind":"expense","amount":-1000,"accountId":"account","occurredAt":now()})).unwrap();
+        assert!(apply(Policy::Local, &conn, &invalid, now(), &jakarta()).is_err());
         assert_eq!(conn.total_changes(), before);
+    }
+
+    #[test]
+    fn custom_policy_rejects_journal_propose_and_apply() {
+        let conn = open_in_memory();
+        let args = json!({"title":"Jurnal","body":"PRIVATE_JOURNAL_SENTINEL"});
+        assert!(definitions(Policy::Custom).iter().all(|tool| tool["function"]["name"] != "add_journal_entry"));
+        assert!(propose(Policy::Custom, "add_journal_entry", &args).is_err());
+        let local = propose(Policy::Local, "add_journal_entry", &args).unwrap();
+        let before = conn.total_changes();
+        assert!(apply(Policy::Custom, &conn, &local, now(), &jakarta()).is_err());
+        assert_eq!(conn.total_changes(), before);
+        // Email suggestions may supply a title, never an automatic body copy.
+        assert!(propose(Policy::Local, "create_task", &json!({"title":"Tugas","body":"PRIVATE_EMAIL_SENTINEL"})).is_err());
+    }
+
+    #[test]
+    fn deleted_journal_source_stays_private_in_overview_and_limited_task_list() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        for index in 0..3 {
+            let entry = journal::create_entry(&conn, journal::EntryKind::Idea, Some(&format!("A PRIVATE_JOURNAL_SENTINEL {index}")), now(), &tz).unwrap();
+            let id = journal::entry_to_task(&conn, &entry.id, now(), &tz).unwrap().task_id.unwrap();
+            items::update(&conn, &id, &items::ItemPatch { due_at: Some(Some(now())), ..Default::default() }, now()).unwrap();
+            journal::delete_entry(&conn, &entry.id, now()).unwrap();
+        }
+        let public = tasks::create_task(&conn, &tasks::NewTask { title: "Z tugas pengguna".into(), ..Default::default() }, now(), &tz).unwrap();
+        items::update(&conn, &public.id, &items::ItemPatch { due_at: Some(Some(now())), ..Default::default() }, now()).unwrap();
+        let overview = run_read(&conn, "today_overview", &json!({}), now(), &tz).unwrap();
+        assert_eq!(overview["tasks"].as_array().unwrap().len(), 1);
+        assert_eq!(overview["tasks"][0]["id"], public.id);
+        let list = run_read(&conn, "list_tasks", &json!({"limit":1}), now(), &tz).unwrap();
+        assert_eq!(list.as_array().unwrap().len(), 1);
+        assert_eq!(list[0]["id"], public.id);
     }
 }

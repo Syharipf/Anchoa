@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { PAGES, type PageId } from "./nav";
+import appLogo from "../assets/app-logo.png";
 
 /** Nav icons on a 24×24 grid, taken from docs/design/artboards/Main.dc.html. */
 const ICON: Record<PageId, ReactNode> = {
@@ -114,13 +115,7 @@ export function Sidebar({
 
   return (
     <nav aria-label="Menu utama" className="flex w-[72px] shrink-0 flex-col items-center gap-1.5 border-r border-line bg-sidebar py-4">
-      {/* Placeholder until the real Anchoa logo file exists. */}
-      <svg width="40" height="40" viewBox="0 0 40 40" role="img" aria-label="Logo Anchoa" className="mb-2 shrink-0">
-        <rect width="40" height="40" rx="12" className="fill-accent" />
-        <text x="20" y="26" textAnchor="middle" className="fill-canvas font-display text-lg font-semibold">
-          A
-        </text>
-      </svg>
+      <img src={appLogo} alt="Logo Anchoa" width={40} height={40} className="mb-2 h-10 w-10 shrink-0 rounded-xl object-contain" />
       {PAGES.filter((p) => !p.bottom).map((p) => link(p.id, p.label))}
       <div className="mt-auto flex flex-col gap-1.5">
         <button

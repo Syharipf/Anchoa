@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AI_CONFIG_CHANGED,
   api,
   errorMessage,
   type AiStatus,
@@ -235,16 +236,28 @@ export function useAssistant(options?: UseAssistantOptions) {
       void checkStatus();
       void checkVoiceStatus();
     };
+    const onConfigChanged = (event: Event) => {
+      setAiStatus(null);
+      if ((event as CustomEvent<{ reset?: boolean }>).detail?.reset) {
+        interactionRef.current++;
+        dispatch({ type: "reset" });
+        // Rust already reset assistant state; stop only drains local voice/recording.
+        void cancelOperations();
+      }
+      void checkStatus();
+    };
     window.addEventListener("focus", onFocus);
+    window.addEventListener(AI_CONFIG_CHANGED, onConfigChanged);
     return () => {
       mountedRef.current = false;
       interactionRef.current++;
       statusCheckIdRef.current++;
       voiceCheckIdRef.current++;
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener(AI_CONFIG_CHANGED, onConfigChanged);
       void cancelOperations();
     };
-  }, [checkStatus, checkVoiceStatus, cancelOperations]);
+  }, [checkStatus, checkVoiceStatus, cancelOperations, dispatch]);
 
   useEffect(() => {
     if (aiStatus?.available !== false) return;

@@ -50,6 +50,10 @@ describe("sectionStatus", () => {
       }),
     ).toBe("Ollama · qwen2.5:3b");
   });
+  it("labels custom chat availability and selected model without Ollama", () => {
+    expect(sectionStatus("ai", { aiStatus: { provider: "custom", name: "9router", available: false, models: [], error: "offline" } })).toBe("9router tidak tersedia");
+    expect(sectionStatus("ai", { aiStatus: { provider: "custom", name: "9router", available: true, models: ["remote"], error: null }, aiChatModel: "manual" })).toBe("9router · manual");
+  });
 
   it("returns 'Statis' for avatar and 'Belum dipasang' / active voice for suara", () => {
     expect(sectionStatus("avatar")).toBe("Statis");

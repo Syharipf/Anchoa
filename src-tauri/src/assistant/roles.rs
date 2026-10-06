@@ -11,7 +11,7 @@ pub struct RoleConfig {
 pub const ROLES: [&str; 4] = ["chat", "journal", "recap", "email"];
 const DEFAULT_MODEL: &str = "qwen2.5:3b";
 
-fn validate(role: &str, provider: &str, model: &str) -> Result<(), AppError> {
+pub(crate) fn validate(role: &str, provider: &str, model: &str) -> Result<(), AppError> {
     if !ROLES.contains(&role) {
         return Err(AppError::Invalid("Peran AI tidak dikenal".into()));
     }
@@ -20,9 +20,9 @@ fn validate(role: &str, provider: &str, model: &str) -> Result<(), AppError> {
             "Jurnal dan email hanya boleh memakai penyedia lokal (Ollama)".into(),
         ));
     }
-    if provider != "ollama" {
+    if !matches!(provider, "ollama" | "custom") {
         return Err(AppError::Invalid(
-            "Penyedia AI yang tersedia hanya Ollama".into(),
+            "Penyedia AI yang tersedia hanya Ollama dan Kustom".into(),
         ));
     }
     if model.trim().is_empty() || model.len() > 256 || model.chars().any(char::is_control) {
@@ -82,7 +82,7 @@ mod tests {
     fn private_roles_reject_remote_provider() {
         let conn = open_in_memory();
         for role in ["journal", "email"] {
-            let error = set_role(&conn, role, "openrouter", "remote").unwrap_err();
+            let error = set_role(&conn, role, "custom", "remote").unwrap_err();
             assert!(error.to_string().contains("lokal"));
             assert_eq!(get_role(&conn, role).unwrap().provider, "ollama");
         }
@@ -113,7 +113,7 @@ mod tests {
         assert!(set_role(&conn, "invalid", "ollama", "model").is_err());
         for role in ["journal", "email"] {
             conn.execute(
-                "UPDATE settings SET value = 'remote' WHERE key = ?1",
+                "UPDATE settings SET value = 'custom' WHERE key = ?1",
                 [format!("ai.{role}.provider")],
             )
             .unwrap();

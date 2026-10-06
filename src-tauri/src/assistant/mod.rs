@@ -2,6 +2,7 @@ pub mod context;
 pub mod email;
 pub mod llm;
 pub mod roles;
+pub mod providers;
 pub mod tools;
 pub mod voice;
 
@@ -24,6 +25,7 @@ use tools::Proposal;
 #[derive(Default)]
 pub struct AssistantState {
     conversation: Mutex<Conversation>,
+    configuration: Mutex<()>,
     cancel: AtomicBool,
 }
 
@@ -52,12 +54,17 @@ pub struct AssistantReply {
 }
 
 impl AssistantState {
+    pub(crate) fn configuration_lock(&self) -> Result<MutexGuard<'_, ()>, AppError> {
+        self.configuration.lock().map_err(|_| AppError::Other("Konfigurasi AI tidak tersedia".into()))
+    }
+
     fn lock(&self) -> Result<MutexGuard<'_, Conversation>, AppError> {
         self.conversation
             .lock()
             .map_err(|_| AppError::Other("State asisten tidak tersedia".into()))
     }
 
+    #[cfg(test)]
     fn send(
         &self,
         db: &Db,
@@ -72,19 +79,41 @@ impl AssistantState {
         })
     }
 
+    fn send_production(
+        &self, db: &Db, store: &crate::keystore::KeyringStore, text: &str,
+        now: i64, tz: &TimeZone,
+        on_event: impl FnMut(AssistantEvent) -> Result<(), AppError>,
+    ) -> Result<AssistantReply, AppError> {
+        self.send_resolved(db, Some(store), text, now, tz, on_event, |endpoint, request, cancel, delta| {
+            llm::stream_chat(endpoint.ok_or_else(|| AppError::Other("Endpoint AI tidak tersedia".into()))?, request, cancel, delta)
+        })
+    }
+
+    #[cfg(test)]
     fn send_with(
         &self,
         db: &Db,
         text: &str,
         now: i64,
         tz: &TimeZone,
-        mut on_event: impl FnMut(AssistantEvent) -> Result<(), AppError>,
+        on_event: impl FnMut(AssistantEvent) -> Result<(), AppError>,
         mut chat: impl FnMut(
             &ChatRequest,
             &AtomicBool,
             &mut dyn FnMut(&str),
         ) -> Result<ChatMessage, AppError>,
     ) -> Result<AssistantReply, AppError> {
+        self.send_resolved(db, None, text, now, tz, on_event, |_, request, cancel, delta| chat(request, cancel, delta))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn send_resolved(
+        &self, db: &Db, store: Option<&crate::keystore::KeyringStore>, text: &str,
+        now: i64, tz: &TimeZone,
+        mut on_event: impl FnMut(AssistantEvent) -> Result<(), AppError>,
+        mut chat: impl FnMut(Option<&Endpoint>, &ChatRequest, &AtomicBool, &mut dyn FnMut(&str)) -> Result<ChatMessage, AppError>,
+    ) -> Result<AssistantReply, AppError> {
+        let gate = self.configuration_lock()?;
         let mut generation = None;
         let result = (|| {
             let text = text.trim();
@@ -117,26 +146,32 @@ impl AssistantState {
             generation = Some(epoch);
             let _active = ActiveTurn(self);
             // Copy everything the request needs, then release the database.
-            let (model, prompt) = {
+            let (role, base, prompt) = {
                 let conn = db.conn()?;
-                (
-                    roles::get_role(&conn, "chat")?.model,
-                    context::system_prompt(&conn, now, tz)?,
-                )
+                let role = roles::get_role(&conn, "chat")?;
+                let base = if store.is_some() { Some(providers::base_url(&conn, &role.provider)?) } else { None };
+                (role, base, context::system_prompt(&conn, now, tz)?)
             };
+            let endpoint = match (store, base) {
+                (Some(store), Some(base)) => Some(providers::endpoint(base, store, &role.provider)?),
+                _ => None,
+            };
+            let policy = tools::Policy::for_provider(&role.provider);
+            let model = role.model;
+            drop(gate);
             let mut messages = vec![ChatMessage::text("system", prompt)];
             messages.extend(history);
             messages.push(ChatMessage::text("user", text));
             let mut request = ChatRequest {
                 model,
                 messages,
-                tools: tools::definitions(),
+                tools: tools::definitions(policy),
             };
             let mut seen_calls = std::collections::HashSet::new();
             for _ in 0..4 {
                 self.ensure_active(epoch)?;
                 let mut event_error = None;
-                let response = chat(&request, &self.cancel, &mut |delta| {
+                let response = chat(endpoint.as_ref(), &request, &self.cancel, &mut |delta| {
                     if event_error.is_none()
                         && let Err(error) =
                             self.emit(epoch, AssistantEvent::Delta(delta.into()), &mut on_event)
@@ -166,7 +201,7 @@ impl AssistantState {
                             tools::run_read(&conn, &call.function.name, &args, now, tz).map(Some)
                         } else {
                             pending.push((
-                                tools::propose(&call.function.name, &args)?,
+                                tools::propose(policy, &call.function.name, &args)?,
                                 call.id.clone(),
                             ));
                             Ok(None)
@@ -270,6 +305,7 @@ impl AssistantState {
         now: i64,
         tz: &TimeZone,
     ) -> Result<Option<Value>, AppError> {
+        let _gate = self.configuration_lock()?;
         let mut state = self.lock()?;
         if state.running {
             return Err(AppError::Invalid(
@@ -278,7 +314,9 @@ impl AssistantState {
         }
         let (proposal, call_id) = state.pending.get(id).ok_or(AppError::NotFound)?;
         let item = if approve {
-            Some(tools::apply(&*db.conn()?, proposal, now, tz)?)
+            let conn = db.conn()?;
+            let policy = tools::Policy::for_provider(&roles::get_role(&conn, "chat")?.provider);
+            Some(tools::apply(policy, &conn, proposal, now, tz)?)
         } else {
             None
         };
@@ -358,9 +396,10 @@ pub async fn assistant_send(
     on_event: Channel<AssistantEvent>,
 ) -> Result<AssistantReply, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<AssistantState>().send(
+        let state = app.state::<AssistantState>();
+        state.send_production(
             &app.state::<Db>(),
-            &Endpoint::default(),
+            &app.state::<crate::keystore::KeyringStore>(),
             &text,
             time::now_ms(),
             &TimeZone::system(),
@@ -401,24 +440,15 @@ pub struct AiStatus {
     pub available: bool,
     pub models: Vec<String>,
     pub error: Option<String>,
+    pub provider: String,
+    pub name: String,
 }
 
 #[tauri::command]
-pub async fn ai_status() -> Result<AiStatus, AppError> {
-    tauri::async_runtime::spawn_blocking(|| match llm::list_models(&Endpoint::default().base_url) {
-        Ok(models) => AiStatus {
-            available: true,
-            models,
-            error: None,
-        },
-        Err(error) => AiStatus {
-            available: false,
-            models: vec![],
-            error: Some(error.to_string()),
-        },
-    })
-    .await
-    .map_err(|_| AppError::Other("Pemeriksaan Ollama gagal".into()))
+pub async fn ai_status(app: AppHandle) -> Result<AiStatus, AppError> {
+    tauri::async_runtime::spawn_blocking(move || providers::status(&app, None))
+        .await
+        .map_err(|_| AppError::Other("Pemeriksaan penyedia AI gagal".into()))?
 }
 
 #[derive(Debug, Serialize)]
@@ -443,10 +473,16 @@ pub fn ai_roles(db: State<'_, Db>) -> Result<AiRoles, AppError> {
 #[tauri::command]
 pub fn set_ai_role(
     db: State<'_, Db>,
+    state: State<'_, AssistantState>,
     role: String,
     provider: String,
     model: String,
 ) -> Result<roles::RoleConfig, AppError> {
+    let _gate = state.configuration_lock()?;
+    roles::validate(&role, &provider, model.trim())?;
+    if role == "chat" {
+        state.reset()?;
+    }
     roles::set_role(&*db.conn()?, &role, &provider, &model)
 }
 
@@ -563,7 +599,7 @@ mod tests {
     fn rejecting_a_proposal_does_not_change_the_database() {
         let (_dir, db) = db();
         let state = AssistantState::default();
-        let proposal = tools::propose("create_task", &json!({"title":"Beli teri"})).unwrap();
+        let proposal = tools::propose(tools::Policy::Local, "create_task", &json!({"title":"Beli teri"})).unwrap();
         state.conversation.lock().unwrap().pending.insert(
             proposal.id.clone(),
             (proposal.clone(), Some("write".into())),
@@ -1179,5 +1215,106 @@ mod tests {
             event,
             json!({"type":"done","data":{"role":"assistant","content":"Selesai"}})
         );
+    }
+
+    #[test]
+    fn production_chat_routes_custom_snapshot_and_switch_clears_session() {
+        let (_dir, db) = db();
+        let state = AssistantState::default();
+        let keys = crate::keystore::KeyringStore::with_builder(keyring::mock::default_credential_builder());
+        let server = Server::new(vec![sse(&[json!({"choices":[{"delta":{"content":"Kustom"},"finish_reason":"stop"}]})])]);
+        {
+            let conn = db.conn().unwrap();
+            conn.execute("INSERT INTO settings(key,value) VALUES('ai.custom.base_url',?1)", [&server.base]).unwrap();
+            roles::set_role(&conn, "chat", "custom", "chosen-model").unwrap();
+        }
+        keys.set("ai.custom", "SECRET_SENTINEL").unwrap();
+        state.send_production(&db, &keys, "Halo", now(), &jakarta(), |_| Ok(())).unwrap();
+        let (headers, body) = server.requests.recv().unwrap();
+        assert!(headers.starts_with("POST /v1/chat/completions "));
+        assert!(headers.to_lowercase().contains("authorization: bearer secret_sentinel"));
+        assert!(!state.lock().unwrap().history.is_empty());
+        assert_eq!(body["model"], "chosen-model");
+        server.finish();
+        let epoch = state.lock().unwrap().generation;
+        let proposal = tools::propose(tools::Policy::Local, "create_task", &json!({"title":"Old proposal"})).unwrap();
+        let id = proposal.id.clone();
+        state.queue_proposal(proposal, epoch).unwrap();
+        {
+            let _gate = state.configuration_lock().unwrap();
+            state.reset().unwrap();
+            roles::set_role(&db.conn().unwrap(), "chat", "ollama", "local-model").unwrap();
+        }
+        assert!(state.lock().unwrap().history.is_empty());
+        assert!(state.pending().unwrap().is_empty());
+        assert!(state.ensure_active(epoch).is_err());
+        assert!(state.decide(&db, &id, true, now(), &jakarta()).is_err());
+    }
+
+    #[test]
+    fn custom_chat_payload_excludes_private_data_and_rejects_journal_writes() {
+        let (_dir, db) = db();
+        let state = AssistantState::default();
+        let keys = crate::keystore::KeyringStore::with_builder(keyring::mock::default_credential_builder());
+        let calls = json!([
+            {"index":0,"id":"overview","type":"function","function":{"name":"today_overview","arguments":"{}"}},
+            {"index":1,"id":"search","type":"function","function":{"name":"search_items","arguments":"{\"query\":\"teri\"}"}},
+            {"index":2,"id":"list","type":"function","function":{"name":"list_tasks","arguments":"{}"}},
+            {"index":3,"id":"journal","type":"function","function":{"name":"add_journal_entry","arguments":"{\"title\":\"Teri\",\"body\":\"Isi\"}"}}
+        ]);
+        let server = Server::new(vec![
+            sse(&[json!({"choices":[{"delta":{"tool_calls":calls},"finish_reason":"tool_calls"}]})]),
+            sse(&[json!({"choices":[{"delta":{"content":"Selesai"},"finish_reason":"stop"}]})]),
+        ]);
+        let tz = jakarta();
+        let public_id = {
+            let conn = db.conn().unwrap();
+            conn.execute("INSERT INTO settings(key,value) VALUES('ai.custom.base_url',?1)", [&server.base]).unwrap();
+            roles::set_role(&conn, "chat", "custom", "remote-model").unwrap();
+            let due = |id: &str| crate::items::update(&conn, id, &crate::items::ItemPatch { due_at: Some(Some(now())), ..Default::default() }, now()).unwrap();
+            let entry = crate::journal::create_entry(&conn, crate::journal::EntryKind::Idea, Some("Teri PRIVATE_JOURNAL_SENTINEL"), now(), &tz).unwrap();
+            crate::items::update(&conn, &entry.id, &crate::items::ItemPatch { body: Some("teri PRIVATE_JOURNAL_SENTINEL body".into()), ..Default::default() }, now()).unwrap();
+            due(&crate::journal::entry_to_task(&conn, &entry.id, now(), &tz).unwrap().task_id.unwrap());
+            let email = crate::items::insert(&conn, "email", "Teri PRIVATE_EMAIL_SENTINEL", "teri PRIVATE_EMAIL_SENTINEL body", now()).unwrap();
+            conn.execute("INSERT INTO emails (item_id, folder, uid, from_name, from_addr, to_addrs, message_id, body_cached) VALUES (?1, 'INBOX', 1, 'Siti', 'siti@example.com', '[]', 'm', 1)", [&email]).unwrap();
+            let public = crate::tasks::create_task(&conn, &crate::tasks::NewTask { title: "Teri publik".into(), ..Default::default() }, now(), &tz).unwrap();
+            due(&public.id);
+            public.id
+        };
+        keys.set("ai.custom", "key").unwrap();
+        let reply = state.send_production(&db, &keys, "Cek tugas", now(), &tz, |_| Ok(())).unwrap();
+        assert!(reply.proposals.is_empty());
+        let bodies: Vec<_> = (0..2).map(|_| server.requests.recv().unwrap().1).collect();
+        server.finish();
+        for body in &bodies {
+            let text = body.to_string();
+            assert!(!text.contains("PRIVATE_JOURNAL_SENTINEL"), "{text}");
+            assert!(!text.contains("PRIVATE_EMAIL_SENTINEL"), "{text}");
+            assert!(body["tools"].as_array().unwrap().iter().all(|tool| tool["function"]["name"] != "add_journal_entry"));
+        }
+        let results: Vec<_> = bodies[1]["messages"].as_array().unwrap().iter()
+            .filter(|message| message["role"] == "tool").map(|message| (message["tool_call_id"].as_str().unwrap(), message["content"].as_str().unwrap())).collect();
+        assert_eq!(results.len(), 4);
+        for (id, content) in &results[..3] {
+            assert!(content.contains(&public_id), "{id}: {content}");
+        }
+        assert_eq!(results[3].0, "journal");
+        assert!(results[3].1.contains("hanya tersedia untuk AI lokal"));
+        let journals: i64 = db.conn().unwrap().query_row("SELECT COUNT(*) FROM journal_entries", [], |r| r.get(0)).unwrap();
+        assert_eq!(journals, 1);
+    }
+
+    #[test]
+    fn local_journal_proposal_cannot_apply_after_chat_switches_to_custom() {
+        let (_dir, db) = db();
+        let state = AssistantState::default();
+        let proposal = tools::propose(tools::Policy::Local, "add_journal_entry", &json!({"title":"Jurnal","body":"Isi"})).unwrap();
+        let id = proposal.id.clone();
+        let epoch = state.lock().unwrap().generation;
+        state.queue_proposal(proposal, epoch).unwrap();
+        roles::set_role(&db.conn().unwrap(), "chat", "custom", "remote-model").unwrap();
+        assert!(matches!(state.decide(&db, &id, true, now(), &jakarta()), Err(AppError::Invalid(_))));
+        let journals: i64 = db.conn().unwrap().query_row("SELECT COUNT(*) FROM journal_entries", [], |r| r.get(0)).unwrap();
+        assert_eq!(journals, 0);
     }
 }

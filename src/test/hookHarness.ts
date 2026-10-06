@@ -6,7 +6,18 @@ type Effect = { run: React.EffectCallback; deps?: React.DependencyList; cleanup?
 /** Exercise component handlers without a DOM or an additional test dependency.
  * Only the component under test runs; child elements retain their real props/keys.
  */
-export function hookHarness<T>(component: () => T, initialStates: Record<number, unknown> = {}) {
+export interface HookHarness<T> {
+  render(runEffects?: boolean): T;
+  settle(): Promise<T>;
+  runTimers(): void;
+  intervalDelays(): (number | undefined)[];
+  focus(): void;
+  blur(): void;
+  replayEffects(): void;
+  dispose(): void;
+}
+
+export function hookHarness<T>(component: () => T, initialStates: Record<number, unknown> = {}): HookHarness<T> {
   const slots: unknown[] = [];
   const effects: Effect[] = [];
   let cursor = 0;
@@ -43,6 +54,7 @@ export function hookHarness<T>(component: () => T, initialStates: Record<number,
       listeners.get(name)!.add(run);
     },
     removeEventListener: (name: string, run: () => void) => listeners.get(name)?.delete(run),
+    dispatchEvent: (event: Event) => { listeners.get(event.type)?.forEach((run) => run(event)); return true; },
   } });
   Object.defineProperty(globalThis, "document", { configurable: true, value: {
     activeElement: null, getElementById: () => null,

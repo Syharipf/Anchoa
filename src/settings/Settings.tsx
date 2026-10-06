@@ -1,5 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   type AiRoles,
@@ -39,11 +39,13 @@ export function Settings({
   const [aiRoles, setAiRoles] = useState<AiRoles | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const aiLoadId = useRef(0);
   const loadAi = useCallback(() => {
-    api.aiStatus().then(setAiStatus, () =>
-      setAiStatus({ available: false, models: [], error: "Gagal terhubung" }),
-    );
-    api.aiRoles().then(setAiRoles, () => setAiRoles(null));
+    const id = ++aiLoadId.current;
+    api.aiStatus().then((status) => { if (id === aiLoadId.current) setAiStatus(status); }, () => {
+      if (id === aiLoadId.current) setAiStatus({ available: false, models: [], error: "Gagal terhubung" });
+    });
+    api.aiRoles().then((roles) => { if (id === aiLoadId.current) setAiRoles(roles); }, () => { if (id === aiLoadId.current) setAiRoles(null); });
   }, []);
 
   const loadVoice = useCallback(() => {

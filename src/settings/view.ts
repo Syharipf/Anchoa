@@ -82,12 +82,13 @@ export function sectionStatus(
 ): string {
   switch (id) {
     case "ai": {
+      const provider = context?.aiStatus?.provider === "custom" ? context.aiStatus.name || "Kustom" : "Ollama";
       if (!context?.aiStatus || !context.aiStatus.available) {
-        return "Ollama mati";
+        return `${provider} ${context?.aiStatus?.provider === "custom" ? "tidak tersedia" : "mati"}`;
       }
       const model =
         context.aiChatModel ?? context.aiStatus.models[0] ?? "qwen2.5:3b";
-      return `Ollama · ${model}`;
+      return `${provider} · ${model}`;
     }
     case "avatar":
       return context?.avatarStatus ?? "Statis";

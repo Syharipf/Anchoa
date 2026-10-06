@@ -62,8 +62,9 @@ pub(crate) fn search_for_chat(
     search_filtered(
         conn,
         text,
-        "AND i.type != 'note'
-         AND NOT EXISTS (SELECT 1 FROM journal_entries j WHERE j.task_id = i.id)",
+        "AND i.type NOT IN ('note', 'journal', 'email')
+         AND NOT EXISTS (SELECT 1 FROM journal_entries j WHERE j.task_id = i.id OR j.item_id = i.id)
+         AND NOT EXISTS (SELECT 1 FROM emails e WHERE e.item_id = i.id)",
         limit,
     )
 }

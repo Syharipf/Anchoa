@@ -55,7 +55,7 @@ dependencies = [
 
 [[package]]
 name = "anchoa"
-version = "0.20.1"
+version = "0.21.0"
 dependencies = [
  "argon2",
  "async-imap",

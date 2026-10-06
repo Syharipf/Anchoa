@@ -10,6 +10,7 @@ import {
 } from "../api";
 import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
+import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
 import { EntryEditor } from "./EntryEditor";
 import { EntryList } from "./EntryList";
 import { JournalSide } from "./JournalSide";
@@ -257,7 +258,7 @@ export function JournalPage({
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3.5">
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="m-0 font-display text-[28px] font-semibold tracking-[-0.01em] text-ink">
+        <h1 className={H1}>
           Jurnal
         </h1>
         <span className="text-[13px] text-muted">
@@ -266,7 +267,7 @@ export function JournalPage({
 
         <span
           title="Isi jurnal disimpan secara lokal di perangkat"
-          className="flex items-center gap-1.5 rounded-full border border-[#4E6A26] px-2.5 py-1 text-xs text-accent"
+          className="flex items-center gap-1.5 rounded-full border border-field-focus px-2.5 py-1 text-xs text-accent"
         >
           <svg
             width="13"
@@ -289,14 +290,15 @@ export function JournalPage({
           <button
             type="button"
             onClick={() => onOpenAssistant({ kind: "voice" })}
-            className="flex min-h-10 items-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm text-ink transition-colors hover:bg-surface-2"
+            className={HEADER_SECONDARY}
           >
             <svg
               width="16"
               height="16"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#C6F36B"
+              stroke="currentColor"
+              className="text-accent"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -312,7 +314,7 @@ export function JournalPage({
             type="button"
             onClick={() => void handleExportAll()}
             disabled={exporting}
-            className="flex min-h-10 items-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+            className={`${HEADER_SECONDARY} disabled:opacity-50`}
           >
             <svg
               width="16"
@@ -335,7 +337,7 @@ export function JournalPage({
             <button
               type="button"
               onClick={() => void handleNewEntry()}
-              className="flex min-h-10 items-center gap-2 rounded-l-[10px] bg-accent px-4 font-display text-sm font-semibold text-canvas transition-opacity hover:opacity-90 active:opacity-80"
+              className={`${HEADER_PRIMARY} rounded-l-[10px] rounded-r-none`}
             >
               <svg
                 width="16"
@@ -358,7 +360,7 @@ export function JournalPage({
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex min-h-10 items-center justify-center rounded-r-[10px] border-l border-canvas/20 bg-accent px-2.5 text-canvas transition-opacity hover:opacity-90 active:opacity-80"
+              className={`${HEADER_PRIMARY} rounded-l-none rounded-r-[10px] border-l border-canvas px-2.5`}
             >
               <span className="sr-only">Entri baru</span>
               <svg

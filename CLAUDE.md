@@ -1,3 +1,10 @@
+## Roles & skills — wajib setiap sesi
+
+1. **Pakai model role yang sudah dikonfigurasi** di `~/.omp/agent/config.yml` (`modelRoles`: plan, task, advisor, commit, smol, slow, default, Reviewer). Saat spawn subagent, selalu set `model` selector sesuai role (`@plan`, `@task`, `@advisor`, `@smol`, `@slow`) — bukan selalu `default`.
+2. **Pakai skill yang relevan.** Sebelum kerja, cek skill yang tersedia (superpowers: brainstorming, systematic-debugging, test-driven-development, writing-plans, executing-plans, requesting-code-review, verification-before-completion, dll). Skill wajib di-invoke sebelum jawaban pertama di sesi.
+3. **Delegation default.** Multi-file / refactor / fitur / investigasi wajib dipecah ke subagent `task` (1 batch paralel), bukan dikerjakan sendiri di thread utama. Thread utama cukup untuk: edit 1 file < 30 baris, jawab pertanyaan tanpa ubah kode, atau perintah CLI eksplisit dari user.
+4. **Setiap pekerjaan > 3 langkah pakai `todo`** (plan → task → advisor). Track per fase: Audit/ingest → Implementasi → Verifikasi & review.
+5. **Uji setiap perubahan.** Setelah edit, jalankan test yang menyentuh file itu (`bun test src/<module>` atau `bun test src/pet src/brand ...`) sebelum lanjut. Jangan hanya percaya `bun run test` global — `bun test src` di bun 1.4.2 hanya scan file `*.test.*` di depth 1 dari `src/`; test di subfolder baru perlu dipanggil eksplisit atau ditaruh di folder yang sudah ter-scan.
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

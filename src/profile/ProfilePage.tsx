@@ -10,6 +10,7 @@ import {
   type SyncStatus,
 } from "../api";
 import { School } from "../assistant/School";
+import { AnchoaPet } from "../pet/AnchoaPet";
 import { PinDialog } from "../security/PinDialog";
 import type { PinFormMode } from "../security/PinFields";
 import { connectionLabel } from "../email/view";
@@ -179,9 +180,9 @@ export function ProfilePage({
                 color="var(--color-accent)"
                 dimmed={false}
                 running={false}
-                className="absolute inset-0"
+                className="absolute inset-0 opacity-70"
               />
-              <span className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-disabled bg-surface-2 font-display text-3xl font-semibold text-accent">
+              <span className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-accent bg-[#2A303B] font-display text-3xl font-semibold text-accent">
                 {initials}
               </span>
             </div>
@@ -414,6 +415,20 @@ export function ProfilePage({
             <p className="m-0 text-xs leading-relaxed text-muted">
               Pilihan suara, kecepatan bicara, dan model suara diatur di Pengaturan &gt; Suara.
             </p>
+            <div className="flex items-center gap-3 border-t border-line pt-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-surface-2">
+                <AnchoaPet size={44} crop="head" shadow={false} />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="text-sm font-medium text-ink">Ako</span>
+                <span className="text-xs text-muted">
+                  Teri pendamping · status suara mengikuti asisten
+                </span>
+              </div>
+              <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
+                Siap
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => onOpenSettings?.("suara")}

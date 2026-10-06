@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { api, type GithubStatus, type NotifyPrefs, type Profile } from "../api";
 import { PinDialog } from "../security/PinDialog";
 import { elements, hookHarness } from "../test/hookHarness";
+import { AnchoaPet } from "../pet/AnchoaPet";
 import { syncLabel } from "../settings/view";
 import { ProfilePage } from "./ProfilePage";
 
@@ -273,6 +274,32 @@ describe("ProfilePage", () => {
     (aturSuaraBtn!.props.onClick as () => void)();
 
     expect(openedSection).toBe("suara");
+  });
+
+  it("shows Ako as the pet companion in the Asisten suara section", async () => {
+    getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
+    githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
+
+    harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
+    await harness.settle();
+
+    const voiceSection = elements(harness.render()).find(
+      (el) => el.type === "section" && el.props["aria-labelledby"] === "section-voice",
+    )!;
+    const voiceElements = elements(voiceSection);
+
+    const pet = voiceElements.find((el) => el.type === AnchoaPet);
+    expect(pet).toBeDefined();
+    expect(pet?.props.crop).toBe("head");
+
+    const voiceText = voiceElements
+      .map((el) => el.props.children)
+      .flat()
+      .filter((t): t is string => typeof t === "string")
+      .join(" ");
+    expect(voiceText).toContain("Ako");
+    expect(voiceText).toContain("Teri pendamping");
+    expect(voiceText).toContain("Siap");
   });
 
   it("handles enabling PIN flow via switch and Buat PIN dialog", async () => {

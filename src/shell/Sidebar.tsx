@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { PAGES, type PageId } from "./nav";
-import appLogo from "../assets/app-logo.png";
+import { AnchoaLogo } from "../brand/AnchoaLogo";
 
 /** Nav icons on a 24×24 grid, taken from docs/design/artboards/Main.dc.html. */
 const ICON: Record<PageId, ReactNode> = {
@@ -102,6 +102,7 @@ export function Sidebar({
 }>) {
   const link = (id: PageId, label: string) => (
     <button
+      type="button"
       key={id}
       onClick={() => onSelect(id)}
       aria-label={label}
@@ -115,10 +116,13 @@ export function Sidebar({
 
   return (
     <nav aria-label="Menu utama" className="flex w-[72px] shrink-0 flex-col items-center gap-1.5 border-r border-line bg-sidebar py-4">
-      <img src={appLogo} alt="Logo Anchoa" width={40} height={40} className="mb-2 h-10 w-10 shrink-0 rounded-xl object-contain" />
+      <div className="mb-2 shrink-0">
+        <AnchoaLogo tile size={40} label="Logo Anchoa" />
+      </div>
       {PAGES.filter((p) => !p.bottom).map((p) => link(p.id, p.label))}
       <div className="mt-auto flex flex-col gap-1.5">
         <button
+          type="button"
           onClick={onToggleNotifications}
           aria-label={reminders > 0 ? `Notifikasi, ${reminders} pengingat` : "Notifikasi"}
           title="Notifikasi"

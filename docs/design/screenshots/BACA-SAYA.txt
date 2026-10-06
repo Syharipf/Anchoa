@@ -5,5 +5,5 @@ dengan nama yang sama seperti artboard-nya:
   HpMasuk, HpBeranda, HpBerandaRoda, HpAsisten, HpCari, HpNotif, HpJurnal, HpHabit, HpJadwal, HpKeuangan,
   HpProyek, HpAgen, HpEmail, HpEmailBaca, HpBerkas, HpUnduhan, HpPengaturan, HpPengaturanAI, HpProfil,
   State, ProyekAgen, ProyekAgenHubungkan,
-  Loading, CommandPalette, NotifPanel, Palet   (semua .png)
+  Loading, CommandPalette, NotifPanel, Palet, Logo, PetAko, ProgressKawanan   (semua .png)
 Canvas dibagi per menu (pilih halaman di kiri atas); buka halamannya dulu agar artboard termuat.

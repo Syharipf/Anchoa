@@ -66,6 +66,7 @@ dependencies = [
  "log",
  "mail-parser",
  "miniz_oxide 0.8.9",
+ "parking_lot",
  "pdf-writer",
  "rusqlite",
  "serde",

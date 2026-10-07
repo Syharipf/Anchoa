@@ -808,6 +808,11 @@ export interface NativeHostStatus {
   chromeExtensionId: string | null;
 }
 
+export interface TraySettings {
+  readonly closeToTray: boolean;
+  readonly trayAvailable: boolean;
+}
+
 export interface DownloadsPayload {
   items: DownloadView[];
   speed: number;
@@ -1250,6 +1255,10 @@ export const api = {
   nativeHostStatus: () => invoke<NativeHostStatus>("native_host_status"),
   saveBrowserIntegration: (enabled: boolean) =>
     invoke<void>("save_browser_integration", { enabled }),
+  traySettings: () => invoke<TraySettings>("tray_settings"),
+  saveCloseToTray: (enabled: boolean) =>
+    invoke<void>("save_close_to_tray", { enabled }),
+  closeWindow: () => invoke<void>("close_window"),
   pagesTree: () => invoke<PageNode[]>("pages_tree"),
   createPage: (parentId: string | null, title: string) =>
     invoke<PageNode>("create_page", { parentId, title }),

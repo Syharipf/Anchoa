@@ -2,6 +2,7 @@ import { GithubSection } from "./GithubSection";
 import { EmailSection } from "./EmailSection";
 import { CalendarSection } from "./CalendarSection";
 import { BrowserSection } from "./BrowserSection";
+import { TraySection } from "./TraySection";
 export function IntegrationsSection({
   onChanged,
 }: Readonly<{ onChanged: () => void }>) {
@@ -11,6 +12,7 @@ export function IntegrationsSection({
       <EmailSection onChanged={onChanged} />
       <CalendarSection onChanged={onChanged} />
       <BrowserSection onChanged={onChanged} />
+      <TraySection onChanged={onChanged} />
     </div>
   );
 }

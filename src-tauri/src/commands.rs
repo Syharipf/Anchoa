@@ -1078,6 +1078,42 @@ pub fn save_browser_integration(
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TraySettings {
+    pub close_to_tray: bool,
+    pub tray_available: bool,
+}
+
+#[tauri::command]
+pub fn tray_settings(
+    app: AppHandle,
+    db: State<'_, Db>,
+) -> Result<TraySettings, AppError> {
+    let tray_available = app
+        .try_state::<crate::tray::TrayState>()
+        .map(|s| s.available)
+        .unwrap_or(false);
+    let close_to_tray = crate::tray::close_to_tray_setting(&*db.conn()?);
+    Ok(TraySettings {
+        close_to_tray,
+        tray_available,
+    })
+}
+
+#[tauri::command]
+pub fn save_close_to_tray(
+    db: State<'_, Db>,
+    enabled: bool,
+) -> Result<(), AppError> {
+    crate::tray::set_close_to_tray(&*db.conn()?, enabled)
+}
+
+#[tauri::command]
+pub fn close_window(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    window.close().map_err(|e| AppError::Other(e.to_string()))
+}
+
 #[tauri::command]
 pub fn pages_tree(db: State<'_, Db>) -> Result<Vec<notes::PageNode>, AppError> {
     notes::tree(&*db.conn()?)

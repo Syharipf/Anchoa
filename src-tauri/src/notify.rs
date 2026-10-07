@@ -11,10 +11,10 @@
 //! "Even when the app is closed": a Tauri desktop process cannot hand a
 //! notification to the OS once it has exited. This module keeps a background
 //! thread alive for as long as the app runs — window visible, hidden or
-//! minimized — and delivers each due reminder once per local day. When the
-//! process truly exits, nothing fires until it is started again; keeping the
-//! app alive in the tray (and starting it minimized) is what would make
-//! delivery continue across "closing the window".
+//! minimized. With system tray integration, closing the window hides it and
+//! keeps Anchoa alive in the tray by default, so due reminders continue to be
+//! delivered across window close. When the process truly exits (via "Keluar" in
+//! the tray menu), nothing fires until Anchoa is started again.
 
 use std::collections::BTreeSet;
 use std::thread;
@@ -38,6 +38,16 @@ use crate::time;
 
 /// How often the background thread looks for newly due reminders.
 pub const TICK: Duration = Duration::from_secs(30);
+
+fn tick_duration() -> Duration {
+    if let Ok(val) = std::env::var("ANCHOA_NOTIFY_TICK_SECS")
+        && let Ok(secs) = val.parse::<u64>()
+    {
+        Duration::from_secs(secs)
+    } else {
+        TICK
+    }
+}
 
 /// `notify.os.delivered.<YYYY-MM-DD>` holds the ids delivered that day.
 const DELIVERED_PREFIX: &str = "notify.os.delivered.";
@@ -531,11 +541,12 @@ pub fn tick(app: &AppHandle, tz: &TimeZone) -> Result<Vec<OsReminder>, AppError>
 pub fn spawn_scheduler(app: AppHandle) {
     thread::spawn(move || {
         loop {
+            log::info!("notify scheduler tick");
             // Resolved per tick, so a timezone change is picked up without a restart.
             if let Err(error) = tick(&app, &TimeZone::system()) {
                 log::debug!("notify tick: {error}");
             }
-            thread::sleep(TICK);
+            thread::sleep(tick_duration());
         }
     });
 }

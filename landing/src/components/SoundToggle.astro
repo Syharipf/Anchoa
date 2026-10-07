@@ -1,0 +1,90 @@
+---
+import { id as copy } from '../content/translations';
+import { assetPath } from '../config/site';
+---
+
+<audio data-sound-ambient src={assetPath('sound/ambient.wav')} loop preload="none" hidden></audio>
+<audio data-sound-click src={assetPath('sound/click.wav')} preload="none" hidden></audio>
+<button
+  type="button"
+  class="snd-toggle"
+  data-sound-toggle
+  aria-pressed="false"
+  aria-label="Nyalakan suara"
+>
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M11 5 6 9H2v6h4l5 4z"></path>
+    <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+    <path d="M18.5 5.5a9 9 0 0 1 0 13"></path>
+  </svg>
+  <span data-i18n="snd.on" set:html={copy['snd.on']} />
+</button>
+
+<style>
+  .snd-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 11px;
+    border: 1px solid var(--line);
+    background: rgba(13, 27, 35, 0.7);
+    color: var(--muted);
+    font: 600 14px var(--f-body);
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .snd-toggle:hover {
+    color: var(--text);
+    border-color: #3b5a68;
+    transform: translateY(-1px);
+  }
+  .snd-toggle[aria-pressed='true'] {
+    background: var(--panel-2);
+    color: var(--text);
+    border-color: #3b5a68;
+  }
+  .snd-toggle svg {
+    flex-shrink: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .snd-toggle {
+      transition: none;
+    }
+    .snd-toggle:hover {
+      transform: none;
+    }
+  }
+  @media (max-width: 760px) {
+    .snd-toggle span {
+      display: none;
+    }
+    .snd-toggle {
+      padding: 0 10px;
+    }
+  }
+</style>
+
+<script>
+  import { initSound } from '../scripts/sound';
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSound, { once: true });
+  } else {
+    initSound();
+  }
+</script>

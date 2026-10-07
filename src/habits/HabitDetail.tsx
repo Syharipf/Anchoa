@@ -18,14 +18,17 @@ function formatMonthLabel(mStr: string): string {
 function StatBox({
   value,
   label,
+  note,
 }: Readonly<{
   value: string | number;
   label: string;
+  note?: string;
 }>) {
   return (
     <div className="flex flex-col gap-0.5 rounded-[10px] bg-stage p-2.5">
       <span className="font-mono text-lg text-ink">{value}</span>
       <span className="text-[11px] text-muted">{label}</span>
+      {note && <span className="text-[10px] leading-snug text-muted">{note}</span>}
     </div>
   );
 }
@@ -149,7 +152,11 @@ export function HabitDetail({
       <div className="grid grid-cols-3 gap-2">
         <StatBox value={habit.streak} label="streak sekarang" />
         <StatBox value={habit.best} label="terpanjang" />
-        <StatBox value={`${habit.rate30}%`} label="konsistensi 30 hari" />
+        <StatBox
+          value={`${habit.rate30}%`}
+          label="konsistensi 30 hari"
+          note="hari terjadwal yang dicentang; hari di luar jadwal mingguan tidak dihitung, hari ini masuk setelah dicentang"
+        />
       </div>
 
       <div className="flex flex-col gap-2">

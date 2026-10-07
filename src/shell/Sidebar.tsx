@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { PAGES, type PageId } from "./nav";
 import { AnchoaLogo } from "../brand/AnchoaLogo";
 
@@ -76,6 +76,28 @@ const BELL = (
   </>
 );
 
+const CHEVRON_LEFT = <path d="M15 6l-6 6 6 6" />;
+const CHEVRON_RIGHT = <path d="M9 6l6 6-6 6" />;
+
+const COLLAPSED_KEY = "anchoa.sidebar.collapsed";
+
+/** Rail visibility survives restarts; localStorage mirrors SchedulePage's `anchoa.schedule.off` pattern. */
+function loadCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Ignore localStorage write errors.
+  }
+}
+
 const BUTTON = "relative flex h-12 w-12 items-center justify-center rounded-xl transition-colors";
 
 function NavIcon({ children }: Readonly<{ children: ReactNode }>) {
@@ -100,6 +122,27 @@ export function Sidebar({
   notificationsOpen: boolean;
   onToggleNotifications: () => void;
 }>) {
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const toggle = useCallback(() => {
+    setCollapsed((value) => {
+      const next = !value;
+      saveCollapsed(next);
+      return next;
+    });
+  }, []);
+
+  // Ctrl+B toggles the rail; Ctrl+K/Ctrl+N stay with the command palette in App.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        toggle();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggle]);
+
   const link = (id: PageId, label: string) => (
     <button
       type="button"
@@ -115,26 +158,56 @@ export function Sidebar({
   );
 
   return (
-    <nav aria-label="Menu utama" className="flex w-[72px] shrink-0 flex-col items-center gap-1.5 border-r border-line bg-sidebar py-4">
-      <div className="mb-2 shrink-0">
-        <AnchoaLogo tile size={40} label="Logo Anchoa" />
-      </div>
-      {PAGES.filter((p) => !p.bottom).map((p) => link(p.id, p.label))}
-      <div className="mt-auto flex flex-col gap-1.5">
+    <div className="flex shrink-0">
+      <nav
+        aria-label="Menu utama"
+        aria-hidden={collapsed}
+        inert={collapsed}
+        className={`flex flex-col items-center gap-1.5 overflow-hidden bg-sidebar py-4 transition-[width] duration-200 ${collapsed ? "w-0" : "w-[72px] border-r border-line"}`}
+      >
+        <div className="mb-2 shrink-0">
+          <AnchoaLogo tile size={40} label="Logo Anchoa" />
+        </div>
         <button
           type="button"
-          onClick={onToggleNotifications}
-          aria-label={reminders > 0 ? `Notifikasi, ${reminders} pengingat` : "Notifikasi"}
-          title="Notifikasi"
-          aria-haspopup="dialog"
-          aria-expanded={notificationsOpen}
-          className={`${BUTTON} ${notificationsOpen ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2"}`}
+          onClick={toggle}
+          aria-label="Sembunyikan menu samping"
+          aria-expanded={!collapsed}
+          title="Sembunyikan menu samping (Ctrl+B)"
+          aria-hidden={collapsed}
+          className={`${BUTTON} text-muted hover:bg-surface-2`}
         >
-          <NavIcon>{BELL}</NavIcon>
-          {reminders > 0 && <span className="absolute top-[9px] right-[9px] h-[7px] w-[7px] rounded-full bg-danger" />}
+          <NavIcon>{CHEVRON_LEFT}</NavIcon>
         </button>
-        {PAGES.filter((p) => p.bottom).map((p) => link(p.id, p.label))}
-      </div>
-    </nav>
+        {PAGES.filter((p) => !p.bottom).map((p) => link(p.id, p.label))}
+        <div className="mt-auto flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={onToggleNotifications}
+            aria-label={reminders > 0 ? `Notifikasi, ${reminders} pengingat` : "Notifikasi"}
+            title="Notifikasi"
+            aria-haspopup="dialog"
+            aria-expanded={notificationsOpen}
+            className={`${BUTTON} ${notificationsOpen ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2"}`}
+          >
+            <NavIcon>{BELL}</NavIcon>
+            {reminders > 0 && <span className="absolute top-[9px] right-[9px] h-[7px] w-[7px] rounded-full bg-danger" />}
+          </button>
+          {PAGES.filter((p) => p.bottom).map((p) => link(p.id, p.label))}
+        </div>
+      </nav>
+      {collapsed && (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="Tampilkan menu samping"
+          aria-expanded={false}
+          title="Tampilkan menu samping (Ctrl+B)"
+          className="flex w-6 shrink-0 items-center justify-center border-r border-line bg-sidebar text-muted transition-colors hover:bg-surface-2 hover:text-accent"
+        >
+          <NavIcon>{CHEVRON_RIGHT}</NavIcon>
+        </button>
+      )}
+    </div>
   );
 }

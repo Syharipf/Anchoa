@@ -1,6 +1,8 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
+  useRef,
   useState,
   type MouseEvent,
 } from "react";
@@ -8,6 +10,7 @@ import {
   api,
   errorMessage,
   type FileEntry,
+  type FolderMeta,
   type Listing,
   type OnConflict,
   type Place,
@@ -20,11 +23,15 @@ import { ActionBar } from "./ActionBar";
 import { ConflictDialog } from "./ConflictDialog";
 import { FileGrid } from "./FileGrid";
 import { FileList } from "./FileList";
+import { FileTabsBar } from "./FileTabsBar";
 import { FilesToolbar } from "./FilesToolbar";
+import { FolderTools } from "./FolderTools";
 import { PlacesSidebar } from "./PlacesSidebar";
 import { PreviewPanel } from "./PreviewPanel";
+import { isRemotePath, isWithin, listFolder, useRemotes } from "./remotes";
+import { useFileTabs } from "./useFileTabs";
 import { useFilesKeyboard } from "./useFilesKeyboard";
-import { useHistory } from "./useHistory";
+import { useMountWatch } from "./useMountWatch";
 import { reportToasts, select, totalSize } from "./view";
 
 export interface FileClipboard {
@@ -100,6 +107,7 @@ export function FilesPage({
   const toast = useToast();
   const [places, setPlaces] = useState<Place[]>([]);
   const [devices, setDevices] = useState<Place[]>([]);
+  const [folderMetas, setFolderMetas] = useState<FolderMeta[]>([]);
   const [listing, setListing] = useState<Listing | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [anchor, setAnchor] = useState<number | null>(null);
@@ -110,9 +118,27 @@ export function FilesPage({
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [conflictCount, setConflictCount] = useState<number | null>(null);
 
-  const history = useHistory(initialPath ?? "");
-  const currentPath = history.current;
+  const tabs = useFileTabs(initialPath ?? "");
+  const currentPath = tabs.active.path;
   const canGoUp = Boolean(listing?.parent);
+  const remotes = useRemotes();
+  const home = places.find((p) => p.icon === "home")?.path ?? places[0]?.path ?? "";
+
+  const markers = useMemo(
+    () => new Map(folderMetas.map((m) => [m.path, m])),
+    [folderMetas],
+  );
+  const bookmarks = useMemo(() => folderMetas.filter((m) => m.pinned), [folderMetas]);
+  // Network mounts outside home and devices would be refused by the local path guard.
+  const remotePlaces = useMemo(
+    () => [
+      ...remotes.remotes,
+      ...remotes.mounts.filter(
+        (m) => isWithin(m.path, home) || devices.some((d) => isWithin(m.path, d.path)),
+      ),
+    ],
+    [remotes.remotes, remotes.mounts, home, devices],
+  );
 
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
 
@@ -128,7 +154,7 @@ export function FilesPage({
     setAnchor(null);
   }, [currentPath]);
 
-  // Load places once on mount and initialize Home directory via functional update
+  // Load places and folder markers once; an empty tab starts at Home.
   useEffect(() => {
     let active = true;
     api.filePlaces().then(
@@ -136,11 +162,19 @@ export function FilesPage({
         if (!active) return;
         setPlaces(res.places);
         setDevices(res.devices);
-        const home =
+        const first =
           res.places.find((p) => p.icon === "home")?.path ?? res.places[0]?.path;
-        if (home) {
-          history.go((prev) => prev || home);
+        if (first) {
+          tabs.go((prev) => prev || first);
         }
+      },
+      (e) => {
+        if (active) toast(errorMessage(e), "error");
+      },
+    );
+    api.folderMetaList().then(
+      (res) => {
+        if (active) setFolderMetas(res);
       },
       (e) => {
         if (active) toast(errorMessage(e), "error");
@@ -149,13 +183,38 @@ export function FilesPage({
     return () => {
       active = false;
     };
-  }, [history.go, toast]);
+  }, [tabs.go, toast]);
+
+  // The mount watcher outlives renders, so it reads the location through a ref.
+  const whereRef = useRef({ currentPath, home });
+  useEffect(() => {
+    whereRef.current = { currentPath, home };
+  }, [currentPath, home]);
+
+  const handleDevicesChange = useCallback(
+    (next: readonly Place[]) => {
+      setDevices([...next]);
+      const { currentPath: path, home: homePath } = whereRef.current;
+      const orphaned =
+        homePath &&
+        path &&
+        !isRemotePath(path) &&
+        !isWithin(path, homePath) &&
+        !next.some((d) => isWithin(path, d.path));
+      if (orphaned) {
+        toast("Perangkat dilepas, kembali ke folder Home", "info");
+        tabs.go(homePath);
+      }
+    },
+    [tabs.go, toast],
+  );
+  useMountWatch(handleDevicesChange);
 
   // Load listing when currentPath, showHidden or reloadToken changes
   useEffect(() => {
     if (!currentPath) return;
     let active = true;
-    api.listDir(currentPath, showHidden).then(
+    listFolder(currentPath, showHidden).then(
       (res) => {
         if (active) setListing(res);
       },
@@ -171,13 +230,22 @@ export function FilesPage({
   const handleOpen = useCallback(
     (entry: FileEntry) => {
       if (entry.kind === "folder") {
-        history.go(entry.path);
+        tabs.go(entry.path);
+      } else if (isRemotePath(entry.path)) {
+        toast("Berkas remote belum bisa dibuka langsung. Salin ke folder lokal dulu.", "info");
       } else {
         api.openFile(entry.path).catch((err) => toast(errorMessage(err), "error"));
       }
     },
-    [history.go, toast],
+    [tabs.go, toast],
   );
+
+  const handleMetaChange = useCallback((path: string, meta: FolderMeta | null) => {
+    setFolderMetas((prev) => {
+      const rest = prev.filter((m) => m.path !== path);
+      return meta ? [meta, ...rest] : rest;
+    });
+  }, []);
 
   const handleSelect = useCallback(
     (index: number, e: MouseEvent) => {
@@ -264,7 +332,7 @@ export function FilesPage({
     isDialogOpen: confirmTrash || conflictCount !== null,
     parentPath: listing?.parent,
     selectedEntry: singleEntry,
-    onGoParent: history.go,
+    onGoParent: tabs.go,
     onOpenEntry: handleOpen,
   });
 
@@ -284,15 +352,22 @@ export function FilesPage({
         </button>
       </div>
 
+      <FileTabsBar
+        tabs={tabs.state.tabs}
+        activeId={tabs.state.activeId}
+        onActivate={tabs.activate}
+        onClose={tabs.closeTab}
+      />
+
       <FilesToolbar
-        canGoBack={history.canBack}
-        canGoForward={history.canForward}
+        canGoBack={tabs.canBack}
+        canGoForward={tabs.canForward}
         canGoUp={canGoUp}
-        onGoBack={history.back}
-        onGoForward={history.forward}
-        onGoUp={() => listing?.parent && history.go(listing.parent)}
+        onGoBack={tabs.back}
+        onGoForward={tabs.forward}
+        onGoUp={() => listing?.parent && tabs.go(listing.parent)}
         crumbs={listing?.crumbs ?? []}
-        onNavigate={history.go}
+        onNavigate={tabs.go}
         view={view}
         onToggleView={setView}
         showHidden={showHidden}
@@ -306,12 +381,17 @@ export function FilesPage({
         <PlacesSidebar
           places={places}
           devices={devices}
+          bookmarks={bookmarks}
+          remotes={remotePlaces}
+          remoteHint={remotes.hint}
+          remoteVersion={remotes.version}
+          markers={markers}
           currentPath={currentPath}
           onSelectPlace={(path) => {
             if (path === currentPath) {
               reload();
             } else {
-              history.go(path);
+              tabs.go(path);
             }
           }}
         />
@@ -324,6 +404,7 @@ export function FilesPage({
             <FileGrid
               entries={listing?.entries ?? []}
               selected={selected}
+              markers={markers}
               onSelect={handleSelect}
               onOpen={handleOpen}
             />
@@ -331,6 +412,7 @@ export function FilesPage({
             <FileList
               entries={listing?.entries ?? []}
               selected={selected}
+              markers={markers}
               onSelect={handleSelect}
               onOpen={handleOpen}
             />
@@ -360,7 +442,16 @@ export function FilesPage({
               setAnchor(null);
             }}
             onOpen={handleOpen}
-          />
+          >
+            {singleEntry.kind === "folder" && (
+              <FolderTools
+                entry={singleEntry}
+                meta={markers.get(singleEntry.path)}
+                onMetaChange={handleMetaChange}
+                onOpenTab={tabs.openTab}
+              />
+            )}
+          </PreviewPanel>
         )}
       </div>
 

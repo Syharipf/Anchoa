@@ -1,5 +1,10 @@
 //! Accounts, transactions and transfers (spec Fase 2). Amounts are integer
 //! rupiah; a negative amount is money leaving the account.
+//!
+//! `crate::report` (new) aggregates these transactions into monthly/yearly recap PDFs;
+//! it calls `month_flow`-style queries and `total_balance`, never re-implementing money math.
+
+
 use jiff::tz::TimeZone;
 use rusqlite::{Connection, OptionalExtension, Row, params};
 use serde::{Deserialize, Serialize};
@@ -76,8 +81,14 @@ fn account_name(name: &str) -> Result<String, AppError> {
 }
 
 pub fn list_accounts(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Vec<AccountView>, AppError> {
+    list_accounts_before(conn, balance_cutoff(now, tz)?)
+}
+
+/// Accounts with balances counting only transactions dated before `cutoff`
+/// (epoch ms), e.g. a recap's closing balance at the end of its period.
+pub fn list_accounts_before(conn: &Connection, cutoff: i64) -> Result<Vec<AccountView>, AppError> {
     let mut stmt = conn.prepare(&format!("{ACCOUNT_SELECT} ORDER BY i.title COLLATE NOCASE, i.id"))?;
-    let rows = stmt.query_map([balance_cutoff(now, tz)?], account_from_row)?;
+    let rows = stmt.query_map([cutoff], account_from_row)?;
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
@@ -628,6 +639,19 @@ mod tests {
 
         assert!(later.scheduled);
         assert_eq!(balance(&conn, &bca), 1_475_000);
+    }
+
+    #[test]
+    fn accounts_before_a_cutoff_leave_later_money_out() {
+        let conn = open_in_memory();
+        let bca = account(&conn, "BCA", 1_000_000);
+        earn(&conn, &bca, 500_000, "2026-08-31T23:59:59.999+07:00");
+        spend(&conn, &bca, 25_000, "Belanja", "2026-09-01T00:00:00+07:00");
+
+        let august = list_accounts_before(&conn, ms("2026-09-01T00:00:00+07:00")).unwrap();
+        assert_eq!(total_balance(&august).unwrap(), 1_500_000);
+        let today = balance_cutoff(now(), &jakarta()).unwrap();
+        assert_eq!(list_accounts_before(&conn, today).unwrap(), list_accounts(&conn, now(), &jakarta()).unwrap());
     }
 
     #[test]

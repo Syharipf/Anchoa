@@ -242,11 +242,7 @@ kbd,
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  border: 1px dashed #3b5a68;
-  display: grid;
-  place-items: center;
-  font: 500 8px var(--f-mono);
-  color: var(--faint);
+  display: block;
 }
 .nav ul {
   display: flex;
@@ -407,6 +403,11 @@ kbd,
   border-radius: 50%;
   background: var(--lime);
   box-shadow: 0 0 10px rgba(198, 243, 107, 0.8);
+}
+.eyebrow .hero-mark {
+  display: block;
+  width: 36px;
+  height: 28px;
 }
 .hero h1 {
   margin-top: 18px;

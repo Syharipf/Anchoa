@@ -1,5 +1,5 @@
 import type { ScheduleItem } from "../api";
-import { agendaTitle, chipsFor, KIND_COLORS, monthGrid } from "./layout";
+import { agendaTitle, chipsFor, KIND_COLORS, monthGrid, READ_ONLY_HINT } from "./layout";
 
 const DAYS_OF_WEEK = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
 
@@ -88,9 +88,9 @@ export function CalendarView({
                   {shown.map((item) => (
                     <span
                       key={item.key}
-                      title={`${item.title} · ${item.groupName}${
-                        item.overdue ? " · terlambat" : ""
-                      }`}
+                      title={`${item.title} · ${
+                        item.source === "calendar" ? READ_ONLY_HINT : item.groupName
+                      }${item.overdue ? " · terlambat" : ""}`}
                       className={`flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] leading-4 text-ink bg-surface-2 ${
                         item.overdue ? "ring-1 ring-inset ring-danger" : ""
                       }`}

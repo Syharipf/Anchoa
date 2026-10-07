@@ -322,28 +322,13 @@ pub fn apply(
                 title: args.title,
                 project_id: args.project_id,
                 parent_id: args.parent_id,
+                due_at: args.due_at,
                 ..Default::default()
             };
-            if let Some(due) = args.due_at {
+            if let Some(due) = input.due_at {
                 jiff::Timestamp::from_millisecond(due)?;
-                let tx = conn.unchecked_transaction()?;
-                let task = tasks::create_task_in_transaction(&tx, &input, now, tz)?;
-                items::update(
-                    &tx,
-                    &task.id,
-                    &items::ItemPatch {
-                        due_at: Some(Some(due)),
-                        ..Default::default()
-                    },
-                    now,
-                )?;
-                let result = tasks::get_task(&tx, &task.id, now, tz)?.card;
-                let value = encode(result)?;
-                tx.commit()?;
-                Ok(value)
-            } else {
-                encode(tasks::create_task(conn, &input, now, tz)?)
             }
+            encode(tasks::create_task(conn, &input, now, tz)?)
         }
         "complete_task" => {
             let id = decode::<IdArgs>(name, args)?.id;

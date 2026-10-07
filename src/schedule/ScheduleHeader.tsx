@@ -3,6 +3,7 @@ import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { H1, HEADER_SECONDARY } from "../shell/ui";
 import { ALL_KINDS, KIND_COLORS, KIND_LABELS } from "./layout";
 
+import { HEADER_PRIMARY } from "../shell/ui";
 export function ScheduleHeader({
   view,
   onViewChange,
@@ -14,6 +15,7 @@ export function ScheduleHeader({
   onToggleKind,
   counts,
   onOpenAssistant,
+  onAdd,
 }: Readonly<{
   view: "calendar" | "timeline";
   onViewChange: (v: "calendar" | "timeline") => void;
@@ -25,6 +27,7 @@ export function ScheduleHeader({
   onToggleKind: (kind: ItemKind) => void;
   counts: Readonly<Record<ItemKind, number>>;
   onOpenAssistant: OpenAssistant;
+  onAdd: () => void;
 }>) {
   return (
     <div className="flex flex-col gap-3.5">
@@ -165,12 +168,29 @@ export function ScheduleHeader({
             </svg>
             <span>Tambah tugas lewat suara</span>
           </button>
+          <button type="button" onClick={onAdd} className={HEADER_PRIMARY}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>Tambah</span>
+          </button>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         <span className="mr-1 text-xs text-muted">Tampilkan</span>
         {ALL_KINDS.map((kind) => {
+          // Google Kalender is optional: no chip until it has events or was hidden.
+          if (kind === "calendar" && !counts.calendar && !off.has(kind)) return null;
           const active = !off.has(kind);
           return (
             <button

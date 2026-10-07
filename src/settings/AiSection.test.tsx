@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { isValidElement, type ReactNode } from "react";
 import { api, type AiRoles } from "../api";
+import { renderToStaticMarkup } from "react-dom/server";
 import { elements, hookHarness, type HookHarness } from "../test/hookHarness";
 import { AiSection } from "./AiSection";
 
@@ -24,20 +24,81 @@ describe("AiSection", () => {
     return status;
   };
   const control = (label: string) => elements(harness.render()).find((el) => el.props["aria-label"] === label)!;
-  const button = (text: string) => elements(harness.render()).find((el) => el.type === "button" && el.props.children === text)!;
+  const buttonText = (node: ReactNode): string => {
+    if (typeof node === "string" || typeof node === "number") return String(node);
+    if (Array.isArray(node)) return node.map(buttonText).join("");
+    return isValidElement<{ children?: ReactNode }>(node) ? buttonText(node.props.children) : "";
+  };
+  const button = (text: string) => elements(harness.render()).find((el) => el.type === "button" && buttonText(el.props.children as ReactNode).startsWith(text))!;
   const change = (label: string, value: string) => (control(label).props.onChange as (e: unknown) => void)({ target: { value } });
   const click = (text: string) => (button(text).props.onClick as () => void)();
+  const options = (label: string) => elements(control(label).props.children as ReactNode).filter((el) => el.type === "option");
   const openCustom = async () => { click("Kustom"); await harness.settle(); };
+  const loadModels = async (models: string[]) => {
+    const load = spyOn(api, "aiCustomModels").mockResolvedValue(models); spies.push(load);
+    change("API key opsional", "secret"); await harness.settle();
+    click("Muat model"); await harness.settle();
+    return load;
+  };
+
+  it("matches the design structure of the Asisten & AI panel", async () => {
+    await mount();
+    const html = renderToStaticMarkup(harness.render());
+    const headings = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map((match) => match[1]);
+    expect(headings).toEqual(["Penyedia AI", "Model per tugas", "Pemakaian bulan ini", "Privasi AI"]);
+    expect(html).toContain("Dipakai untuk perintah suara, ringkasan, dan tanggapan jurnal");
+  });
 
   it("keeps custom usable when Ollama offline and exposes provider-specific models", async () => {
-    await mount(); await openCustom();
+    await mount();
+    expect(renderToStaticMarkup(harness.render())).toContain("Ollama offline");
+    await openCustom();
     expect(control("Nama penyedia").props.value).toBe("9router");
     expect(control("API key opsional").props.value).toBe("");
     change("Penyedia untuk Percakapan & aksi", "custom"); await harness.settle();
-    expect(control("Model untuk Percakapan & aksi").props.disabled).toBeFalsy();
-    const options = elements(control("Model untuk Percakapan & aksi").props.children as ReactNode).filter((el) => el.type === "option");
-    expect(options.map((el) => el.props.value)).toContain("remote");
-    expect(options.map((el) => el.props.value)).not.toContain("local");
+    const values = options("Model untuk Percakapan & aksi").map((el) => el.props.value);
+    expect(values).toContain("remote");
+    expect(values).not.toContain("local");
+  });
+
+  it("loads models from the provider and selects one without typing an id", async () => {
+    await mount(); await openCustom();
+    const load = await loadModels(["vendor-b", "vendor-a"]);
+    expect(load).toHaveBeenCalledWith(config.baseUrl, "secret");
+    const quick = options("Model dari penyedia").map((el) => el.props.value);
+    expect(quick).toContain("vendor-a");
+    const save = spyOn(api, "setAiRole").mockResolvedValue({ provider: "custom", model: "vendor-a" }); spies.push(save);
+    change("Model dari penyedia", "vendor-a"); await harness.settle();
+    expect(save).toHaveBeenCalledWith("chat", "custom", "vendor-a");
+    expect(control("ID model untuk Percakapan & aksi")).toBeUndefined();
+  });
+
+  it("shows a retryable error when loading models fails", async () => {
+    await mount(); await openCustom();
+    const load = spyOn(api, "aiCustomModels").mockRejectedValueOnce(new Error("Autentikasi penyedia AI gagal; periksa API key")); spies.push(load);
+    change("API key opsional", "bad-secret"); await harness.settle();
+    click("Muat model"); await harness.settle();
+    expect(renderToStaticMarkup(harness.render())).toContain("Autentikasi penyedia AI gagal");
+    load.mockResolvedValueOnce(["recovered"]); await harness.settle();
+    click("Muat model"); await harness.settle();
+    expect(options("Model dari penyedia").map((el) => el.props.value)).toContain("recovered");
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Autentikasi penyedia AI gagal");
+  });
+
+  it("discards fetched models when the URL or key changes", async () => {
+    await mount(); await openCustom();
+    await loadModels(["vendor-a"]);
+    expect(options("Model dari penyedia").map((el) => el.props.value)).toContain("vendor-a");
+    change("Base URL Kustom", "http://127.0.0.1:20129/v1"); await harness.settle();
+    expect(options("Model dari penyedia").map((el) => el.props.value)).not.toContain("vendor-a");
+    expect(control("API key opsional").props.value).toBe("secret");
+  });
+
+  it("keeps the load action disabled until a URL and key exist", async () => {
+    await mount(); await openCustom();
+    expect(button("Muat model").props.disabled).toBe(true);
+    change("API key opsional", "secret"); await harness.settle();
+    expect(button("Muat model").props.disabled).toBeFalsy();
   });
 
   it("saves metadata without sending or changing key or roles", async () => {
@@ -81,24 +142,25 @@ describe("AiSection", () => {
     change("Model untuk Tanggapan jurnal", "other-local"); await harness.settle();
     expect(save).toHaveBeenCalledWith("journal", "ollama", "other-local");
   });
+
   it("disables recap configuration because no production recap consumer exists", async () => {
     await mount();
-    expect(control("Penyedia untuk Rekap harian").props.disabled).toBe(true);
     expect(control("Model untuk Rekap harian").props.disabled).toBe(true);
-    expect(renderToStaticMarkup(harness.render())).toContain("rekap harian belum memiliki pemrosesan AI");
+    expect(control("Model untuk Rekap harian").props.value).toBe("local");
   });
 
-  it("saves selected provider and manual model ID, retaining it after listing failure", async () => {
+  it("saves the picked provider and model, retaining it after a failed refresh", async () => {
     const status = await mount(); await openCustom();
-    const save = spyOn(api, "setAiRole").mockResolvedValue({ provider: "custom", model: "manual-id" }); spies.push(save);
+    const save = spyOn(api, "setAiRole").mockResolvedValue({ provider: "custom", model: "remote" }); spies.push(save);
     change("Penyedia untuk Percakapan & aksi", "custom"); await harness.settle();
-    const events: unknown[] = []; window.addEventListener("anchoa-ai-config-changed", (event) => events.push((event as CustomEvent).detail));
-    change("ID model untuk Percakapan & aksi", "manual-id"); await harness.settle(); click("Simpan model Percakapan & aksi"); await harness.settle();
-    expect(save).toHaveBeenCalledWith("chat", "custom", "manual-id");
+    const events: unknown[] = [];
+    window.addEventListener("anchoa-ai-config-changed", (event) => events.push((event as CustomEvent).detail));
+    change("Model untuk Percakapan & aksi", "remote"); await harness.settle(); click("Simpan model Percakapan & aksi"); await harness.settle();
+    expect(save).toHaveBeenCalledWith("chat", "custom", "remote");
     expect(events).toEqual([{ reset: true }]);
     status.mockResolvedValue({ available: false, models: [], error: "Autentikasi gagal" });
     click("Tes koneksi"); await harness.settle();
-    expect(control("ID model untuk Percakapan & aksi").props.value).toBe("manual-id");
+    expect(control("Model untuk Percakapan & aksi").props.value).toBe("remote");
     expect(renderToStaticMarkup(harness.render())).toContain("Autentikasi gagal");
   });
 });

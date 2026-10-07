@@ -55,10 +55,11 @@ impl AgentRunner {
             let conn = db.conn()?;
             let now = time::now_ms();
             let tz = TimeZone::system();
-            (
-                projects::get_project(&conn, project_id, now, &tz)?,
-                tasks::get_task(&conn, task_id, now, &tz)?.card,
-            )
+            let project = projects::get_project(&conn, project_id, now, &tz)?;
+            let task = tasks::get_task(&conn, task_id, now, &tz)?.card;
+            // Launching a planned card starts it: the kanban reflects the run with no chat instruction.
+            auto_move_on_launch(&conn, task_id, now);
+            (project, task)
         };
         let data_dir = app.path().app_data_dir()?;
         let app = app.clone();
@@ -247,7 +248,13 @@ fn wait_for_child(
 
 fn record_outcome(db: &Db, project_id: &str, task_id: &str, outcome: Result<ExitStatus, AppError>) {
     let title = match outcome {
-        Ok(status) if status.success() => return,
+        Ok(status) if status.success() => {
+            // A clean run finishes the card without the model having to remember any instruction.
+            if let Ok(conn) = db.conn() {
+                auto_move_on_exit(&conn, task_id, time::now_ms(), true);
+            }
+            return;
+        }
         Ok(status) => {
             #[cfg(unix)]
             let code = {
@@ -279,6 +286,31 @@ fn record_outcome(db: &Db, project_id: &str, task_id: &str, outcome: Result<Exit
     });
     if let Err(error) = result {
         log::error!("failed to record agent exit for task {task_id}: {error}");
+    }
+    if let Ok(conn) = db.conn() {
+        auto_move_on_exit(&conn, task_id, time::now_ms(), false);
+    }
+}
+
+/// Automatic kanban moves driven by the runner, not by the model remembering instructions:
+/// launching a planned task starts it, and a completed run marks it done.
+fn auto_move_on_launch(conn: &Connection, task_id: &str, now: i64) {
+    if let Ok(card) = tasks::get_task(conn, task_id, now, &TimeZone::system())
+        && card.card.status == tasks::TaskStatus::Plan
+    {
+        let _ = activities::set_status(conn, task_id, tasks::TaskStatus::Doing, "Anchoa", now);
+    }
+}
+
+/// A clean run finishes the card; a failed run returns it to Rencana for a human. Only the
+/// runner-owned Doing state moves, so the agent's finer statuses (Tes/Review) are never overridden.
+fn auto_move_on_exit(conn: &Connection, task_id: &str, now: i64, success: bool) {
+    if let Ok(detail) = tasks::get_task(conn, task_id, now, &TimeZone::system()) {
+        if detail.card.status != tasks::TaskStatus::Doing {
+            return;
+        }
+        let status = if success { tasks::TaskStatus::Done } else { tasks::TaskStatus::Plan };
+        let _ = activities::set_status(conn, task_id, status, "Anchoa", now);
     }
 }
 
@@ -780,5 +812,46 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn launch_moves_a_planned_card_to_doing_and_success_finishes_it() {
+        let fixture = Fixture::new("true");
+        let conn = fixture.db.conn().unwrap();
+        auto_move_on_launch(&conn, &fixture.task_id, 2000);
+        assert_eq!(
+            tasks::get_task(&conn, &fixture.task_id, 2000, &TimeZone::UTC).unwrap().card.status,
+            TaskStatus::Doing
+        );
+        let history = activities::for_task(&conn, &fixture.task_id).unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].title, "Anchoa memindahkan ke Dikerjakan");
+        auto_move_on_exit(&conn, &fixture.task_id, 2001, true);
+        assert_eq!(
+            tasks::get_task(&conn, &fixture.task_id, 2001, &TimeZone::UTC).unwrap().card.status,
+            TaskStatus::Done
+        );
+        let history = activities::for_task(&conn, &fixture.task_id).unwrap();
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[1].title, "Anchoa memindahkan ke Selesai");
+    }
+
+    #[test]
+    fn failed_runs_return_the_card_to_plan_and_agent_statuses_are_left_alone() {
+        let fixture = Fixture::new("true");
+        let conn = fixture.db.conn().unwrap();
+        auto_move_on_launch(&conn, &fixture.task_id, 2000);
+        auto_move_on_exit(&conn, &fixture.task_id, 2001, false);
+        assert_eq!(
+            tasks::get_task(&conn, &fixture.task_id, 2001, &TimeZone::UTC).unwrap().card.status,
+            TaskStatus::Plan
+        );
+        // The agent's own finer-grained statuses are never overridden by the runner's exit move.
+        activities::set_status(&conn, &fixture.task_id, TaskStatus::Test, "Sol", 2002).unwrap();
+        auto_move_on_exit(&conn, &fixture.task_id, 2003, true);
+        assert_eq!(
+            tasks::get_task(&conn, &fixture.task_id, 2003, &TimeZone::UTC).unwrap().card.status,
+            TaskStatus::Test
+        );
     }
 }

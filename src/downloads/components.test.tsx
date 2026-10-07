@@ -1,6 +1,8 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { DownloadSettings, DownloadView, EnginesInfo } from "../api";
+import { api, type DownloadSettings, type DownloadView, type EnginesInfo } from "../api";
+import { elements, hookHarness, type HookHarness } from "../test/hookHarness";
 import { AddDownload } from "./AddDownload";
 import { DownloadQueue } from "./DownloadQueue";
 import { DownloadSettingsPanel } from "./DownloadSettingsPanel";
@@ -201,4 +203,89 @@ describe("Unduhan components", () => {
       expect(html).toContain("10 MB/s");
     });
   });
+
+    describe("folder picker", () => {
+      let harness: HookHarness<ReactNode> | undefined;
+      const spies: { mockRestore: () => void }[] = [];
+      const settings: DownloadSettings = { dir: "/home/user/Unduhan", parallel: 2, limit: 0 };
+
+      afterEach(() => {
+        harness?.dispose();
+        harness = undefined;
+        spies.splice(0).forEach((spy) => spy.mockRestore());
+      });
+
+      function start() {
+        harness = hookHarness(() =>
+          DownloadSettingsPanel({ settings, onSettingsChanged: () => {} }),
+        );
+        harness.render();
+      }
+
+      function button(label: string) {
+        const found = elements(harness!.render()).find(
+          (el) => el.type === "button" && el.props["aria-label"] === label,
+        );
+        expect(found).toBeDefined();
+        return found!;
+      }
+
+      function pathInput() {
+        const found = elements(harness!.render()).find(
+          (el) => el.type === "input" && el.props["aria-label"] === "Path folder unduhan",
+        );
+        expect(found).toBeDefined();
+        return found!;
+      }
+
+      async function openEditor() {
+        await (elements(harness!.render()).find(
+          (el) => el.type === "button" && el.props.children === "Ubah",
+        )!.props.onClick as () => Promise<void>)();
+        harness!.render();
+      }
+
+      it("fills the path input with the folder chosen in the picker", async () => {
+        const pick = spyOn(api, "pickDirectory").mockResolvedValue("/mnt/Media/Unduhan");
+        spies.push(pick);
+        start();
+        await openEditor();
+        await (button("Pilih folder unduhan").props.onClick as () => Promise<void>)();
+        await harness!.settle();
+        expect(pathInput().props.value).toBe("/mnt/Media/Unduhan");
+        expect(pick).toHaveBeenCalledTimes(1);
+        expect(pick).toHaveBeenCalledWith();
+      });
+
+      it("leaves the path untouched when the picker is cancelled", async () => {
+        const pick = spyOn(api, "pickDirectory").mockResolvedValue(null);
+        spies.push(pick);
+        start();
+        await openEditor();
+        const before = pathInput().props.value;
+        await (button("Pilih folder unduhan").props.onClick as () => Promise<void>)();
+        await harness!.settle();
+        expect(pathInput().props.value).toBe(before);
+        expect(pathInput().props.value).toBe("/home/user/Unduhan");
+        expect(pick).toHaveBeenCalledTimes(1);
+      });
+
+      it("saves the picked path through the existing save flow", async () => {
+        spies.push(spyOn(api, "pickDirectory").mockResolvedValue("/mnt/Media/Unduhan"));
+        const save = spyOn(api, "saveDownloadSettings").mockResolvedValue({
+          ...settings,
+          dir: "/mnt/Media/Unduhan",
+        });
+        spies.push(save);
+        start();
+        await openEditor();
+        await (button("Pilih folder unduhan").props.onClick as () => Promise<void>)();
+        await harness!.settle();
+        await (elements(harness!.render()).find(
+          (el) => el.type === "button" && el.props.children === "Simpan",
+        )!.props.onClick as () => Promise<void>)();
+        await harness!.settle();
+        expect(save).toHaveBeenCalledWith({ ...settings, dir: "/mnt/Media/Unduhan" });
+      });
+    });
 });

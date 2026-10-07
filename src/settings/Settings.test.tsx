@@ -105,10 +105,11 @@ describe("DataSection", () => {
 });
 
 describe("IntegrationsSection", () => {
-  it("renders built GitHub and Email integrations without an SFTP placeholder", () => {
+  it("renders built GitHub, Email and Google Kalender integrations without an SFTP placeholder", () => {
     const html = renderToStaticMarkup(<IntegrationsSection onChanged={() => {}} />);
     expect(html).toContain("GitHub");
     expect(html).toContain("Email");
+    expect(html).toContain("Google Kalender");
     expect(html).not.toContain("SFTP");
     expect(html).not.toContain("Menyusul");
     expect(html).not.toContain("Tailscale");
@@ -171,7 +172,7 @@ describe("Settings layout", () => {
     const html = renderToStaticMarkup(
       <Settings initialSection="ai" onSectionChange={() => {}} onGithubChanged={() => {}} />,
     );
-    expect(html).toContain("Ollama (Lokal)");
+    expect(html).toContain("Penyedia AI");
     expect(html).toContain("Model per tugas");
     expect(html).toContain("Privasi AI");
   });

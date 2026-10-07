@@ -8,6 +8,7 @@ import {
   type Listing,
   type TextPreview,
 } from "../api";
+import { isRemotePath, listFolder } from "./remotes";
 import { PRIMARY } from "../shell/ui";
 import { formatSize, KIND_ICONS, KIND_LABELS } from "./view";
 
@@ -96,7 +97,7 @@ function FolderPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
   useEffect(() => {
     setListing(null);
     let active = true;
-    api.listDir(entry.path, false).then(
+    listFolder(entry.path, false).then(
       (res) => {
         if (active) setListing(res);
       },
@@ -170,11 +171,14 @@ export function PreviewPanel({
   onClose,
   onOpen,
   onOpenAssistant,
+  children,
 }: Readonly<{
   entry: FileEntry;
   onClose: () => void;
   onOpen: (entry: FileEntry) => void;
   onOpenAssistant: OpenAssistant;
+  /** Extra actions for this entry, e.g. folder markers. */
+  children?: ReactNode;
 }>) {
   const sub =
     entry.kind === "folder" ? `${entry.size} item` : formatSize(entry.size);
@@ -216,7 +220,9 @@ export function PreviewPanel({
       </div>
 
       <div className="relative flex h-[212px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-line bg-sidebar">
-        {PREVIEW_BODY[entry.kind](entry)}
+        {isRemotePath(entry.path) && entry.kind !== "folder"
+          ? <OtherPreviewBody entry={entry} />
+          : PREVIEW_BODY[entry.kind](entry)}
       </div>
 
       <dl className="m-0 grid grid-cols-[88px_minmax(0,1fr)] gap-y-1.5 gap-x-2.5 text-xs">
@@ -260,6 +266,8 @@ export function PreviewPanel({
           <span>Tanya asisten</span>
         </button>
       </div>
+
+      {children}
     </aside>
   );
 }

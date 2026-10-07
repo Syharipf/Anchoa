@@ -237,9 +237,7 @@ describe("EntryEditor dictation", () => {
 
     // Transcript arrives after unmount
     resolveStop("suara terlambat");
-    const { promise: timer, resolve: resolveTimer } = Promise.withResolvers<void>();
-    setTimeout(resolveTimer, 50);
-    await timer;
+    for (let i = 0; i < 5; i++) await Promise.resolve();
 
     // No autosave updateItem triggered
     expect(updateItemSpy).not.toHaveBeenCalled();
@@ -261,9 +259,7 @@ describe("EntryEditor dictation", () => {
 
     // Start completes after unmount
     resolveStart();
-    const { promise: timer, resolve: resolveTimer } = Promise.withResolvers<void>();
-    setTimeout(resolveTimer, 50);
-    await timer;
+    for (let i = 0; i < 5; i++) await Promise.resolve();
 
     // Orphaned start must be stopped immediately
     expect(stopSpy).toHaveBeenCalled();
@@ -284,9 +280,7 @@ describe("EntryEditor dictation", () => {
 
     // Status arrives after unmount
     resolveStatus(baseVoiceStatus);
-    const { promise: timer, resolve: resolveTimer } = Promise.withResolvers<void>();
-    setTimeout(resolveTimer, 50);
-    await timer;
+    for (let i = 0; i < 5; i++) await Promise.resolve();
 
     expect(startSpy).not.toHaveBeenCalled();
   });

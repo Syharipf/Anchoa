@@ -21,6 +21,8 @@ pub struct ScheduleRange {
 pub enum ItemSource {
     Task,
     Bill,
+    /// Pulled from Google Calendar; read-only, never editable here.
+    Calendar,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -29,6 +31,8 @@ pub enum ItemKind {
     Project,
     Bill,
     Personal,
+    /// Google Calendar events. Own kind so they can be filtered on their own.
+    Calendar,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -98,6 +102,15 @@ fn validate_range(range: &ScheduleRange) -> Result<(Date, Date), AppError> {
         )));
     }
     Ok((from_date, to_date))
+}
+
+/// Day boundaries in epoch ms, for cache queries that compare timestamps
+/// rather than the local date strings the schedule renders.
+pub fn range_bounds(range: &ScheduleRange, tz: &TimeZone) -> Result<(i64, i64), AppError> {
+    let (from, to) = validate_range(range)?;
+    let (from_ms, _) = time::date_bounds(from, tz)?;
+    let (_, to_ms) = time::date_bounds(to, tz)?;
+    Ok((from_ms, to_ms))
 }
 
 struct TaskRow {
@@ -270,6 +283,10 @@ pub fn schedule(
             .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
             .then_with(|| a.project_id.cmp(&b.project_id))
     });
+
+    // Google Calendar events, read-only: cached locally, never written back.
+    // Locally created tasks above stay authoritative.
+    items.extend(crate::calendar::items(conn, range, tz)?);
 
     items.sort_by(|a, b| {
         a.due_date

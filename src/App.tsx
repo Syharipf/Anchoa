@@ -3,6 +3,8 @@ import { api, errorMessage, onSyncChanged, type DbStatus, type NotifyPrefs, type
 import { AssistantMini } from "./assistant/AssistantMini";
 import type { AssistantRequest, OpenAssistant } from "./assistant/useAssistantRequest";
 import { LockScreen } from "./security/LockScreen";
+import { LoginScreen } from "./security/LoginScreen";
+import { OnboardingFlow } from "./onboarding/OnboardingFlow";
 import { Dashboard } from "./dashboard/Dashboard";
 import { useDashboard } from "./dashboard/useDashboard";
 import { FilesPage, type FileClipboard } from "./files/FilesPage";
@@ -46,6 +48,9 @@ export function App() {
   const [notifyPrefs, setNotifyPrefs] = useState<NotifyPrefs | undefined>(undefined);
   const [assistantDataVersion, setAssistantDataVersion] = useState(0);
   const [security, setSecurity] = useState<SecurityStatus | null>(null);
+  /** null while the first-run flag is still loading. */
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [entryPhase, setEntryPhase] = useState<"login" | "onboarding" | "done" | null>(null);
   const intents = useRef(0);
   const onGithubChanged = useCallback(() => setContributionsVersion((v) => v + 1), []);
   const onSectionChange = useCallback((section: SettingsSection) => {
@@ -86,9 +91,18 @@ export function App() {
       if (s.backupError) toast(`Backup harian gagal: ${s.backupError}`, "error");
     });
     api.securityStatus().then(setSecurity).catch(() => {
-      setSecurity({ pinEnabled: true, locked: true });
+      setSecurity({ pinEnabled: true, passwordEnabled: false, locked: true });
     });
   }, [toast]);
+
+  // First run only: a completed flag means the user already saw login and onboarding.
+  useEffect(() => {
+    try {
+      api.onboardingStatus().then(setOnboarded).catch(() => {});
+    } catch {
+      // ponytail: tests and the browser preview have no Tauri runtime; treat that as "already onboarded".
+    }
+  }, []);
 
   useEffect(() => {
     if (ready) reloadPrefs();
@@ -156,15 +170,40 @@ export function App() {
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
   const newTransaction = () => setStack([{ name: "keuangan", intent: ++intents.current }]);
 
+  const needsEntry = onboarded === false && entryPhase !== "done";
+
   if (!status) return null;
   if (status.error) return <ErrorScreen path={status.path} message={status.error} />;
   if (security === null) return null;
+
+  if (needsEntry) {
+    if (entryPhase === "onboarding") {
+      return (
+        <OnboardingFlow
+          onComplete={() => {
+            setEntryPhase("done");
+            setOnboarded(true);
+          }}
+        />
+      );
+    }
+    return (
+      <LoginScreen
+        onSignedIn={() => setEntryPhase("onboarding")}
+        onSkip={() => setEntryPhase("onboarding")}
+      />
+    );
+  }
+
   if (security.locked) {
     return (
       <LockScreen
+        status={security}
         onUnlocked={() => {
           setSecurity((prev) =>
-            prev ? { ...prev, locked: false } : { pinEnabled: true, locked: false },
+            prev
+              ? { ...prev, locked: false }
+              : { pinEnabled: true, passwordEnabled: false, locked: false },
           );
         }}
       />

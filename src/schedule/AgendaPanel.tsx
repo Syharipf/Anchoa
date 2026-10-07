@@ -5,6 +5,7 @@ import {
   agendaTitle,
   isBillDone,
   KIND_COLORS,
+  READ_ONLY_HINT,
 } from "./layout";
 
 function ItemCheckbox({
@@ -78,9 +79,11 @@ export function AgendaRow({
   };
 
   const isNext = variant === "next";
+  const readOnly = item.source === "calendar";
   const titleClass = `truncate text-[13px] ${
     item.status === "done" ? "text-done line-through" : "text-ink"
   }`;
+  const subtitle = readOnly ? READ_ONLY_HINT : item.groupName;
 
   return (
     <div className={rowContainerClass(variant)}>
@@ -95,29 +98,42 @@ export function AgendaRow({
       />
       {isNext ? (
         <>
-          <button
-            type="button"
-            onClick={handleClick}
-            className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
-          >
-            <span className={titleClass}>{item.title}</span>
-          </button>
+          {readOnly ? (
+            <span title={READ_ONLY_HINT} className="flex min-w-0 flex-1 items-center gap-2">
+              <span className={titleClass}>{item.title}</span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+            >
+              <span className={titleClass}>{item.title}</span>
+            </button>
+          )}
           <span className="shrink-0 text-[11px] text-muted">
-            {item.groupName}
+            {subtitle}
           </span>
         </>
       ) : (
         <>
-          <button
-            type="button"
-            onClick={handleClick}
-            className="flex min-w-0 flex-1 flex-col text-left cursor-pointer"
-          >
-            <span className={titleClass}>{item.title}</span>
-            <span className="truncate text-[11px] text-muted">
-              {item.groupName}
+          {readOnly ? (
+            <span title={READ_ONLY_HINT} className="flex min-w-0 flex-1 flex-col">
+              <span className={titleClass}>{item.title}</span>
+              <span className="truncate text-[11px] text-muted">{subtitle}</span>
             </span>
-          </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="flex min-w-0 flex-1 flex-col text-left cursor-pointer"
+            >
+              <span className={titleClass}>{item.title}</span>
+              <span className="truncate text-[11px] text-muted">
+                {subtitle}
+              </span>
+            </button>
+          )}
           {variant === "late" && (
             <span className="shrink-0 font-mono text-[11px] text-danger">
               {formatLateDate(item.dueDate)}

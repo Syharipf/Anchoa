@@ -1,5 +1,5 @@
 // Helper functions and metadata for the profile page.
-import type { NotifyPrefs, ProfileStats } from "../api";
+import type { NotifyDelivery, NotifyPrefs, NotifyStatus, ProfileStats } from "../api";
 
 export function profileInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
@@ -64,3 +64,19 @@ export const NOTIFY_PREF_OPTIONS: readonly NotifyPrefOption[] = [
     description: "Pengingat menulis jurnal harian",
   },
 ] as const;
+
+export const OS_PERMISSION_LABEL: Readonly<Record<NotifyStatus["permission"], string>> = {
+  granted: "Notifikasi sistem: aktif",
+  denied: "Notifikasi sistem: ditolak",
+  prompt: "Notifikasi sistem: belum diizinkan",
+};
+
+export const DELIVERY_STATE_LABEL: Readonly<Record<NotifyDelivery["state"], string>> = {
+  shown: "Terkirim",
+  denied: "Ditolak sistem",
+  failed: "Gagal dikirim",
+  skipped: "Dilewati, kategori mati",
+};
+
+/** Rows of the delivery log shown under the notification switches. */
+export const RECENT_DELIVERIES_SHOWN = 5;

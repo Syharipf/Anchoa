@@ -3,6 +3,7 @@ import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import {
   api,
   errorMessage,
+  onCalendarUpdated,
   type ItemKind,
   type Schedule,
   type ScheduleItem,
@@ -21,6 +22,7 @@ import {
   timelineWindow,
   visible,
 } from "./layout";
+import { ScheduleAddForm } from "./ScheduleAddForm";
 import { ScheduleHeader } from "./ScheduleHeader";
 import { TimelineView } from "./TimelineView";
 
@@ -33,7 +35,7 @@ function loadOff(): Set<ItemKind> {
         return new Set(
           arr.filter(
             (k): k is ItemKind =>
-              k === "project" || k === "bill" || k === "personal",
+              k === "project" || k === "bill" || k === "personal" || k === "calendar",
           ),
         );
       }
@@ -73,6 +75,7 @@ export function SchedulePage({
   const [off, setOff] = useState<Set<ItemKind>>(() => loadOff());
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [version, setVersion] = useState(0);
+  const [adding, setAdding] = useState(false);
 
   const today = schedule?.today ?? msToDateInput(Date.now());
   const grid = useMemo(() => monthGrid(month), [month]);
@@ -100,6 +103,21 @@ export function SchedulePage({
       active = false;
     };
   }, [from, to, version, toast]);
+
+  // The schedule command answers from the Google Kalender cache and pulls in
+  // the background when it is stale; reload once fresh events are stored.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let active = true;
+    onCalendarUpdated(() => setVersion((v) => v + 1)).then(
+      (stop) => (active ? (unlisten = stop) : stop()),
+      () => {},
+    );
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
 
   function handleToggleKind(kind: ItemKind) {
     setOff((prev) => {
@@ -175,6 +193,7 @@ export function SchedulePage({
     project: 0,
     bill: 0,
     personal: 0,
+    calendar: 0,
   };
   if (schedule) {
     for (const item of schedule.items) {
@@ -197,7 +216,19 @@ export function SchedulePage({
         off={off}
         onToggleKind={handleToggleKind}
         counts={counts}
+        onAdd={() => setAdding(true)}
       />
+      {adding && (
+        <ScheduleAddForm
+          defaultDate={selectedDate || today}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            setVersion((v) => v + 1);
+            onChanged();
+          }}
+        />
+      )}
 
       {view === "calendar" && (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_300px] items-start gap-[18px]">

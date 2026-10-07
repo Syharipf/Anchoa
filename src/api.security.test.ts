@@ -10,7 +10,7 @@ describe("Security API wrappers", () => {
   });
 
   it("calls security_status command via invoke", async () => {
-    const expected: SecurityStatus = { pinEnabled: true, locked: true };
+    const expected: SecurityStatus = { pinEnabled: true, passwordEnabled: false, locked: true };
     const spy = spyOn(core, "invoke").mockResolvedValueOnce(expected);
     const result = await api.securityStatus();
     expect(spy).toHaveBeenCalledWith("security_status");

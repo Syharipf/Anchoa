@@ -12,11 +12,13 @@ import {
 import { School } from "../assistant/School";
 import { AnchoaPet } from "../pet/AnchoaPet";
 import { PinDialog } from "../security/PinDialog";
+import { PasswordDialog, type PasswordFormMode } from "../security/PasswordDialog";
 import type { PinFormMode } from "../security/PinFields";
 import { connectionLabel } from "../email/view";
 import { syncLabel, type SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
 import { FIELD, H1, H2, PANEL } from "../shell/ui";
+import { OsNotifyStatus } from "./OsNotifyStatus";
 import {
   formatSince,
   NOTIFY_PREF_OPTIONS,
@@ -55,6 +57,7 @@ export function ProfilePage({
   const [security, setSecurity] = useState<SecurityStatus | null>(null);
   const [securityError, setSecurityError] = useState<string | null>(null);
   const [pinDialog, setPinDialog] = useState<PinFormMode | null>(null);
+  const [passwordDialog, setPasswordDialog] = useState<PasswordFormMode | null>(null);
 
   const loadSecurityStatus = useCallback(() => {
     api
@@ -324,6 +327,52 @@ export function ProfilePage({
                     </button>
                   </div>
                 )}
+
+                <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
+                  <div className="flex min-w-0 flex-col">
+                    <span id="lbl-security-password" className="text-sm text-ink">
+                      Kata sandi alternatif
+                    </span>
+                    <span className="text-xs text-muted">
+                      Bisa dipakai untuk membuka aplikasi selain PIN
+                    </span>
+                  </div>
+                  {security?.passwordEnabled ? (
+                    <button
+                      type="button"
+                      onClick={() => setPasswordDialog("change")}
+                      className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+                    >
+                      Ganti kata sandi
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPasswordDialog("create")}
+                      className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+                    >
+                      Buat kata sandi
+                    </button>
+                  )}
+                </div>
+
+                {security?.passwordEnabled && (
+                  <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-sm text-ink">Kata sandi aktif</span>
+                      <span className="text-xs text-muted">
+                        Mematikan butuh kata sandi atau PIN
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPasswordDialog("disable")}
+                      className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-danger transition-colors hover:bg-surface-2"
+                    >
+                      Matikan
+                    </button>
+                  </div>
+                )}
               </>
             )}
 
@@ -490,6 +539,8 @@ export function ProfilePage({
               </div>
             ))}
 
+            <OsNotifyStatus />
+
             <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-ink">Jam tenang</span>
@@ -513,16 +564,39 @@ export function ProfilePage({
             setPinDialog(null);
             if (finishedMode === "create") {
               setSecurity((prev) =>
-                prev ? { ...prev, pinEnabled: true } : { pinEnabled: true, locked: false },
+                prev ? { ...prev, pinEnabled: true } : { pinEnabled: true, passwordEnabled: false, locked: false },
               );
               toast("Kunci PIN berhasil diaktifkan", "info");
             } else if (finishedMode === "disable") {
               setSecurity((prev) =>
-                prev ? { ...prev, pinEnabled: false } : { pinEnabled: false, locked: false },
+                prev ? { ...prev, pinEnabled: false } : { pinEnabled: false, passwordEnabled: false, locked: false },
               );
               toast("Kunci PIN dinonaktifkan", "info");
             } else if (finishedMode === "change") {
               toast("PIN berhasil diubah", "info");
+            }
+          }}
+        />
+      )}
+      {passwordDialog && (
+        <PasswordDialog
+          mode={passwordDialog}
+          onClose={() => setPasswordDialog(null)}
+          onSuccess={() => {
+            const finishedMode = passwordDialog;
+            setPasswordDialog(null);
+            if (finishedMode === "create") {
+              setSecurity((prev) =>
+                prev
+                  ? { ...prev, passwordEnabled: true }
+                  : { pinEnabled: false, passwordEnabled: true, locked: false },
+              );
+              toast("Kata sandi berhasil dibuat", "info");
+            } else if (finishedMode === "disable") {
+              setSecurity((prev) => (prev ? { ...prev, passwordEnabled: false } : prev));
+              toast("Kata sandi dinonaktifkan", "info");
+            } else {
+              toast("Kata sandi berhasil diubah", "info");
             }
           }}
         />

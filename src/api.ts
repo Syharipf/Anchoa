@@ -346,6 +346,8 @@ export interface NewTask {
   projectId?: string | null;
   parentId?: string | null;
   status: TaskStatus;
+  /** Epoch ms UTC, local midnight of the picked day. */
+  dueAt?: number | null;
 }
 
 export interface TaskPatch {
@@ -539,8 +541,25 @@ export interface NotifyPrefs {
   journalAt: string;
 }
 
+/** One row of the OS delivery log; `state` is `shown`, `denied`, `failed` or `skipped`. */
+export interface NotifyDelivery {
+  at: number;
+  id: string;
+  title: string;
+  state: "shown" | "denied" | "failed" | "skipped";
+  reason: string | null;
+}
+
+/** OS notification bridge: permission, why nothing shows, recent deliveries (newest first). */
+export interface NotifyStatus {
+  permission: "granted" | "denied" | "prompt";
+  reason: string | null;
+  recent: NotifyDelivery[];
+}
+
 export interface SecurityStatus {
   pinEnabled: boolean;
+  passwordEnabled: boolean;
   locked: boolean;
 }
 
@@ -599,8 +618,9 @@ export interface Contributions {
 
 export type FolderKind = "data" | "backup" | "log";
 
-export type ItemSource = "task" | "bill";
-export type ItemKind = "project" | "bill" | "personal";
+/** "calendar" items are pulled from Google Kalender: read-only, never checkable or editable here. */
+export type ItemSource = "task" | "bill" | "calendar";
+export type ItemKind = "project" | "bill" | "personal" | "calendar";
 
 export interface ScheduleItem {
   key: string;
@@ -668,6 +688,47 @@ export interface Listing {
   parent: string | null;
   crumbs: Crumb[];
   entries: FileEntry[];
+}
+
+/** Remote storage for the Files sidebar (src-tauri/src/remotes.rs). */
+export interface RemotePlaces {
+  /** True when an `rclone` binary was found on PATH. */
+  available: boolean;
+  version: string | null;
+  /** Configured rclone remotes; paths look like `rclone:name:`. */
+  remotes: Place[];
+  /** Network filesystems already mounted (nfs, cifs, sshfs, fuse.rclone…). */
+  mounts: Place[];
+  /** Install guidance when rclone is missing. */
+  hint: string | null;
+}
+
+/** Per-folder marker and bookmark (src-tauri/src/files_meta.rs). */
+export interface FolderMeta {
+  path: string;
+  emoji: string;
+  /** `#rrggbb` or empty. */
+  color: string;
+  pinned: boolean;
+  updatedAt: number;
+}
+
+/** Empty fields clear that part of the marker. */
+export interface FolderMarker {
+  emoji: string;
+  color: string;
+}
+
+export interface FolderSummary {
+  path: string;
+  folders: number;
+  files: number;
+  totalBytes: number;
+  byKind: { kind: FileKind; count: number; bytes: number }[];
+  largest: { path: string; name: string; bytes: number }[];
+  duplicates: { bytes: number; paths: string[] }[];
+  /** A walk cap was hit, so counts are a lower bound. */
+  truncated: boolean;
 }
 
 export interface PasteRequest {
@@ -970,8 +1031,22 @@ export interface SignOutResult {
   remoteRevoked: boolean;
 }
 
+/** Google Kalender connection (read-only pull). `fetchedAt` is the last successful pull, epoch ms. */
+export interface CalendarStatus {
+  connected: boolean;
+  account: string | null;
+  fetchedAt: number | null;
+  lastError: string | null;
+}
+
+/** Runs the handler after a background pull stored fresh Google Kalender events, so Jadwal can reload. */
+export const onCalendarUpdated = (handler: () => void) => listen("calendar-updated", () => handler());
+
 /** Runs the handler after a sync applied records from other devices, so pages can reload. */
 export const onSyncChanged = (handler: () => void) => listen("sync-changed", () => handler());
+
+/** Runs the handler after the reminder scheduler handed a batch to the OS. */
+export const onNotifyDelivered = (handler: () => void) => listen("notify-os-delivered", () => handler());
 
 export const api = {
   syncStatus: () => invoke<SyncStatus>("sync_status"),
@@ -985,6 +1060,12 @@ export const api = {
     invoke<void>("sync_change_passphrase", { old: oldPassphrase, new: newPassphrase }),
   syncNow: () => invoke<SyncReport>("sync_now"),
   syncSignOut: (deleteCloud: boolean) => invoke<SignOutResult>("sync_sign_out", { deleteCloud }),
+  calendarStatus: () => invoke<CalendarStatus>("calendar_status"),
+  /** Opens the browser and resolves when the grant is stored; rejects after `calendarCancelConnect`. */
+  calendarConnect: () => invoke<CalendarStatus>("calendar_connect"),
+  calendarCancelConnect: () => invoke<void>("calendar_cancel_connect"),
+  calendarDisconnect: () => invoke<CalendarStatus>("calendar_disconnect"),
+  calendarRefresh: () => invoke<CalendarStatus>("calendar_refresh"),
   emailAssist: (id: string) => invoke<EmailAssistance>("email_assist", { id }),
   emailStatus: () => invoke<EmailStatus>("email_status"),
   emailConnect: (address: string, appPassword: string) =>
@@ -1036,6 +1117,7 @@ export const api = {
   aiCustomConfig: () => invoke<CustomAiConfig>("ai_custom_config"),
   saveAiCustom: (name: string, baseUrl: string) => invoke<CustomAiConfig>("save_ai_custom", { name, baseUrl }),
   setAiCustomKey: (key: string) => invoke<CustomAiConfig>("set_ai_custom_key", { key }),
+  aiCustomModels: (baseUrl: string, key: string) => invoke<string[]>("ai_custom_models", { baseUrl, key }),
   deleteAiCustomKey: () => invoke<CustomAiConfig>("delete_ai_custom_key"),
   aiRoles: () => invoke<AiRoles>("ai_roles"),
   setAiRole: (role: AiRole, provider: RoleConfig["provider"], model: string) =>
@@ -1102,6 +1184,8 @@ export const api = {
   setProfileName: (name: string) => invoke<Profile>("set_profile_name", { name }),
   getNotifyPrefs: () => invoke<NotifyPrefs>("get_notify_prefs"),
   setNotifyPrefs: (prefs: NotifyPrefs) => invoke<NotifyPrefs>("set_notify_prefs", { prefs }),
+  notifyStatus: () => invoke<NotifyStatus>("notify_status"),
+  notifyRequestPermission: () => invoke<NotifyStatus>("notify_request_permission"),
   dismissJournalReminder: () => invoke<void>("dismiss_journal_reminder"),
   habitsOverview: () => invoke<HabitsOverview>("habits_overview"),
   habitHistory: (id: string, month: string) =>
@@ -1129,6 +1213,18 @@ export const api = {
   filePlaces: () => invoke<FilePlaces>("file_places"),
   listDir: (path: string, hidden: boolean) =>
     invoke<Listing>("list_dir", { path, hidden }),
+  fileRemotes: () => invoke<RemotePlaces>("file_remotes"),
+  listRemote: (path: string, hidden: boolean) =>
+    invoke<Listing>("list_remote", { path, hidden }),
+  folderMetaList: () => invoke<FolderMeta[]>("folder_meta_list"),
+  folderMetaSet: (path: string, marker: FolderMarker) =>
+    invoke<FolderMeta>("folder_meta_set", { path, marker }),
+  folderMetaPin: (path: string, pinned: boolean) =>
+    invoke<FolderMeta>("folder_meta_pin", { path, pinned }),
+  folderMetaClear: (path: string) =>
+    invoke<FolderMeta | null>("folder_meta_clear", { path }),
+  folderSummary: (path: string) =>
+    invoke<FolderSummary>("folder_summary", { path }),
   readText: (path: string) => invoke<TextPreview>("read_text", { path }),
   pasteItems: (req: PasteRequest) =>
     invoke<OpReport>("paste_items", { req }),
@@ -1179,12 +1275,29 @@ export const api = {
   setPin: (oldPin: string | null | undefined, newPin: string) =>
     invoke<void>("set_pin", { old: oldPin ?? null, new: newPin }),
   disablePin: (pin: string) => invoke<void>("disable_pin", { pin }),
+  unlockPassword: (password: string) => invoke<void>("unlock_password", { password }),
+  /** Removing accepts either factor: the password itself or the PIN. */
+  setPassword: (oldPassword: string | null | undefined, newPassword: string) =>
+    invoke<void>("set_password", { old: oldPassword ?? null, new: newPassword }),
+  disablePassword: (secret: string) => invoke<void>("disable_password", { secret }),
+  onboardingStatus: () => invoke<boolean>("onboarding_status"),
+  completeOnboarding: () => invoke<void>("complete_onboarding"),
+  financeRecapPdf: (dir: string, kind: "monthly" | "yearly", period: string) =>
+    invoke<string>("finance_recap_pdf", { dir, kind, period }),
 };
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */
+function hasTauriBridge(): boolean {
+  if (typeof window === "undefined") return false;
+  const win: unknown = window;
+  if (typeof win !== "object" || win === null || !("__TAURI_INTERNALS__" in win)) return false;
+  const internals = win.__TAURI_INTERNALS__;
+  return typeof internals === "object" && internals !== null && "convertFileSrc" in internals;
+}
+
 export function assetUrl(path: string): string {
   // Component tests render to static markup without the Tauri runtime.
-  if (typeof window === "undefined") {
+  if (!hasTauriBridge()) {
     return `asset://localhost/${encodeURIComponent(path)}`;
   }
   return convertFileSrc(path);

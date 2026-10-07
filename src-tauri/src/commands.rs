@@ -153,7 +153,7 @@ pub fn agent_launch_task(
         &crate::activities::NewActivity {
             task_id: Some(task_id.clone()),
             project_id: project_id.clone(),
-            actor: "user".into(),
+            actor: "Kamu".into(),
             role: crate::activities::Role::Request,
             kind: crate::activities::Kind::Message,
             title: task_card.title.clone(),
@@ -161,9 +161,7 @@ pub fn agent_launch_task(
         },
         now,
     );
-    if task_card.status == tasks::TaskStatus::Plan {
-        let _ = tasks::update_task(&conn, &task_id, &tasks::TaskPatch { status: Some(tasks::TaskStatus::Doing), ..Default::default() }, now, &tz);
-    }
+    // AgentRunner::start moves Planned cards to Doing and logs it; one owner only.
     runner.start(&app, &project_id, &task_id, &task_card.title)?;
     Ok(())
 }
@@ -436,9 +434,15 @@ pub async fn check_update(app: AppHandle) -> Result<UpdateCheck, AppError> {
         .map_err(blocking_error)?
 }
 
+/// Answers from the cache; a stale Google Kalender cache is refreshed in the
+/// background (see `calendar::refresh_in_background`).
 #[tauri::command]
-pub fn schedule(db: State<'_, Db>, range: ScheduleRange) -> Result<Schedule, AppError> {
-    schedule::schedule(&*db.conn()?, &range, time::now_ms(), &TimeZone::system())
+pub fn schedule(app: AppHandle, db: State<'_, Db>, range: ScheduleRange) -> Result<Schedule, AppError> {
+    let now = time::now_ms();
+    let conn = db.conn()?;
+    let view = schedule::schedule(&conn, &range, now, &TimeZone::system())?;
+    crate::calendar::refresh_in_background(&app, &conn, &range, now);
+    Ok(view)
 }
 
 #[tauri::command]
@@ -601,7 +605,7 @@ pub fn journal_export(db: State<'_, Db>, dir: String, ids: Option<Vec<String>>) 
     journal::journal_export(&*db.conn()?, Path::new(&dir), ids, time::now_ms(), &TimeZone::system())
 }
 
-fn current_user_and_roots(app: &AppHandle) -> Result<(String, files::Roots, Vec<files::Place>), AppError> {
+pub(crate) fn current_user_and_roots(app: &AppHandle) -> Result<(String, files::Roots, Vec<files::Place>), AppError> {
     let home = app.path().home_dir()?;
     let user = std::env::var("USER").unwrap_or_else(|_| {
         home.file_name()
@@ -679,6 +683,53 @@ pub fn open_file(app: AppHandle, path: String) -> Result<(), AppError> {
     app.opener()
         .open_path(canonical.to_string_lossy(), None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn rename_entry(
+    app: AppHandle,
+    path: String,
+    new_name: String,
+    hidden: bool,
+) -> Result<files::Listing, AppError> {
+    let (_user, roots, _) = current_user_and_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || files::rename_entry(&path, &new_name, hidden, &roots))
+        .await
+        .map_err(blocking_error)?
+}
+
+#[tauri::command]
+pub async fn create_dir(
+    app: AppHandle,
+    parent: String,
+    name: String,
+    hidden: bool,
+) -> Result<files::Listing, AppError> {
+    let (_user, roots, _) = current_user_and_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || files::create_dir(&parent, &name, hidden, &roots))
+        .await
+        .map_err(blocking_error)?
+}
+
+#[tauri::command]
+pub async fn trash_list() -> Result<Vec<files::TrashItem>, AppError> {
+    tauri::async_runtime::spawn_blocking(files::trash_list)
+        .await
+        .map_err(blocking_error)?
+}
+
+#[tauri::command]
+pub async fn trash_restore(paths: Vec<String>) -> Result<files::OpReport, AppError> {
+    tauri::async_runtime::spawn_blocking(move || files::trash_restore(&paths))
+        .await
+        .map_err(blocking_error)?
+}
+
+#[tauri::command]
+pub async fn empty_trash() -> Result<files::OpReport, AppError> {
+    tauri::async_runtime::spawn_blocking(files::empty_trash)
+        .await
+        .map_err(blocking_error)?
 }
 
 #[derive(Debug, Clone, Serialize)]

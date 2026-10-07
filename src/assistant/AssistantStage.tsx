@@ -54,14 +54,15 @@ export function AssistantStage({
       aria-label="Asisten suara"
       className="flex min-h-0 flex-1 flex-col gap-3 px-5 pt-4 pb-[18px]"
     >
-      <div className="relative flex min-h-[220px] flex-1 items-end justify-center overflow-hidden rounded-[18px] border border-line bg-stage">
-        <LautAko paused={!running && mode === "idle"} />
+      {/* ponytail: fixed 120px reserve for the caption card; streaming captions taller than that can graze Ako's feet — measure the card and set a CSS var if it matters. */}
+      <div className="relative flex min-h-[220px] flex-1 items-center justify-center overflow-hidden rounded-[18px] border border-line bg-stage pb-[120px]">
+        <LautAko paused={!visible} />
         <AnchoaPet
           status={petStatus}
           size={240}
           shadow={false}
-          paused={!running && mode === "idle"}
-          className="relative z-10 -mb-2"
+          paused={!visible}
+          className="relative z-10"
         />
 
         <div className="absolute top-3 left-3 z-20 flex items-center gap-2 rounded-full border border-line bg-sidebar px-2.5 py-[5px] text-xs">

@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage, type EmailFilter, type EmailFolder, type EmailMessage, type EmailStatus } from "../api";
+import { usePageVisible } from "../assistant/usePageVisible";
 import { H1, HEADER_PRIMARY, HEADER_SECONDARY, SECONDARY } from "../shell/ui";
 import { ComposeDialog } from "./ComposeDialog";
 import { ConnectionForm } from "./ConnectionForm";
 import { EmailList } from "./EmailList";
 import { ReadingPane } from "./ReadingPane";
 import { EMAIL_LABELS, FOLDERS } from "./view";
+
+/**
+ * Background re-sync cadence while the page is visible and the account is connected.
+ * ponytail: matches the vault sync scheduler (sync/commands.rs FOCUSED_INTERVAL 60s,
+ * BACKGROUND_INTERVAL 300s) but stays slower than the 60s focused tick because each
+ * tick is an IMAP round trip. Raise it before lowering it.
+ */
+export const EMAIL_SYNC_INTERVAL = 120_000;
 
 export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?: () => void; onOpenAssistant?: (req: { kind: "voice" }) => void }>) {
   const [status, setStatus] = useState<EmailStatus | null>(null);
@@ -27,6 +36,7 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
   const actionPending = useRef(false);
   const query = useRef({ folder, filter });
   query.current = { folder, filter };
+  const visible = usePageVisible();
   const connected = status?.connected === true;
 
   const loadStatus = useCallback(async () => {
@@ -85,6 +95,15 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
 
   useEffect(() => { if (connected) void sync(); }, [connected, sync]);
   useEffect(() => { if (connected) void loadList(); }, [connected, folder, filter, loadList]);
+
+  // Background re-sync: only while the page is visible and an account is connected.
+  // `sync()` already skips a tick while one is in flight (syncPending guard) and
+  // re-runs on state changes; manual "Sinkronkan" stays the immediate path.
+  useEffect(() => {
+    if (!connected || !visible) return;
+    const timer = window.setInterval(() => void sync(), EMAIL_SYNC_INTERVAL);
+    return () => window.clearInterval(timer);
+  }, [connected, visible, sync]);
 
   function selectFolder(next: EmailFolder) {
     if (next === folder) return;

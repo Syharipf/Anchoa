@@ -362,6 +362,7 @@ export function ProjectsPage({
                   columns={board.columns}
                   agent={agentProject !== null}
                   lastActors={lastActors}
+                  repoUrl={board.project?.repoUrl ?? null}
                   onOpenItem={handleOpenCard}
                   onMoveCard={handleMoveCard}
                   onDropCard={handleDropCard}

@@ -15,6 +15,7 @@ import { FIELD, H2, PRIMARY } from "../shell/ui";
 import { AgentRequest } from "./AgentRequest";
 import {
   ACTIVITY_FILTERS,
+  actorInitials,
   AGENT_CLI_SNIPPET,
   connectedAgents,
   filterActivities,
@@ -421,6 +422,7 @@ export function AgentTab({
   const [activities, setActivities] = useState<Activity[]>([]);
   const [connectOpen, setConnectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   // Kept outside the component so switching to Kanban and back does not reset the duration.
   if (running && !runStarts.has(project.id)) runStarts.set(project.id, Date.now());
@@ -475,15 +477,49 @@ export function AgentTab({
     }
   }
 
+  async function handleUnlink() {
+    if (!unlinkConfirm) {
+      setUnlinkConfirm(true);
+      return;
+    }
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (running) await api.agentStop(project.id);
+      await api.saveProject({
+        id: project.id,
+        name: project.name,
+        kind: project.kind,
+        description: project.description,
+        deadlineAt: project.deadlineAt,
+        repoUrl: project.repoUrl,
+        agent: true,
+        agentDir: null,
+        agentCommand: null,
+      });
+      setUnlinkConfirm(false);
+      toast("Tautan agen dilepas");
+    } catch (error) {
+      toast(errorMessage(error), "error");
+    } finally {
+      setBusy(false);
+      onRefresh();
+    }
+  }
+
   const mins = startTime ? Math.floor((now - startTime) / 60000) : 0;
+  const filtered = useMemo(() => filterActivities(activities, filter), [activities, filter]);
+  const agents = useMemo(() => connectedAgents(activities), [activities]);
+  // The runner has one linked agent per project; its display name comes from the newest reporter.
+  const agentName = agents[0]?.name ?? project.name;
+  const lastReporter = agents[0] ?? null;
   const runningText = running
     ? mins > 0
       ? `Agen sedang bekerja · ${mins} mnt`
       : "Agen sedang bekerja"
-    : "Agen tidak berjalan";
-
-  const filtered = useMemo(() => filterActivities(activities, filter), [activities, filter]);
-  const agents = useMemo(() => connectedAgents(activities), [activities]);
+    : lastReporter
+      ? `Agen tidak berjalan · terakhir ${lastReporter.name} ${relativeTime(lastReporter.lastActiveAt, now)}`
+      : "Agen tidak berjalan";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5">
@@ -581,34 +617,70 @@ export function AgentTab({
 
           <section aria-labelledby="ag-conn-title" className="flex shrink-0 flex-col gap-3 rounded-[14px] border border-line bg-surface p-4">
             <h2 id="ag-conn-title" className={H2}>Agen terhubung</h2>
-            {agents.length === 0 ? (
-              <p className="m-0 py-2 text-xs text-muted">Belum ada agen yang melapor.</p>
-            ) : (
-              <div className="flex flex-col">
-                {agents.map((agent) => (
-                  <div key={agent.name} className="flex items-center gap-3 py-2 border-t border-line first:border-0">
-                    <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-surface-2 font-mono text-xs font-semibold text-ink">
-                      {agent.initials}
-                    </span>
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[13px] font-medium text-ink">{agent.name}</span>
-                      <span className="text-[11px] text-muted">aktif {relativeTime(agent.lastActiveAt, now)}</span>
-                    </div>
-                    <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent" : "bg-disabled"}`} />
-                  </div>
-                ))}
+            {project.agentCommand ? (
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-surface-2 font-mono text-xs font-semibold text-ink">
+                  {actorInitials(agentName)}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] font-medium text-ink">{agentName}</span>
+                  <span className="truncate text-[11px] text-muted" title={project.agentDir ?? undefined}>
+                    {project.agentDir ? "Runner + CLI · bisa menerima perintah" : "Runner belum punya folder kerja"}
+                  </span>
+                </div>
+                <span role="status" aria-live="polite" className="shrink-0 text-[11px] text-muted">
+                  {running ? "berjalan" : "menganggur"}
+                </span>
+                <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? "bg-accent" : "bg-disabled"}`} />
               </div>
+            ) : (
+              <p className="m-0 py-2 text-xs text-muted">Belum ada agen terhubung.</p>
             )}
-            <button
-              type="button"
-              onClick={() => setConnectOpen(true)}
-              className="mt-1 flex items-center gap-1.5 self-start rounded-[9px] border border-done bg-transparent px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Hubungkan agen
-            </button>
+            {agents.map((agent) => (
+              <div key={agent.name} className="flex items-center gap-3 border-t border-line pt-3">
+                <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-surface-2 font-mono text-xs font-semibold text-ink">
+                  {agent.initials}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] font-medium text-ink">{agent.name}</span>
+                  <span className="text-[11px] text-muted">aktif {relativeTime(agent.lastActiveAt, now)}</span>
+                </div>
+                <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? "bg-accent" : "bg-disabled"}`} />
+              </div>
+            ))}
+            {unlinkConfirm ? (
+              <div role="group" aria-label="Konfirmasi lepas agen" className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                <span className="text-[11px] text-muted">
+                  {running ? "Agen dihentikan dan tautan dilepas?" : "Lepas tautan agen?"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleUnlink}
+                  disabled={busy}
+                  className="rounded-[9px] border border-danger/60 bg-transparent px-2.5 py-1 text-[11px] font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+                >
+                  {busy ? "Melepas…" : "Ya, lepas"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUnlinkConfirm(false)}
+                  className="rounded-[9px] border border-line bg-transparent px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:text-ink"
+                >
+                  Batal
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => (project.agentCommand ? handleUnlink() : setConnectOpen(true))}
+                className="mt-1 flex items-center gap-1.5 self-start rounded-[9px] border border-done bg-transparent px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {project.agentCommand ? <path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" /> : <path d="M12 5v14M5 12h14" />}
+                </svg>
+                {project.agentCommand ? "Lepas agen" : "Hubungkan agen"}
+              </button>
+            )}
           </section>
         </div>
       </div>

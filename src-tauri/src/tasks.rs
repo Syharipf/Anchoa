@@ -79,6 +79,8 @@ pub struct NewTask {
     pub project_id: Option<String>,
     pub parent_id: Option<String>,
     pub status: TaskStatus,
+    #[serde(default)]
+    pub due_at: Option<i64>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -234,6 +236,14 @@ pub(crate) fn create_task_in_transaction(
         params![id, TaskStatus::Plan, effective_project_id],
     )?;
     apply_status(conn, &id, input.status, now)?;
+    if let Some(due) = input.due_at {
+        items::update(
+            conn,
+            &id,
+            &items::ItemPatch { due_at: Some(Some(due)), ..Default::default() },
+            now,
+        )?;
+    }
 
     card_query(conn, "i.id = ?1", [&id], now, tz)?
         .into_iter()
@@ -556,6 +566,28 @@ mod tests {
     }
 
     #[test]
+    fn create_task_stores_due_date() {
+        let conn = open_in_memory();
+        let due = now() + 86_400_000;
+        let card = create_task(
+            &conn,
+            &NewTask { title: "  Tugas  ".into(), due_at: Some(due), ..Default::default() },
+            now(),
+            &jakarta(),
+        )
+        .unwrap();
+        assert_eq!(card.title, "Tugas");
+        assert_eq!(card.due_at, Some(due));
+    }
+
+    #[test]
+    fn create_task_rejects_empty_title_even_with_due_date() {
+        let conn = open_in_memory();
+        let input = NewTask { title: "   ".into(), due_at: Some(now()), ..Default::default() };
+        assert!(matches!(create_task(&conn, &input, now(), &jakarta()), Err(AppError::Invalid(_))));
+    }
+
+    #[test]
     fn status_and_completed_at_stay_in_sync() {
         let conn = open_in_memory();
         let card = create_task(
@@ -644,6 +676,7 @@ mod tests {
                 parent_id: Some(parent.id.clone()),
                 project_id: Some(proj2.clone()),
                 status: TaskStatus::Done,
+                due_at: None,
             },
             now(),
             &jakarta(),
@@ -658,6 +691,7 @@ mod tests {
                 parent_id: Some(parent.id.clone()),
                 project_id: None,
                 status: TaskStatus::Plan,
+                due_at: None,
             },
             now(),
             &jakarta(),

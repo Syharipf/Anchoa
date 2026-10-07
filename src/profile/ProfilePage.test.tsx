@@ -305,7 +305,7 @@ describe("ProfilePage", () => {
   it("handles enabling PIN flow via switch and Buat PIN dialog", async () => {
     getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
     githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
-    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, passwordEnabled: false, locked: false });
     setPinSpy = spyOn(api, "setPin").mockResolvedValue(undefined);
 
     harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
@@ -343,7 +343,7 @@ describe("ProfilePage", () => {
   it("handles changing PIN flow via Ganti PIN button and dialog", async () => {
     getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
     githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
-    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, locked: false });
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, passwordEnabled: false, locked: false });
 
     harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
     await harness.settle();
@@ -371,7 +371,7 @@ describe("ProfilePage", () => {
   it("handles disabling PIN flow via switch and Matikan PIN dialog", async () => {
     getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
     githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
-    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, locked: false });
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, passwordEnabled: false, locked: false });
 
     harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
     await harness.settle();
@@ -408,7 +408,7 @@ describe("ProfilePage", () => {
   it("shows neutral availability for encryption, calendar import and quiet hours", async () => {
     getProfileSpy = spyOn(api, "getProfile").mockResolvedValue(sampleProfile);
     githubStatusSpy = spyOn(api, "githubStatus").mockResolvedValue(sampleGithub);
-    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
+    securityStatusSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, passwordEnabled: false, locked: false });
 
     harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
     await harness.settle();
@@ -464,7 +464,7 @@ describe("ProfilePage", () => {
     expect(dialog).toBeUndefined();
 
     // Retry button works when securityStatus succeeds
-    securityStatusSpy.mockResolvedValueOnce({ pinEnabled: false, locked: false });
+    securityStatusSpy.mockResolvedValueOnce({ pinEnabled: false, passwordEnabled: false, locked: false });
     const retryBtn = elements(alert!).find(
       (el) => el.type === "button" && el.props.children === "Coba lagi",
     );

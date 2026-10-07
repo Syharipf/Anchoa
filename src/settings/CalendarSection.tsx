@@ -65,6 +65,14 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
           {status.fetchedAt !== null && (
             <p className="m-0 text-xs text-muted">{`Diperbarui ${relativeTime(status.fetchedAt, Date.now())}`}</p>
           )}
+          {status.readOnly && (
+            <div className="flex flex-col items-start gap-1">
+              <p className="m-0 text-xs text-muted">Sambungkan ulang untuk sinkron dua arah</p>
+              <button type="button" disabled={busy} onClick={connect} className={PRIMARY}>
+                Sambungkan ulang untuk sinkron dua arah
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
             <button type="button" disabled={busy} onClick={() => void run(api.calendarRefresh)} className={SECONDARY}>
               {busy ? "Memuat…" : "Muat ulang"}
@@ -78,7 +86,7 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
       <>
         <button type="button" disabled={busy} onClick={connect} className={PRIMARY}>Sambungkan Google Kalender</button>
         <p className="m-0 text-xs text-muted">
-          Acara kalender utama tampil di Jadwal. Anchoa hanya membaca; tidak ada yang ditulis balik ke Google.
+          Acara kalender utama dan tugas Anchoa terhubung dengan sinkron dua arah.
         </p>
       </>
     );
@@ -89,7 +97,9 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
     <section className={`${PANEL} flex flex-col items-start gap-3`}>
       <div className="flex items-center gap-2">
         <h2 className={H2}>Google Kalender</h2>
-        <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">Hanya baca</span>
+        {status?.readOnly && (
+          <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">Hanya baca</span>
+        )}
       </div>
       {body()}
       {shownError && <p role="alert" className="m-0 text-sm text-danger">{shownError}</p>}

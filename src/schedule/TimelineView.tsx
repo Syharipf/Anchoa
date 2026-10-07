@@ -22,12 +22,16 @@ export function TimelineGroup({
   today,
   onOpenItem,
   onOpenFinance,
+  onOpenCalendarEvent,
+  calendarReadOnly = false,
 }: Readonly<{
   group: TimelineGroupModel;
   window: { from: string; to: string; days: string[] };
   today: string;
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
+  onOpenCalendarEvent?: (item: ScheduleItem) => void;
+  calendarReadOnly?: boolean;
 }>) {
   const dlIdx = group.deadline ? window.days.indexOf(group.deadline) : -1;
   const dlVisible = dlIdx !== -1;
@@ -87,8 +91,8 @@ export function TimelineGroup({
       {/* Group Items */}
       {group.items.map((item) => {
         const bar = barFor(item, window);
-        const readOnly = item.source === "calendar";
-        const statusText = readOnly ? READ_ONLY_HINT : STATUS_LABELS[item.status];
+        const readOnly = item.source === "calendar" && calendarReadOnly;
+        const statusText = readOnly ? READ_ONLY_HINT : item.source === "calendar" ? item.groupName : STATUS_LABELS[item.status];
         const dateText =
           item.startDate && item.startDate !== item.dueDate
             ? `${shortDateStr(item.startDate)} – ${shortDateStr(item.dueDate)}`
@@ -98,6 +102,8 @@ export function TimelineGroup({
         const handleOpen = () => {
           if (item.source === "bill") {
             onOpenFinance();
+          } else if (item.source === "calendar") {
+            if (!calendarReadOnly) onOpenCalendarEvent?.(item);
           } else {
             onOpenItem(item.id);
           }
@@ -179,6 +185,8 @@ export function TimelineView({
   deadlines,
   onOpenItem,
   onOpenFinance,
+  onOpenCalendarEvent,
+  calendarReadOnly = false,
 }: Readonly<{
   window: { from: string; to: string; days: string[] };
   today: string;
@@ -186,6 +194,8 @@ export function TimelineView({
   deadlines: readonly ProjectDeadline[];
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
+  onOpenCalendarEvent?: (item: ScheduleItem) => void;
+  calendarReadOnly?: boolean;
 }>) {
   const groups = useMemo(
     () => timelineGroups(items, deadlines),
@@ -293,6 +303,8 @@ export function TimelineView({
                   today={today}
                   onOpenItem={onOpenItem}
                   onOpenFinance={onOpenFinance}
+                  onOpenCalendarEvent={onOpenCalendarEvent}
+                  calendarReadOnly={calendarReadOnly}
                 />
               ))
             )}

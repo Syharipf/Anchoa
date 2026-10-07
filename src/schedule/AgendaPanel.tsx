@@ -61,6 +61,8 @@ export function AgendaRow({
   onPayBill,
   onOpenItem,
   onOpenFinance,
+  onOpenCalendarEvent,
+  calendarReadOnly = false,
   variant = "due",
 }: Readonly<{
   item: ScheduleItem;
@@ -68,22 +70,28 @@ export function AgendaRow({
   onPayBill: (item: ScheduleItem) => void;
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
+  onOpenCalendarEvent?: (item: ScheduleItem) => void;
+  calendarReadOnly?: boolean;
   variant?: "late" | "due" | "next";
 }>) {
   const handleClick = () => {
     if (item.source === "task") {
       onOpenItem(item.id);
+    } else if (item.source === "calendar") {
+      onOpenCalendarEvent?.(item);
     } else {
       onOpenFinance();
     }
   };
 
   const isNext = variant === "next";
-  const readOnly = item.source === "calendar";
+  const readOnly = item.source === "calendar" && calendarReadOnly;
   const titleClass = `truncate text-[13px] ${
     item.status === "done" ? "text-done line-through" : "text-ink"
   }`;
   const subtitle = readOnly ? READ_ONLY_HINT : item.groupName;
+
+
 
   return (
     <div className={rowContainerClass(variant)}>
@@ -153,6 +161,8 @@ export function AgendaPanel({
   onPayBill,
   onOpenItem,
   onOpenFinance,
+  onOpenCalendarEvent,
+  calendarReadOnly = false,
 }: Readonly<{
   selectedDate: string;
   today: string;
@@ -161,10 +171,11 @@ export function AgendaPanel({
   onPayBill: (item: ScheduleItem) => void;
   onOpenItem: (id: string) => void;
   onOpenFinance: () => void;
+  onOpenCalendarEvent?: (item: ScheduleItem) => void;
+  calendarReadOnly?: boolean;
 }>) {
   const { late, due, next } = agendaGroups(items, selectedDate, today);
   const isToday = selectedDate === today;
-
   const nextDays: { date: string; label: string; items: ScheduleItem[] }[] = [];
   for (let i = 1; i <= 7; i++) {
     const d = addDays(selectedDate, i);
@@ -228,6 +239,8 @@ export function AgendaPanel({
               onPayBill={onPayBill}
               onOpenItem={onOpenItem}
               onOpenFinance={onOpenFinance}
+              onOpenCalendarEvent={onOpenCalendarEvent}
+              calendarReadOnly={calendarReadOnly}
             />
           ))}
         </div>
@@ -251,6 +264,8 @@ export function AgendaPanel({
               onPayBill={onPayBill}
               onOpenItem={onOpenItem}
               onOpenFinance={onOpenFinance}
+              onOpenCalendarEvent={onOpenCalendarEvent}
+              calendarReadOnly={calendarReadOnly}
             />
           ))
         )}
@@ -279,6 +294,8 @@ export function AgendaPanel({
                   onPayBill={onPayBill}
                   onOpenItem={onOpenItem}
                   onOpenFinance={onOpenFinance}
+                  onOpenCalendarEvent={onOpenCalendarEvent}
+                  calendarReadOnly={calendarReadOnly}
                 />
               ))}
             </div>

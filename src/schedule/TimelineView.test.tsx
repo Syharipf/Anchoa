@@ -35,10 +35,31 @@ test("Google Kalender events render read-only, without any button", () => {
       group={{ id: "calendar", name: "Google Kalender", kind: "calendar", items: [item] }}
       window={{ from: "2026-10-01", to: "2026-10-01", days: ["2026-10-01"] }}
       today="2026-10-01"
+      calendarReadOnly={true}
       onOpenItem={() => {}}
       onOpenFinance={() => {}}
     />,
   );
   expect(html).toContain('title="Rapat · 1 Okt · Hanya baca · Google Kalender"');
   expect(html).not.toContain("<button");
+});
+
+test("Google Kalender events render with button when writable", () => {
+  const item: ScheduleItem = {
+    key: "calendar:e1", source: "calendar", id: "e1", kind: "calendar", title: "Rapat",
+    groupId: "calendar", groupName: "Google Kalender", startDate: "2026-10-01", dueDate: "2026-10-01",
+    status: "plan", overdue: false, checkable: false,
+  };
+  const html = renderToStaticMarkup(
+    <TimelineGroup
+      group={{ id: "calendar", name: "Google Kalender", kind: "calendar", items: [item] }}
+      window={{ from: "2026-10-01", to: "2026-10-01", days: ["2026-10-01"] }}
+      today="2026-10-01"
+      calendarReadOnly={false}
+      onOpenItem={() => {}}
+      onOpenFinance={() => {}}
+    />,
+  );
+  expect(html).toContain('title="Rapat · 1 Okt · Google Kalender"');
+  expect(html).toContain("<button");
 });

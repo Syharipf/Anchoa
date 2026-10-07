@@ -8,9 +8,9 @@ let harness: HookHarness<ReactNode>;
 const spies: { mockRestore: () => void }[] = [];
 afterEach(() => { harness?.dispose(); spies.splice(0).forEach((spy) => spy.mockRestore()); });
 
-const DISCONNECTED: CalendarStatus = { connected: false, account: null, fetchedAt: null, lastError: null };
-const CONNECTED: CalendarStatus = { connected: true, account: "ako@gmail.com", fetchedAt: Date.now(), lastError: null };
-
+const DISCONNECTED: CalendarStatus = { connected: false, account: null, fetchedAt: null, lastError: null, readOnly: false };
+const CONNECTED: CalendarStatus = { connected: true, account: "ako@gmail.com", fetchedAt: Date.now(), lastError: null, readOnly: false };
+const READ_ONLY_CONNECTED: CalendarStatus = { connected: true, account: "ako@gmail.com", fetchedAt: Date.now(), lastError: null, readOnly: true };
 async function start(status: CalendarStatus, onChanged = () => {}) {
   spies.push(spyOn(api, "calendarStatus").mockResolvedValue(status));
   harness = hookHarness(() => CalendarSection({ onChanged }));
@@ -23,13 +23,21 @@ const texts = () => all().map((el) => el.props.children);
 const button = (label: string) => all().find((el) => el.type === "button" && el.props.children === label);
 const alertText = () => all().find((el) => el.props.role === "alert")?.props.children;
 
-it("always labels the integration read-only and offers connect while disconnected", async () => {
+it("offers connect while disconnected and hides read-only badge for writable integration", async () => {
   await start(DISCONNECTED);
   expect(texts()).toContain("Google Kalender");
-  expect(texts()).toContain("Hanya baca");
+  expect(texts()).not.toContain("Hanya baca");
   expect(button("Sambungkan Google Kalender")).toBeDefined();
   expect(button("Putuskan")).toBeUndefined();
   expect(alertText()).toBeUndefined();
+});
+
+it("shows read-only badge and reconnect button for read-only grant", async () => {
+  await start(READ_ONLY_CONNECTED);
+  expect(texts()).toContain("Google Kalender");
+  expect(texts()).toContain("Hanya baca");
+  expect(texts()).toContain("Sambungkan ulang untuk sinkron dua arah");
+  expect(button("Sambungkan ulang untuk sinkron dua arah")).toBeDefined();
 });
 
 it("shows the account and last error, and disconnects", async () => {

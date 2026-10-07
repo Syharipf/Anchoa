@@ -22,6 +22,7 @@ import {
   timelineWindow,
   visible,
 } from "./layout";
+import { CalendarEventForm } from "./CalendarEventForm";
 import { ScheduleAddForm } from "./ScheduleAddForm";
 import { ScheduleHeader } from "./ScheduleHeader";
 import { TimelineView } from "./TimelineView";
@@ -76,7 +77,8 @@ export function SchedulePage({
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [version, setVersion] = useState(0);
   const [adding, setAdding] = useState(false);
-
+  const [editingEvent, setEditingEvent] = useState<ScheduleItem | null>(null);
+  const [calendarReadOnly, setCalendarReadOnly] = useState(false);
   const today = schedule?.today ?? msToDateInput(Date.now());
   const grid = useMemo(() => monthGrid(month), [month]);
   const window = useMemo(
@@ -118,6 +120,15 @@ export function SchedulePage({
       unlisten?.();
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    api.calendarStatus().then(
+      (st) => { if (active) setCalendarReadOnly(Boolean(st.readOnly)); },
+      () => {},
+    );
+    return () => { active = false; };
+  }, [version]);
 
   function handleToggleKind(kind: ItemKind) {
     setOff((prev) => {
@@ -229,6 +240,17 @@ export function SchedulePage({
           }}
         />
       )}
+      {editingEvent && (
+        <CalendarEventForm
+          item={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSaved={() => {
+            setEditingEvent(null);
+            setVersion((v) => v + 1);
+            onChanged();
+          }}
+        />
+      )}
 
       {view === "calendar" && (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_300px] items-start gap-[18px]">
@@ -238,6 +260,7 @@ export function SchedulePage({
             selectedDate={selectedDate}
             items={visibleItems}
             onSelectDate={setSelectedDate}
+            calendarReadOnly={calendarReadOnly}
           />
           <AgendaPanel
             selectedDate={selectedDate}
@@ -247,6 +270,8 @@ export function SchedulePage({
             onPayBill={handlePayBill}
             onOpenItem={onOpenItem}
             onOpenFinance={onOpenFinance}
+            onOpenCalendarEvent={setEditingEvent}
+            calendarReadOnly={calendarReadOnly}
           />
         </div>
       )}
@@ -259,6 +284,8 @@ export function SchedulePage({
           deadlines={schedule?.deadlines ?? []}
           onOpenItem={onOpenItem}
           onOpenFinance={onOpenFinance}
+          onOpenCalendarEvent={setEditingEvent}
+          calendarReadOnly={calendarReadOnly}
         />
       )}
     </>

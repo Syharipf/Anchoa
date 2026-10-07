@@ -357,6 +357,8 @@ pub fn run() {
             calendar::calendar_cancel_connect,
             calendar::calendar_disconnect,
             calendar::calendar_refresh,
+            calendar::calendar_update_event,
+            calendar::calendar_delete_event,
         ]))
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(focused) = event

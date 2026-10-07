@@ -29,12 +29,14 @@ export function CalendarView({
   selectedDate,
   items,
   onSelectDate,
+  calendarReadOnly = false,
 }: Readonly<{
   month: string;
   today: string;
   selectedDate: string;
   items: readonly ScheduleItem[];
   onSelectDate: (date: string) => void;
+  calendarReadOnly?: boolean;
 }>) {
   const grid = monthGrid(month);
   const rows = grid.length;
@@ -89,7 +91,7 @@ export function CalendarView({
                     <span
                       key={item.key}
                       title={`${item.title} · ${
-                        item.source === "calendar" ? READ_ONLY_HINT : item.groupName
+                        item.source === "calendar" && calendarReadOnly ? READ_ONLY_HINT : item.groupName
                       }${item.overdue ? " · terlambat" : ""}`}
                       className={`flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] leading-4 text-ink bg-surface-2 ${
                         item.overdue ? "ring-1 ring-inset ring-danger" : ""

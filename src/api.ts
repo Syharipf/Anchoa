@@ -635,6 +635,8 @@ export interface ScheduleItem {
   status: TaskStatus;
   overdue: boolean;
   checkable: boolean;
+  startAt?: number;
+  endAt?: number;
 }
 
 export interface ProjectDeadline {
@@ -1036,12 +1038,13 @@ export interface SignOutResult {
   remoteRevoked: boolean;
 }
 
-/** Google Kalender connection (read-only pull). `fetchedAt` is the last successful pull, epoch ms. */
+/** Google Kalender connection (two-way sync). `fetchedAt` is the last successful sync, epoch ms. */
 export interface CalendarStatus {
   connected: boolean;
   account: string | null;
   fetchedAt: number | null;
   lastError: string | null;
+  readOnly: boolean;
 }
 
 /** Runs the handler after a background pull stored fresh Google Kalender events, so Jadwal can reload. */
@@ -1071,6 +1074,9 @@ export const api = {
   calendarCancelConnect: () => invoke<void>("calendar_cancel_connect"),
   calendarDisconnect: () => invoke<CalendarStatus>("calendar_disconnect"),
   calendarRefresh: () => invoke<CalendarStatus>("calendar_refresh"),
+  calendarUpdateEvent: (input: { id: string; title: string; startAt: number; endAt: number }) =>
+    invoke<void>("calendar_update_event", { input }),
+  calendarDeleteEvent: (id: string) => invoke<void>("calendar_delete_event", { id }),
   emailAssist: (id: string) => invoke<EmailAssistance>("email_assist", { id }),
   emailStatus: () => invoke<EmailStatus>("email_status"),
   emailConnect: (address: string, appPassword: string) =>

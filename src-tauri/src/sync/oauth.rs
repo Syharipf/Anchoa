@@ -272,9 +272,9 @@ fn default_opener(url: &str) -> Result<(), AppError> {
 pub const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 pub const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 
-/// Read-only: Anchoa pulls Calendar events, it never writes to them.
+/// Two-way sync: Anchoa reads and writes calendar events.
 pub const CALENDAR_SCOPES: &[&str] = &[
-    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
     "openid",
     "email",
 ];
@@ -379,6 +379,7 @@ pub struct GoogleTokens {
     /// Empty when Google rotates refresh tokens rarely; the caller keeps its own.
     pub refresh_token: Zeroizing<String>,
     pub expires_at: i64,
+    pub scope: Option<String>,
 }
 
 impl CalendarFlow {
@@ -442,6 +443,8 @@ fn google_token_request(body: &str, rejected: &str) -> Result<GoogleTokens, AppE
         access_token: String,
         refresh_token: Option<String>,
         expires_in: Option<i64>,
+        #[serde(default)]
+        scope: Option<String>,
     }
 
     let mut response = match ureq::post(GOOGLE_TOKEN_URL)
@@ -479,6 +482,7 @@ fn google_token_request(body: &str, rejected: &str) -> Result<GoogleTokens, AppE
         access_token: Zeroizing::new(parsed.access_token),
         refresh_token: Zeroizing::new(parsed.refresh_token.unwrap_or_default()),
         expires_at,
+        scope: parsed.scope,
     })
 }
 
@@ -565,18 +569,16 @@ mod tests {
     }
 
     #[test]
-    fn calendar_scopes_are_readonly_and_isolated_from_the_sync_flow() {
+    fn calendar_scopes_grant_events_and_are_isolated_from_the_sync_flow() {
         let joined = CALENDAR_SCOPES.join(" ");
-        assert!(joined.contains("https://www.googleapis.com/auth/calendar.readonly"));
-        // Read-only by design: no write-back scope.
-        assert!(!joined.contains("calendar.events"));
+        assert!(joined.contains("https://www.googleapis.com/auth/calendar.events"));
         // Nothing that the Supabase sync provider would request.
         assert!(!joined.contains("supabase"));
         assert!(!joined.contains("sync"));
     }
 
     #[test]
-    fn calendar_authorize_url_carries_pkce_state_and_readonly_scopes() {
+    fn calendar_authorize_url_carries_pkce_state_and_events_scopes() {
         let url = calendar_authorize_url(
             "client-id",
             "http://127.0.0.1:1/callback",
@@ -590,10 +592,9 @@ mod tests {
         assert!(url.contains("access_type=offline"));
         assert!(url.contains("prompt=consent"));
         assert!(url.contains(
-            "scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly%20openid%20email"
+            "scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.events%20openid%20email"
         ));
     }
-
     #[test]
     fn calendar_flow_binds_loopback_and_keeps_the_verifier_local() {
         let flow = begin_calendar_with_opener(

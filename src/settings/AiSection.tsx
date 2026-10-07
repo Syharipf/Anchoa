@@ -158,7 +158,7 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
           <label className="flex flex-col gap-1">API key opsional<input aria-label="API key opsional" type="password" autoComplete="new-password" className={FIELD} value={key}
             disabled={!config || lockedField} onChange={(e) => { setKey(e.target.value); invalidateModels(); }} /></label>
           <div className="flex flex-wrap items-center gap-2">
-            <select aria-label="Model dari penyedia" className="flex min-w-[200px] flex-1 rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" value=""
+            <select aria-label="Model dari penyedia" className="flex min-w-[200px] flex-1 rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" disabled={lockedField || !baseUrl.trim() || !key.trim()} value=""
               onChange={(e) => {
                 if (!e.target.value) return;
                 void saveRole("chat", { provider: "custom", model: e.target.value });

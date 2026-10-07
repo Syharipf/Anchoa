@@ -158,7 +158,7 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
           <label className="flex flex-col gap-1">API key opsional<input aria-label="API key opsional" type="password" autoComplete="new-password" className={FIELD} value={key}
             disabled={!config || lockedField} onChange={(e) => { setKey(e.target.value); invalidateModels(); }} /></label>
           <div className="flex flex-wrap items-center gap-2">
-            <select aria-label="Model dari penyedia" className={`${FIELD} min-w-[200px] flex-1`} value="" disabled={lockedField || !baseUrl.trim() || !key.trim()}
+            <select aria-label="Model dari penyedia" className="flex min-w-[200px] flex-1 rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" disabled={lockedField || !baseUrl.trim() || !key.trim()} value=""
               onChange={(e) => {
                 if (!e.target.value) return;
                 void saveRole("chat", { provider: "custom", model: e.target.value });
@@ -210,13 +210,13 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
               <span className="text-[11px] text-muted">{r.description}</span>
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <select aria-label={`Penyedia untuk ${r.label}`} className={`${FIELD} w-[124px]`} value={provider} disabled={locked || disabled}
+              <select aria-label={`Penyedia untuk ${r.label}`} className="rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 text-sm" value={provider} disabled={locked || disabled}
                 onChange={(e) => {
                   const next = e.target.value as AiProvider;
                   const options = next === "custom" ? customModels : localModels;
                   setDrafts((prev) => ({ ...prev, [r.id]: { provider: next, model: roles?.[r.id].provider === next ? roles[r.id].model : options[0] ?? "" } }));
                 }}><option value="ollama">Ollama</option>{!locked && <option value="custom">Kustom</option>}</select>
-              <select aria-label={`Model untuk ${r.label}`} className={`${FIELD} min-w-[180px]`} value={choice.model} disabled={disabled || (provider === "custom" && !customModels.length)}
+              <select aria-label={`Model untuk ${r.label}`} className="rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 text-sm min-w-[180px]" value={choice.model} disabled={disabled || (provider === "custom" && !customModels.length)}
                 onChange={(e) => {
                   const updated = { provider, model: e.target.value };
                   if (provider === "ollama" && !drafts[r.id]) void saveRole(r.id, updated);

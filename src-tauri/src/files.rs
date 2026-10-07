@@ -290,31 +290,33 @@ fn decode_octal(s: &str) -> String {
 }
 
 pub fn parse_mounts(proc_mounts: &str, user: &str) -> Vec<Place> {
-    let prefix = format!("/run/media/{user}/");
-    let mut mounts = Vec::new();
-    let mut seen = std::collections::HashSet::new();
+  let prefixes = ["/run/media/{user}/", "/media/", "/mnt/"].map(|t| t.replace("{user}", user));
+  let mut mounts = Vec::new();
+  let mut seen = std::collections::HashSet::new();
 
-    for line in proc_mounts.lines() {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 2 {
-            continue;
-        }
-        let raw_mount = parts[1];
-        let decoded = decode_octal(raw_mount);
-        if decoded.starts_with(&prefix) && decoded.len() > prefix.len() && seen.insert(decoded.clone()) {
-            let p = Path::new(&decoded);
-            let name = p
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| decoded.clone());
-            mounts.push(Place {
-                name,
-                path: decoded,
-                icon: "drive".to_string(),
-            });
-        }
+  for line in proc_mounts.lines() {
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    if parts.len() < 2 {
+      continue;
     }
-    mounts
+    let raw_mount = parts[1];
+    let decoded = decode_octal(raw_mount);
+
+    let matched = prefixes.iter().any(|p| decoded.starts_with(p));
+    if matched && decoded.len() > 4 && seen.insert(decoded.clone()) {
+      let p = Path::new(&decoded);
+      let name = p
+          .file_name()
+          .map(|n| n.to_string_lossy().to_string())
+          .unwrap_or_else(|| decoded.clone());
+      mounts.push(Place {
+        name,
+        path: decoded,
+        icon: "drive".to_string(),
+      });
+    }
+  }
+  mounts
 }
 
 pub fn kind_of(path: &Path) -> FileKind {

@@ -19,7 +19,7 @@ Semua angka, nama, dan isi (saldo, email, tugas, unduhan) adalah **data contoh**
 
 ```
 ┌──────┬───────────────────────────────────────────────────────────┐
-│ Nav  │ [ Cari atau jalankan perintah…            Ctrl K ]  22.48 │  ← tombol pembuka command palette
+│ Rail │ [ Cari atau jalankan perintah…            Ctrl K ]  22.48 │  ← tombol pembuka command palette
 │ 72px │ Judul halaman + aksi                                      │
 │      │ Isi halaman                                               │
 │ …    │                                                           │
@@ -29,11 +29,14 @@ Semua angka, nama, dan isi (saldo, email, tugas, unduhan) adalah **data contoh**
 └──────┴───────────────────────────────────────────────────────────┘
 ```
 
-**Nav kiri (72px, ikon 20px, tombol 48×48, radius 12, gap 6):**
-Dashboard · Jurnal · Email · Jadwal · Habit · Keuangan · Proyek · Berkas · Unduhan — lalu di bawah: Notifikasi (lonceng + titik coral) · Profil (avatar inisial) · Pengaturan (`/pengaturan`).
-- Aktif: latar `--surface-2`, ikon `--accent`, `aria-current="page"`.
-- Semua ikon wajib punya tooltip (title) dan `aria-label`.
-- Badge: Email = angka belum dibaca (pil lime).
+**Nav kiri = rail 72px + roda yang membuka di atas halaman (semua layar desktop; `NavRoda` = prototipe awal 220px, jangan dipakai):**
+- **Tertutup (rail 72px, halaman tetap selebar biasa):** latar laut (sinar, gelembung, rumput laut), 5 ikon kecil di busur tipis (pusat −250, 388; radius 290; 11° antar ikon; skala .86 / .76 / .68), tanpa label. Ikon tetap bisa diklik. Tombol ▲/▼ 28px, logo di atas, Notifikasi · Profil · Pengaturan bertumpuk di bawah.
+- **Terbuka** (arahkan kursor ke rail 140 ms, fokus keyboard, scroll, atau ▲/▼): lapisan laut **semi-transparan menutupi seluruh layar** (gradasi kiri 88 % → kanan 32 % + adegan `LautAko` 36 % + blur 2px), halaman di belakang tetap samar terlihat. Ikon berpindah ke busur besar (pusat −100, 388; radius 198; 27° antar menu; skala 1,08 / .96 / .84) dan label muncul; kawanan teri ikut berputar; tulisan "Anchoa" + posisi "3 / 9" tampil.
+- **Menutup:** kursor keluar dari area roda (320px), Esc, atau fokus pindah ke luar nav. Lapisan `pointer-events: none`, jadi tidak menghalangi klik ke halaman.
+- Hanya menu dalam jangkauan (5, atau 3/7 dari Pengaturan) yang tampil; sisanya masuk dari atas/bawah saat diputar (seret vertikal 46px per langkah, scroll jeda 160 ms, ↑↓). Transisi 0,45 s `cubic-bezier(.3,.7,.2,1)`; menu yang melompat ke sisi lain tidak dianimasikan.
+- Halaman aktif: cincin + ikon lime + glow, `aria-current="page"`; roda berpusat ke menu itu (halaman tanpa menu → *menu saat app dibuka*). Badge menempel di lingkaran ikon. Ctrl K tetap jalan pintas ke semua menu.
+- `prefers-reduced-motion`: tanpa animasi kawanan/gelembung, transisi dipendekkan. Blur hanya aktif saat terbuka (hemat GPU).
+
 - **Inbox sudah dilebur menjadi Jurnal** (route `/jurnal`): semua ide, keluh kesah, dan catatan cepat (termasuk "Catatan suara" dari Dashboard/palette) masuk ke sana.
 
 **Top bar:** tombol lebar bergaya kolom cari (tinggi 42, radius 10) → membuka **command palette**. Di aplikasi asli: shortcut global **Ctrl K**.
@@ -117,7 +120,8 @@ Kotak tautan dengan deteksi jenis: media (yt-dlp) · file langsung (aria2) · ma
   - Hanya `transform` yang beranimasi; satu pola dipakai ulang; hentikan saat halaman/jendela tidak terlihat. `prefers-reduced-motion` → pola tetap tampil tapi diam.
   - Aksesibilitas: kontainer `role="progressbar"` + `aria-valuenow/min/max` + `aria-valuetext` ("63 %, 19 detik lagi"); teks persen tetap tampil di bawah bar.
 
-### Pengaturan (3 artboard: `Pengaturan`, `PengaturanAvatar`, `PengaturanSinkron`)
+### Pengaturan (4 artboard: `Pengaturan`, `PengaturanAvatar`, `PengaturanSinkron`, `PengaturanMenu`)
+- **Menu & navigasi** (`PengaturanMenu`): daftar 12 menu dengan nomor urut, tombol naik/turun, dan sakelar tampil (Dashboard terkunci, minimal 3 menu tampil). Pratinjau roda mini + catatan "N menu lain masuk dari atas/bawah". Opsi: *Menu terlihat sekaligus* 3/5/7, *Menu saat app dibuka*, *Kawanan ikut berputar*, *Buka di menu terakhir*, tombol *Atur ulang*. Perubahan langsung terlihat di roda kiri. Simpan di pengaturan lokal + sinkron akun (`nav_order`, `nav_hidden`, `nav_visible`, `nav_start`, `nav_fish`, `nav_resume_last`).
 Sub-nav kiri 212px (6 bagian, tiap item punya status kecil): Asisten & AI · Avatar · Suara · Sinkron & data · Laptop (SFTP) · Tentang. Ketiga artboard adalah file yang sama dengan bagian awal berbeda.
 - **Asisten & AI**: 5 tile penyedia (Anthropic, OpenAI, Google Gemini, OpenRouter, Ollama lokal; titik = status kunci). Kolom kunci API tampil **termasking** (hanya 4 karakter terakhir) + *Tes koneksi* / *Ganti*. Hasil tes dalam kotak status: valid (lime), kuota habis 429 (kuning), ditolak 401 (coral), belum ada kunci (abu), sedang menguji. **Model per tugas**: perintah suara, ringkasan email, tanggapan jurnal, rekap harian — tombol yang mengganti model; daftar model diambil dari API penyedia setelah kunci valid. Kanan: pemakaian bulan ini (dari `ai_usage`) dan *Privasi AI* (jurnal hanya ke model lokal, sertakan konteks jadwal, simpan riwayat).
 - **Ako (pet)**: pratinjau dengan tombol status, *Tampil di* (panel asisten, tombol asisten mini, melayang di desktop: mati bawaan, di i3 perlu picom), *Mood harian* (hanya naik), *Gerak* Penuh/Hemat/Diam + gerak mulut ikut suara, *Tidur saat tidak dipakai* (2 menit), *Mata mengikuti kursor*.

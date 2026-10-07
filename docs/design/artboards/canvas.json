@@ -1,562 +1,582 @@
 {
-  "v": 3,
-  "attachments": {},
-  "boards": {
-    "Berkas.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "berkas",
-      "title": "Berkas (pengelola file + pratinjau)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "CommandPalette.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "palette",
-      "title": "Command palette (Ctrl K)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Email.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "email",
-      "title": "Email",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Habit.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "habit",
-      "title": "Habit tracker",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "HpAgen.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Agen kode (izin dari HP)",
-      "w": 390,
-      "x": 470,
-      "y": 0
-    },
-    "HpAsisten.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Asisten (suara)",
-      "w": 390,
-      "x": 1410,
-      "y": 0
-    },
-    "HpBeranda.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Beranda (dok: Cari · Menu · Mic)",
-      "w": 390,
-      "x": 470,
-      "y": 0
-    },
-    "HpBerandaRoda.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Roda menu terbuka (geser kiri/kanan)",
-      "w": 390,
-      "x": 940,
-      "y": 0
-    },
-    "HpBerkas.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · File laptop",
-      "w": 390,
-      "x": 1880,
-      "y": 0
-    },
-    "HpCari.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Cari & perintah",
-      "w": 390,
-      "x": 1880,
-      "y": 0
-    },
-    "HpEmail.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Email",
-      "w": 390,
-      "x": 940,
-      "y": 0
-    },
-    "HpEmailBaca.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Email (baca + ringkasan)",
-      "w": 390,
-      "x": 1410,
-      "y": 0
-    },
-    "HpHabit.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Habit",
-      "w": 390,
-      "x": 3290,
-      "y": 0
-    },
-    "HpJadwal.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Jadwal",
-      "w": 390,
-      "x": 3760,
-      "y": 0
-    },
-    "HpJurnal.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Jurnal",
-      "w": 390,
-      "x": 2820,
-      "y": 0
-    },
-    "HpKeuangan.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Keuangan",
-      "w": 390,
-      "x": 4230,
-      "y": 0
-    },
-    "HpMasuk.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Masuk",
-      "w": 390,
-      "x": 0,
-      "y": 0
-    },
-    "HpNotif.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp",
-      "radius": 32,
-      "title": "HP · Notifikasi",
-      "w": 390,
-      "x": 2350,
-      "y": 0
-    },
-    "HpPengaturan.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Pengaturan",
-      "w": 390,
-      "x": 2820,
-      "y": 0
-    },
-    "HpPengaturanAI.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Pengaturan AI (tes kunci)",
-      "w": 390,
-      "x": 3290,
-      "y": 0
-    },
-    "HpProfil.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Profil",
-      "w": 390,
-      "x": 3760,
-      "y": 0
-    },
-    "HpProyek.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Proyek (Kanban)",
-      "w": 390,
-      "x": 0,
-      "y": 0
-    },
-    "HpUnduhan.dc.html": {
-      "h": 844,
-      "is_interactive": true,
-      "page": "hp-modul",
-      "radius": 32,
-      "title": "HP · Unduhan",
-      "w": 390,
-      "x": 2350,
-      "y": 0
-    },
-    "Jadwal.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "jadwal",
-      "title": "Jadwal (kalender & timeline)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Jurnal.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "jurnal",
-      "title": "Jurnal (ide, curhat, catatan)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Keuangan.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "keuangan",
-      "title": "Keuangan",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Loading.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "loading",
-      "title": "Loading saat membuka app (animasi logo intro → loading)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Login.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "masuk",
-      "title": "Masuk",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Logo.dc.html": {
-      "h": 2310,
-      "page": "logo",
-      "title": "Logo resmi · ikon, varian, ukuran, animasi",
-      "w": 1280,
-      "x": 0,
-      "y": 0,
-      "is_interactive": true
-    },
-    "Main.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "dashboard",
-      "title": "Dashboard",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "NotifPanel.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "notifikasi",
-      "title": "Panel notifikasi",
-      "w": 1208,
-      "x": 0,
-      "y": 0
-    },
-    "Onboarding.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "masuk",
-      "title": "Penyiapan pertama (5 langkah)",
-      "w": 1280,
-      "x": 1360,
-      "y": 0
-    },
-    "Palet.dc.html": {
-      "h": 2280,
-      "page": "panduan",
-      "title": "Panduan gaya",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Pengaturan.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "pengaturan",
-      "title": "Pengaturan · Asisten & AI (pilih & tes model)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "PengaturanAvatar.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "pengaturan",
-      "title": "Pengaturan · Ako (pet: tampil di, mood, gerak)",
-      "w": 1280,
-      "x": 1360,
-      "y": 0
-    },
-    "PengaturanSinkron.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "pengaturan",
-      "title": "Pengaturan · Sinkron & data",
-      "w": 1280,
-      "x": 2720,
-      "y": 0
-    },
-    "Profil.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "profil",
-      "title": "Profil",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Proyek.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "proyek",
-      "title": "Proyek · Kanban",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "ProyekAgen.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "proyek",
-      "title": "Proyek · Agen kode (aktivitas, izin, kirim perintah)",
-      "w": 1280,
-      "x": 1360,
-      "y": 0
-    },
-    "ProyekAgenHubungkan.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "proyek",
-      "title": "Proyek · Hubungkan agen (MCP)",
-      "w": 1280,
-      "x": 2720,
-      "y": 0
-    },
-    "State.dc.html": {
-      "h": 1760,
-      "page": "state",
-      "title": "State kosong, offline, error",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "Unduhan.dc.html": {
-      "h": 800,
-      "is_interactive": true,
-      "page": "unduhan",
-      "title": "Unduhan (yt-dlp, file, torrent)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    },
-    "ProgressKawanan.dc.html": {
-      "h": 1160,
-      "is_interactive": true,
-      "page": "unduhan",
-      "title": "Komponen · Progress kawanan teri (coba langsung)",
-      "w": 1280,
-      "x": 1360,
-      "y": 0
-    },
-    "PetAko.dc.html": {
-      "h": 2180,
-      "is_interactive": true,
-      "page": "maskot",
-      "title": "Maskot · Ako & kawanan (pet final, coba status)",
-      "w": 1280,
-      "x": 0,
-      "y": 0
-    }
+ "v": 3,
+ "attachments": {},
+ "boards": {
+  "Berkas.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "berkas",
+   "title": "Berkas (pengelola file + pratinjau)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
   },
-  "createdOnFiles": {
-    "at": "2026-09-30T00:05:00Z",
-    "v": 1
+  "CommandPalette.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "palette",
+   "title": "Command palette (Ctrl K)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
   },
-  "designSystems": [],
-  "launch": {
-    "page": "dashboard",
-    "view": "canvas"
+  "Email.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "email",
+   "title": "Email",
+   "w": 1280,
+   "x": 0,
+   "y": 0
   },
-  "notes": {},
-  "order": [
-    "Main.dc.html",
-    "Jurnal.dc.html",
-    "Email.dc.html",
-    "Jadwal.dc.html",
-    "Habit.dc.html",
-    "Keuangan.dc.html",
-    "Proyek.dc.html",
-    "ProyekAgen.dc.html",
-    "ProyekAgenHubungkan.dc.html",
-    "Berkas.dc.html",
-    "Unduhan.dc.html",
-    "ProgressKawanan.dc.html",
-    "Profil.dc.html",
-    "Pengaturan.dc.html",
-    "PengaturanAvatar.dc.html",
-    "PengaturanSinkron.dc.html",
-    "NotifPanel.dc.html",
-    "CommandPalette.dc.html",
-    "Login.dc.html",
-    "Onboarding.dc.html",
-    "Loading.dc.html",
-    "HpMasuk.dc.html",
-    "HpBeranda.dc.html",
-    "HpBerandaRoda.dc.html",
-    "HpAsisten.dc.html",
-    "HpCari.dc.html",
-    "HpNotif.dc.html",
-    "HpJurnal.dc.html",
-    "HpHabit.dc.html",
-    "HpJadwal.dc.html",
-    "HpKeuangan.dc.html",
-    "HpProyek.dc.html",
-    "HpAgen.dc.html",
-    "HpEmail.dc.html",
-    "HpEmailBaca.dc.html",
-    "HpBerkas.dc.html",
-    "HpUnduhan.dc.html",
-    "HpPengaturan.dc.html",
-    "HpPengaturanAI.dc.html",
-    "HpProfil.dc.html",
-    "State.dc.html",
-    "Logo.dc.html",
-    "PetAko.dc.html",
-    "Palet.dc.html"
-  ],
-  "pages": [
-    {
-      "id": "dashboard",
-      "name": "Dashboard"
-    },
-    {
-      "id": "jurnal",
-      "name": "Jurnal"
-    },
-    {
-      "id": "email",
-      "name": "Email"
-    },
-    {
-      "id": "jadwal",
-      "name": "Jadwal"
-    },
-    {
-      "id": "habit",
-      "name": "Habit"
-    },
-    {
-      "id": "keuangan",
-      "name": "Keuangan"
-    },
-    {
-      "id": "proyek",
-      "name": "Proyek"
-    },
-    {
-      "id": "berkas",
-      "name": "Berkas"
-    },
-    {
-      "id": "unduhan",
-      "name": "Unduhan"
-    },
-    {
-      "id": "profil",
-      "name": "Profil"
-    },
-    {
-      "id": "pengaturan",
-      "name": "Pengaturan"
-    },
-    {
-      "id": "notifikasi",
-      "name": "Panel notifikasi"
-    },
-    {
-      "id": "palette",
-      "name": "Command palette"
-    },
-    {
-      "id": "masuk",
-      "name": "Masuk & onboarding"
-    },
-    {
-      "id": "loading",
-      "name": "Loading"
-    },
-    {
-      "id": "hp",
-      "name": "HP · Utama"
-    },
-    {
-      "id": "hp-modul",
-      "name": "HP · Modul"
-    },
-    {
-      "id": "state",
-      "name": "State kosong/offline/error"
-    },
-    {
-      "id": "logo",
-      "name": "Logo"
-    },
-    {
-      "id": "maskot",
-      "name": "Maskot (Ako)"
-    },
-    {
-      "id": "panduan",
-      "name": "Panduan gaya"
-    }
-  ],
-  "title": "Anchoa UI/UX Direction"
+  "Habit.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "habit",
+   "title": "Habit tracker",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "HpAgen.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Agen kode (izin dari HP)",
+   "w": 390,
+   "x": 470,
+   "y": 0
+  },
+  "HpAsisten.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Asisten (suara)",
+   "w": 390,
+   "x": 1410,
+   "y": 0
+  },
+  "HpBeranda.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Beranda (dok: Cari · Menu · Mic)",
+   "w": 390,
+   "x": 470,
+   "y": 0
+  },
+  "HpBerandaRoda.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Roda menu terbuka (geser kiri/kanan)",
+   "w": 390,
+   "x": 940,
+   "y": 0
+  },
+  "HpBerkas.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · File laptop",
+   "w": 390,
+   "x": 1880,
+   "y": 0
+  },
+  "HpCari.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Cari & perintah",
+   "w": 390,
+   "x": 1880,
+   "y": 0
+  },
+  "HpEmail.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Email",
+   "w": 390,
+   "x": 940,
+   "y": 0
+  },
+  "HpEmailBaca.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Email (baca + ringkasan)",
+   "w": 390,
+   "x": 1410,
+   "y": 0
+  },
+  "HpHabit.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Habit",
+   "w": 390,
+   "x": 3290,
+   "y": 0
+  },
+  "HpJadwal.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Jadwal",
+   "w": 390,
+   "x": 3760,
+   "y": 0
+  },
+  "HpJurnal.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Jurnal",
+   "w": 390,
+   "x": 2820,
+   "y": 0
+  },
+  "HpKeuangan.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Keuangan",
+   "w": 390,
+   "x": 4230,
+   "y": 0
+  },
+  "HpMasuk.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Masuk",
+   "w": 390,
+   "x": 0,
+   "y": 0
+  },
+  "HpNotif.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp",
+   "radius": 32,
+   "title": "HP · Notifikasi",
+   "w": 390,
+   "x": 2350,
+   "y": 0
+  },
+  "HpPengaturan.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Pengaturan",
+   "w": 390,
+   "x": 2820,
+   "y": 0
+  },
+  "HpPengaturanAI.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Pengaturan AI (tes kunci)",
+   "w": 390,
+   "x": 3290,
+   "y": 0
+  },
+  "HpProfil.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Profil",
+   "w": 390,
+   "x": 3760,
+   "y": 0
+  },
+  "HpProyek.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Proyek (Kanban)",
+   "w": 390,
+   "x": 0,
+   "y": 0
+  },
+  "HpUnduhan.dc.html": {
+   "h": 844,
+   "is_interactive": true,
+   "page": "hp-modul",
+   "radius": 32,
+   "title": "HP · Unduhan",
+   "w": 390,
+   "x": 2350,
+   "y": 0
+  },
+  "Jadwal.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "jadwal",
+   "title": "Jadwal (kalender & timeline)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Jurnal.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "jurnal",
+   "title": "Jurnal (ide, curhat, catatan)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Keuangan.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "keuangan",
+   "title": "Keuangan",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Loading.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "loading",
+   "title": "Loading saat membuka app (animasi logo intro → loading)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Login.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "masuk",
+   "title": "Masuk",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Logo.dc.html": {
+   "h": 2310,
+   "page": "logo",
+   "title": "Logo resmi · ikon, varian, ukuran, animasi",
+   "w": 1280,
+   "x": 0,
+   "y": 0,
+   "is_interactive": true
+  },
+  "Main.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "dashboard",
+   "title": "Dashboard",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "NotifPanel.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "notifikasi",
+   "title": "Panel notifikasi",
+   "w": 1208,
+   "x": 0,
+   "y": 0
+  },
+  "Onboarding.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "masuk",
+   "title": "Penyiapan pertama (5 langkah)",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "Palet.dc.html": {
+   "h": 2280,
+   "page": "panduan",
+   "title": "Panduan gaya",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Pengaturan.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "pengaturan",
+   "title": "Pengaturan · Asisten & AI (pilih & tes model)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "PengaturanAvatar.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "pengaturan",
+   "title": "Pengaturan · Ako (pet: tampil di, mood, gerak)",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "PengaturanSinkron.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "pengaturan",
+   "title": "Pengaturan · Sinkron & data",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "Profil.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "profil",
+   "title": "Profil",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Proyek.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "proyek",
+   "title": "Proyek · Kanban",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "ProyekAgen.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "proyek",
+   "title": "Proyek · Agen kode (aktivitas, izin, kirim perintah)",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "ProyekAgenHubungkan.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "proyek",
+   "title": "Proyek · Hubungkan agen (MCP)",
+   "w": 1280,
+   "x": 2720,
+   "y": 0
+  },
+  "State.dc.html": {
+   "h": 1760,
+   "page": "state",
+   "title": "State kosong, offline, error",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "Unduhan.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "unduhan",
+   "title": "Unduhan (yt-dlp, file, torrent)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "ProgressKawanan.dc.html": {
+   "h": 1160,
+   "is_interactive": true,
+   "page": "unduhan",
+   "title": "Komponen · Progress kawanan teri (coba langsung)",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "PetAko.dc.html": {
+   "h": 2180,
+   "is_interactive": true,
+   "page": "maskot",
+   "title": "Maskot · Ako & kawanan (pet final, coba status)",
+   "w": 1280,
+   "x": 0,
+   "y": 0
+  },
+  "NavRoda.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "dashboard",
+   "title": "Navigasi roda · prototipe awal 220px (final: rail 72px + roda di atas lapisan laut transparan)",
+   "w": 1280,
+   "x": 1360,
+   "y": 0
+  },
+  "PengaturanMenu.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "pengaturan",
+   "title": "Pengaturan · Menu & navigasi (menu tampil, urutan roda)",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  }
+ },
+ "createdOnFiles": {
+  "at": "2026-09-30T00:05:00Z",
+  "v": 1
+ },
+ "designSystems": [],
+ "launch": {
+  "page": "dashboard",
+  "view": "canvas"
+ },
+ "notes": {},
+ "order": [
+  "Main.dc.html",
+  "NavRoda.dc.html",
+  "Jurnal.dc.html",
+  "Email.dc.html",
+  "Jadwal.dc.html",
+  "Habit.dc.html",
+  "Keuangan.dc.html",
+  "Proyek.dc.html",
+  "ProyekAgen.dc.html",
+  "ProyekAgenHubungkan.dc.html",
+  "Berkas.dc.html",
+  "Unduhan.dc.html",
+  "ProgressKawanan.dc.html",
+  "Profil.dc.html",
+  "Pengaturan.dc.html",
+  "PengaturanAvatar.dc.html",
+  "PengaturanSinkron.dc.html",
+  "PengaturanMenu.dc.html",
+  "NotifPanel.dc.html",
+  "CommandPalette.dc.html",
+  "Login.dc.html",
+  "Onboarding.dc.html",
+  "Loading.dc.html",
+  "HpMasuk.dc.html",
+  "HpBeranda.dc.html",
+  "HpBerandaRoda.dc.html",
+  "HpAsisten.dc.html",
+  "HpCari.dc.html",
+  "HpNotif.dc.html",
+  "HpJurnal.dc.html",
+  "HpHabit.dc.html",
+  "HpJadwal.dc.html",
+  "HpKeuangan.dc.html",
+  "HpProyek.dc.html",
+  "HpAgen.dc.html",
+  "HpEmail.dc.html",
+  "HpEmailBaca.dc.html",
+  "HpBerkas.dc.html",
+  "HpUnduhan.dc.html",
+  "HpPengaturan.dc.html",
+  "HpPengaturanAI.dc.html",
+  "HpProfil.dc.html",
+  "State.dc.html",
+  "Logo.dc.html",
+  "PetAko.dc.html",
+  "Palet.dc.html"
+ ],
+ "pages": [
+  {
+   "id": "dashboard",
+   "name": "Dashboard"
+  },
+  {
+   "id": "jurnal",
+   "name": "Jurnal"
+  },
+  {
+   "id": "email",
+   "name": "Email"
+  },
+  {
+   "id": "jadwal",
+   "name": "Jadwal"
+  },
+  {
+   "id": "habit",
+   "name": "Habit"
+  },
+  {
+   "id": "keuangan",
+   "name": "Keuangan"
+  },
+  {
+   "id": "proyek",
+   "name": "Proyek"
+  },
+  {
+   "id": "berkas",
+   "name": "Berkas"
+  },
+  {
+   "id": "unduhan",
+   "name": "Unduhan"
+  },
+  {
+   "id": "profil",
+   "name": "Profil"
+  },
+  {
+   "id": "pengaturan",
+   "name": "Pengaturan"
+  },
+  {
+   "id": "notifikasi",
+   "name": "Panel notifikasi"
+  },
+  {
+   "id": "palette",
+   "name": "Command palette"
+  },
+  {
+   "id": "masuk",
+   "name": "Masuk & onboarding"
+  },
+  {
+   "id": "loading",
+   "name": "Loading"
+  },
+  {
+   "id": "hp",
+   "name": "HP · Utama"
+  },
+  {
+   "id": "hp-modul",
+   "name": "HP · Modul"
+  },
+  {
+   "id": "state",
+   "name": "State kosong/offline/error"
+  },
+  {
+   "id": "logo",
+   "name": "Logo"
+  },
+  {
+   "id": "maskot",
+   "name": "Maskot (Ako)"
+  },
+  {
+   "id": "panduan",
+   "name": "Panduan gaya"
+  }
+ ],
+ "title": "Anchoa UI/UX Direction"
 }

@@ -65,19 +65,22 @@ pub fn open_item(db: State<'_, Db>, id: String) -> Result<Item, AppError> {
 }
 
 #[tauri::command]
-pub fn update_item(db: State<'_, Db>, id: String, patch: ItemPatch) -> Result<Item, AppError> {
+pub fn update_item(app: AppHandle, db: State<'_, Db>, id: String, patch: ItemPatch) -> Result<Item, AppError> {
     let now = time::now_ms();
     let conn = db.conn()?;
     let item = items::update(&conn, &id, &patch, now)?;
     if item.kind == "note" {
         journal::after_note_saved(&conn, &item.id, now, &TimeZone::system())?;
     }
+    crate::calendar::trigger_sync(&app);
     Ok(item)
 }
 
 #[tauri::command]
-pub fn delete_item(db: State<'_, Db>, id: String) -> Result<(), AppError> {
-    items::delete(&*db.conn()?, &id, time::now_ms())
+pub fn delete_item(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    items::delete(&*db.conn()?, &id, time::now_ms())?;
+    crate::calendar::trigger_sync(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -233,8 +236,10 @@ pub fn agent_log(app: AppHandle, db: State<'_, Db>, task_id: String) -> Result<S
 }
 
 #[tauri::command]
-pub fn create_task(db: State<'_, Db>, input: NewTask) -> Result<TaskCard, AppError> {
-    tasks::create_task(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+pub fn create_task(app: AppHandle, db: State<'_, Db>, input: NewTask) -> Result<TaskCard, AppError> {
+    let card = tasks::create_task(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())?;
+    crate::calendar::trigger_sync(&app);
+    Ok(card)
 }
 
 #[tauri::command]
@@ -243,22 +248,30 @@ pub fn get_task(db: State<'_, Db>, id: String) -> Result<TaskDetail, AppError> {
 }
 
 #[tauri::command]
-pub fn update_task(db: State<'_, Db>, id: String, patch: TaskPatch) -> Result<TaskDetail, AppError> {
-    tasks::update_task(&*db.conn()?, &id, &patch, time::now_ms(), &TimeZone::system())
+pub fn update_task(app: AppHandle, db: State<'_, Db>, id: String, patch: TaskPatch) -> Result<TaskDetail, AppError> {
+    let detail = tasks::update_task(&*db.conn()?, &id, &patch, time::now_ms(), &TimeZone::system())?;
+    crate::calendar::trigger_sync(&app);
+    Ok(detail)
 }
 
 #[tauri::command]
-pub fn delete_task(db: State<'_, Db>, id: String) -> Result<(), AppError> {
-    tasks::delete_task(&*db.conn()?, &id, time::now_ms())
+pub fn delete_task(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    tasks::delete_task(&*db.conn()?, &id, time::now_ms())?;
+    crate::calendar::trigger_sync(&app);
+    Ok(())
 }
 
 #[tauri::command]
-pub fn restore_task(db: State<'_, Db>, id: String) -> Result<(), AppError> {
-    tasks::restore_task(&*db.conn()?, &id, time::now_ms())
+pub fn restore_task(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    tasks::restore_task(&*db.conn()?, &id, time::now_ms())?;
+    crate::calendar::trigger_sync(&app);
+    Ok(())
 }
 #[tauri::command]
-pub fn convert_to_task(db: State<'_, Db>, id: String) -> Result<TaskDetail, AppError> {
-    tasks::convert_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+pub fn convert_to_task(app: AppHandle, db: State<'_, Db>, id: String) -> Result<TaskDetail, AppError> {
+    let detail = tasks::convert_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())?;
+    crate::calendar::trigger_sync(&app);
+    Ok(detail)
 }
 
 #[tauri::command]
@@ -554,10 +567,11 @@ pub fn update_entry(
 }
 
 #[tauri::command]
-pub fn entry_to_task(db: State<'_, Db>, id: String) -> Result<Entry, AppError> {
-    journal::entry_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())
+pub fn entry_to_task(app: AppHandle, db: State<'_, Db>, id: String) -> Result<Entry, AppError> {
+    let entry = journal::entry_to_task(&*db.conn()?, &id, time::now_ms(), &TimeZone::system())?;
+    crate::calendar::trigger_sync(&app);
+    Ok(entry)
 }
-
 #[tauri::command]
 pub fn delete_entry(db: State<'_, Db>, id: String) -> Result<(), AppError> {
     journal::delete_entry(&*db.conn()?, &id, time::now_ms())

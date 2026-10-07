@@ -51,6 +51,10 @@ pub struct ScheduleItem {
     pub status: TaskStatus,
     pub overdue: bool,
     pub checkable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_at: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -193,6 +197,8 @@ pub fn schedule(
                 status: task.status,
                 overdue,
                 checkable: true,
+                start_at: task.start_at,
+                end_at: Some(task.due_at),
             });
         }
     }
@@ -223,6 +229,8 @@ pub fn schedule(
                 status,
                 overdue: is_overdue,
                 checkable: true,
+                start_at: None,
+                end_at: Some(bill.due_at),
             });
         }
 
@@ -250,10 +258,12 @@ pub fn schedule(
                         group_name: "Tagihan".to_string(),
                         start_date: None,
                         due_date: proj_date,
-                        status: TaskStatus::Plan,
-                        overdue: false,
-                        checkable: false,
-                    });
+                status: TaskStatus::Plan,
+                overdue: false,
+                checkable: false,
+                start_at: None,
+                end_at: Some(cur_ms),
+            });
                 }
             }
         }
@@ -925,6 +935,8 @@ mod tests {
             status: TaskStatus::Plan,
             overdue: false,
             checkable: true,
+            start_at: None,
+            end_at: None,
         };
         let val = serde_json::to_value(&item).unwrap();
         assert_eq!(val["groupId"], "p1");

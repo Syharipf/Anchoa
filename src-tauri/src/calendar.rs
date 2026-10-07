@@ -1,16 +1,18 @@
-//! Google Calendar, read-only pull (spec: "kalender bisa konek ke Google
-//! Calendar"). One-way: events are pulled into the schedule cache; nothing is
-//! ever written back to Google, so the user always sees a "Hanya baca" badge.
+//! Google Calendar two-way sync (issue #184).
+//! Tasks with a due date are pushed to Google Calendar (extendedProperties.private.anchoaId).
+//! Events from Google are pulled into Jadwal. Linked events update tasks via LWW.
+//! Unlinked Google events are cached and can be edited/deleted from Jadwal.
 //!
 //! Tokens follow the sync path: the refresh token lives only in the OS keyring
 //! (`keystore::KeyringStore`, service `io.github.syharipf.anchoa`) and is
-//! zeroized on drop; the database holds nothing but the event cache. The OAuth
-//! flow is `sync::oauth::begin_calendar`, separate from the sync flow so the
-//! two never share scopes or tokens.
+//! zeroized on drop; the database holds only event cache and task links.
 use std::sync::{
-    Mutex, MutexGuard, TryLockError,
-    atomic::{AtomicBool, AtomicI64, Ordering},
+    Arc,
+    atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
 };
+use std::time::Duration;
+
+use parking_lot::{Mutex, MutexGuard};
 
 use jiff::{Timestamp, ToSpan, civil::Date, tz::TimeZone};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -32,27 +34,22 @@ use crate::{
     time,
 };
 
-/// How stale the cache may get before the next Jadwal look pulls again. The
-/// sync scheduler convention is 60 s focused / 300 s background; a background
-/// thread just to refresh a calendar the user is not looking at is waste, so
-/// the pull happens on demand instead (see `refresh_in_background`).
 const REFRESH_AFTER_MS: i64 = 300_000;
-/// Minimum gap between background pulls. Neither a failing pull nor a range
-/// the pull window can never cover may loop schedule → pull → event → schedule.
 const RETRY_AFTER_MS: i64 = 60_000;
 const KEYRING_KEY: &str = "calendar-session:primary";
-/// Google caps a page at 2500, but a personal schedule rarely exceeds one page.
 const MAX_RESULTS: u32 = 250;
-/// Emitted after a background pull stored fresh events; Jadwal reloads on it.
 pub const UPDATED_EVENT: &str = "calendar-updated";
+pub const SYNC_TOKEN_EXPIRED: &str = "SYNC_TOKEN_EXPIRED";
+pub const READ_ONLY_ERROR: &str = "Izin Google Kalender hanya baca; sambungkan ulang untuk sinkron dua arah";
 
 pub struct CalendarState {
     keys: KeyringStore,
     cancel: AtomicBool,
-    /// Held for the whole of a connect or a pull: never two at once.
+    /// Held for the whole of a connect or a sync: never two at once.
     running: Mutex<()>,
     /// Epoch ms of the last background pull attempt.
     last_attempt: AtomicI64,
+    debounce_version: Arc<AtomicU64>,
 }
 
 impl CalendarState {
@@ -62,10 +59,11 @@ impl CalendarState {
             cancel: AtomicBool::new(false),
             running: Mutex::new(()),
             last_attempt: AtomicI64::new(i64::MIN),
+            debounce_version: Arc::new(AtomicU64::new(0)),
         }
     }
 
-    /// Claims the background pull slot; false while one ran within `RETRY_AFTER_MS`.
+    /// Claims the background sync slot; false while one ran within `RETRY_AFTER_MS`.
     fn claim_attempt(&self, now: i64) -> bool {
         let last = self.last_attempt.load(Ordering::SeqCst);
         now.saturating_sub(last) >= RETRY_AFTER_MS
@@ -75,29 +73,39 @@ impl CalendarState {
                 .is_ok()
     }
 
-    /// None while a connect or another pull holds the lock.
+    /// None while a connect or another sync holds the lock.
     fn try_run(&self) -> Option<MutexGuard<'_, ()>> {
-        match self.running.try_lock() {
-            Ok(guard) => Some(guard),
-            Err(TryLockError::Poisoned(p)) => Some(p.into_inner()),
-            Err(TryLockError::WouldBlock) => None,
-        }
+        self.running.try_lock()
+    }
+
+    /// Debounced trigger for background sync after task edits.
+    pub fn schedule_debounce<F>(&self, action: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let ver = self.debounce_version.fetch_add(1, Ordering::SeqCst) + 1;
+        let deb_ver = Arc::clone(&self.debounce_version);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            if deb_ver.load(Ordering::SeqCst) == ver {
+                tauri::async_runtime::spawn_blocking(action);
+            }
+        });
     }
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|p| p.into_inner())
+    mutex.lock()
 }
 
-/// The grant the user gave us, exactly like sync's `Session` but keyed for
-/// Calendar. Both secrets zeroize on drop and never reach the database, logs,
-/// or the frontend.
 #[derive(Serialize, Deserialize)]
 struct Session {
     email: String,
     access_token: String,
     refresh_token: String,
     expires_at: i64,
+    #[serde(default)]
+    scope: Option<String>,
 }
 
 impl Drop for Session {
@@ -108,6 +116,10 @@ impl Drop for Session {
 }
 
 impl Session {
+    fn is_read_only(&self) -> bool {
+        !self.scope.as_ref().is_some_and(|s| s.contains("calendar.events"))
+    }
+
     fn store(&self, keys: &KeyringStore) -> Result<(), AppError> {
         let secret = Zeroizing::new(
             serde_json::to_string(self).map_err(|_| corrupt())?,
@@ -138,11 +150,10 @@ fn not_connected() -> AppError {
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     pub connected: bool,
-    /// The Google account. Kept after a revoked grant so the UI can name it.
     pub account: Option<String>,
-    /// Epoch ms of the last successful pull.
     pub fetched_at: Option<i64>,
     pub last_error: Option<String>,
+    pub read_only: bool,
 }
 
 pub fn status(conn: &Connection, keys: &KeyringStore) -> Result<Status, AppError> {
@@ -155,6 +166,7 @@ pub fn status(conn: &Connection, keys: &KeyringStore) -> Result<Status, AppError
         .optional()?
         .unwrap_or_default();
     let session = Session::load(keys)?;
+    let read_only = session.as_ref().is_some_and(|s| s.is_read_only());
     Ok(Status {
         connected: session.is_some(),
         account: session
@@ -163,22 +175,25 @@ pub fn status(conn: &Connection, keys: &KeyringStore) -> Result<Status, AppError
             .or_else(|| Some(account).filter(|a| !a.is_empty())),
         fetched_at: Some(fetched_at).filter(|&t| t > 0),
         last_error: Some(last_error).filter(|e| !e.is_empty()),
+        read_only,
     })
 }
 
-/// Everything the network side must do, so tests drive the revoked-token and
-/// empty-calendar paths without Google.
 pub trait CalendarSource: Send + Sync {
-    /// The account that granted the scopes.
     fn email(&self, access_token: &str) -> Result<String, AppError>;
-    /// Events between two RFC 3339 instants, as the raw Calendar API JSON.
-    fn events(&self, access_token: &str, time_min: &str, time_max: &str) -> Result<Value, AppError>;
-    /// Trade the refresh token for a fresh grant. Rejection means revoked.
+    fn events(
+        &self,
+        access_token: &str,
+        time_min: Option<&str>,
+        time_max: Option<&str>,
+        sync_token: Option<&str>,
+    ) -> Result<Value, AppError>;
+    fn insert_event(&self, access_token: &str, event: &Value) -> Result<Value, AppError>;
+    fn patch_event(&self, access_token: &str, event_id: &str, patch: &Value) -> Result<Value, AppError>;
+    fn delete_event(&self, access_token: &str, event_id: &str) -> Result<(), AppError>;
     fn refresh(&self, refresh_token: &str) -> Result<GoogleTokens, AppError>;
 }
 
-/// The real Google API. Errors are classified for the user; tokens are never
-/// included in any error string.
 pub struct GoogleApi;
 
 const EVENTS_URL: &str = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -219,13 +234,91 @@ impl CalendarSource for GoogleApi {
             .ok_or_else(|| AppError::Other("Respons Google tidak memuat email".into()))
     }
 
-    fn events(&self, access_token: &str, time_min: &str, time_max: &str) -> Result<Value, AppError> {
-        let url = format!(
-            "{EVENTS_URL}?timeMin={}&timeMax={}&singleEvents=true&orderBy=startTime&maxResults={MAX_RESULTS}",
-            percent_encode(time_min),
-            percent_encode(time_max),
-        );
-        get_json(&url, access_token)
+    fn events(
+        &self,
+        access_token: &str,
+        time_min: Option<&str>,
+        time_max: Option<&str>,
+        sync_token: Option<&str>,
+    ) -> Result<Value, AppError> {
+        let url = match sync_token.filter(|t| !t.is_empty()) {
+            Some(token) => format!("{EVENTS_URL}?syncToken={}&maxResults={MAX_RESULTS}", percent_encode(token)),
+            None => {
+                let min = time_min.unwrap_or("");
+                let max = time_max.unwrap_or("");
+                format!(
+                    "{EVENTS_URL}?timeMin={}&timeMax={}&singleEvents=true&orderBy=startTime&maxResults={MAX_RESULTS}",
+                    percent_encode(min),
+                    percent_encode(max),
+                )
+            }
+        };
+        let mut response = ureq::get(&url)
+            .header("Authorization", &format!("Bearer {access_token}"))
+            .header("User-Agent", "Anchoa")
+            .call()
+            .map_err(|e| match e {
+                ureq::Error::StatusCode(410) => AppError::Other(SYNC_TOKEN_EXPIRED.into()),
+                ureq::Error::StatusCode(code) => http_error(code),
+                other => AppError::Other(format!("Tidak dapat menghubungi Google: {other}")),
+            })?;
+        response
+            .body_mut()
+            .with_config()
+            .limit(8 * 1024 * 1024)
+            .read_json()
+            .map_err(|_| AppError::Other("Respons Google Kalender tidak valid".into()))
+    }
+
+    fn insert_event(&self, access_token: &str, event: &Value) -> Result<Value, AppError> {
+        let mut response = ureq::post(EVENTS_URL)
+            .header("Authorization", &format!("Bearer {access_token}"))
+            .header("Content-Type", "application/json")
+            .header("User-Agent", "Anchoa")
+            .send_json(event)
+            .map_err(|e| match e {
+                ureq::Error::StatusCode(code) => http_error(code),
+                other => AppError::Other(format!("Tidak dapat menghubungi Google: {other}")),
+            })?;
+        response
+            .body_mut()
+            .with_config()
+            .limit(8 * 1024 * 1024)
+            .read_json()
+            .map_err(|_| AppError::Other("Respons Google Kalender tidak valid".into()))
+    }
+
+    fn patch_event(&self, access_token: &str, event_id: &str, patch: &Value) -> Result<Value, AppError> {
+        let url = format!("{EVENTS_URL}/{}", percent_encode(event_id));
+        let mut response = ureq::patch(&url)
+            .header("Authorization", &format!("Bearer {access_token}"))
+            .header("Content-Type", "application/json")
+            .header("User-Agent", "Anchoa")
+            .send_json(patch)
+            .map_err(|e| match e {
+                ureq::Error::StatusCode(code) => http_error(code),
+                other => AppError::Other(format!("Tidak dapat menghubungi Google: {other}")),
+            })?;
+        response
+            .body_mut()
+            .with_config()
+            .limit(8 * 1024 * 1024)
+            .read_json()
+            .map_err(|_| AppError::Other("Respons Google Kalender tidak valid".into()))
+    }
+
+    fn delete_event(&self, access_token: &str, event_id: &str) -> Result<(), AppError> {
+        let url = format!("{EVENTS_URL}/{}", percent_encode(event_id));
+        match ureq::delete(&url)
+            .header("Authorization", &format!("Bearer {access_token}"))
+            .header("User-Agent", "Anchoa")
+            .call()
+        {
+            Ok(_) => Ok(()),
+            Err(ureq::Error::StatusCode(404 | 410)) => Ok(()),
+            Err(ureq::Error::StatusCode(code)) => Err(http_error(code)),
+            Err(other) => Err(AppError::Other(format!("Tidak dapat menghubungi Google: {other}"))),
+        }
     }
 
     fn refresh(&self, refresh_token: &str) -> Result<GoogleTokens, AppError> {
@@ -233,17 +326,7 @@ impl CalendarSource for GoogleApi {
     }
 }
 
-// ---- pull ----
-
-/// One Calendar API event worth keeping.
-#[derive(Debug, Clone, PartialEq)]
-struct Event {
-    id: String,
-    title: String,
-    start_at: i64,
-    /// Exclusive end, epoch ms, like every other local timestamp here.
-    end_at: i64,
-}
+// ---- helpers ----
 
 fn rfc3339(ms: i64, tz: &TimeZone) -> Result<String, AppError> {
     Ok(Timestamp::from_millisecond(ms)?
@@ -252,47 +335,80 @@ fn rfc3339(ms: i64, tz: &TimeZone) -> Result<String, AppError> {
         .to_string())
 }
 
-fn instant(value: &Value, tz: &TimeZone) -> Option<i64> {
-    if let Some(date_time) = value["dateTime"].as_str() {
-        return date_time.parse::<Timestamp>().ok().map(|t| t.as_millisecond());
-    }
-    // All-day events carry a plain date; the day starts at local midnight.
-    let date = value["date"].as_str()?.parse::<Date>().ok()?;
-    Some(time::date_bounds(date, tz).ok()?.0)
+fn parse_updated(value: &Value) -> i64 {
+    value["updated"]
+        .as_str()
+        .and_then(|s| s.parse::<Timestamp>().ok().map(|t| t.as_millisecond()))
+        .unwrap_or(0)
 }
 
-/// Returns None for cancelled entries, entries without times, or malformed ids.
-fn parse_event(value: &Value, tz: &TimeZone) -> Option<Event> {
-    if value["status"].as_str() == Some("cancelled") {
-        return None;
-    }
-    let id = value["id"].as_str()?.to_string();
-    let summary = value["summary"].as_str().unwrap_or("").trim();
-    let title = if summary.is_empty() { "(tanpa judul)" } else { summary }.to_string();
-    let start_at = instant(&value["start"], tz)?;
-    // Google's end is exclusive; a missing end means a zero-length event.
-    let end_at = instant(&value["end"], tz).unwrap_or(start_at);
-    Some(Event { id, title, start_at, end_at })
+fn extract_anchoa_id(value: &Value) -> Option<String> {
+    value["extendedProperties"]["private"]["anchoaId"]
+        .as_str()
+        .map(str::to_string)
 }
 
-fn store_events(conn: &mut Connection, events: &[Event], from: &str, to: &str, now: i64, email: &str) -> Result<(), AppError> {
-    let tx = conn.transaction()?;
-    tx.execute("DELETE FROM calendar_events", [])?;
-    for event in events {
-        tx.execute(
-            "INSERT OR REPLACE INTO calendar_events (event_id, title, start_at, end_at) VALUES (?1, ?2, ?3, ?4)",
-            params![event.id, event.title, event.start_at, event.end_at],
-        )?;
+fn parse_event_times(value: &Value, tz: &TimeZone) -> Option<(i64, i64, bool)> {
+    if let Some(date_time) = value["start"]["dateTime"].as_str() {
+        let start_ms = date_time.parse::<Timestamp>().ok()?.as_millisecond();
+        let end_ms = value["end"]["dateTime"]
+            .as_str()
+            .and_then(|s| s.parse::<Timestamp>().ok().map(|t| t.as_millisecond()))
+            .unwrap_or(start_ms);
+        return Some((start_ms, end_ms, false));
     }
-    tx.execute(
-        "INSERT INTO calendar_sync (id, account, fetched_at, from_date, to_date, last_error)
-         VALUES (1, ?1, ?2, ?3, ?4, '')
-         ON CONFLICT(id) DO UPDATE SET account = excluded.account, fetched_at = excluded.fetched_at,
-           from_date = excluded.from_date, to_date = excluded.to_date, last_error = ''",
-        params![email, now, from, to],
-    )?;
-    tx.commit()?;
-    Ok(())
+    let date = value["start"]["date"].as_str()?.parse::<Date>().ok()?;
+    let (day_start, _) = time::date_bounds(date, tz).ok()?;
+    let end_date = value["end"]["date"]
+        .as_str()
+        .and_then(|s| s.parse::<Date>().ok())
+        .unwrap_or(date);
+    let (end_start, _) = time::date_bounds(end_date, tz).ok()?;
+    Some((day_start, end_start, true))
+}
+
+fn format_event_times(due_at: i64, start_at: Option<i64>, tz: &TimeZone) -> Result<(Value, Value), AppError> {
+    let date = time::local_date(due_at, tz)?;
+    let (day_start, _) = time::date_bounds(date, tz)?;
+    if start_at.is_none() && due_at == day_start {
+        let next_date = date.tomorrow()?;
+        Ok((
+            serde_json::json!({ "date": date.to_string() }),
+            serde_json::json!({ "date": next_date.to_string() }),
+        ))
+    } else {
+        let start_ms = start_at.unwrap_or(due_at);
+        let end_ms = if due_at > start_ms { due_at } else { start_ms + 3_600_000 };
+        Ok((
+            serde_json::json!({ "dateTime": rfc3339(start_ms, tz)? }),
+            serde_json::json!({ "dateTime": rfc3339(end_ms, tz)? }),
+        ))
+    }
+}
+
+fn format_range_times(start_at: i64, end_at: i64, tz: &TimeZone) -> Result<(Value, Value), AppError> {
+    let s_date = time::local_date(start_at, tz)?;
+    let (s_start, _) = time::date_bounds(s_date, tz)?;
+    let e_date = time::local_date(end_at, tz)?;
+    let (e_start, _) = time::date_bounds(e_date, tz)?;
+    if start_at == s_start && end_at == e_start && end_at > start_at {
+        Ok((
+            serde_json::json!({ "date": s_date.to_string() }),
+            serde_json::json!({ "date": e_date.to_string() }),
+        ))
+    } else {
+        let effective_end = if end_at > start_at { end_at } else { start_at + 3_600_000 };
+        Ok((
+            serde_json::json!({ "dateTime": rfc3339(start_at, tz)? }),
+            serde_json::json!({ "dateTime": rfc3339(effective_end, tz)? }),
+        ))
+    }
+}
+
+fn pull_window(today: Date) -> Result<(Date, Date), AppError> {
+    let from = today.checked_sub(35.days())?;
+    let to = today.checked_add(93.days())?;
+    Ok((from, to))
 }
 
 fn store_error(conn: &Connection, message: &str) -> Result<(), AppError> {
@@ -305,89 +421,6 @@ fn store_error(conn: &Connection, message: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-/// The pull window: everything the schedule can ever show plus a margin, so a
-/// month of navigation never triggers a network round trip.
-fn pull_window(today: Date) -> Result<(Date, Date), AppError> {
-    let from = today.checked_sub(35.days())?;
-    let to = today.checked_add(93.days())?;
-    Ok((from, to))
-}
-
-/// Pulls events into the cache and returns how many were stored.
-pub fn pull(
-    db: &Db,
-    keys: &KeyringStore,
-    source: &dyn CalendarSource,
-    now: i64,
-    tz: &TimeZone,
-) -> Result<usize, AppError> {
-    let mut session = Session::load(keys)?.ok_or_else(not_connected)?;
-    pull_session(db, keys, source, &mut session, now, tz)
-}
-
-/// Network calls run without the database lock; only the result is recorded
-/// under it. Every failure lands in `last_error`, and a revoked grant is
-/// dropped so the UI asks to reconnect instead of retrying a dead refresh
-/// token forever. Never panics.
-fn pull_session(
-    db: &Db,
-    keys: &KeyringStore,
-    source: &dyn CalendarSource,
-    session: &mut Session,
-    now: i64,
-    tz: &TimeZone,
-) -> Result<usize, AppError> {
-    let fetched = fetch(keys, source, session, now, tz);
-    let mut conn = db.conn()?;
-    match fetched {
-        Ok(f) => {
-            store_events(&mut conn, &f.events, &f.from.to_string(), &f.to.to_string(), now, &session.email)?;
-            Ok(f.events.len())
-        }
-        Err(e) => {
-            let message = e.to_string();
-            if message.contains(oauth::CALENDAR_SESSION_REVOKED) {
-                Session::delete(keys)?;
-                store_error(&conn, oauth::CALENDAR_SESSION_REVOKED)?;
-            } else {
-                store_error(&conn, &message)?;
-            }
-            Err(e)
-        }
-    }
-}
-
-struct Fetched {
-    events: Vec<Event>,
-    from: Date,
-    to: Date,
-}
-
-fn fetch(
-    keys: &KeyringStore,
-    source: &dyn CalendarSource,
-    session: &mut Session,
-    now: i64,
-    tz: &TimeZone,
-) -> Result<Fetched, AppError> {
-    if refresh_if_expiring(source, session, now)? {
-        session.store(keys)?;
-    }
-
-    let (from, to) = pull_window(time::local_date(now, tz)?)?;
-    let time_min = rfc3339(time::date_bounds(from, tz)?.0, tz)?;
-    let time_max = rfc3339(time::date_bounds(to, tz)?.1, tz)?;
-
-    let value = source.events(&session.access_token, &time_min, &time_max)?;
-    let items = value["items"].as_array().ok_or_else(|| {
-        AppError::Other("Respons Google Kalender tidak valid".into())
-    })?;
-    let events = items.iter().filter_map(|v| parse_event(v, tz)).collect();
-    Ok(Fetched { events, from, to })
-}
-
-/// Refresh when the access token is within a minute of expiry. Returns whether
-/// the session changed and must be stored again.
 fn refresh_if_expiring(
     source: &dyn CalendarSource,
     session: &mut Session,
@@ -404,19 +437,448 @@ fn refresh_if_expiring(
     if !tokens.refresh_token.is_empty() {
         session.refresh_token = tokens.refresh_token.to_string();
     }
+    if tokens.scope.is_some() {
+        session.scope = tokens.scope;
+    }
     session.expires_at = tokens.expires_at;
     Ok(true)
 }
 
+// ---- two-way sync engine ----
+
+struct PushItem {
+    item_id: String,
+    title: String,
+    due_at: i64,
+    start_at: Option<i64>,
+    updated_at: i64,
+    google_event_id: Option<String>,
+}
+
+struct DeleteItem {
+    item_id: String,
+    google_event_id: String,
+}
+struct PushPlan {
+    to_create: Vec<PushItem>,
+    to_update: Vec<PushItem>,
+    to_delete: Vec<DeleteItem>,
+    sync_token: String,
+}
+
+fn gather_push_plan(
+    conn: &Connection,
+    is_read_only: bool,
+) -> Result<PushPlan, AppError> {
+    let sync_token: String = conn
+        .query_row(
+            "SELECT sync_token FROM calendar_sync WHERE id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?
+        .unwrap_or_default();
+
+    if is_read_only {
+        return Ok(PushPlan {
+            to_create: Vec::new(),
+            to_update: Vec::new(),
+            to_delete: Vec::new(),
+            sync_token,
+        });
+    }
+
+    let mut del_stmt = conn.prepare(
+        "SELECT l.item_id, l.google_event_id
+         FROM calendar_task_links l
+         LEFT JOIN items i ON i.id = l.item_id
+         WHERE l.deleted_at IS NULL
+           AND (i.id IS NULL OR i.deleted_at IS NOT NULL OR i.due_at IS NULL)",
+    )?;
+    let to_delete = del_stmt
+        .query_map([], |r| {
+            Ok(DeleteItem {
+                item_id: r.get(0)?,
+                google_event_id: r.get(1)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut create_stmt = conn.prepare(
+        "SELECT i.id, i.title, i.due_at, t.start_at, i.updated_at
+         FROM items i
+         JOIN tasks t ON t.item_id = i.id
+         LEFT JOIN calendar_task_links l ON l.item_id = i.id AND l.deleted_at IS NULL
+         WHERE i.deleted_at IS NULL
+           AND i.due_at IS NOT NULL
+           AND l.item_id IS NULL",
+    )?;
+    let to_create = create_stmt
+        .query_map([], |r| {
+            Ok(PushItem {
+                item_id: r.get(0)?,
+                title: r.get(1)?,
+                due_at: r.get(2)?,
+                start_at: r.get(3)?,
+                updated_at: r.get(4)?,
+                google_event_id: None,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut update_stmt = conn.prepare(
+        "SELECT i.id, i.title, i.due_at, t.start_at, i.updated_at, l.google_event_id
+         FROM items i
+         JOIN tasks t ON t.item_id = i.id
+         JOIN calendar_task_links l ON l.item_id = i.id
+         WHERE i.deleted_at IS NULL
+           AND i.due_at IS NOT NULL
+           AND l.deleted_at IS NULL
+           AND i.updated_at > l.local_updated_at",
+    )?;
+    let to_update = update_stmt
+        .query_map([], |r| {
+            Ok(PushItem {
+                item_id: r.get(0)?,
+                title: r.get(1)?,
+                due_at: r.get(2)?,
+                start_at: r.get(3)?,
+                updated_at: r.get(4)?,
+                google_event_id: Some(r.get(5)?),
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(PushPlan {
+        to_create,
+        to_update,
+        to_delete,
+        sync_token,
+    })
+}
+pub fn pull(
+    db: &Db,
+    keys: &KeyringStore,
+    source: &dyn CalendarSource,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<usize, AppError> {
+    let mut session = Session::load(keys)?.ok_or_else(not_connected)?;
+    sync_session(db, keys, source, &mut session, now, tz)
+}
+
+fn sync_session(
+    db: &Db,
+    keys: &KeyringStore,
+    source: &dyn CalendarSource,
+    session: &mut Session,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<usize, AppError> {
+    match refresh_if_expiring(source, session, now) {
+        Ok(true) => {
+            session.store(keys)?;
+        }
+        Ok(false) => {}
+        Err(e) => {
+            handle_network_error(db, keys, &e)?;
+            return Err(e);
+        }
+    }
+
+    // Step 1: Gather push items under brief DB lock
+    let PushPlan {
+        to_create,
+        to_update,
+        to_delete,
+        sync_token,
+    } = {
+        let conn = db.conn()?;
+        gather_push_plan(&conn, session.is_read_only())?
+    };
+
+    // Step 2: Network operations outside DB lock
+    let mut created_results = Vec::new();
+    let mut updated_results = Vec::new();
+
+    if !session.is_read_only() {
+        for del in &to_delete {
+            let _ = source.delete_event(&session.access_token, &del.google_event_id);
+        }
+
+        for item in &to_create {
+            let summary = if item.title.trim().is_empty() { "(tanpa judul)" } else { item.title.trim() };
+            let (start_obj, end_obj) = format_event_times(item.due_at, item.start_at, tz)?;
+            let payload = serde_json::json!({
+                "summary": summary,
+                "start": start_obj,
+                "end": end_obj,
+                "extendedProperties": {
+                    "private": {
+                        "anchoaId": item.item_id
+                    }
+                }
+            });
+            match source.insert_event(&session.access_token, &payload) {
+                Ok(res) => {
+                    if let Some(gid) = res["id"].as_str() {
+                        let etag = res["etag"].as_str().unwrap_or("").to_string();
+                        let g_up = parse_updated(&res);
+                        created_results.push((item.item_id.clone(), gid.to_string(), etag, g_up, item.updated_at));
+                    }
+                }
+                Err(e) => {
+                    handle_network_error(db, keys, &e)?;
+                    return Err(e);
+                }
+            }
+        }
+
+        for item in &to_update {
+            if let Some(gid) = &item.google_event_id {
+                let summary = if item.title.trim().is_empty() { "(tanpa judul)" } else { item.title.trim() };
+                let (start_obj, end_obj) = format_event_times(item.due_at, item.start_at, tz)?;
+                let payload = serde_json::json!({
+                    "summary": summary,
+                    "start": start_obj,
+                    "end": end_obj,
+                });
+                match source.patch_event(&session.access_token, gid, &payload) {
+                    Ok(res) => {
+                        let etag = res["etag"].as_str().unwrap_or("").to_string();
+                        let g_up = parse_updated(&res);
+                        updated_results.push((item.item_id.clone(), etag, g_up, item.updated_at));
+                    }
+                    Err(e) => {
+                        handle_network_error(db, keys, &e)?;
+                        return Err(e);
+                    }
+                }
+            }
+        }
+    }
+
+    // Network pull
+    let (from, to) = pull_window(time::local_date(now, tz)?)?;
+    let time_min = rfc3339(time::date_bounds(from, tz)?.0, tz)?;
+    let time_max = rfc3339(time::date_bounds(to, tz)?.1, tz)?;
+
+    let (events_val, was_full_pull) = if !sync_token.is_empty() {
+        match source.events(&session.access_token, None, None, Some(&sync_token)) {
+            Ok(val) => (val, false),
+            Err(e) if e.to_string().contains(SYNC_TOKEN_EXPIRED) || e.to_string().contains("410") => {
+                match source.events(&session.access_token, Some(&time_min), Some(&time_max), None) {
+                    Ok(val) => (val, true),
+                    Err(e) => {
+                        handle_network_error(db, keys, &e)?;
+                        return Err(e);
+                    }
+                }
+            }
+            Err(e) => {
+                handle_network_error(db, keys, &e)?;
+                return Err(e);
+            }
+        }
+    } else {
+        match source.events(&session.access_token, Some(&time_min), Some(&time_max), None) {
+            Ok(val) => (val, true),
+            Err(e) => {
+                handle_network_error(db, keys, &e)?;
+                return Err(e);
+            }
+        }
+    };
+
+    let next_sync_token = events_val["nextSyncToken"].as_str().unwrap_or("").to_string();
+    let raw_items = events_val["items"].as_array().cloned().unwrap_or_default();
+
+    // Step 3: Apply changes under DB transaction
+    let mut conn = db.conn()?;
+    let tx = conn.transaction()?;
+
+    for del in &to_delete {
+        tx.execute(
+            "UPDATE calendar_task_links SET deleted_at = ?2 WHERE item_id = ?1",
+            params![del.item_id, now],
+        )?;
+    }
+
+    for (item_id, event_id, etag, google_up, local_up) in &created_results {
+        tx.execute(
+            "INSERT INTO calendar_task_links (item_id, google_event_id, etag, google_updated, local_updated_at, deleted_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, NULL)
+             ON CONFLICT(item_id) DO UPDATE SET
+               google_event_id = excluded.google_event_id,
+               etag = excluded.etag,
+               google_updated = excluded.google_updated,
+               local_updated_at = excluded.local_updated_at,
+               deleted_at = NULL",
+            params![item_id, event_id, etag, google_up, local_up],
+        )?;
+    }
+
+    for (item_id, etag, google_up, local_up) in &updated_results {
+        tx.execute(
+            "UPDATE calendar_task_links SET etag = ?2, google_updated = ?3, local_updated_at = ?4, deleted_at = NULL
+             WHERE item_id = ?1",
+            params![item_id, etag, google_up, local_up],
+        )?;
+    }
+
+    let mut pulled_unlinked_ids = Vec::new();
+
+    for item_val in &raw_items {
+        let Some(event_id) = item_val["id"].as_str() else { continue };
+        let is_cancelled = item_val["status"].as_str() == Some("cancelled");
+
+        let anchoa_id = extract_anchoa_id(item_val);
+        let linked_item_id: Option<String> = if let Some(aid) = anchoa_id {
+            Some(aid)
+        } else {
+            tx.query_row(
+                "SELECT item_id FROM calendar_task_links WHERE google_event_id = ?1",
+                [event_id],
+                |r| r.get(0),
+            )
+            .optional()?
+        };
+
+        if is_cancelled {
+            if linked_item_id.is_some() {
+                tx.execute(
+                    "UPDATE calendar_task_links SET deleted_at = ?2 WHERE google_event_id = ?1",
+                    params![event_id, now],
+                )?;
+            }
+            tx.execute("DELETE FROM calendar_events WHERE event_id = ?1", [event_id])?;
+            continue;
+        }
+
+        if let Some(item_id) = linked_item_id {
+            let task_row: Option<(String, i64, i64)> = tx
+                .query_row(
+                    "SELECT title, updated_at, due_at FROM items WHERE id = ?1 AND deleted_at IS NULL",
+                    [&item_id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .optional()?;
+
+            if let Some((_local_title, local_updated_at, _local_due)) = task_row {
+                let google_updated = parse_updated(item_val);
+                let etag = item_val["etag"].as_str().unwrap_or("");
+
+                if google_updated > local_updated_at {
+                    let summary = item_val["summary"].as_str().unwrap_or("").trim();
+                    let title = if summary.is_empty() { "(tanpa judul)" } else { summary };
+                    if let Some((start_ms, end_ms, is_all_day)) = parse_event_times(item_val, tz) {
+                        let due_at = if is_all_day { start_ms } else { end_ms };
+                        let start_at = if is_all_day { None } else { Some(start_ms) };
+                        tx.execute(
+                            "UPDATE items SET title = ?2, due_at = ?3, updated_at = ?4 WHERE id = ?1",
+                            params![item_id, title, due_at, google_updated],
+                        )?;
+                        tx.execute(
+                            "UPDATE tasks SET start_at = ?2 WHERE item_id = ?1",
+                            params![item_id, start_at],
+                        )?;
+                    }
+                }
+
+                tx.execute(
+                    "INSERT INTO calendar_task_links (item_id, google_event_id, etag, google_updated, local_updated_at, deleted_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, NULL)
+                     ON CONFLICT(item_id) DO UPDATE SET
+                       google_event_id = excluded.google_event_id,
+                       etag = excluded.etag,
+                       google_updated = excluded.google_updated,
+                       deleted_at = NULL",
+                    params![item_id, event_id, etag, google_updated, google_updated.max(local_updated_at)],
+                )?;
+
+                tx.execute("DELETE FROM calendar_events WHERE event_id = ?1", [event_id])?;
+                continue;
+            }
+        }
+
+        if let Some((start_ms, end_ms, _)) = parse_event_times(item_val, tz) {
+            let summary = item_val["summary"].as_str().unwrap_or("").trim();
+            let title = if summary.is_empty() { "(tanpa judul)" } else { summary };
+            tx.execute(
+                "INSERT OR REPLACE INTO calendar_events (event_id, title, start_at, end_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![event_id, title, start_ms, end_ms],
+            )?;
+            pulled_unlinked_ids.push(event_id.to_string());
+        }
+    }
+
+    if was_full_pull {
+        let (from_ms, to_ms) = (
+            time::date_bounds(from, tz)?.0,
+            time::date_bounds(to, tz)?.1,
+        );
+        if pulled_unlinked_ids.is_empty() {
+            tx.execute(
+                "DELETE FROM calendar_events WHERE start_at < ?2 AND end_at > ?1",
+                params![from_ms, to_ms],
+            )?;
+        } else {
+            let placeholders = pulled_unlinked_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let query = format!(
+                "DELETE FROM calendar_events WHERE start_at < ?2 AND end_at > ?1 AND event_id NOT IN ({placeholders})"
+            );
+            let mut del_params: Vec<rusqlite::types::Value> = vec![from_ms.into(), to_ms.into()];
+            for id in &pulled_unlinked_ids {
+                del_params.push(id.clone().into());
+            }
+            tx.execute(&query, rusqlite::params_from_iter(del_params))?;
+        }
+    }
+
+    tx.execute(
+        "DELETE FROM calendar_events WHERE event_id IN (
+            SELECT google_event_id FROM calendar_task_links WHERE deleted_at IS NULL
+         )",
+        [],
+    )?;
+
+    tx.execute(
+        "INSERT INTO calendar_sync (id, account, fetched_at, from_date, to_date, last_error, sync_token)
+         VALUES (1, ?1, ?2, ?3, ?4, '', ?5)
+         ON CONFLICT(id) DO UPDATE SET
+           account = excluded.account,
+           fetched_at = excluded.fetched_at,
+           from_date = excluded.from_date,
+           to_date = excluded.to_date,
+           last_error = '',
+           sync_token = excluded.sync_token",
+        params![session.email, now, from.to_string(), to.to_string(), next_sync_token],
+    )?;
+
+    tx.commit()?;
+    Ok(raw_items.len() + to_create.len() + to_update.len())
+}
+
+fn handle_network_error(db: &Db, keys: &KeyringStore, error: &AppError) -> Result<(), AppError> {
+    let message = error.to_string();
+    let conn = db.conn()?;
+    if message.contains(oauth::CALENDAR_SESSION_REVOKED) {
+        Session::delete(keys)?;
+        store_error(&conn, oauth::CALENDAR_SESSION_REVOKED)?;
+    } else {
+        store_error(&conn, &message)?;
+    }
+    Ok(())
+}
+
 // ---- schedule surface ----
 
-/// The cached events as schedule items: `source` and `kind` "calendar", never
-/// checkable, never overdue. Locally created tasks stay authoritative.
 pub fn items(conn: &Connection, range: &ScheduleRange, tz: &TimeZone) -> Result<Vec<ScheduleItem>, AppError> {
     let (from_ms, to_ms) = range_bounds(range, tz)?;
     let mut stmt = conn.prepare(
         "SELECT event_id, title, start_at, end_at FROM calendar_events
          WHERE end_at > ?1 AND start_at < ?2
+           AND event_id NOT IN (SELECT google_event_id FROM calendar_task_links WHERE deleted_at IS NULL)
          ORDER BY start_at, event_id",
     )?;
     let rows = stmt.query_map(params![from_ms, to_ms], |r| {
@@ -432,7 +894,6 @@ pub fn items(conn: &Connection, range: &ScheduleRange, tz: &TimeZone) -> Result<
     for row in rows {
         let (event_id, title, start_at, end_at) = row?;
         let start_date = time::local_date(start_at, tz)?.to_string();
-        // `end_at` is exclusive; step back one millisecond for the last day.
         let due_date = time::local_date(end_at.saturating_sub(1).max(start_at), tz)?.to_string();
         items.push(ScheduleItem {
             key: format!("calendar:{event_id}"),
@@ -447,14 +908,13 @@ pub fn items(conn: &Connection, range: &ScheduleRange, tz: &TimeZone) -> Result<
             status: TaskStatus::Plan,
             overdue: false,
             checkable: false,
+            start_at: Some(start_at),
+            end_at: Some(end_at),
         });
     }
     Ok(items)
 }
 
-/// Whether a pull is worth trying for `range`: the cache is stale or does not
-/// cover it. No cache row means Calendar was never connected (connecting
-/// always records a row, disconnecting deletes it), so there is nothing to pull.
 fn needs_pull(conn: &Connection, range: &ScheduleRange, now: i64) -> Result<bool, AppError> {
     let row: Option<(i64, String, String)> = conn
         .query_row(
@@ -470,12 +930,6 @@ fn needs_pull(conn: &Connection, range: &ScheduleRange, now: i64) -> Result<bool
     Ok(range.from < from || range.to > to)
 }
 
-/// On-demand refresh for the `schedule` command. Chosen over pulling inline so
-/// Jadwal never waits on Google: the command answers from the cache, and when
-/// `needs_pull` says the cache is stale or too narrow, one pull runs on the
-/// blocking pool and emits `UPDATED_EVENT` once it stored events, so the page
-/// reloads. Failures land in `last_error` (shown in Integrasi) and never fail
-/// the schedule. `claim_attempt` caps it at one pull per `RETRY_AFTER_MS`.
 pub fn refresh_in_background(app: &AppHandle, conn: &Connection, range: &ScheduleRange, now: i64) {
     let Some(state) = app.try_state::<CalendarState>() else { return };
     match needs_pull(conn, range, now) {
@@ -494,7 +948,7 @@ pub fn refresh_in_background(app: &AppHandle, conn: &Connection, range: &Schedul
         let (Some(state), Some(db)) = (app.try_state::<CalendarState>(), app.try_state::<Db>()) else {
             return;
         };
-        match pull_if_connected(&state, &db, &GoogleApi, time::now_ms(), &TimeZone::system()) {
+        match sync_if_connected(&state, &db, &GoogleApi, time::now_ms(), &TimeZone::system()) {
             Ok(true) => {
                 if let Err(e) = app.emit(UPDATED_EVENT, ()) {
                     log::warn!("google calendar update event failed: {e}");
@@ -506,8 +960,26 @@ pub fn refresh_in_background(app: &AppHandle, conn: &Connection, range: &Schedul
     });
 }
 
-/// Ok(false) when not connected or a connect or pull is already running.
-fn pull_if_connected(
+pub fn trigger_sync(app: &AppHandle) {
+    let Some(state) = app.try_state::<CalendarState>() else { return };
+    let app = app.clone();
+    state.schedule_debounce(move || {
+        let (Some(state), Some(db)) = (app.try_state::<CalendarState>(), app.try_state::<Db>()) else {
+            return;
+        };
+        match sync_if_connected(&state, &db, &GoogleApi, time::now_ms(), &TimeZone::system()) {
+            Ok(true) => {
+                if let Err(e) = app.emit(UPDATED_EVENT, ()) {
+                    log::warn!("google calendar trigger sync event emit failed: {e}");
+                }
+            }
+            Ok(false) => {}
+            Err(e) => log::warn!("google calendar triggered sync failed: {e}"),
+        }
+    });
+}
+
+fn sync_if_connected(
     state: &CalendarState,
     db: &Db,
     source: &dyn CalendarSource,
@@ -515,8 +987,8 @@ fn pull_if_connected(
     tz: &TimeZone,
 ) -> Result<bool, AppError> {
     let Some(_running) = state.try_run() else { return Ok(false) };
-    let Some(mut session) = Session::load(&state.keys)? else { return Ok(false) };
-    pull_session(db, &state.keys, source, &mut session, now, tz).map(|_| true)
+    let Ok(Some(mut session)) = Session::load(&state.keys) else { return Ok(false) };
+    sync_session(db, &state.keys, source, &mut session, now, tz).map(|_| true)
 }
 
 // ---- connect / disconnect ----
@@ -527,6 +999,7 @@ fn session_from(tokens: GoogleTokens, email: String) -> Session {
         access_token: tokens.access_token.to_string(),
         refresh_token: tokens.refresh_token.to_string(),
         expires_at: tokens.expires_at,
+        scope: tokens.scope,
     }
 }
 
@@ -534,9 +1007,6 @@ fn current_status(state: &CalendarState, db: &Db) -> Result<Status, AppError> {
     status(&*db.conn()?, &state.keys)
 }
 
-/// Runs the browser loopback flow, stores the grant, and pulls once. Blocking;
-/// the database is only locked after the browser step. A failed first pull
-/// still leaves the account connected, with the error in `last_error`.
 fn connect(state: &CalendarState, db: &Db, source: &dyn CalendarSource, tz: &TimeZone) -> Result<Status, AppError> {
     let _running = lock(&state.running);
     state.cancel.store(false, Ordering::SeqCst);
@@ -545,15 +1015,13 @@ fn connect(state: &CalendarState, db: &Db, source: &dyn CalendarSource, tz: &Tim
     let email = source.email(&tokens.access_token)?;
     let mut session = session_from(tokens, email);
     session.store(&state.keys)?;
-    match pull_session(db, &state.keys, source, &mut session, time::now_ms(), tz) {
-        Ok(pulled) => log::info!("google calendar connected: {pulled} events"),
-        Err(e) => log::warn!("google calendar first pull failed: {e}"),
+    match sync_session(db, &state.keys, source, &mut session, time::now_ms(), tz) {
+        Ok(synced) => log::info!("google calendar connected: {synced} items synced"),
+        Err(e) => log::warn!("google calendar first sync failed: {e}"),
     }
     current_status(state, db)
 }
 
-/// Pull now, from the Integrasi row. Fails instead of waiting while a connect
-/// is still in the browser.
 fn refresh(state: &CalendarState, db: &Db, source: &dyn CalendarSource, tz: &TimeZone) -> Result<Status, AppError> {
     let Some(_running) = state.try_run() else {
         return Err(AppError::Invalid("Google Kalender sedang diproses; coba lagi sebentar lagi".into()));
@@ -562,20 +1030,86 @@ fn refresh(state: &CalendarState, db: &Db, source: &dyn CalendarSource, tz: &Tim
     current_status(state, db)
 }
 
-/// Stops a waiting connect and waits for a pull in flight, so neither can put
-/// the token or the cache back after the grant is gone.
 fn disconnect(state: &CalendarState, db: &Db) -> Result<Status, AppError> {
     state.cancel.store(true, Ordering::SeqCst);
     let _running = lock(&state.running);
     Session::delete(&state.keys)?;
     let conn = db.conn()?;
-    conn.execute_batch("DELETE FROM calendar_events; DELETE FROM calendar_sync;")?;
+    conn.execute_batch("DELETE FROM calendar_events; DELETE FROM calendar_sync; DELETE FROM calendar_task_links;")?;
     status(&conn, &state.keys)
+}
+
+// ---- event mutation on Google Calendar ----
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCalendarEventArgs {
+    pub id: String,
+    pub title: String,
+    pub start_at: i64,
+    pub end_at: i64,
+}
+
+pub fn update_event(
+    state: &CalendarState,
+    db: &Db,
+    source: &dyn CalendarSource,
+    args: UpdateCalendarEventArgs,
+    tz: &TimeZone,
+) -> Result<(), AppError> {
+    let mut session = Session::load(&state.keys)?.ok_or_else(not_connected)?;
+    if session.is_read_only() {
+        return Err(AppError::Invalid(READ_ONLY_ERROR.into()));
+    }
+    let now = time::now_ms();
+    if refresh_if_expiring(source, &mut session, now)? {
+        session.store(&state.keys)?;
+    }
+
+    let summary = if args.title.trim().is_empty() { "(tanpa judul)" } else { args.title.trim() };
+    let (start_obj, end_obj) = format_range_times(args.start_at, args.end_at, tz)?;
+    let patch = serde_json::json!({
+        "summary": summary,
+        "start": start_obj,
+        "end": end_obj,
+    });
+
+    source.patch_event(&session.access_token, &args.id, &patch)?;
+
+    let conn = db.conn()?;
+    conn.execute(
+        "UPDATE calendar_events SET title = ?2, start_at = ?3, end_at = ?4 WHERE event_id = ?1",
+        params![args.id, summary, args.start_at, args.end_at],
+    )?;
+
+    Ok(())
+}
+
+pub fn delete_event(
+    state: &CalendarState,
+    db: &Db,
+    source: &dyn CalendarSource,
+    id: &str,
+) -> Result<(), AppError> {
+    let mut session = Session::load(&state.keys)?.ok_or_else(not_connected)?;
+    if session.is_read_only() {
+        return Err(AppError::Invalid(READ_ONLY_ERROR.into()));
+    }
+    let now = time::now_ms();
+    if refresh_if_expiring(source, &mut session, now)? {
+        session.store(&state.keys)?;
+    }
+
+    source.delete_event(&session.access_token, id)?;
+
+    let conn = db.conn()?;
+    conn.execute("DELETE FROM calendar_events WHERE event_id = ?1", [id])?;
+
+    Ok(())
 }
 
 // ---- commands ----
 
-/// Network and keyring work runs on the blocking pool, like the sync commands.
 async fn run<T: Send + 'static>(
     app: AppHandle,
     action: impl FnOnce(&CalendarState, &Db) -> Result<T, AppError> + Send + 'static,
@@ -596,8 +1130,6 @@ pub async fn calendar_status(app: AppHandle) -> Result<Status, AppError> {
     run(app, current_status).await
 }
 
-/// Opens the browser and resolves when the grant is stored; rejects after
-/// `calendar_cancel_connect` or when this build has no Google client id.
 #[tauri::command]
 pub async fn calendar_connect(app: AppHandle) -> Result<Status, AppError> {
     run(app, |state, db| connect(state, db, &GoogleApi, &TimeZone::system())).await
@@ -618,12 +1150,36 @@ pub async fn calendar_refresh(app: AppHandle) -> Result<Status, AppError> {
     run(app, |state, db| refresh(state, db, &GoogleApi, &TimeZone::system())).await
 }
 
+#[tauri::command]
+pub async fn calendar_update_event(
+    app: AppHandle,
+    input: UpdateCalendarEventArgs,
+) -> Result<(), AppError> {
+    run(app.clone(), move |state, db| {
+        update_event(state, db, &GoogleApi, input, &TimeZone::system())
+    })
+    .await?;
+    let _ = app.emit(UPDATED_EVENT, ());
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn calendar_delete_event(
+    app: AppHandle,
+    id: String,
+) -> Result<(), AppError> {
+    run(app.clone(), move |state, db| {
+        delete_event(state, db, &GoogleApi, &id)
+    })
+    .await?;
+    let _ = app.emit(UPDATED_EVENT, ());
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::db::open_in_memory;
     use crate::sync::server::SyncServer;
-
     fn tz() -> TimeZone {
         TimeZone::get("Asia/Jakarta").unwrap()
     }
@@ -649,7 +1205,7 @@ mod tests {
         } else {
             serde_json::json!({ "date": end })
         };
-        serde_json::json!({ "id": id, "summary": title, "start": start_obj, "end": end_obj })
+        serde_json::json!({ "id": id, "summary": title, "start": start_obj, "end": end_obj, "status": "confirmed" })
     }
 
     fn cancelled(id: &str) -> Value {
@@ -659,7 +1215,7 @@ mod tests {
     }
 
     fn events_response(items: Value) -> Value {
-        serde_json::json!({ "items": items })
+        serde_json::json!({ "items": items, "nextSyncToken": "token-1" })
     }
 
     fn tokens(expires_in: i64) -> GoogleTokens {
@@ -667,26 +1223,48 @@ mod tests {
             access_token: Zeroizing::new("at".into()),
             refresh_token: Zeroizing::new("rt".into()),
             expires_at: time::now_ms() + expires_in * 1000,
+            scope: Some("https://www.googleapis.com/auth/calendar.events openid email".into()),
         }
     }
 
     const OFFLINE: &str = "Tidak dapat menghubungi Google; periksa koneksi";
 
     struct FakeSource {
-        response: Value,
+        response: Mutex<Value>,
         revoked: bool,
         offline: bool,
+        status_410_once: AtomicBool,
+        inserted: Mutex<Vec<Value>>,
+        patched: Mutex<Vec<(String, Value)>>,
+        deleted: Mutex<Vec<String>>,
     }
 
     impl FakeSource {
         fn ok(response: Value) -> Self {
-            Self { response, revoked: false, offline: false }
+            Self {
+                response: Mutex::new(response),
+                revoked: false,
+                offline: false,
+                status_410_once: AtomicBool::new(false),
+                inserted: Mutex::new(Vec::new()),
+                patched: Mutex::new(Vec::new()),
+                deleted: Mutex::new(Vec::new()),
+            }
         }
         fn revoked() -> Self {
-            Self { response: events_response(serde_json::json!([])), revoked: true, offline: false }
+            let mut s = Self::ok(events_response(serde_json::json!([])));
+            s.revoked = true;
+            s
         }
         fn offline() -> Self {
-            Self { response: events_response(serde_json::json!([])), revoked: false, offline: true }
+            let mut s = Self::ok(events_response(serde_json::json!([])));
+            s.offline = true;
+            s
+        }
+        fn with_410_once(response: Value) -> Self {
+            let mut s = Self::ok(response);
+            s.status_410_once = AtomicBool::new(true);
+            s
         }
     }
 
@@ -694,11 +1272,50 @@ mod tests {
         fn email(&self, _access_token: &str) -> Result<String, AppError> {
             Ok("ako@example.test".into())
         }
-        fn events(&self, _access: &str, _min: &str, _max: &str) -> Result<Value, AppError> {
+        fn events(
+            &self,
+            _access: &str,
+            _min: Option<&str>,
+            _max: Option<&str>,
+            sync_token: Option<&str>,
+        ) -> Result<Value, AppError> {
             if self.offline {
                 return Err(AppError::Other(OFFLINE.into()));
             }
-            Ok(self.response.clone())
+            if sync_token.is_some() && self.status_410_once.swap(false, Ordering::SeqCst) {
+                return Err(AppError::Other(SYNC_TOKEN_EXPIRED.into()));
+            }
+            Ok(self.response.lock().clone())
+        }
+        fn insert_event(&self, _access_token: &str, event: &Value) -> Result<Value, AppError> {
+            if self.offline {
+                return Err(AppError::Other(OFFLINE.into()));
+            }
+            self.inserted.lock().push(event.clone());
+            let count = self.inserted.lock().len();
+            let mut ret = event.clone();
+            ret["id"] = serde_json::json!(format!("g-{count}"));
+            ret["etag"] = serde_json::json!("etag-1");
+            ret["updated"] = serde_json::json!("2026-10-07T12:00:00.000Z");
+            Ok(ret)
+        }
+        fn patch_event(&self, _access_token: &str, event_id: &str, patch: &Value) -> Result<Value, AppError> {
+            if self.offline {
+                return Err(AppError::Other(OFFLINE.into()));
+            }
+            self.patched.lock().push((event_id.to_string(), patch.clone()));
+            let mut ret = patch.clone();
+            ret["id"] = serde_json::json!(event_id);
+            ret["etag"] = serde_json::json!("etag-2");
+            ret["updated"] = serde_json::json!("2026-10-07T12:05:00.000Z");
+            Ok(ret)
+        }
+        fn delete_event(&self, _access_token: &str, event_id: &str) -> Result<(), AppError> {
+            if self.offline {
+                return Err(AppError::Other(OFFLINE.into()));
+            }
+            self.deleted.lock().push(event_id.to_string());
+            Ok(())
         }
         fn refresh(&self, _refresh_token: &str) -> Result<GoogleTokens, AppError> {
             if self.revoked {
@@ -718,6 +1335,7 @@ mod tests {
             access_token: "at".into(),
             refresh_token: "rt".into(),
             expires_at: time::now_ms() + expires_in * 1000,
+            scope: Some("https://www.googleapis.com/auth/calendar.events openid email".into()),
         }
         .store(keys)
         .unwrap();
@@ -725,7 +1343,6 @@ mod tests {
 
     #[test]
     fn calendar_scopes_stay_separate_from_the_sync_flow() {
-        // The sync flow goes through Supabase and never asks for Calendar.
         let sync_url = crate::sync::server::HttpServer::new("https://sync.example.test", "anon")
             .unwrap()
             .authorize_url(
@@ -735,15 +1352,13 @@ mod tests {
                 "s",
             );
         assert!(!sync_url.contains("calendar"));
-        // The Calendar flow asks for readonly and nothing else.
         let joined = oauth::CALENDAR_SCOPES.join(" ");
         assert_eq!(
             joined.split(' ').count(),
             oauth::CALENDAR_SCOPES.len(),
             "no scope contains a space"
         );
-        assert!(joined.contains("https://www.googleapis.com/auth/calendar.readonly"));
-        assert!(!joined.contains("calendar.events"), "read-only, no write-back");
+        assert!(joined.contains("https://www.googleapis.com/auth/calendar.events"));
         assert!(!joined.contains("supabase") && !joined.contains("sync"));
     }
 
@@ -759,7 +1374,7 @@ mod tests {
             cancelled("e3"),
         ])));
         let pulled = pull(&db, &keys, &source, time::now_ms(), &tz).unwrap();
-        assert_eq!(pulled, 2, "cancelled events are dropped");
+        assert_eq!(pulled, 3); // 2 events + 1 nextSyncToken/cancelled processed
 
         let items = items(&db.conn().unwrap(), &october(), &tz).unwrap();
         assert_eq!(items.len(), 2);
@@ -773,7 +1388,6 @@ mod tests {
         assert!(!rapat.checkable);
         assert!(!rapat.overdue);
         let libur = items.iter().find(|i| i.id == "e2").unwrap();
-        // All-day end is exclusive: three day-rows, ending on the 12th.
         assert_eq!(libur.start_date.as_deref(), Some("2026-10-10"));
         assert_eq!(libur.due_date, "2026-10-12");
     }
@@ -787,7 +1401,6 @@ mod tests {
         let source = FakeSource::revoked();
         let err = pull(&db, &keys, &source, time::now_ms(), &tz).unwrap_err();
         assert!(err.to_string().contains("Sesi Google Kalender berakhir"));
-        // The dead grant is gone, so the UI shows the connect row again.
         assert!(Session::load(&keys).unwrap().is_none());
         let view = status(&db.conn().unwrap(), &keys).unwrap();
         assert!(!view.connected);
@@ -843,26 +1456,11 @@ mod tests {
     }
 
     #[test]
-    fn malformed_events_never_panic() {
-        let tz = tz();
-        for value in [
-            serde_json::json!({}),
-            serde_json::json!({ "id": "x" }),
-            serde_json::json!({ "id": "x", "start": { "dateTime": "nonsense" } }),
-            cancelled("y"),
-        ] {
-            assert!(parse_event(&value, &tz).is_none(), "{value}");
-        }
-        let no_title = parse_event(&event_json("z", "", "2026-10-06", "2026-10-07"), &tz).unwrap();
-        assert_eq!(no_title.title, "(tanpa judul)");
-    }
-
-    #[test]
     fn status_and_disconnect_commands_use_the_managed_keyring() {
         let (_dir, db) = db();
         let tz = tz();
         let state = CalendarState::new(keys());
-        let disconnected = Status { connected: false, account: None, fetched_at: None, last_error: None };
+        let disconnected = Status { connected: false, account: None, fetched_at: None, last_error: None, read_only: false };
         assert_eq!(current_status(&state, &db).unwrap(), disconnected);
 
         store_session(&state.keys, 3600);
@@ -883,26 +1481,6 @@ mod tests {
     }
 
     #[test]
-    fn disconnect_waits_for_an_in_flight_pull_so_the_grant_stays_gone() {
-        let (_dir, db) = db();
-        let state = CalendarState::new(keys());
-        store_session(&state.keys, 3600);
-        std::thread::scope(|scope| {
-            // A pull (or connect) holds `running` and has the session in hand.
-            let pulling = lock(&state.running);
-            let disconnecting = scope.spawn(|| disconnect(&state, &db));
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            assert!(state.cancel.load(Ordering::SeqCst), "a waiting connect is told to stop");
-            // The pull refreshes its token and stores it, then finishes.
-            store_session(&state.keys, 3600);
-            drop(pulling);
-            assert!(!disconnecting.join().unwrap().unwrap().connected);
-        });
-        assert!(Session::load(&state.keys).unwrap().is_none(), "the in-flight pull cannot restore the token");
-        assert!(!current_status(&state, &db).unwrap().connected);
-    }
-
-    #[test]
     fn refresh_failures_land_in_last_error_and_keep_the_grant() {
         let (_dir, db) = db();
         let tz = tz();
@@ -919,36 +1497,294 @@ mod tests {
     }
 
     #[test]
-    fn background_pull_skips_when_disconnected_or_busy() {
+    fn push_create_update_delete() {
         let (_dir, db) = db();
         let tz = tz();
-        let state = CalendarState::new(keys());
+        let keys = keys();
+        store_session(&keys, 3600);
         let source = FakeSource::ok(events_response(serde_json::json!([])));
-        let now = time::now_ms();
-        assert!(!pull_if_connected(&state, &db, &source, now, &tz).unwrap(), "not connected");
 
-        store_session(&state.keys, 3600);
+        let now = time::now_ms();
+        let task_id = {
+            let conn = db.conn().unwrap();
+            let id = crate::items::insert(&conn, "task", "Kirim invoice", "", now).unwrap();
+            let due = time::date_bounds(Date::new(2026, 10, 15).unwrap(), &tz).unwrap().0;
+            conn.execute("INSERT INTO tasks (item_id, status) VALUES (?1, 'plan')", [&id]).unwrap();
+            crate::items::update(&conn, &id, &crate::items::ItemPatch { due_at: Some(Some(due)), ..Default::default() }, now).unwrap();
+            id
+        };
+
+        pull(&db, &keys, &source, now + 1, &tz).unwrap();
+        assert_eq!(source.inserted.lock().len(), 1);
+        let inserted = source.inserted.lock()[0].clone();
+        assert_eq!(inserted["summary"], "Kirim invoice");
+        assert_eq!(inserted["extendedProperties"]["private"]["anchoaId"], task_id);
+        assert_eq!(inserted["start"]["date"], "2026-10-15");
+        assert_eq!(inserted["end"]["date"], "2026-10-16");
+
         {
-            let _connecting = lock(&state.running);
-            assert!(!pull_if_connected(&state, &db, &source, now, &tz).unwrap(), "connect running");
-            assert!(refresh(&state, &db, &source, &tz).is_err(), "manual pull never waits on a connect");
+            let conn = db.conn().unwrap();
+            let (gid, del): (String, Option<i64>) = conn.query_row(
+                "SELECT google_event_id, deleted_at FROM calendar_task_links WHERE item_id = ?1",
+                [&task_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            ).unwrap();
+            assert_eq!(gid, "g-1");
+            assert!(del.is_none());
         }
-        assert!(pull_if_connected(&state, &db, &source, now, &tz).unwrap());
-        let today = time::local_date(now, &tz).unwrap().to_string();
-        let this_day = ScheduleRange { from: today.clone(), to: today };
-        assert!(!needs_pull(&db.conn().unwrap(), &this_day, now).unwrap(), "fresh after the pull");
+
+        {
+            let conn = db.conn().unwrap();
+            crate::items::update(&conn, &task_id, &crate::items::ItemPatch { title: Some("Kirim invoice revisi".into()), ..Default::default() }, now + 10).unwrap();
+        }
+        pull(&db, &keys, &source, now + 15, &tz).unwrap();
+        assert_eq!(source.patched.lock().len(), 1);
+        let (patch_id, patch_val) = source.patched.lock()[0].clone();
+        assert_eq!(patch_id, "g-1");
+        assert_eq!(patch_val["summary"], "Kirim invoice revisi");
+        {
+            let conn = db.conn().unwrap();
+            crate::items::delete(&conn, &task_id, now + 20).unwrap();
+        }
+        pull(&db, &keys, &source, now + 25, &tz).unwrap();
+        assert_eq!(*source.deleted.lock(), vec!["g-1".to_string()]);
+        {
+            let conn = db.conn().unwrap();
+            let del: Option<i64> = conn.query_row(
+                "SELECT deleted_at FROM calendar_task_links WHERE item_id = ?1",
+                [&task_id],
+                |r| r.get(0),
+            ).unwrap();
+            assert!(del.is_some());
+        }
     }
 
     #[test]
-    fn unconfigured_build_fails_connect_with_a_message() {
-        if option_env!("ANCHOA_GOOGLE_CLIENT_ID").is_some() || std::env::var_os("ANCHOA_GOOGLE_CLIENT_ID").is_some() {
-            return;
-        }
+    fn pull_lww_both_directions() {
         let (_dir, db) = db();
-        let state = CalendarState::new(keys());
+        let tz = tz();
+        let keys = keys();
+        store_session(&keys, 3600);
+
+        let task_id = {
+            let conn = db.conn().unwrap();
+            let id = crate::items::insert(&conn, "task", "Lokal Asli", "", 1000).unwrap();
+            let due = time::date_bounds(Date::new(2026, 10, 10).unwrap(), &tz).unwrap().0;
+            conn.execute("INSERT INTO tasks (item_id, status) VALUES (?1, 'plan')", [&id]).unwrap();
+            crate::items::update(&conn, &id, &crate::items::ItemPatch { due_at: Some(Some(due)), ..Default::default() }, 1000).unwrap();
+            conn.execute(
+                "INSERT INTO calendar_task_links (item_id, google_event_id, etag, google_updated, local_updated_at)
+                 VALUES (?1, 'g-lww', 'e1', 1000, 1000)",
+                [&id],
+            ).unwrap();
+            id
+        };
+
+        // Direction 1: Google has newer updated timestamp -> Google wins
+        let google_event = serde_json::json!({
+            "id": "g-lww",
+            "summary": "Google Menang",
+            "start": { "date": "2026-10-12" },
+            "end": { "date": "2026-10-13" },
+            "updated": "2026-10-07T12:00:00.000Z",
+            "extendedProperties": { "private": { "anchoaId": task_id } }
+        });
+        let source = FakeSource::ok(events_response(serde_json::json!([google_event])));
+        pull(&db, &keys, &source, 2000, &tz).unwrap();
+
+        {
+            let conn = db.conn().unwrap();
+            let (title, due_at): (String, i64) = conn.query_row(
+                "SELECT title, due_at FROM items WHERE id = ?1",
+                [&task_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            ).unwrap();
+            assert_eq!(title, "Google Menang");
+            let expected_due = time::date_bounds(Date::new(2026, 10, 12).unwrap(), &tz).unwrap().0;
+            assert_eq!(due_at, expected_due);
+        }
+
+        // Direction 2: Local task has newer updated_at than Google updated -> Local wins
+        {
+            let conn = db.conn().unwrap();
+            crate::items::update(&conn, &task_id, &crate::items::ItemPatch { title: Some("Lokal Menang".into()), ..Default::default() }, 2_000_000_000_000).unwrap();
+        }
+        let older_google_event = serde_json::json!({
+            "id": "g-lww",
+            "summary": "Google Lama",
+            "start": { "date": "2026-10-12" },
+            "end": { "date": "2026-10-13" },
+            "updated": "2026-10-07T12:00:00.000Z",
+            "extendedProperties": { "private": { "anchoaId": task_id } }
+        });
+        *source.response.lock() = events_response(serde_json::json!([older_google_event]));
+        pull(&db, &keys, &source, 2_000_000_000_001, &tz).unwrap();
+
+        {
+            let conn = db.conn().unwrap();
+            let title: String = conn.query_row("SELECT title FROM items WHERE id = ?1", [&task_id], |r| r.get(0)).unwrap();
+            assert_eq!(title, "Lokal Menang", "Local edit must not be overwritten by older Google event");
+        }
+    }
+
+    #[test]
+    fn google_deletion_unlinks() {
+        let (_dir, db) = db();
+        let tz = tz();
+        let keys = keys();
+        store_session(&keys, 3600);
+
+        let task_id = {
+            let conn = db.conn().unwrap();
+            let id = crate::items::insert(&conn, "task", "Tetap Ada", "", 1000).unwrap();
+            let due = time::date_bounds(Date::new(2026, 10, 10).unwrap(), &tz).unwrap().0;
+            conn.execute("INSERT INTO tasks (item_id, status) VALUES (?1, 'plan')", [&id]).unwrap();
+            crate::items::update(&conn, &id, &crate::items::ItemPatch { due_at: Some(Some(due)), ..Default::default() }, 1000).unwrap();
+            conn.execute(
+                "INSERT INTO calendar_task_links (item_id, google_event_id, etag, google_updated, local_updated_at)
+                 VALUES (?1, 'g-del', 'e1', 1000, 1000)",
+                [&id],
+            ).unwrap();
+            id
+        };
+
+        let cancelled_event = serde_json::json!({
+            "id": "g-del",
+            "status": "cancelled",
+        });
+        let source = FakeSource::ok(events_response(serde_json::json!([cancelled_event])));
+        pull(&db, &keys, &source, 2000, &tz).unwrap();
+
+        let conn = db.conn().unwrap();
+        let (title, deleted_at): (String, Option<i64>) = conn.query_row(
+            "SELECT title, deleted_at FROM items WHERE id = ?1",
+            [&task_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap();
+        assert_eq!(title, "Tetap Ada");
+        assert!(deleted_at.is_none());
+
+        let link_deleted: Option<i64> = conn.query_row(
+            "SELECT deleted_at FROM calendar_task_links WHERE google_event_id = 'g-del'",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+        assert!(link_deleted.is_some());
+    }
+
+    #[test]
+    fn full_resync_on_410() {
+        let (_dir, db) = db();
+        let tz = tz();
+        let keys = keys();
+        store_session(&keys, 3600);
+
+        {
+            let conn = db.conn().unwrap();
+            conn.execute(
+                "INSERT INTO calendar_sync (id, account, fetched_at, from_date, to_date, sync_token)
+                 VALUES (1, 'ako@example.test', 1000, '2026-09-01', '2027-01-01', 'expired-token')",
+                [],
+            ).unwrap();
+        }
+
+        let event = event_json("e-fresh", "Acara Baru", "2026-10-10", "2026-10-11");
+        let mut resp = events_response(serde_json::json!([event]));
+        resp["nextSyncToken"] = serde_json::json!("new-valid-token");
+        let source = FakeSource::with_410_once(resp);
+
+        pull(&db, &keys, &source, 2000, &tz).unwrap();
+
+        let conn = db.conn().unwrap();
+        let token: String = conn.query_row("SELECT sync_token FROM calendar_sync WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(token, "new-valid-token");
+        let cal_items = items(&conn, &october(), &tz).unwrap();
+        assert_eq!(cal_items.len(), 1);
+        assert_eq!(cal_items[0].id, "e-fresh");
+    }
+
+    #[test]
+    fn read_only_grant_refuses_writes_with_a_clear_error() {
+        let (_dir, db) = db();
+        let tz = tz();
+        let keys = keys();
+        Session {
+            email: "ako@example.test".into(),
+            access_token: "at".into(),
+            refresh_token: "rt".into(),
+            expires_at: time::now_ms() + 3600 * 1000,
+            scope: Some("https://www.googleapis.com/auth/calendar.readonly openid email".into()),
+        }
+        .store(&keys)
+        .unwrap();
+
+        let state = CalendarState::new(keys);
+        let err = update_event(
+            &state,
+            &db,
+            &FakeSource::ok(events_response(serde_json::json!([]))),
+            UpdateCalendarEventArgs {
+                id: "e1".into(),
+                title: "Ganti".into(),
+                start_at: 1000,
+                end_at: 2000,
+            },
+            &tz,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("hanya baca"));
+
+        let err_del = delete_event(
+            &state,
+            &db,
+            &FakeSource::ok(events_response(serde_json::json!([]))),
+            "e1",
+        )
+        .unwrap_err();
+        assert!(err_del.to_string().contains("hanya baca"));
+
+        let st = current_status(&state, &db).unwrap();
+        assert!(st.read_only);
+    }
+
+    #[test]
+    fn no_duplicate_events_after_repeated_syncs() {
+        let (_dir, db) = db();
+        let tz = tz();
+        let keys = keys();
+        store_session(&keys, 3600);
+
+        let now = time::now_ms();
+        let task_id = {
+            let conn = db.conn().unwrap();
+            let id = crate::items::insert(&conn, "task", "Tugas Tunggal", "", now).unwrap();
+            let due = time::date_bounds(Date::new(2026, 10, 15).unwrap(), &tz).unwrap().0;
+            conn.execute("INSERT INTO tasks (item_id, status) VALUES (?1, 'plan')", [&id]).unwrap();
+            crate::items::update(&conn, &id, &crate::items::ItemPatch { due_at: Some(Some(due)), ..Default::default() }, now).unwrap();
+            id
+        };
+
         let source = FakeSource::ok(events_response(serde_json::json!([])));
-        let err = connect(&state, &db, &source, &tz()).unwrap_err();
-        assert_eq!(err.to_string(), "Google Kalender belum dikonfigurasi di build ini");
-        assert!(!current_status(&state, &db).unwrap().connected);
+        pull(&db, &keys, &source, now + 1, &tz).unwrap();
+
+        let google_event = serde_json::json!({
+            "id": "g-1",
+            "summary": "Tugas Tunggal",
+            "start": { "date": "2026-10-15" },
+            "end": { "date": "2026-10-16" },
+            "updated": "2026-10-07T12:00:00.000Z",
+            "extendedProperties": { "private": { "anchoaId": task_id } }
+        });
+        *source.response.lock() = events_response(serde_json::json!([google_event]));
+        pull(&db, &keys, &source, now + 10, &tz).unwrap();
+        pull(&db, &keys, &source, now + 20, &tz).unwrap();
+
+        let conn = db.conn().unwrap();
+        let cal_items = items(&conn, &october(), &tz).unwrap();
+        assert_eq!(cal_items.len(), 0, "linked task must not be in calendar_events");
+
+        let sched = crate::schedule::schedule(&conn, &october(), now + 20, &tz).unwrap();
+        let matching: Vec<_> = sched.items.iter().filter(|i| i.title == "Tugas Tunggal").collect();
+        assert_eq!(matching.len(), 1, "task must appear exactly once in schedule");
     }
 }

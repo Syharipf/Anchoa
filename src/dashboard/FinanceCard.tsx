@@ -53,10 +53,10 @@ export function FinanceCard({ finance, onSelect }: Readonly<{ finance?: FinanceS
           tabIndex={0}
           onClick={(e) => { e.stopPropagation(); setMoneyHidden((c) => !c); }}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setMoneyHidden((c) => !c); } }}
-          className="rounded-full bg-surface-2 p-1 text-[9px] text-muted transition-colors hover:bg-surface"
+          className="rounded-full bg-surface-2 p-2 text-xs text-muted transition-colors hover:bg-surface"
           aria-label={moneyHidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
         >
-          {moneyHidden ? "•••" : "₡"}
+          {moneyHidden ? "••••••" : "👁"}
         </span>
       </div>
       {finance && !finance.hasAccounts && <span className="text-xs text-muted">Belum ada akun</span>}

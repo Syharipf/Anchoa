@@ -102,7 +102,7 @@ export function Dashboard({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 items-start gap-3">
+      <div className="grid grid-cols-3 items-start gap-2">
         <TodayPanel tasks={data?.today} onToggle={onToggle} onOpen={onOpen} onSelect={onSelect} />
         <FinanceCard finance={data?.finance} onSelect={onSelect} />
         <UpcomingCard days={data?.upcoming} onOpen={onOpen} onSelect={onSelect} />

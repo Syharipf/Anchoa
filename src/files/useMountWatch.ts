@@ -82,10 +82,10 @@ export function createMountPoller(options: MountPollerOptions): MountPoller {
       stopped = false;
       unbind = listen((isHidden) => {
         hidden = isHidden;
-        if (!isHidden) poll();
+        if (!isHidden) void poll();
       });
       if (options.document) hidden = options.document.hidden;
-      poll(); // immediate first poll — baseline, no onChange emitted
+      void poll(); // immediate first poll — baseline, no onChange emitted
       interval = setInterval(poll, options.intervalMs);
     },
     tick: poll,

@@ -799,6 +799,280 @@ pub fn trash(
     })
 }
 
+/// One entry of the freedesktop Trash (`~/.local/share/Trash`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashItem {
+    pub name: String,
+    /// Path of the item inside `Trash/files`.
+    pub path: String,
+    /// Original absolute path recorded in the `.trashinfo` file.
+    pub original: String,
+    /// Deletion time, epoch ms UTC (0 when unknown).
+    pub deleted_at: i64,
+    pub is_dir: bool,
+}
+
+fn trash_home() -> PathBuf {
+    let data_home = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| dirs_or_home().join(".local").join("share"));
+    data_home.join("Trash")
+}
+
+fn dirs_or_home() -> PathBuf {
+    std::env::var("HOME")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn parse_trashinfo(text: &str) -> Option<(String, i64)> {
+    let mut original: Option<String> = None;
+    let mut deleted_at: i64 = 0;
+    for line in text.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        match key.trim() {
+            "Path" => original = Some(percent_decode(value.trim())),
+            "DeletionDate" => deleted_at = parse_trash_date(value.trim()),
+            _ => {}
+        }
+    }
+    original.map(|o| (o, deleted_at))
+}
+
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let Some(hex) = bytes.get(i + 1..i + 3)
+            && let Ok(byte) = u8::from_str_radix(&String::from_utf8_lossy(hex), 16)
+        {
+            out.push(byte);
+            i += 3;
+            continue;
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn parse_trash_date(text: &str) -> i64 {
+    // yyyy-mm-ddThh:mm:ss → epoch ms (UTC). Display-only metadata.
+    let digits: String = text.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() < 14 {
+        return 0;
+    }
+    let year: i64 = digits[0..4].parse().unwrap_or(1970);
+    let month: i64 = digits[4..6].parse().unwrap_or(1);
+    let day: i64 = digits[6..8].parse().unwrap_or(1);
+    let hour: i64 = digits[8..10].parse().unwrap_or(0);
+    let minute: i64 = digits[10..12].parse().unwrap_or(0);
+    let second: i64 = digits[12..14].parse().unwrap_or(0);
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let mp = (month + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    days * 86_400_000 + hour * 3_600_000 + minute * 60_000 + second * 1_000
+}
+
+/// List the contents of the freedesktop Trash.
+pub fn trash_list() -> Result<Vec<TrashItem>, AppError> {
+    let trash = trash_home();
+    let files_dir = trash.join("files");
+    let info_dir = trash.join("info");
+    let mut items = Vec::new();
+    let entries = match fs::read_dir(&files_dir) {
+        Ok(e) => e,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(items),
+        Err(e) => return Err(AppError::from(e)),
+    };
+    for entry in entries {
+        let entry = entry.map_err(AppError::from)?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let meta = entry.metadata().map_err(AppError::from)?;
+        let (original, deleted_at) = match fs::read_to_string(info_dir.join(format!("{name}.trashinfo"))) {
+            Ok(text) => parse_trashinfo(&text).unwrap_or((name.clone(), 0)),
+            Err(_) => (name.clone(), 0),
+        };
+        items.push(TrashItem {
+            name: name.clone(),
+            path: entry.path().to_string_lossy().into_owned(),
+            original,
+            deleted_at,
+            is_dir: meta.is_dir(),
+        });
+    }
+    items.sort_by(|a, b| b.deleted_at.cmp(&a.deleted_at).then(a.name.cmp(&b.name)));
+    Ok(items)
+}
+
+/// Restore trashed items to their original locations.
+pub fn trash_restore(paths: &[String]) -> Result<OpReport, AppError> {
+    trash_restore_in(&trash_home(), paths)
+}
+
+fn trash_restore_in(trash: &Path, paths: &[String]) -> Result<OpReport, AppError> {
+    let mut report = OpReport::default();
+    let files_dir = trash.join("files");
+    let info_dir = trash.join("info");
+    for path_str in paths {
+        let item_path = PathBuf::from(path_str);
+        if item_path.parent() != Some(files_dir.as_path()) {
+            report.failed.push(Failure {
+                path: path_str.clone(),
+                error: "Hanya item di dalam Trash yang bisa dipulihkan".into(),
+            });
+            continue;
+        }
+        let name = item_path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let info_text = fs::read_to_string(info_dir.join(format!("{name}.trashinfo")))
+            .unwrap_or_default();
+        let Some((original, _)) = parse_trashinfo(&info_text) else {
+            report.failed.push(Failure {
+                path: path_str.clone(),
+                error: "Info asal item tidak ditemukan".into(),
+            });
+            continue;
+        };
+        let original = original.trim_end_matches('/');
+        let restored_name = match original.rsplit('/').next() {
+            Some(n) if !n.is_empty() && n != "." && n != ".." => n,
+            _ => {
+                report.failed.push(Failure {
+                    path: path_str.clone(),
+                    error: "Lokasi asal tidak valid".into(),
+                });
+                continue;
+            }
+        };
+        let dest_parent = match Path::new(original).parent() {
+            Some(p) => p.to_path_buf(),
+            None => {
+                report.failed.push(Failure {
+                    path: path_str.clone(),
+                    error: "Lokasi asal tidak valid".into(),
+                });
+                continue;
+            }
+        };
+        if !dest_parent.exists() {
+            report.failed.push(Failure {
+                path: path_str.clone(),
+                error: format!("Folder asal tidak ada lagi: {}", dest_parent.display()),
+            });
+            continue;
+        }
+        let target = dest_parent.join(restored_name);
+        let dest = if fs::symlink_metadata(&target).is_ok() {
+            unique_name(&dest_parent, restored_name)
+        } else {
+            target
+        };
+        match fs::rename(&item_path, &dest) {
+            Ok(()) => {
+                let _ = fs::remove_file(info_dir.join(format!("{name}.trashinfo")));
+                report.done.push(dest.to_string_lossy().into_owned());
+            }
+            Err(e) => report.failed.push(Failure {
+                path: path_str.clone(),
+                error: e.to_string(),
+            }),
+        }
+    }
+    Ok(report)
+}
+
+/// Permanently delete everything in the Trash.
+pub fn empty_trash() -> Result<OpReport, AppError> {
+    let trash = trash_home();
+    let mut report = OpReport::default();
+    let files_dir = trash.join("files");
+    let entries = match fs::read_dir(&files_dir) {
+        Ok(e) => e,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(report),
+        Err(e) => return Err(AppError::from(e)),
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                report.failed.push(Failure {
+                    path: files_dir.display().to_string(),
+                    error: e.to_string(),
+                });
+                continue;
+            }
+        };
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let result = if is_dir {
+            fs::remove_dir_all(entry.path())
+        } else {
+            fs::remove_file(entry.path())
+        };
+        match result {
+            Ok(()) => {
+                let _ = fs::remove_file(trash.join("info").join(format!("{name}.trashinfo")));
+                report.done.push(name);
+            }
+            Err(e) => report.failed.push(Failure {
+                path: entry.path().to_string_lossy().into_owned(),
+                error: e.to_string(),
+            }),
+        }
+    }
+    Ok(report)
+}
+
+/// Rename one entry in place. Returns the refreshed parent listing.
+pub fn rename_entry(path: &str, new_name: &str, hidden: bool, roots: &Roots) -> Result<Listing, AppError> {
+    let canonical = guard_entry(path, roots)?;
+    let parent = canonical
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| AppError::Invalid("Tidak ada folder induk".into()))?;
+    if new_name.trim().is_empty() || new_name.contains('/') {
+        return Err(AppError::Invalid("Nama tidak valid".into()));
+    }
+    let dest = parent.join(new_name);
+    if dest.exists() {
+        return Err(AppError::Invalid("Nama sudah dipakai".into()));
+    }
+    fs::rename(&canonical, &dest)?;
+    list_dir(&parent.to_string_lossy(), hidden, roots)
+}
+
+/// Create a directory. Returns the refreshed parent listing.
+pub fn create_dir(parent: &str, name: &str, hidden: bool, roots: &Roots) -> Result<Listing, AppError> {
+    // `guard` resolves symlinks and checks containment, so a symlinked parent
+    // pointing outside the roots is refused before anything is created.
+    let canonical = guard(parent, roots)?;
+    if name.trim().is_empty() || name.contains('/') {
+        return Err(AppError::Invalid("Nama tidak valid".into()));
+    }
+    let dest = canonical.join(name);
+    if dest.exists() {
+        return Err(AppError::Invalid("Nama sudah dipakai".into()));
+    }
+    fs::create_dir(&dest)?;
+    list_dir(&canonical.to_string_lossy(), hidden, roots)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1451,6 +1725,101 @@ XDG_MUSIC_DIR="$HOME/NonExistentMusic"
         assert_eq!(rep.done, vec![file.to_str().unwrap().to_string()]);
         assert!(file.exists());
         assert_eq!(fs::read_to_string(&file).unwrap(), "content");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn create_dir_refuses_symlinked_parent_pointing_outside_roots() {
+        let home = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let link = home.path().join("link");
+        std::os::unix::fs::symlink(outside.path(), &link).unwrap();
+
+        let res = create_dir(link.to_str().unwrap(), "escaped", false, &roots);
+
+        assert!(res.is_err());
+        assert!(!outside.path().join("escaped").exists(), "folder created outside roots");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn create_dir_follows_symlinked_parent_inside_roots() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let real = home.path().join("real");
+        fs::create_dir(&real).unwrap();
+        let link = home.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        create_dir(link.to_str().unwrap(), "baru", false, &roots).unwrap();
+
+        assert!(real.join("baru").is_dir());
+    }
+
+    fn trashed(trash: &Path, name: &str, original: &str) -> String {
+        fs::create_dir_all(trash.join("files")).unwrap();
+        fs::create_dir_all(trash.join("info")).unwrap();
+        let item = trash.join("files").join(name);
+        fs::write(&item, "data").unwrap();
+        fs::write(
+            trash.join("info").join(format!("{name}.trashinfo")),
+            format!("[Trash Info]\nPath={original}\nDeletionDate=2026-10-06T09:30:00\n"),
+        )
+        .unwrap();
+        item.to_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn trash_restore_uses_original_name_from_trashinfo() {
+        let trash = tempdir().unwrap();
+        let home = tempdir().unwrap();
+        let original = home.path().join("report.pdf");
+        let item = trashed(trash.path(), "report.2.pdf", original.to_str().unwrap());
+
+        let rep = trash_restore_in(trash.path(), &[item]).unwrap();
+
+        assert!(rep.failed.is_empty(), "{:?}", rep.failed);
+        assert_eq!(rep.done, vec![original.to_str().unwrap().to_string()]);
+        assert!(original.is_file());
+        assert!(!home.path().join("report.2.pdf").exists());
+        assert!(!trash.path().join("info").join("report.2.pdf.trashinfo").exists());
+    }
+
+    #[test]
+    fn trash_restore_renames_only_when_original_name_is_taken() {
+        let trash = tempdir().unwrap();
+        let home = tempdir().unwrap();
+        let original = home.path().join("report.pdf");
+        fs::write(&original, "newer").unwrap();
+        let item = trashed(trash.path(), "report.pdf", original.to_str().unwrap());
+
+        let rep = trash_restore_in(trash.path(), &[item]).unwrap();
+
+        let renamed = home.path().join("report (2).pdf");
+        assert_eq!(rep.done, vec![renamed.to_str().unwrap().to_string()]);
+        assert_eq!(fs::read_to_string(&original).unwrap(), "newer");
+        assert_eq!(fs::read_to_string(&renamed).unwrap(), "data");
+    }
+
+    #[test]
+    fn trash_restore_rejects_original_without_a_real_name() {
+        let trash = tempdir().unwrap();
+        let home = tempdir().unwrap();
+        let base = home.path().to_str().unwrap();
+        for (name, original) in [
+            ("a.txt", format!("{base}/..")),
+            ("b.txt", format!("{base}/.")),
+            ("c.txt", format!("{base}/./")),
+            ("d.txt", "/".to_string()),
+            ("e.txt", String::new()),
+        ] {
+            let item = trashed(trash.path(), name, &original);
+            let rep = trash_restore_in(trash.path(), std::slice::from_ref(&item)).unwrap();
+            assert!(rep.done.is_empty(), "{original:?} restored to {:?}", rep.done);
+            assert_eq!(rep.failed.len(), 1, "{original:?}");
+            assert!(Path::new(&item).exists(), "{original:?} moved the item");
+        }
     }
 }
 

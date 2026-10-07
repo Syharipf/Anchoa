@@ -2,6 +2,7 @@ pub mod activities;
 mod assistant;
 mod agent_runner;
 mod backup;
+mod calendar;
 mod bills;
 pub mod cli;
 mod commands;
@@ -12,6 +13,7 @@ pub mod downloader;
 mod error;
 mod email;
 pub mod files;
+mod files_meta;
 mod finance;
 mod github;
 mod gpu;
@@ -21,6 +23,9 @@ pub mod journal;
 pub mod keystore;
 pub mod links;
 pub mod notes;
+mod notify;
+mod report;
+mod remotes;
 pub mod search;
 mod overview;
 mod profile;
@@ -34,8 +39,13 @@ mod time;
 
 use tauri::Manager;
 
-fn initial_locked(pin_status: Result<bool, error::AppError>) -> bool {
-    pin_status.unwrap_or(true)
+fn initial_locked(lock_status: Result<bool, error::AppError>) -> bool {
+    lock_status.unwrap_or(true)
+}
+
+/// Startup lock: a PIN or a password alone is enough to lock.
+fn startup_locked(db: &db::Db) -> bool {
+    initial_locked(db.conn().and_then(|conn| security::has_lock(&conn)))
 }
 
 fn check_command_access(command: &str, locked: Option<bool>) -> Result<(), error::AppError> {
@@ -84,6 +94,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             if let Some(node) = &gpu_node {
                 log::info!("NVIDIA workaround: WEBKIT_WEB_RENDER_DEVICE_FILE={node}");
@@ -91,7 +102,7 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let mut db = db::Db::open_at(data_dir.join("anchoa.db"));
-            let locked = initial_locked(db.conn().and_then(|conn| security::has_pin(&conn)));
+            let locked = startup_locked(&db);
             match &db.open_error {
                 Some(e) => log::error!("database open failed: {e}"),
                 None => {
@@ -149,8 +160,20 @@ pub fn run() {
                 sync_server,
                 sync_keys,
             ));
+            #[cfg(debug_assertions)]
+            let calendar_keys = if std::env::var_os("ANCHOA_FAKE_SYNC").is_some() {
+                keystore::KeyringStore::with_builder(Box::new(keystore::FileCredentialBuilder::new(
+                    data_dir.join("fake_calendar_keyring.json"),
+                )))
+            } else {
+                keystore::KeyringStore::default()
+            };
+            #[cfg(not(debug_assertions))]
+            let calendar_keys = keystore::KeyringStore::default();
+            app.manage(calendar::CalendarState::new(calendar_keys));
             sync::commands::spawn_scheduler(app.handle().clone());
             downloader::spawn_scheduler(app.handle().clone());
+            notify::spawn_scheduler(app.handle().clone());
             Ok(())
         })
         .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
@@ -164,10 +187,16 @@ pub fn run() {
             email::commands::email_archive,
             email::commands::email_send,
             assistant::email::email_assist,
+            report::finance_recap_pdf,
             security::security_status,
             security::unlock,
             security::set_pin,
             security::disable_pin,
+            security::unlock_password,
+            security::set_password,
+            security::disable_password,
+            security::onboarding_status,
+            security::complete_onboarding,
             assistant::assistant_send,
             assistant::assistant_stop,
             assistant::assistant_decide,
@@ -181,6 +210,7 @@ pub fn run() {
             assistant::providers::set_ai_custom_key,
             assistant::providers::delete_ai_custom_key,
             assistant::providers::ai_provider_status,
+            assistant::providers::ai_custom_models,
             assistant::voice::voice_status,
             assistant::voice::voice_install,
             assistant::voice::voice_record_start,
@@ -244,6 +274,8 @@ pub fn run() {
             commands::set_profile_name,
             commands::get_notify_prefs,
             commands::set_notify_prefs,
+            notify::notify_status,
+            notify::notify_request_permission,
             commands::habits_overview,
             commands::habit_history,
             commands::save_habit,
@@ -264,10 +296,22 @@ pub fn run() {
             commands::data_paths,
             commands::open_folder,
             commands::file_places,
+            remotes::file_remotes,
+            remotes::list_remote,
+            files_meta::folder_meta_list,
+            files_meta::folder_meta_set,
+            files_meta::folder_meta_pin,
+            files_meta::folder_meta_clear,
+            files_meta::folder_summary,
             commands::list_dir,
             commands::read_text,
             commands::paste_items,
             commands::trash_items,
+            commands::trash_list,
+            commands::trash_restore,
+            commands::empty_trash,
+            commands::rename_entry,
+            commands::create_dir,
             commands::open_file,
             commands::downloads_list,
             commands::add_download,
@@ -305,6 +349,11 @@ pub fn run() {
             sync::commands::sync_change_passphrase,
             sync::commands::sync_now,
             sync::commands::sync_sign_out,
+            calendar::calendar_status,
+            calendar::calendar_connect,
+            calendar::calendar_cancel_connect,
+            calendar::calendar_disconnect,
+            calendar::calendar_refresh,
         ]))
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(focused) = event
@@ -341,6 +390,20 @@ mod tests {
         assert!(initial_locked(Err(AppError::Db(
             rusqlite::Error::InvalidQuery
         ))));
+    }
+
+    #[test]
+    fn startup_locks_when_only_a_password_is_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = db::Db::open_at(dir.path().join("anchoa.db"));
+        assert!(!startup_locked(&db));
+        security::save_secret_hash(
+            &db.conn().unwrap(),
+            security::PASSWORD_HASH_KEY,
+            &security::hash_password("password123").unwrap(),
+        )
+        .unwrap();
+        assert!(startup_locked(&db));
     }
 
     #[test]
@@ -389,7 +452,7 @@ mod tests {
         let source = include_str!("lib.rs");
         let registered = source.split("tauri::generate_handler![").nth(1).unwrap()
             .split("]))").next().unwrap();
-        let allowed = ["security_status", "unlock", "db_status"];
+        let allowed = ["security_status", "unlock", "unlock_password", "db_status"];
         let commands: Vec<&str> = registered.split(',').map(str::trim)
             .filter(|command| !command.is_empty())
             .map(|command| command.rsplit("::").next().unwrap()).collect();
@@ -403,7 +466,7 @@ mod tests {
 
     #[test]
     fn lock_allowlist_requires_exact_command_names() {
-        for command in ["security_status", "unlock", "app_status", "db_status"] {
+        for command in ["security_status", "unlock", "unlock_password", "app_status", "db_status"] {
             assert!(check_command_access(command, Some(true)).is_ok());
             for altered in [format!(" {command}"), format!("{command} "), command.to_uppercase(), format!("plugin:security|{command}")] {
                 assert!(matches!(check_command_access(&altered, Some(true)), Err(AppError::Locked)), "{altered}");

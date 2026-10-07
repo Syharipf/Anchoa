@@ -76,6 +76,7 @@ export function TodayPanel({
               className="m-0 h-[15px] w-[15px] cursor-pointer accent-accent"
             />
             <button
+              type="button"
               onClick={() => onOpen(t.id)}
               className={`flex-1 truncate text-left ${isDone ? "text-done line-through" : "text-ink"}`}
             >

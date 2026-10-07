@@ -51,7 +51,7 @@ export function RecentPanel({
       </div>
       {items?.length === 0 && <p className="m-0 text-sm text-muted">Belum ada item</p>}
       {items?.slice(0, 3).map((i) => (
-        <button key={i.id} onClick={() => onOpen(i.id)} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-surface-2">
+        <button key={i.id} type="button" onClick={() => onOpen(i.id)} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-surface-2">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted">
             <NoteIcon />
           </span>

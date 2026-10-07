@@ -4,6 +4,7 @@ import {
   barFor,
   diffDays,
   KIND_COLORS,
+  READ_ONLY_HINT,
   projectSpan,
   shortDateStr,
   timelineGroups,
@@ -86,7 +87,8 @@ export function TimelineGroup({
       {/* Group Items */}
       {group.items.map((item) => {
         const bar = barFor(item, window);
-        const statusText = STATUS_LABELS[item.status];
+        const readOnly = item.source === "calendar";
+        const statusText = readOnly ? READ_ONLY_HINT : STATUS_LABELS[item.status];
         const dateText =
           item.startDate && item.startDate !== item.dueDate
             ? `${shortDateStr(item.startDate)} – ${shortDateStr(item.dueDate)}`
@@ -100,6 +102,27 @@ export function TimelineGroup({
             onOpenItem(item.id);
           }
         };
+        const titleText = (
+          <span
+            className={`truncate text-[12.5px] ${
+              item.overdue ? "font-medium text-danger" : "text-ink/80"
+            }`}
+          >
+            {item.title}
+          </span>
+        );
+        const barStyle = bar && {
+          left: `${bar.left + 1}px`,
+          width: `${Math.max(bar.width - 2, 8)}px`,
+          backgroundColor:
+            item.status === "doing"
+              ? KIND_COLORS[item.kind]
+              : "transparent",
+          borderColor: KIND_COLORS[item.kind],
+        };
+        const barClass = `box-border absolute top-1/2 -mt-1.5 h-3 rounded-[4px] border-[1.5px] ${
+          item.overdue ? "ring-2 ring-danger" : ""
+        }`;
 
         return (
           <div
@@ -107,19 +130,19 @@ export function TimelineGroup({
             className="flex h-[26px] items-center border-t border-line/40 hover:bg-surface-2/40"
           >
             <div className="flex w-[240px] shrink-0 items-center gap-2 border-r border-line pl-7 pr-3">
-              <button
-                type="button"
-                onClick={handleOpen}
-                className="flex min-w-0 flex-1 cursor-pointer items-center text-left hover:underline focus-visible:outline-1 focus-visible:outline-accent"
-              >
-                <span
-                  className={`truncate text-[12.5px] ${
-                    item.overdue ? "font-medium text-danger" : "text-ink/80"
-                  }`}
-                >
-                  {item.title}
+              {readOnly ? (
+                <span title={READ_ONLY_HINT} className="flex min-w-0 flex-1 items-center">
+                  {titleText}
                 </span>
-              </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOpen}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center text-left hover:underline focus-visible:outline-1 focus-visible:outline-accent"
+                >
+                  {titleText}
+                </button>
+              )}
               <span
                 className={`shrink-0 font-mono text-[11px] ${
                   item.overdue ? "text-danger" : "text-muted"
@@ -129,26 +152,18 @@ export function TimelineGroup({
               </span>
             </div>
             <div className="relative h-full w-[896px] shrink-0">
-              {bar && (
+              {barStyle && (readOnly ? (
+                <span title={barTitle} style={barStyle} className={barClass} />
+              ) : (
                 <button
                   type="button"
                   onClick={handleOpen}
                   title={barTitle}
                   aria-label={barTitle}
-                  style={{
-                    left: `${bar.left + 1}px`,
-                    width: `${Math.max(bar.width - 2, 8)}px`,
-                    backgroundColor:
-                      item.status === "doing"
-                        ? KIND_COLORS[item.kind]
-                        : "transparent",
-                    borderColor: KIND_COLORS[item.kind],
-                  }}
-                  className={`box-border absolute top-1/2 -mt-1.5 h-3 cursor-pointer rounded-[4px] border-[1.5px] transition-transform hover:scale-y-125 focus-visible:outline-2 focus-visible:outline-accent ${
-                    item.overdue ? "ring-2 ring-danger" : ""
-                  }`}
+                  style={barStyle}
+                  className={`${barClass} cursor-pointer transition-transform hover:scale-y-125 focus-visible:outline-2 focus-visible:outline-accent`}
                 />
-              )}
+              ))}
             </div>
           </div>
         );

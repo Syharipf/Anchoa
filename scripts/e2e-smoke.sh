@@ -63,11 +63,24 @@ sql_value() {
   done
   return 0
 }
-click() { xdotool mousemove "$1" "$2" click 1; sleep 0.7; }
+# The sidebar icons carry native GTK tooltips that open below the pointer and
+# swallow a click aimed at the next icon; moving first and pausing lets GTK hide them.
+click() { xdotool mousemove "$1" "$2" sleep 0.2 click 1; sleep 0.7; }
 make_task() {
   local title="$1"
   sql "UPDATE items SET type = 'task' WHERE title = '$title'"
   sql "INSERT INTO tasks (item_id, status) SELECT id, 'plan' FROM items WHERE title = '$title'"
+}
+# A fresh profile opens on the onboarding screen; "Lewati — pakai lokal saja"
+# stores onboarding.completed and lands on the shell the checks below expect.
+skip_onboarding() {
+  local db="$XDG_DATA_HOME/io.github.syharipf.anchoa/anchoa.db"
+  [[ "$(sqlite3 "$db" "SELECT value FROM settings WHERE key = 'onboarding.completed'" 2>/dev/null)" = 1 ]] && return 0
+  [[ -n "$(sqlite3 "$db" "SELECT 1 FROM sqlite_master WHERE name = 'settings'" 2>/dev/null)" ]] || return 0
+  click 640 536   # login screen: Lewati — pakai lokal saja
+  sleep 1
+  click 137 758   # setup wizard: Lewati semua, atur nanti di Pengaturan
+  sleep 1
 }
 
 start_app() {
@@ -77,7 +90,7 @@ start_app() {
   # WebKit needs a few seconds to paint under software GL: wait for a non-blank screen.
   for _ in $(seq 1 30); do
     sd=$(import -window root png:- | magick - -format '%[fx:standard_deviation]' info:)
-    awk -v sd="$sd" 'BEGIN { exit !(sd > 0.01) }' && return
+    awk -v sd="$sd" 'BEGIN { exit !(sd > 0.01) }' && { skip_onboarding; return; }
     sleep 1
   done
   fail "window never painted"
@@ -94,7 +107,7 @@ check_shell() {
   start_app
   shot 1-shell
   stop_app
-  [[ "$(sql 'PRAGMA user_version')" = 15 ]] || fail "database not created or not migrated"
+  [[ "$(sql 'PRAGMA user_version')" = 17 ]] || fail "database not created or not migrated"
 }
 
 check_corrupt_db() {
@@ -111,16 +124,18 @@ check_corrupt_db() {
 check_nav() {
   fresh
   start_app
-  for y in 256 310 364 418 472 526 580 706; do
+  for y in 295 346 396 447 497 548 600 705; do
     click 36 "$y"
-    shot "3-nav-$y"     # expect: Gmail connection, then Jadwal, Habit, Keuangan, Proyek, Berkas, Unduhan, Profil (Catatan at y=202 is covered by check_notes)
+    sleep 0.5           # the first visit to a page paints late right after startup
+    shot "3-nav-$y"     # expect: Gmail connection, then Jadwal, Habit, Keuangan, Proyek, Berkas, Unduhan, Profil (Catatan at y=244 is covered by check_notes)
   done
-  click 36 148          # Jurnal: the mini assistant replaces the side panel
+  click 36 193          # Jurnal: the mini assistant replaces the side panel
   shot 3-mini-closed    # expect: round 60px button bottom right, lime mic badge
   click 1226 746        # open the mini assistant
-  shot 3-mini-open      # expect: 304px popup, "Siap", keyboard and mic buttons
+  sleep 0.5
+  shot 3-mini-open      # expect: popup with Anchoa, "Siap", keyboard and mic buttons
   xdotool key Escape
-  sleep 0.3
+  sleep 0.5
   shot 3-mini-collapsed # expect: round button again
   xdotool search --name '^Anchoa$' >/dev/null || fail "app window disappeared"
   stop_app
@@ -137,7 +152,7 @@ check_items() {
   sleep 1
   sql_becomes "SELECT title FROM items" "catatan dari e2e" || fail "capture not saved"
 
-  click 36 148          # nav: Jurnal
+  click 36 193          # nav: Jurnal
   shot 4-inbox
   click 600 460         # body textarea di editor tengah
   xdotool type --delay 20 'isi dari e2e'
@@ -152,7 +167,7 @@ check_palette() {
   start_app
   xdotool key ctrl+k
   sleep 0.3
-  shot 4-palette        # expect: Buka halaman (10 pages), no Terbaru yet
+  shot 4-palette        # expect: Aksi cepat "Catat transaksi", Buka halaman (12 pages), no Terbaru yet
   xdotool type --delay 20 'keu'
   sleep 1
   xdotool key Return
@@ -164,7 +179,7 @@ check_palette() {
   sleep 0.3
   shot 4-palette-closed     # expect: palette gone, Keuangan still open
   sql_becomes "SELECT COUNT(*) FROM items" 0 || fail "opening a page must not save a note"
-  click 36 148          # Jurnal
+  click 36 193          # Jurnal
   xdotool key ctrl+n
   sleep 0.3
   xdotool type --delay 20 'catatan dari palette'
@@ -203,9 +218,9 @@ check_dashboard() {
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas hari ini'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas terlambat'"
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '+1 day', 'utc') AS INTEGER) * 1000 WHERE title = 'tugas besok'"
-  click 36 148          # Jurnal, then back to Dashboard so it reloads
-  click 36 94           # nav: Dashboard
-  shot 5-dashboard      # expect: bento, "2 tugas hari ini · 1 terlambat", "tugas besok" in the first upcoming column
+  click 36 193          # Jurnal, then back to Dashboard so it reloads
+  click 36 142          # nav: Dashboard
+  shot 5-dashboard      # expect: "2 tugas hari ini · 1 terlambat", "tugas besok" under tomorrow in "7 hari ke depan"
   click 131 269         # checkbox of the first task ("tugas terlambat")
   [[ -n "$(sql_value "SELECT completed_at FROM items WHERE title = 'tugas terlambat'")" ]] || fail "ticking a task did not set completed_at"
   shot 5-dashboard-done # expect: row struck through, "1/2 selesai"
@@ -226,7 +241,7 @@ check_notifications() {
   sleep 1
   make_task 'tugas terlambat'
   sql "UPDATE items SET due_at = CAST(strftime('%s', 'now', 'localtime', 'start of day', '-2 day', 'utc') AS INTEGER) * 1000"
-  click 36 148          # Jurnal reloads the dashboard data behind the bell
+  click 36 193          # Jurnal reloads the dashboard data behind the bell
   shot 7-notif-dot      # expect: coral dot on the bell
   click 36 652
   shot 7-notif-late     # expect: group "Terlambat" with "tugas terlambat"
@@ -266,7 +281,7 @@ add_account() {
 check_finance() {
   fresh
   start_app
-  click 36 418                 # nav: Keuangan
+  click 36 447                 # nav: Keuangan
   shot 10-finance-empty        # expect: four cards at Rp 0, six empty bars, "Belum ada akun"
   add_account 10-account-form  # expect: "Akun baru" with "Buat akun dulu", focus in Nama
 
@@ -295,7 +310,7 @@ check_finance() {
   shot 10-finance              # expect: saldo Rp 975.000, Pengeluaran Rp 25.000 dari Rp 200.000, one row, BCA 100% saldo
   sql_becomes "SELECT COUNT(*) FROM items WHERE type = 'note'" 0 || fail "finance forms must not create notes"
 
-  click 36 94                  # nav: Dashboard
+  click 36 142                 # nav: Dashboard
   shot 10-dashboard            # expect: Keuangan card Rp 975.000, "Keluar bulan ini Rp 25.000 dari Rp 200.000", "Tagihan aman"
   stop_app
 }
@@ -303,7 +318,7 @@ check_finance() {
 check_bills() {
   fresh
   start_app
-  click 36 418                 # nav: Keuangan
+  click 36 447                 # nav: Keuangan
   add_account
   shot 11-finance-account      # measure "+ Tambah" of Tagihan and the first bill row from here
   click 1207 461               # Tagihan: + Tambah (no limit set, so the cards are 12px shorter than in check_finance)
@@ -321,13 +336,13 @@ check_bills() {
   # Keep due_day in step with the moved date, as saving the bill would (it drives the next monthly due date).
   sql "UPDATE bills SET due_day = CAST(strftime('%d', 'now', 'localtime', '-1 day') AS INTEGER)"
 
-  click 36 94                  # nav: Dashboard reloads the data behind the bell
+  click 36 142                 # nav: Dashboard reloads the data behind the bell
   shot 11-dashboard-late       # expect: "· 1 tagihan terlambat", chip "1 terlambat", coral dot on the bell
   click 36 652                 # bell
   shot 11-notif-bill           # expect: "Listrik" under Terlambat, "Terlambat 1 hari · Rp 150.000"
   xdotool key Escape
   sleep 0.3
-  click 36 418                 # nav: Keuangan
+  click 36 447                 # nav: Keuangan
   shot 11-bill-late            # expect: Listrik row on coral, "Terlambat 1 hari · sejak <yesterday>", "Tandai lunas"
   before=$(sql "SELECT due_at FROM items WHERE type = 'bill'")
   click 1177 508               # Tandai lunas on the first bill row
@@ -355,12 +370,12 @@ check_backup() {
 check_assistant() {
   fresh
   start_app
-  click 1091 750        # mic: idle -> listening
-  shot 8-assistant-listening   # expect: chip "Mendengarkan…" coral, pulse ring, "Mikrofon aktif"
+  click 1091 750        # mic: a fresh profile has no whisper/Piper yet
+  shot 8-assistant-listening   # expect: card "Suara belum dipasang" with "Pengaturan › Suara", chip "Siap"
   click 1011 750        # keyboard: reveals the text field
-  shot 8-assistant-typing      # expect: text field above the controls, send disabled
-  click 1091 750        # mic again: back to idle
-  shot 8-assistant-idle        # expect: chip "Siap", school dimmed
+  shot 8-assistant-typing      # expect: "Ketik pesan…" field above the controls, send disabled
+  click 1091 750        # mic again: still no voice files
+  shot 8-assistant-idle        # expect: chip "Siap", card and text field still shown
   xdotool search --name '^Anchoa$' >/dev/null || fail "app window disappeared"
   stop_app
 }
@@ -390,7 +405,7 @@ check_github() {
 check_projects() {
   fresh
   start_app
-  click 36 472                 # nav: Proyek
+  click 36 497                 # nav: Proyek
   shot 12-projects-empty        # measure "+ Proyek" and other coordinates from here
   click 1203 104                # + Proyek
   sleep 0.5
@@ -453,7 +468,7 @@ check_projects() {
   sleep 1
   xdotool key Return
   sleep 1
-  click 36 148                  # nav: Jurnal
+  click 36 193                  # nav: Jurnal
   sleep 1
   click 470 180                 # jenis: Ide
   sleep 0.7
@@ -462,7 +477,7 @@ check_projects() {
   sleep 1
   sql_becomes "SELECT count(*) FROM items WHERE title = 'catatan jadi tugas' AND type = 'task'" "1" || fail "task was not created from note"
   sql_becomes "SELECT status FROM tasks WHERE item_id = (SELECT id FROM items WHERE title = 'catatan jadi tugas' AND type = 'task')" "plan" || fail "converted task status not plan"
-  click 36 94                   # nav: Dashboard
+  click 36 142                  # nav: Dashboard
   sleep 1
   shot 12-dashboard
   stop_app
@@ -472,7 +487,7 @@ check_projects_v2() {
   fresh
   start_app
   # 1. Nav Proyek and create project
-  click 36 472                 # nav: Proyek
+  click 36 497                 # nav: Proyek
   sleep 1
   click 1203 104                # + Proyek
   sleep 0.5
@@ -492,51 +507,51 @@ check_projects_v2() {
   sql "INSERT INTO tasks (item_id, status, project_id, priority) VALUES ('task-tinggi-id', 'plan', '$proj_id', 1)"
 
   # Reload board via nav
-  click 36 94                  # nav: Dashboard
+  click 36 142                 # nav: Dashboard
   sleep 0.8
-  click 36 472                 # nav: Proyek
+  click 36 497                 # nav: Proyek
   sleep 1
-  shot 12-projects-priority
+  shot 12-projects-priority     # expect: Rencana lists Tugas tinggi (Tinggi) above Tugas hapus (Rendah)
 
-  # 2. Filter bar: type 'tinggi' into filter search input
-  click 450 330
+  # 2. Filter bar: type 'tinggi' into the Cari tugas field
+  click 530 308
   sleep 0.5
   xdotool type --delay 20 'tinggi'
   sleep 1
-  shot 12-projects-filter
+  shot 12-projects-filter       # expect: only Tugas tinggi, "Tidak ada yang cocok" in the other columns
 
-  # Clear filter via Reset button or backspace
-  click 620 330 || { xdotool key ctrl+a BackSpace Return; }
-  sleep 0.5
+  # Clear the filter
+  xdotool key ctrl+a BackSpace
+  sleep 0.8
 
-  # 3. Context menu interaction on task card
-  xdotool mousemove 480 440 click 3
+  # 3. Context menu on the second Rencana card (Tugas hapus)
+  xdotool mousemove 540 536 click 3
   sleep 0.5
-  shot 12-projects-menu
+  shot 12-projects-menu         # expect: Buka, Pindah status, four Prioritas rows, Hapus
   # Navigate down 3 items to "Prioritas: Tinggi" and press Return
   xdotool key Down Down Down Return
   sleep 0.7
-  sql_becomes "SELECT priority FROM tasks WHERE item_id = 'task-hapus-id'" 1 || sql "UPDATE tasks SET priority = 1 WHERE item_id = 'task-hapus-id'"
+  sql_becomes "SELECT priority FROM tasks WHERE item_id = 'task-hapus-id'" 1 || fail "context menu did not set Tugas hapus to Tinggi"
 
-  # 4. Status move via UI (arrow button on card or drag fallback)
-  click 655 440 || xdotool mousemove 480 440 mousedown 1 mousemove 750 440 mouseup 1
+  # 4. Status move via the arrow on the first card (equal priority: Tugas hapus, the older one, sorts first)
+  click 647 478
   sleep 0.7
-  sql_becomes "SELECT status FROM tasks WHERE item_id = 'task-hapus-id'" "doing" || sql "UPDATE tasks SET status = 'doing' WHERE item_id = 'task-hapus-id'"
+  sql_becomes "SELECT status FROM tasks WHERE item_id = 'task-hapus-id'" "doing" || fail "card arrow did not move Tugas hapus to doing"
 
-  # 5. Soft delete via context menu and restore via toast button
-  xdotool mousemove 480 520 click 3
+  # 5. Soft delete Tugas tinggi (now alone in Rencana) via context menu and restore via toast button
+  xdotool mousemove 540 450 click 3
   sleep 0.5
-  xdotool key Up Return
+  xdotool key Up Return         # Up wraps to the last item: Hapus
   sleep 0.7
-  # Click "Urungkan" in toast notification at bottom center
-  click 720 765
+  sql_becomes "SELECT deleted_at IS NOT NULL FROM items WHERE id = 'task-tinggi-id'" 1 || fail "context menu did not delete Tugas tinggi"
+  click 737 765                 # toast: Urungkan
   sleep 0.7
-  sql_becomes "SELECT deleted_at IS NULL FROM items WHERE id = 'task-tinggi-id'" 1 || sql "UPDATE items SET deleted_at = NULL WHERE id = 'task-tinggi-id'"
+  sql_becomes "SELECT deleted_at IS NULL FROM items WHERE id = 'task-tinggi-id'" 1 || fail "Urungkan did not restore Tugas tinggi"
 
   # 6. Saved agent setup: open project edit form, close, update config
-  click 1200 175
+  click 1115 186                # Ubah (project header)
   sleep 0.8
-  shot 12-projects-form
+  shot 12-projects-form         # expect: "Ubah proyek" with Nama Proyek v2, Hapus proyek
   xdotool key Escape
   sleep 0.5
   sql "UPDATE projects SET agent = 1, agent_dir = '/tmp/agent-test', agent_command = 'claude -p' WHERE item_id = '$proj_id'"
@@ -544,9 +559,9 @@ check_projects_v2() {
   sql_becomes "SELECT count(*) FROM projects WHERE item_id = '$proj_id'" 1 || fail "duplicate project created"
 
   # Reload view
-  click 36 94                  # nav: Dashboard
+  click 36 142                 # nav: Dashboard
   sleep 0.8
-  click 36 472                 # nav: Proyek
+  click 36 497                 # nav: Proyek
   sleep 1
   shot 12-projects-v2
 
@@ -577,8 +592,8 @@ check_schedule() {
   sql "INSERT INTO items (id, type, title, body, due_at, created_at, updated_at) VALUES ('bill-e2e', 'bill', 'Tagihan Listrik', '', $due_ms, $now_ms, $now_ms)"
   sql "INSERT INTO bills (item_id, account_id, amount, repeat, due_day) VALUES ('bill-e2e', 'acc-e2e', 150000, 'monthly', CAST(strftime('%d', 'now', 'localtime') AS INTEGER))"
 
-  # 3. nav Jadwal (y=256), lalu screenshot 13-calendar
-  click 36 310
+  # 3. nav Jadwal, lalu screenshot 13-calendar
+  click 36 346                 # nav: Jadwal
   sleep 1
   shot 13-calendar
 
@@ -617,7 +632,7 @@ check_schedule() {
 check_habits() {
   fresh
   start_app
-  click 36 364                 # nav: Habit
+  click 36 396                 # nav: Habit
   shot 14-habits-empty         # measure "+ Habit" from here
   click 1215 104               # + Habit
   sleep 0.5
@@ -628,12 +643,12 @@ check_habits() {
   sql_becomes "SELECT i.title FROM habits h JOIN items i ON i.id = h.item_id WHERE i.deleted_at IS NULL" "Olahraga pagi" \
     || fail "habit not saved"
   shot 14-habits-created       # measure checkbox from here
-  click 140 351                # checkbox on the first habit row
+  click 140 436                # round checkbox on the first habit row (Centang hari ini)
   sleep 1
   [[ -n "$(sql "SELECT date FROM habit_checks WHERE deleted_at IS NULL")" ]] \
     || fail "habit not checked"
   shot 14-habits-checked
-  click 140 351                # click again to uncheck
+  click 140 436                # click again to uncheck
   sleep 1
   [[ -n "$(sql "SELECT deleted_at FROM habit_checks")" ]] \
     || fail "unchecking habit did not set deleted_at"
@@ -659,11 +674,11 @@ check_journal() {
   sql_becomes "SELECT count(*) FROM items WHERE title = 'catatan cepat jurnal' AND type = 'note'" "1" \
     || fail "quick capture note missing"
 
-  click 36 148                  # nav: Jurnal
+  click 36 193                  # nav: Jurnal
   sleep 1
   shot 15-journal-initial
 
-  click 1215 104                # tombol Tulis
+  click 1160 104                # tombol Tulis (the chevron right of it opens the template menu)
   sleep 1
   shot 15-journal-new
 
@@ -706,11 +721,11 @@ check_journal_v2() {
   fresh
   start_app
 
-  click 36 148                  # nav: Jurnal
+  click 36 193                  # nav: Jurnal
   sleep 1
   local title
   for title in 'Entri e2e lain' 'Entri e2e hapus'; do
-    click 1215 104              # tombol Tulis
+    click 1160 104              # tombol Tulis
     sleep 1
     click 480 235               # judul
     xdotool type --delay 20 "$title"
@@ -773,11 +788,11 @@ check_journal_v2() {
   fi
   xdotool key Escape
   sleep 0.5
-  click 36 94                   # nav: Dashboard
+  click 36 142                  # nav: Dashboard
   sleep 1
   xdotool key Escape
   sleep 0.5
-  click 36 148                  # nav: Jurnal
+  click 36 193                  # nav: Jurnal
   sleep 2
   shot 16-journal-memories
 
@@ -825,7 +840,7 @@ check_downloads() {
   SERVER=$!
   # No user-dirs.dirs in this HOME: the download folder defaults to $home/Downloads.
   HOME="$home" start_app
-  click 36 580
+  click 36 600
   shot 17-downloads-empty
   click 400 181
   xdotool type --delay 20 "http://127.0.0.1:$port/contoh.bin"
@@ -855,10 +870,10 @@ check_downloads() {
   xdotool key Return
   sleep 3
   shot 17-downloads-running         # expect: ~512 KB/s, Mengunduh, pause button
-  click 36 94
+  click 36 142
   sleep 1.5
   shot 17-downloads-dashboard       # expect: Unduhan card with besar.bin and its progress
-  click 36 580
+  click 36 600
   click 867 381                     # Jeda
   sleep 1
   local id
@@ -883,7 +898,7 @@ check_files() {
   magick -size 64x64 xc:'#C6F36B' "$home/Pictures/contoh.png"
   magick xc:white "$home/Documents/kecil.pdf"
   HOME="$home" start_app
-  click 36 526
+  click 36 548
   shot 16-files-home         # expect: Tempat sidebar, Documents/Downloads/Pictures folders
   xdotool mousemove 390 265 click --repeat 2 --delay 80 1; sleep 1
   click 390 265
@@ -928,7 +943,7 @@ check_notes() {
   export_dir="$notes_home/Documents/Anchoa Catatan"
   mkdir -p "$notes_home/Documents"
   HOME="$notes_home" start_app
-  click 36 202                 # nav: Catatan
+  click 36 244                 # nav: Catatan
   shot 18-notes-empty
   click 240 152                # + Halaman baru
   shot 18-notes-new
@@ -1055,7 +1070,7 @@ check_agent() {
   local repo="$WORK/agent-repo" proj_id task_id
   mkdir -p "$repo"
   start_app
-  click 36 472                 # nav: Proyek
+  click 36 497                 # nav: Proyek
   click 1203 104               # + Proyek
   sleep 0.5
   xdotool type --delay 20 'Agen E2E'
@@ -1089,8 +1104,10 @@ check_agent() {
 
   "$BIN" agent task status --task "$task_id" test --actor Tes >/dev/null || fail "CLI task status failed"
   sql_becomes "SELECT status FROM tasks WHERE item_id = '$task_id'" test || fail "CLI did not move the task"
-  sql_becomes "SELECT title FROM items i JOIN activities a ON a.item_id = i.id WHERE a.kind = 'status'" "Tes memindahkan ke Tes" \
-    || fail "status change not recorded"
+  # The runner moves the card itself (Dikerjakan on start, Selesai on a clean exit) before the CLI moves it to Tes.
+  sql_becomes "SELECT group_concat(title, '|') FROM (SELECT i.title FROM items i JOIN activities a ON a.item_id = i.id WHERE a.kind = 'status' ORDER BY i.created_at, i.id)" \
+    "Anchoa memindahkan ke Dikerjakan|Anchoa memindahkan ke Selesai|Tes memindahkan ke Tes" \
+    || fail "status changes not recorded: $(sql "SELECT group_concat(i.title, '|') FROM items i JOIN activities a ON a.item_id = i.id WHERE a.kind = 'status'")"
   click 600 180                # tab Kanban
   sleep 3.5
   shot 19-agent-moved
@@ -1102,13 +1119,15 @@ check_settings() {
   start_app
   click 36 760                 # nav: Pengaturan (opens Sinkron & data; check_backup covers its buttons)
   sleep 1
-  shot 20-settings-data
+  shot 20-settings-data        # expect: Sinkron antarperangkat, Database lokal, Ringkasan data, Berkas backup
   click 170 400                # Tentang
   sleep 1
-  shot 20-settings-about
-  click 170 163                # Asisten & AI (menyusul)
-  sleep 1
-  shot 20-settings-ai
+  shot 20-settings-about       # expect: Anchoa v0.30.0, Cek pembaruan, Lisensi pihak ketiga
+  click 170 163                # Asisten & AI
+  # ai_custom_config is a sync command that asks the keyring; the private D-Bus has no
+  # Secret Service, so the UI stalls ~3-5 s before the section paints.
+  sleep 6
+  shot 20-settings-ai          # expect: Penyedia AI (Ollama Lokal), Model per tugas, "Keyring tidak tersedia"
   stop_app
 }
 
@@ -1376,15 +1395,15 @@ check_pin() {
 
   start_app                    # opens on the lock screen
   sleep 1
-  shot 24-pin-locked
+  shot 24-pin-locked           # expect: "Anchoa terkunci" card over the underwater scene, PIN field focused
   xdotool type --delay 30 9999
   xdotool key Return
   sleep 1.5
-  shot 24-pin-wrong             # expect: "PIN salah"
+  shot 24-pin-wrong             # expect: "PIN salah" above the PIN field, which moves down to y≈435
   click 1212 224               # where the Profil Tugas switch would be: must not reach the DB
   sleep 1
   [[ -z "$(sql "SELECT value FROM settings WHERE key = 'notify.task'")" ]] || fail "locked app changed data"
-  click 640 469                # PIN field (the probe click above took focus)
+  click 640 435                # PIN field (the probe click above took focus)
   xdotool key ctrl+a
   xdotool type --delay 30 1234
   xdotool key Return
@@ -1399,7 +1418,7 @@ check_pin() {
 check_email() {
   fresh
   ANCHOA_FAKE_MAIL=0 start_app
-  click 36 256                 # nav: Email, no account
+  click 36 295                 # nav: Email, no account
   shot 25-email-connect        # expect: Sambungkan Gmail, App Password steps and fields
   sql_becomes "SELECT count(*) FROM settings WHERE key = 'email.address'" 0 \
     || fail "fresh email check unexpectedly has an account"
@@ -1407,7 +1426,7 @@ check_email() {
 
   fresh
   ANCHOA_FAKE_MAIL=1 start_app  # debug-only fake client and in-memory keyring
-  click 36 256
+  click 36 295
   # Alamat Gmail receives focus when the connection form mounts.
   xdotool type --delay 20 'anchoa@gmail.com'
   xdotool key Tab
@@ -1450,7 +1469,7 @@ check_email_assist() {
   SERVER=$!
   sleep 1
   ANCHOA_FAKE_MAIL=1 ANCHOA_AI_BASE="http://127.0.0.1:$llm_port/v1" start_app
-  click 36 256                 # nav: Email
+  click 36 295                 # nav: Email
   xdotool type --delay 20 'anchoa@gmail.com'
   xdotool key Tab
   xdotool type --delay 20 'abcdefghijklmnop'

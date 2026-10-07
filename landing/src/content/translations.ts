@@ -147,6 +147,14 @@ export const id = {
   'au.port': 'Repositori',
   'ft.live2d': 'Avatar aplikasi masih statis. Dukungan Live2D direncanakan.',
   'ft.top': 'Kembali ke permukaan',
+
+  // Landing-only additions (mobile section + sound toggle).
+  'mob.title': 'Di HP, kawanan yang sama.',
+  'mob.lead':
+    'Rancangan aplikasi HP Anchoa dari desain yang sama: beranda, asisten Ako, jurnal, keuangan, dan jadwal. Versi HP belum tersedia; Android masih direncanakan.',
+  'mob.caption': 'Rancangan · data contoh · versi HP belum tersedia',
+  'snd.on': 'Nyalakan suara',
+  'snd.off': 'Matikan suara',
 } as const;
 
 export type TranslationKey = keyof typeof id;
@@ -303,4 +311,11 @@ export const en: Record<TranslationKey, string> = {
     'Shows up as you dive toward 200 m. Its glowing dots are called photophores.',
   'ft.live2d': 'The app avatar is still static. Live2D support is planned.',
   'ft.top': 'Back to the surface',
+
+  'mob.title': 'The same school, on your phone.',
+  'mob.lead':
+    'Anchoa phone designs from the same design work: home, the Ako assistant, journal, finance and schedule. The phone app is not available yet; Android is planned.',
+  'mob.caption': 'Concept · sample data · the phone app is not available',
+  'snd.on': 'Turn on sound',
+  'snd.off': 'Turn off sound',
 };

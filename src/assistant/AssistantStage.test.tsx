@@ -294,4 +294,18 @@ describe("AssistantStage", () => {
     expect(markup).toContain("Avatar statis");
     expect(markup).not.toContain("Avatar Live2D");
   });
+
+  it("centers Ako above the caption card instead of pinning it to the bottom edge", async () => {
+    spies.push(spyOn(api, "aiStatus").mockResolvedValue({ available: true, models: [], error: null }));
+    harness = hookHarness<ReactNode>(() => AssistantStage({}));
+    harness.render();
+    await harness.settle();
+
+    const markup = renderToStaticMarkup(harness.render());
+    expect(markup).toContain("items-center justify-center overflow-hidden");
+    expect(markup).toContain("pb-[120px]");
+    expect(markup).not.toContain("-mb-2");
+    expect(markup).toContain("relative z-10");
+    expect(markup).toContain("absolute right-3 bottom-3 left-3 z-20");
+  });
 });

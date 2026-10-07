@@ -266,15 +266,60 @@ describe("agent project components", () => {
     expect(openKanban).toHaveBeenCalledWith("t1");
   });
 
-  it("handles ConnectAgentDialog and quick button click", async () => {
+  it("shows the linked agent and unlinks it inline with confirmation", async () => {
+    const stopSpy = spyOn(api, "agentStop").mockResolvedValue();
+    const saveSpy = spyOn(api, "saveProject").mockResolvedValue(project);
+    spies.push(
+      spyOn(api, "projectActivities").mockResolvedValue([]),
+      stopSpy,
+      saveSpy,
+      spyOn(globalThis, "setInterval").mockImplementation((() => 1) as unknown as typeof setInterval),
+      spyOn(globalThis, "clearInterval").mockImplementation(() => {}),
+    );
+    const refreshed = mock(() => {});
+    harness = hookHarness(() => AgentTab({
+      project,
+      running: true,
+      version: 0,
+      logAvailable: false,
+      onRequested: () => {},
+      onRefresh: refreshed,
+      onShowLog: () => {},
+      onOpenTaskInKanban: () => {},
+      onOpenItem: () => {},
+    }));
+    harness.render();
+    await harness.settle();
+
+    // Linked agent row reuses running/idle status without a terminal.
+    expect(control("span", (props) => props.role === "status").children).toBeDefined();
+    const unlinkBtn = control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Lepas agen")));
+    (unlinkBtn.onClick as () => void)();
+    harness.render();
+
+    // First click only asks for confirmation inline; nothing is stopped or saved yet.
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(saveSpy).not.toHaveBeenCalled();
+    const confirmBtn = control("button", (props) => props.children === "Ya, lepas");
+    await (confirmBtn.onClick as () => Promise<void>)();
+    await harness.settle();
+    expect(stopSpy).toHaveBeenCalledWith(project.id);
+    expect(saveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ id: project.id, agentDir: null, agentCommand: null }),
+    );
+    expect(refreshed).toHaveBeenCalled();
+  });
+
+  it("opens Hubungkan agen dialog when no agent is linked", async () => {
     spies.push(
       spyOn(api, "projectActivities").mockResolvedValue([]),
       spyOn(globalThis, "setInterval").mockImplementation((() => 1) as unknown as typeof setInterval),
       spyOn(globalThis, "clearInterval").mockImplementation(() => {}),
     );
+    const unlinked = { ...project, agentDir: null, agentCommand: null };
     const editProject = mock(() => {});
     harness = hookHarness(() => AgentTab({
-      project,
+      project: unlinked,
       running: false,
       version: 0,
       logAvailable: false,
@@ -287,6 +332,7 @@ describe("agent project components", () => {
     }));
     harness.render();
     await harness.settle();
+    expect(control("p", (props) => typeof props.children === "string" && (props.children as string).includes("Belum ada agen"))).toBeDefined();
 
     // Open Hubungkan agen dialog
     const hubungkanBtn = control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Hubungkan agen")));

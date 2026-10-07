@@ -36,7 +36,7 @@ describe("App note navigation", () => {
       createdAt: 1, updatedAt: 1, openedAt: null,
     });
     // Start with a ready database and the palette open; no dashboard effects are needed.
-    harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, locked: false } });
+    harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, passwordEnabled: false, locked: false } });
     const render = () => harness.render(false);
     const palette = () => elements(render()).find((element) => element.type === CommandPalette)!;
     const note = () => elements(render()).find((element) => element.type === NotesPage)!;
@@ -69,7 +69,7 @@ describe("App release pages and assistant actions", () => {
     { name: "jadwal", component: SchedulePage, assistant: AssistantMini },
     { name: "berkas", component: FilesPage, assistant: AssistantMini },
   ])("routes $name actions to the mounted assistant and clears them on navigation", ({ name, component, assistant }) => {
-    harness = hookHarness(App, { 0: { path: "/db", error: null }, 8: { pinEnabled: false, locked: false } });
+    harness = hookHarness(App, { 0: { path: "/db", error: null }, 8: { pinEnabled: false, passwordEnabled: false, locked: false } });
     const render = () => elements(harness.render(false));
     const navigate = (page: string) => (render().find((element) => element.type === Sidebar)!.props.onSelect as (page: string) => void)(page);
     navigate(name);
@@ -100,7 +100,7 @@ describe("App settings navigation", () => {
         id: "task", type: "task", title: "Task", body: "", parentId: null, dueAt: null,
         createdAt: 1, updatedAt: 1, openedAt: null,
       });
-      harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, locked: false } });
+      harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, passwordEnabled: false, locked: false } });
       const render = () => harness.render(false);
       const palette = () => elements(render()).find((element) => element.type === CommandPalette)!;
       const settings = () => elements(render()).find((element) => element.type === Settings)!;
@@ -127,11 +127,11 @@ describe("App settings navigation", () => {
       syncHandler = handler;
       return () => {};
     });
-    const secSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
+    const secSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, passwordEnabled: false, locked: false });
     const dbSpy = spyOn(api, "dbStatus").mockResolvedValue({ path: "/db", error: null, backupError: null });
     const dashSpy = spyOn(api, "getDashboard").mockReturnValue(Promise.withResolvers<any>().promise);
     try {
-      harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, locked: false } });
+      harness = hookHarness(App, { 0: { path: "/db", error: null }, 2: "palette", 8: { pinEnabled: false, passwordEnabled: false, locked: false } });
       harness.render(true);
       const palette = () => elements(harness.render(false)).find((element) => element.type === CommandPalette)!;
       (palette().props.onNavigate as (name: string, section?: SettingsSection) => void)("settings", "data");
@@ -166,7 +166,7 @@ describe("App profile navigation", () => {
   });
 
   it("navigates to profil and renders ProfilePage without ComingSoon", async () => {
-    const secSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, locked: false });
+    const secSpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: false, passwordEnabled: false, locked: false });
     const dbSpy = spyOn(api, "dbStatus").mockResolvedValue({ path: "/db", error: null, backupError: null });
     const dashSpy = spyOn(api, "getDashboard").mockResolvedValue({
       today: [],
@@ -187,7 +187,7 @@ describe("App profile navigation", () => {
       journal: false,
       journalAt: "20:00",
     });
-    harness = hookHarness(App, { 0: { path: "/db", error: null }, 8: { pinEnabled: false, locked: false } });
+    harness = hookHarness(App, { 0: { path: "/db", error: null }, 8: { pinEnabled: false, passwordEnabled: false, locked: false } });
     const render = () => harness.render(false);
     const sidebar = () => elements(render()).find((element) => element.type === Sidebar)!;
     (sidebar().props.onSelect as (name: string) => void)("profil");
@@ -233,7 +233,7 @@ describe("App assistant approvals", () => {
     harness = hookHarness(App, {
       0: { path: "/db", error: null },
       1: [{ name, id: "item-1" }],
-      8: { pinEnabled: false, locked: false },
+      8: { pinEnabled: false, passwordEnabled: false, locked: false },
     });
     const render = () => harness.render(false);
     const currentPage = () => elements(render()).find((el) => el.type === component)!;
@@ -266,7 +266,7 @@ describe("App PIN lock", () => {
     dashboardSpy = spyOn(api, "getDashboard").mockReturnValue(new Promise(() => {}));
     harness = hookHarness(App, {
       0: { path: "/db", error: null },
-      8: { pinEnabled: true, locked: true },
+      8: { pinEnabled: true, passwordEnabled: false, locked: true },
     });
     const render = () => harness.render(false);
 
@@ -281,7 +281,7 @@ describe("App PIN lock", () => {
 
   it("loads the app normally after unlocking from the lock screen", async () => {
     const dbSpy = spyOn(api, "dbStatus").mockResolvedValue({ path: "/db", error: null, backupError: null });
-    securitySpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, locked: true });
+    securitySpy = spyOn(api, "securityStatus").mockResolvedValue({ pinEnabled: true, passwordEnabled: false, locked: true });
     dashboardSpy = spyOn(api, "getDashboard").mockReturnValue(new Promise(() => {}));
     harness = hookHarness(App, {
       0: { path: "/db", error: null },

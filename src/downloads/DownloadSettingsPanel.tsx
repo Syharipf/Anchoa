@@ -24,7 +24,7 @@ export function DownloadSettingsPanel({
   const [editingDir, setEditingDir] = useState(false);
   const [dirInput, setDirInput] = useState(settings?.dir ?? "");
   const [saving, setSaving] = useState(false);
-
+  const [pickingDir, setPickingDir] = useState(false);
   useEffect(() => {
     if (settings?.dir) {
       setDirInput(settings.dir);
@@ -60,6 +60,19 @@ export function DownloadSettingsPanel({
       toast(errorMessage(e), "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Fills the field with the folder chosen in the native picker; cancel keeps the current value. */
+  const handlePickDir = async () => {
+    setPickingDir(true);
+    try {
+      const picked = await api.pickDirectory();
+      if (picked) setDirInput(picked);
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setPickingDir(false);
     }
   };
 
@@ -109,13 +122,25 @@ export function DownloadSettingsPanel({
         </div>
         {editingDir && (
           <div className="flex flex-col gap-2 pt-1">
-            <input
-              value={dirInput}
-              onChange={(e) => setDirInput(e.target.value)}
-              placeholder="Path folder unduhan…"
-              aria-label="Path folder unduhan"
-              className="w-full rounded-lg border border-line bg-canvas px-3 py-1.5 font-mono text-xs text-ink outline-none focus:border-field-focus"
-            />
+            <div className="flex items-start gap-2">
+              <input
+                value={dirInput}
+                onChange={(e) => setDirInput(e.target.value)}
+                placeholder="Path folder unduhan…"
+                aria-label="Path folder unduhan"
+                className="w-full min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 font-mono text-xs text-ink outline-none focus:border-field-focus"
+              />
+              <button
+                type="button"
+                onClick={() => void handlePickDir()}
+                disabled={pickingDir}
+                aria-label="Pilih folder unduhan"
+                title="Buka dialog untuk memilih folder unduhan"
+                className="shrink-0 whitespace-nowrap rounded-md border border-line px-2.5 py-1.5 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+              >
+                {pickingDir ? "Memilih…" : "Pilih folder"}
+              </button>
+            </div>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"

@@ -1,9 +1,101 @@
-import { useState, type FormEvent } from "react";
-import type { Columns, LastActor, TaskCard, TaskStatus } from "../api";
-import { shortDate } from "../format";
+import { useEffect, useState, type FormEvent } from "react";
+import { api, type Activity, type Columns, type LastActor, type TaskCard, type TaskStatus } from "../api";
+import { relativeTime, shortDate } from "../format";
 import { FIELD } from "../shell/ui";
 import { anchorOf, useContextMenu, type MenuEntry } from "../shell/ContextMenu";
 import { boardColumns, dropTarget, moveLabel, PRIORITY_LABELS, subLabel } from "./view";
+
+interface CommitLine {
+  label: string;
+  createdAt: number;
+}
+
+type CommitState = "loading" | CommitLine | null;
+
+/** Short ref out of a merge activity: PR number, release tag, or short hash. */
+function commitLabel(activity: Pick<Activity, "title" | "body">): string | null {
+  const text = `${activity.body}\n${activity.title}`;
+  const pull = text.match(/\/pull\/(\d+)/);
+  if (pull) return `#${pull[1]}`;
+  const tag = text.match(/\/releases\/tag\/([^\s/]+)/);
+  if (tag) return tag[1];
+  const sha = text.match(/\b[0-9a-f]{7,40}\b/);
+  return sha ? sha[0].slice(0, 7) : null;
+}
+
+/** Newest merged ref; status rows such as "memindahkan ke Selesai" carry no ref. */
+function latestCommit(activities: readonly Activity[]): CommitLine | null {
+  let best: CommitLine | null = null;
+  for (const activity of activities) {
+    if (activity.role !== "merge") continue;
+    const label = commitLabel(activity);
+    if (label && (!best || activity.createdAt > best.createdAt)) best = { label, createdAt: activity.createdAt };
+  }
+  return best;
+}
+
+/**
+ * Latest merged ref for the linked repo, from the existing activity feed.
+ * Silent on failure: a failed fetch must not break the card.
+ */
+function useLatestCommit(projectId: string | null | undefined, repoUrl: string | null | undefined): CommitState {
+  const linked = projectId && repoUrl ? projectId : null;
+  const [state, setState] = useState<CommitState>(linked ? "loading" : null);
+  useEffect(() => {
+    if (!linked || !repoUrl) {
+      setState(null);
+      return;
+    }
+    let active = true;
+    setState("loading");
+    api.projectActivities(linked).then(
+      (list) => {
+        if (active) setState(latestCommit(list));
+      },
+      () => {
+        if (active) setState(null);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [linked, repoUrl]);
+  return state;
+}
+
+function CardCommit({ commit }: Readonly<{ commit: CommitState }>) {
+  if (commit === null) return null;
+  if (commit === "loading") {
+    return <span aria-hidden="true" className="block h-3 w-24 animate-pulse rounded bg-surface-2" />;
+  }
+  return (
+    <span
+      className="flex items-center gap-1 truncate font-mono text-[11px] font-normal text-muted"
+      title={`${commit.label} · ${relativeTime(commit.createdAt, Date.now())}`}
+    >
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="shrink-0"
+      >
+        <circle cx="6" cy="6" r="2.5" />
+        <circle cx="6" cy="18" r="2.5" />
+        <circle cx="18" cy="8" r="2.5" />
+        <path d="M6 8.5v7M18 10.5c0 4-6 3-10.5 6" />
+      </svg>
+      <span className="truncate">
+        {commit.label} · {relativeTime(commit.createdAt, Date.now())}
+      </span>
+    </span>
+  );
+}
 
 function CardActor({ lastActor }: Readonly<{ lastActor: LastActor | null }>) {
   if (!lastActor) return null;
@@ -18,6 +110,7 @@ export function Kanban({
   columns,
   agent = false,
   lastActors = {},
+  repoUrl = null,
   onOpenItem,
   onMoveCard,
   onDropCard,
@@ -29,6 +122,7 @@ export function Kanban({
   columns: Columns;
   agent?: boolean;
   lastActors?: Readonly<Record<string, LastActor>>;
+  repoUrl?: string | null;
   onOpenItem: (id: string) => void;
   onMoveCard: (card: TaskCard) => void;
   onDropCard?: (card: TaskCard, status: TaskStatus) => void;
@@ -41,6 +135,10 @@ export function Kanban({
   const [newTitle, setNewTitle] = useState("");
   const [overCol, setOverCol] = useState<TaskStatus | null>(null);
   const { menu, open } = useContextMenu();
+  const commit = useLatestCommit(
+    Object.values(columns).flat().find((card) => card.projectId)?.projectId ?? null,
+    repoUrl,
+  );
   async function submitNewTask(e: FormEvent, status: TaskStatus) {
     e.preventDefault();
     const title = newTitle.trim();
@@ -179,11 +277,8 @@ export function Kanban({
                             : "flex-1 truncate text-left text-[13px] text-done hover:text-ink before:absolute before:inset-0"
                         }
                       >
-                        {agent ? (
-                          <span className="block truncate">{c.title || "Tanpa judul"}</span>
-                        ) : (
-                          c.title || "Tanpa judul"
-                        )}
+                        <span className="block truncate">{c.title || "Tanpa judul"}</span>
+                        <CardCommit commit={commit} />
                         <CardActor lastActor={actor} />
                       </button>
                       {cardMenu ? (
@@ -260,7 +355,8 @@ export function Kanban({
                     >
                       {c.title || "Tanpa judul"}
                     </button>
-                        <CardActor lastActor={actor} />
+                    <CardCommit commit={commit} />
+                    <CardActor lastActor={actor} />
                     <div className="flex items-center gap-2">
                       {c.priority !== null && (
                         <span className={`rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_LABELS[c.priority].className}`}>

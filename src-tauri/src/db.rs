@@ -22,6 +22,8 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/013_journal_pinned.sql"),
     include_str!("../migrations/014_task_priority.sql"),
     include_str!("../migrations/015_downloads_upgrade.sql"),
+    include_str!("../migrations/016_calendar.sql"),
+    include_str!("../migrations/017_folder_markers.sql"),
 ];
 
 /// Managed Tauri state. When the database fails to open, `conn` is `None`
@@ -499,6 +501,26 @@ mod tests {
         assert_eq!(entry.tags, ["kerja"]);
         assert!(!entry.pinned);
         assert!(conn.execute("UPDATE journal_entries SET pinned = NULL WHERE item_id = 'n1'", []).is_err());
+    }
+
+    #[test]
+    fn version_16_database_upgrades_to_folder_markers_without_losing_data() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        configure(&conn).unwrap();
+        migrate(&mut conn, &MIGRATIONS[..16], None).unwrap();
+        conn.execute("INSERT INTO items (id, type, title, created_at, updated_at) VALUES ('n1', 'note', 'lama', 1, 2)", [])
+            .unwrap();
+
+        migrate(&mut conn, MIGRATIONS, None).unwrap();
+
+        assert_eq!(version(&conn), MIGRATIONS.len() as i64);
+        let title: String = conn.query_row("SELECT title FROM items WHERE id = 'n1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(title, "lama");
+        conn.execute("INSERT INTO folder_markers (path, updated_at) VALUES ('/home/u/Foto', 1)", []).unwrap();
+        let (emoji, pinned): (String, i64) = conn
+            .query_row("SELECT emoji, pinned FROM folder_markers WHERE path = '/home/u/Foto'", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!((emoji.as_str(), pinned), ("", 0));
     }
 
     #[test]

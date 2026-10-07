@@ -1,7 +1,14 @@
 import { spyOn } from "bun:test";
 import * as React from "react";
 
-type Effect = { run: React.EffectCallback; deps?: React.DependencyList; cleanup?: () => void };
+/** A pending React effect captured by the harness. */
+export interface HarnessEffect {
+  /** Runs the effect body; returns its cleanup, when one was provided. */
+  run: React.EffectCallback;
+  deps?: React.DependencyList;
+  cleanup?: () => void;
+}
+type Effect = HarnessEffect;
 
 /** Exercise component handlers without a DOM or an additional test dependency.
  * Only the component under test runs; child elements retain their real props/keys.

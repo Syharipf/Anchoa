@@ -39,31 +39,35 @@ export function UpcomingCard({
           <span className="ml-auto text-xs text-accent">Kalender ›</span>
         )}
       </div>
-      <div className="grid grid-cols-7 gap-1.5">
-        {days?.map((d) => {
-          const { weekday, day } = upcomingLabel(d.date);
-          const first = d.tasks[0];
-          return (
-            <div key={d.date} className="flex min-w-0 flex-col gap-1 rounded-[10px] bg-stage p-2 text-ink">
-              <span className="text-[11px] text-muted">{weekday}</span>
-              <span className="font-mono text-sm leading-none">{day}</span>
-              <span aria-hidden="true" className="flex h-1.5 gap-1">
-                {d.tasks.slice(0, 4).map((t) => (
-                  <span key={t.id} className="h-1.5 w-1.5 rounded-full bg-accent" />
-                ))}
-              </span>
-              {first ? (
-                <button onClick={() => onOpen(first.id)} className="truncate text-left text-xs text-ink hover:text-accent">
-                  {first.title || "Tanpa judul"}
-                </button>
-              ) : (
-                <span className="text-xs text-disabled">—</span>
-              )}
-              {d.tasks.length > 1 && <span className="text-[10px] text-muted">+{d.tasks.length - 1} lagi</span>}
-            </div>
-          );
-        })}
-      </div>
+      {days && !days.some((d) => d.tasks.length > 0) ? (
+        <p className="m-0 text-sm text-muted">Tidak ada jadwal 7 hari ke depan</p>
+      ) : (
+        <div className="grid grid-cols-7 gap-1.5">
+          {days?.map((d) => {
+            const { weekday, day } = upcomingLabel(d.date);
+            const first = d.tasks[0];
+            return (
+              <div key={d.date} className="flex min-w-0 flex-col gap-1 rounded-[10px] bg-stage p-2 text-ink">
+                <span className="text-[11px] text-muted">{weekday}</span>
+                <span className="font-mono text-sm leading-none">{day}</span>
+                <span aria-hidden="true" className="flex h-1.5 gap-1">
+                  {d.tasks.slice(0, 4).map((t) => (
+                    <span key={t.id} className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  ))}
+                </span>
+                {first ? (
+                  <button type="button" onClick={() => onOpen(first.id)} className="truncate text-left text-xs text-ink hover:text-accent">
+                    {first.title || "Tanpa judul"}
+                  </button>
+                ) : (
+                  <span className="text-xs text-disabled">—</span>
+                )}
+                {d.tasks.length > 1 && <span className="text-[10px] text-muted">+{d.tasks.length - 1} lagi</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

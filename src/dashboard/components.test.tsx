@@ -2,6 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DayTask, FinanceSummary } from "../api";
 import { elements } from "../test/hookHarness";
+import { Dashboard } from "./Dashboard";
 import { FinanceCard } from "./FinanceCard";
 import { TodayPanel } from "./TodayPanel";
 import { UpcomingCard } from "./UpcomingCard";
@@ -65,5 +66,37 @@ describe("dashboard branches", () => {
     expect(html.match(/w-1.5 rounded-full/g)).toHaveLength(4);
     (elements(node).find((element) => element.type === "button")!.props.onClick as () => void)();
     expect(onOpen).toHaveBeenCalledWith("t0");
+  });
+  it("collapses the upcoming card when no day has tasks", () => {
+    const node = UpcomingCard({ days: [{ date: "2026-10-01", tasks: [] }], onOpen: () => {} });
+    const html = renderToStaticMarkup(node);
+    expect(html).toContain("Tidak ada jadwal 7 hari ke depan");
+    expect(html).not.toContain("grid-cols-7");
+  });
+
+  it("renders exactly one plus glyph in each of the two create pills", () => {
+    const onSelect = mock((_page: string) => {});
+    const html = renderToStaticMarkup(
+      <Dashboard
+        data={null}
+        onToggle={() => {}}
+        onOpen={() => {}}
+        onSelect={onSelect}
+        onOpenAssistant={() => {}}
+      />,
+    );
+    const withPlus = ["Tugas", "Transaksi"];
+    for (const label of withPlus) {
+      const marker = `</svg>${label}`;
+      const open = html.lastIndexOf("<button", html.indexOf(marker));
+      const close = html.indexOf("</button>", html.indexOf(marker));
+      const pill = html.slice(open, close);
+      expect(pill.match(/M12 5v14M5 12h14/g) ?? []).toHaveLength(1);
+      expect(pill).toContain(label);
+      expect(pill).not.toContain("+");
+    }
+    expect(html).toContain("Catatan suara");
+    expect(html).toContain("Unduh dari clipboard");
+    expect(html).toContain("Tulis email");
   });
 });

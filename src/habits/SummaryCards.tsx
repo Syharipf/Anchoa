@@ -52,14 +52,19 @@ export function SummaryCards({
         <span className="truncate text-xs text-muted">{topStreakName}</span>
       </section>
 
-      <section aria-label="Konsistensi 30 hari" className={CARD}>
+      <section aria-label="Konsistensi 30 hari: rasio hari terjadwal yang dicentang" className={CARD}>
         <span className="text-xs text-muted">Konsistensi 30 hari</span>
         <span className="flex items-baseline gap-1.5">
           <span className="font-mono text-[26px] leading-tight text-ink">{consistency.percent}</span>
           <span className="font-mono text-sm text-muted">%</span>
         </span>
         <span className="text-xs text-muted">
-          {consistency.done} dari {consistency.scheduled} hari terjadwal
+          {consistency.done} dari {consistency.scheduled} hari terjadwal selesai
+        </span>
+        <span className="text-[11px] leading-snug text-muted">
+          Dihitung per hari, bukan per checklist: satu hari terjadwal dihitung selesai bila dicentang
+          sekali. Hari di luar jadwal mingguan tidak masuk hitungan, dan hari ini baru masuk setelah
+          dicentang.
         </span>
       </section>
     </div>

@@ -6,15 +6,20 @@ export const KIND_COLORS: Readonly<Record<ItemKind, string>> = {
   project: "#3987e5",
   bill: "#c98500",
   personal: "#d55181",
+  calendar: "#2a9d8f",
 };
 
 export const KIND_LABELS: Readonly<Record<ItemKind, string>> = {
   project: "Proyek",
   bill: "Tagihan",
   personal: "Pribadi",
+  calendar: "Google Kalender",
 };
 
-export const ALL_KINDS: readonly ItemKind[] = ["project", "bill", "personal"];
+export const ALL_KINDS: readonly ItemKind[] = ["project", "bill", "personal", "calendar"];
+
+/** Shown on Google Kalender items: they are pulled one-way and cannot be checked or edited here. */
+export const READ_ONLY_HINT = "Hanya baca · Google Kalender";
 
 export interface MonthCell {
   date: string;
@@ -95,6 +100,7 @@ export function isBillDone(item: ScheduleItem): boolean {
 /**
  * Groups items for the agenda panel:
  * - `late`: overdue items, excluding items whose due date is the selected date.
+ *   Past Google Kalender events are never late: they are not tasks.
  * - `due`: items due on the selected date.
  * - `next`: items due in the 7 days after the selected date.
  */
@@ -105,6 +111,7 @@ export function agendaGroups(
 ): { late: ScheduleItem[]; due: ScheduleItem[]; next: ScheduleItem[] } {
   const late = items.filter(
     (it) =>
+      it.source !== "calendar" &&
       (it.overdue || (Boolean(today) && it.dueDate < today && it.status !== "done")) &&
       it.dueDate !== selected,
   );
@@ -252,6 +259,7 @@ export interface TimelineGroup {
  * 2. Projects without deadline (sorted by name)
  * 3. Personal group ("Pribadi")
  * 4. Bill group ("Tagihan")
+ * 5. Google Kalender events (read-only)
  * Completed items are excluded (spec J7).
  */
 export function timelineGroups(
@@ -329,6 +337,10 @@ export function timelineGroups(
     .filter((it) => it.kind === "bill")
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.title.localeCompare(b.title));
 
+  const calendarItems = openItems
+    .filter((it) => it.kind === "calendar")
+    .sort((a, b) => (a.startDate ?? a.dueDate).localeCompare(b.startDate ?? b.dueDate) || a.title.localeCompare(b.title));
+
   const result: TimelineGroup[] = [...projectGroups];
   if (personalItems.length > 0) {
     result.push({
@@ -344,6 +356,14 @@ export function timelineGroups(
       name: "Tagihan",
       kind: "bill",
       items: billItems,
+    });
+  }
+  if (calendarItems.length > 0) {
+    result.push({
+      id: "calendar",
+      name: KIND_LABELS.calendar,
+      kind: "calendar",
+      items: calendarItems,
     });
   }
 

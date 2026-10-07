@@ -111,15 +111,21 @@ pub fn delete_ai_custom_key(db: State<'_, Db>, state: State<'_, AssistantState>,
 }
 
 fn change_key(db: &Db, state: &AssistantState, store: &KeyringStore, key: Option<String>) -> Result<CustomAiConfig, AppError> {
-    let key = key.map(Zeroizing::new);
-    if key.as_ref().is_some_and(|key| key.trim().is_empty() || key.len() > 8192 || key.chars().any(char::is_control)) {
-        return Err(AppError::Invalid("API key tidak valid".into()));
-    }
+    let key = key.map(|key| validated_key(&key)).transpose()?;
     let _gate = state.configuration_lock()?;
     let (name, base_url) = metadata(&*db.conn()?)?;
     match &key { Some(key) => store.set(KEY, key)?, None => store.delete(KEY)? }
     state.reset()?;
     Ok(CustomAiConfig { name, base_url, has_key: key.is_some() })
+}
+
+/// Trims a candidate secret and rejects empty, oversized, or control-character keys.
+fn validated_key(key: &str) -> Result<Zeroizing<String>, AppError> {
+    let key = Zeroizing::new(key.trim().to_owned());
+    if key.is_empty() || key.len() > 8192 || key.chars().any(char::is_control) {
+        return Err(AppError::Invalid("API key tidak valid".into()));
+    }
+    Ok(key)
 }
 pub(crate) fn status(app: &tauri::AppHandle, provider: Option<String>) -> Result<AiStatus, AppError> {
     use tauri::Manager;
@@ -149,6 +155,17 @@ pub(crate) fn status(app: &tauri::AppHandle, provider: Option<String>) -> Result
 pub async fn ai_provider_status(app: tauri::AppHandle, provider: String) -> Result<AiStatus, AppError> {
     tauri::async_runtime::spawn_blocking(move || status(&app, Some(provider)))
         .await.map_err(|_| AppError::Other("Pemeriksaan penyedia AI gagal".into()))?
+}
+
+/// Lists provider models for a draft base URL + key, without saving either.
+/// The key is zeroized after the call and never appears in errors or logs.
+#[tauri::command]
+pub async fn ai_custom_models(base_url: String, key: String) -> Result<Vec<String>, AppError> {
+    let key = validated_key(&key)?;
+    let base_url = validate_base_url(&base_url)?;
+    tauri::async_runtime::spawn_blocking(move || llm::list_custom_models_draft(&base_url, &key))
+        .await
+        .map_err(|_| AppError::Other("Daftar model penyedia AI gagal dimuat".into()))?
 }
 
 #[cfg(test)]
@@ -216,6 +233,44 @@ mod tests {
         server.finish();
         std::thread::sleep(std::time::Duration::from_millis(50));
         assert!(target.accept().is_err(), "redirect target received a request");
+    }
+
+    #[tokio::test]
+    async fn draft_models_return_provider_ids_with_bearer_key() {
+        use super::super::test_server::{Server, response};
+        let server = Server::new(vec![response("200 OK", r#"{"data":[{"id":"m-b"},{"id":"m-a"},{"id":"m-a"}]}"#)]);
+        assert_eq!(ai_custom_models(server.base.clone(), " SECRET_SENTINEL ".into()).await.unwrap(), vec!["m-a", "m-b"]);
+        let (headers, _) = server.requests.recv().unwrap();
+        assert!(headers.starts_with("GET /v1/models "));
+        assert!(headers.to_lowercase().contains("authorization: bearer secret_sentinel"));
+        server.finish();
+    }
+
+    #[tokio::test]
+    async fn draft_models_report_bad_key_and_malformed_payload() {
+        use super::super::test_server::{Server, response};
+        let server = Server::new(vec![response("401 Unauthorized", r#"{"error":"invalid api key"}"#)]);
+        let error = ai_custom_models(server.base.clone(), "SECRET_SENTINEL".into()).await.unwrap_err();
+        assert!(error.to_string().contains("API key"), "{error}");
+        assert!(!error.to_string().contains("SECRET_SENTINEL"));
+        server.finish();
+        for body in [r#"{"models":[]}"#, r#"{"data":[{"id":""}]}"#, "bukan json"] {
+            let server = Server::new(vec![response("200 OK", body)]);
+            assert!(ai_custom_models(server.base.clone(), "SECRET_SENTINEL".into()).await.is_err(), "{body}");
+            server.finish();
+        }
+    }
+
+    #[tokio::test]
+    async fn draft_models_reject_unusable_key_and_url_without_a_request() {
+        use super::super::test_server::Server;
+        let server = Server::new(vec![]);
+        for (url, key) in [("http://127.0.0.1:20128/v1", "  "), ("http://example.com/v1", "SECRET_SENTINEL")] {
+            let error = ai_custom_models(url.into(), key.into()).await.unwrap_err();
+            assert_eq!(error.code(), "invalid", "{url}");
+            assert!(!error.to_string().contains("SECRET_SENTINEL"));
+        }
+        server.finish();
     }
 
     #[test]

@@ -1,14 +1,20 @@
 ---
 import { id as copy } from '../content/translations';
+import { assetPath } from '../config/site';
 import LanguageSwitcher from './ui/LanguageSwitcher.astro';
+import SoundToggle from './SoundToggle.astro';
 ---
 
 <header class="nav">
   <div class="wrap">
     <a class="brand" href="#top" aria-label="Anchoa, ke atas">
-      <span class="logo-slot" title="Tempat logo">
-        LOGO
-      </span>
+      <img
+        class="logo-slot"
+        src={assetPath('logo/favicon.svg')}
+        alt=""
+        width="32"
+        height="32"
+      />
       Anchoa
     </a>
     <nav aria-label="Navigasi utama">
@@ -44,6 +50,7 @@ import LanguageSwitcher from './ui/LanguageSwitcher.astro';
     </nav>
     <div class="right">
       <LanguageSwitcher />
+      <SoundToggle />
       <a
         class="btn btn-primary btn-sm"
         href="#unduh"

@@ -8,7 +8,7 @@ import { Dialog } from "../shell/Dialog";
 import { ConnectionForm } from "./ConnectionForm";
 import { ComposeDialog } from "./ComposeDialog";
 import { EmailList } from "./EmailList";
-import { EmailPage } from "./EmailPage";
+import { EMAIL_SYNC_INTERVAL, EmailPage } from "./EmailPage";
 import { ReadingPane } from "./ReadingPane";
 import { StarButton } from "./StarButton";
 import { textParts } from "./view";
@@ -542,4 +542,65 @@ describe("email UI", () => {
     await harness.settle();
     expect(elements(harness.render()).some((el) => el.type === ReadingPane)).toBe(false);
   });
+
+  it("re-syncs on the background interval while connected and visible", async () => {
+    connectedPage();
+    await harness.settle();
+    expect(api.emailSync).toHaveBeenCalledTimes(1);
+    expect(harness.intervalDelays()).toContain(EMAIL_SYNC_INTERVAL);
+
+    harness.runTimers();
+    await harness.settle();
+    expect(api.emailSync).toHaveBeenCalledTimes(2);
+    // The manual button stays the immediate path.
+    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    await harness.settle();
+    expect(api.emailSync).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not poll while disconnected, and starts the interval once connected", async () => {
+    spies.push(spyOn(api, "emailStatus").mockResolvedValue({ connected: false, address: null }));
+    spies.push(spyOn(api, "emailSync").mockResolvedValue({ headers: 1 }));
+    spies.push(spyOn(api, "emailList").mockResolvedValue([message]));
+    start(() => EmailPage({}));
+    await harness.settle();
+    expect(harness.intervalDelays()).not.toContain(EMAIL_SYNC_INTERVAL);
+
+    (element(ConnectionForm).props.onConnected as (status: unknown) => void)({ connected: true, address: "anchoa@gmail.com" });
+    await harness.settle();
+    expect(harness.intervalDelays()).toContain(EMAIL_SYNC_INTERVAL);
+  });
+
+  it("does not start the interval while the tab is hidden", async () => {
+    spies.push(spyOn(api, "emailStatus").mockResolvedValue({ connected: true, address: "anchoa@gmail.com" }));
+    spies.push(spyOn(api, "emailSync").mockResolvedValue({ headers: 1 }));
+    spies.push(spyOn(api, "emailList").mockResolvedValue([message]));
+    // hookHarness installs `document`; set visibility before the first render reads it.
+    harness = hookHarness(() => EmailPage({}));
+    (globalThis.document as unknown as Record<string, unknown>).visibilityState = "hidden";
+    harness.render();
+    await harness.settle();
+    // Page-open sync still fires once; only the background interval is gated.
+    expect(api.emailSync).toHaveBeenCalledTimes(1);
+    expect(harness.intervalDelays()).not.toContain(EMAIL_SYNC_INTERVAL);
+  });
+
+  it("skips a background tick while a sync is already in flight", async () => {
+    connectedPage();
+    await harness.settle();
+    const pending = deferred<{ headers: number }>();
+    const inFlight = spyOn(api, "emailSync").mockReturnValueOnce(pending.promise);
+    spies.push(inFlight);
+    harness.runTimers();
+    await harness.settle();
+    expect(api.emailSync).toHaveBeenCalledTimes(2);
+
+    harness.runTimers();
+    await harness.settle();
+    expect(api.emailSync).toHaveBeenCalledTimes(2);
+
+    pending.resolve({ headers: 1 });
+    await harness.settle();
+  });
+
 });

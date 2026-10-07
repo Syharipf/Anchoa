@@ -1,12 +1,13 @@
 ---
 import { id as copy } from '../content/translations';
-import { site } from '../config/site';
+import { assetPath, site } from '../config/site';
 ---
 
 <section class="hero" aria-labelledby="h-hero">
   <div class="wrap">
     <div>
       <span class="eyebrow">
+        <img class="hero-mark" src={assetPath('logo/anchoa-logo.svg')} alt="Anchoa" width="36" height="28" />
         <span class="dot"></span>
         <span data-i18n="hero.eyebrow" set:html={copy['hero.eyebrow']} />
       </span>

@@ -11,6 +11,7 @@ import Footer from '../components/Footer.astro';
 import DepthGauge from '../components/DepthGauge.astro';
 import Ocean from '../components/Ocean.astro';
 import DashboardPreview from '../components/DashboardPreview.astro';
+import Mobile from '../components/Mobile.astro';
 import Author from '../components/Author.astro';
 ---
 
@@ -32,6 +33,7 @@ import Author from '../components/Author.astro';
       <div id="top"></div>
       <Hero />
       <DashboardPreview />
+      <Mobile />
       <Features />
       <Architecture />
       <Engineering />
@@ -45,7 +47,9 @@ import Author from '../components/Author.astro';
   <script>
     import { initInteractions } from '../scripts/interactions';
     import { initOcean } from '../scripts/ocean';
+    import { initSound } from '../scripts/sound';
     initInteractions();
     initOcean();
+    initSound();
   </script>
 </BaseLayout>

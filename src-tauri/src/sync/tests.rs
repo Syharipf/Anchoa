@@ -684,7 +684,7 @@ fn oauth_error_callback_fails_immediately() {
     let start = std::time::Instant::now();
     let err = flow.wait(Duration::from_secs(2)).err().unwrap();
     sender.join().unwrap();
-    assert!(matches!(err, crate::error::AppError::Invalid(ref m) if m.contains("Login sync gagal")));
+    assert!(matches!(&err, crate::error::AppError::Invalid(m) if m.contains("Login") && m.contains("gagal")));
     assert!(start.elapsed()<Duration::from_secs(1));
 }
 

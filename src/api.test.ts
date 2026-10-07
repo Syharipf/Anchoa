@@ -2,7 +2,7 @@ import { describe, expect, it, mock, spyOn } from "bun:test";
 import * as core from "@tauri-apps/api/core";
 import * as events from "@tauri-apps/api/event";
 import * as dialog from "@tauri-apps/plugin-dialog";
-import { api, assetUrl, errorMessage, onSyncChanged, type AssistantEvent, type VoiceInstallProgress } from "./api";
+import { api, assetUrl, errorMessage, onCalendarUpdated, onNotifyDelivered, onSyncChanged, type AssistantEvent, type VoiceInstallProgress } from "./api";
 
 type Case = readonly [keyof typeof api, () => Promise<unknown>, string, Record<string, unknown>?];
 
@@ -23,6 +23,8 @@ const cases: Case[] = [
   ["checkUpdate", () => api.checkUpdate(), "check_update"],
   ["getProfile", () => api.getProfile(), "get_profile"],
   ["getNotifyPrefs", () => api.getNotifyPrefs(), "get_notify_prefs"],
+  ["notifyStatus", () => api.notifyStatus(), "notify_status"],
+  ["notifyRequestPermission", () => api.notifyRequestPermission(), "notify_request_permission"],
   ["dismissJournalReminder", () => api.dismissJournalReminder(), "dismiss_journal_reminder"],
   ["habitsOverview", () => api.habitsOverview(), "habits_overview"],
   ["journalSide", () => api.journalSide(), "journal_side"],
@@ -127,6 +129,13 @@ const cases: Case[] = [
   ["journalExport", () => api.journalExport("/home/kamu", ["id1", "id2"]), "journal_export", { dir: "/home/kamu", ids: ["id1", "id2"] }],
   ["openFolder", () => api.openFolder("data"), "open_folder", { kind: "data" }],
   ["listDir", () => api.listDir("/home/kamu", false), "list_dir", { path: "/home/kamu", hidden: false }],
+  ["fileRemotes", () => api.fileRemotes(), "file_remotes"],
+  ["listRemote", () => api.listRemote("rclone:gdrive:Docs", true), "list_remote", { path: "rclone:gdrive:Docs", hidden: true }],
+  ["folderMetaList", () => api.folderMetaList(), "folder_meta_list"],
+  ["folderMetaSet", () => api.folderMetaSet("/home/kamu/Foto", { emoji: "📷", color: "#ff8800" }), "folder_meta_set", { path: "/home/kamu/Foto", marker: { emoji: "📷", color: "#ff8800" } }],
+  ["folderMetaPin", () => api.folderMetaPin("/home/kamu/Foto", true), "folder_meta_pin", { path: "/home/kamu/Foto", pinned: true }],
+  ["folderMetaClear", () => api.folderMetaClear("/home/kamu/Foto"), "folder_meta_clear", { path: "/home/kamu/Foto" }],
+  ["folderSummary", () => api.folderSummary("/home/kamu"), "folder_summary", { path: "/home/kamu" }],
   ["readText", () => api.readText("/home/kamu/a.txt"), "read_text", { path: "/home/kamu/a.txt" }],
   ["pasteItems", () => api.pasteItems({ sources: ["/home/kamu/a.txt"], dest: "/home/kamu/b", mode: "copy", onConflict: "skip" }), "paste_items", { req: { sources: ["/home/kamu/a.txt"], dest: "/home/kamu/b", mode: "copy", onConflict: "skip" } }],
   ["trashItems", () => api.trashItems(["/home/kamu/a.txt"]), "trash_items", { paths: ["/home/kamu/a.txt"] }],
@@ -156,7 +165,19 @@ const cases: Case[] = [
   ["syncChangePassphrase", () => api.syncChangePassphrase("lama", "baru"), "sync_change_passphrase", { old: "lama", new: "baru" }],
   ["syncNow", () => api.syncNow(), "sync_now"],
   ["syncSignOut", () => api.syncSignOut(true), "sync_sign_out", { deleteCloud: true }],
+  ["calendarStatus", () => api.calendarStatus(), "calendar_status"],
+  ["calendarConnect", () => api.calendarConnect(), "calendar_connect"],
+  ["calendarCancelConnect", () => api.calendarCancelConnect(), "calendar_cancel_connect"],
+  ["calendarDisconnect", () => api.calendarDisconnect(), "calendar_disconnect"],
+  ["calendarRefresh", () => api.calendarRefresh(), "calendar_refresh"],
   ["setPin", () => api.setPin(undefined, "1234"), "set_pin", { old: null, new: "1234" }],
+  ["aiCustomModels", () => api.aiCustomModels("http://localhost:11434", "key"), "ai_custom_models", { baseUrl: "http://localhost:11434", key: "key" }],
+  ["onboardingStatus", () => api.onboardingStatus(), "onboarding_status"],
+  ["completeOnboarding", () => api.completeOnboarding(), "complete_onboarding"],
+  ["setPassword", () => api.setPassword(undefined, "secret"), "set_password", { old: null, new: "secret" }],
+  ["unlockPassword", () => api.unlockPassword("secret"), "unlock_password", { password: "secret" }],
+  ["disablePassword", () => api.disablePassword("secret"), "disable_password", { secret: "secret" }],
+  ["financeRecapPdf", () => api.financeRecapPdf("/home/kamu", "monthly", "2026-10"), "finance_recap_pdf", { dir: "/home/kamu", kind: "monthly", period: "2026-10" }],
 ];
 
 describe("API IPC contract", () => {
@@ -218,6 +239,30 @@ describe("API IPC contract", () => {
       expect(await onSyncChanged(handler)).toBe(unlisten);
       expect(spy.mock.calls[0][0]).toBe("sync-changed");
       (spy.mock.calls[0][1] as (event: unknown) => void)({ payload: null });
+      expect(handler).toHaveBeenCalledWith();
+    } finally { spy.mockRestore(); }
+  });
+
+  it("subscribes to calendar-updated and calls the handler without the event payload", async () => {
+    const unlisten = () => {};
+    const spy = spyOn(events, "listen").mockResolvedValue(unlisten);
+    try {
+      const handler = mock(() => {});
+      expect(await onCalendarUpdated(handler)).toBe(unlisten);
+      expect(spy.mock.calls[0][0]).toBe("calendar-updated");
+      (spy.mock.calls[0][1] as (event: unknown) => void)({ payload: null });
+      expect(handler).toHaveBeenCalledWith();
+    } finally { spy.mockRestore(); }
+  });
+
+  it("subscribes to notify-os-delivered and calls the handler without the event payload", async () => {
+    const unlisten = () => {};
+    const spy = spyOn(events, "listen").mockResolvedValue(unlisten);
+    try {
+      const handler = mock(() => {});
+      expect(await onNotifyDelivered(handler)).toBe(unlisten);
+      expect(spy.mock.calls[0][0]).toBe("notify-os-delivered");
+      (spy.mock.calls[0][1] as (event: unknown) => void)({ payload: 2 });
       expect(handler).toHaveBeenCalledWith();
     } finally { spy.mockRestore(); }
   });

@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import type { FileEntry } from "../api";
+import type { FileEntry, FolderMeta } from "../api";
 import { formatSize, KIND_ICONS, KIND_LABELS } from "./view";
 
 function formatModDate(ms: number): string {
@@ -16,11 +16,14 @@ function formatModDate(ms: number): string {
 export function FileList({
   entries,
   selected,
+  markers,
   onSelect,
   onOpen,
 }: Readonly<{
   entries: readonly FileEntry[];
   selected: readonly number[];
+  /** Folder markers keyed by path. */
+  markers?: ReadonlyMap<string, FolderMeta>;
   onSelect: (index: number, e: MouseEvent) => void;
   onOpen: (entry: FileEntry) => void;
 }>) {
@@ -46,6 +49,7 @@ export function FileList({
 
       {entries.map((entry, index) => {
         const isSelected = selected.includes(index);
+        const meta = markers?.get(entry.path);
         const sub =
           entry.kind === "folder"
             ? `${entry.size} item`
@@ -71,6 +75,7 @@ export function FileList({
                 className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center ${
                   isSelected ? "text-accent" : "text-muted"
                 }`}
+                style={meta?.color ? { color: meta.color } : undefined}
               >
                 <svg
                   width="18"
@@ -86,6 +91,7 @@ export function FileList({
                   <path d={KIND_ICONS[entry.kind]} />
                 </svg>
               </span>
+              {meta?.emoji && <span aria-hidden="true">{meta.emoji}</span>}
               <span className="truncate">{entry.name}</span>
             </span>
             <span className="text-right font-mono text-xs text-muted">{sub}</span>

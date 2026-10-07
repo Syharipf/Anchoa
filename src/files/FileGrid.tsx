@@ -1,15 +1,19 @@
 import type { MouseEvent } from "react";
-import { assetUrl, type FileEntry } from "../api";
+import { assetUrl, type FileEntry, type FolderMeta } from "../api";
+import { isRemotePath } from "./remotes";
 import { formatSize, KIND_ICONS } from "./view";
 
 export function FileGrid({
   entries,
   selected,
+  markers,
   onSelect,
   onOpen,
 }: Readonly<{
   entries: readonly FileEntry[];
   selected: readonly number[];
+  /** Folder markers keyed by path. */
+  markers?: ReadonlyMap<string, FolderMeta>;
   onSelect: (index: number, e: MouseEvent) => void;
   onOpen: (entry: FileEntry) => void;
 }>) {
@@ -30,6 +34,7 @@ export function FileGrid({
     >
       {entries.map((entry, index) => {
         const isSelected = selected.includes(index);
+        const meta = markers?.get(entry.path);
         const sub =
           entry.kind === "folder"
             ? `${entry.size} item`
@@ -51,8 +56,8 @@ export function FileGrid({
                 : "border-transparent hover:bg-surface"
             }`}
           >
-            <span className="flex h-[68px] w-full items-center justify-center">
-              {entry.kind === "image" ? (
+            <span className="relative flex h-[68px] w-full items-center justify-center">
+              {entry.kind === "image" && !isRemotePath(entry.path) ? (
                 <img
                   loading="lazy"
                   src={assetUrl(entry.path)}
@@ -70,10 +75,16 @@ export function FileGrid({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={isSelected ? "text-accent" : "text-muted"}
+                  style={meta?.color ? { color: meta.color } : undefined}
                   aria-hidden="true"
                 >
                   <path d={KIND_ICONS[entry.kind]} />
                 </svg>
+              )}
+              {meta?.emoji && (
+                <span aria-hidden="true" className="absolute right-1 bottom-0 text-lg leading-none">
+                  {meta.emoji}
+                </span>
               )}
             </span>
             <span className="line-clamp-2 max-w-full text-xs leading-snug break-all">

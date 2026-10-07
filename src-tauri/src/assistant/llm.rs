@@ -466,13 +466,23 @@ pub fn list_models(base: &str) -> Result<Vec<String>, AppError> {
 }
 
 pub fn list_custom_models(endpoint: &Endpoint) -> Result<Vec<String>, AppError> {
+    list_custom_models_with(&endpoint.base_url, endpoint.api_key.as_deref())
+}
+
+/// Lists models from an OpenAI-compatible `GET {base_url}/models` endpoint using a
+/// draft key that has not been saved; the key never reaches logs or errors.
+pub fn list_custom_models_draft(base_url: &str, api_key: &str) -> Result<Vec<String>, AppError> {
+    list_custom_models_with(base_url, Some(api_key))
+}
+
+fn list_custom_models_with(base_url: &str, api_key: Option<&str>) -> Result<Vec<String>, AppError> {
     let client = agent(Arc::new(AtomicBool::new(false)), CONNECT_TIMEOUT);
-    let mut request = client.get(format!("{}/models", endpoint.base_url.trim_end_matches('/')));
-    if let Some(key) = &endpoint.api_key {
+    let mut request = client.get(format!("{}/models", base_url.trim_end_matches('/')));
+    if let Some(key) = api_key {
         request = request.header("Authorization", format!("Bearer {key}"));
     }
     let mut response = request.config().timeout_global(Some(CONNECT_TIMEOUT)).build().call()
-        .map_err(|error| http_error(error, &endpoint.base_url))?;
+        .map_err(|error| http_error(error, base_url))?;
     let mut bytes = Vec::new();
     response.body_mut().as_reader().take((MAX_EVENT_BYTES + 1) as u64).read_to_end(&mut bytes)
         .map_err(|_| AppError::Other("Gagal membaca daftar model".into()))?;

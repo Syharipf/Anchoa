@@ -340,4 +340,23 @@ describe("schedule layout", () => {
     expect(timelineLabel("2026-09-28", "2026-11-22")).toBe("28 Sep – 22 Nov");
     expect(timelineLabel("2026-09-21", "2026-11-15")).toBe("21 Sep – 15 Nov");
   });
+
+  it("acara Google Kalender: tidak pernah terlambat dan masuk grup sendiri di timeline", () => {
+    const event = (id: string, dueDate: string) =>
+      makeItem({ id, key: `calendar:${id}`, source: "calendar", kind: "calendar", groupId: "calendar", groupName: "Google Kalender", dueDate, startDate: dueDate, checkable: false });
+    const items = [
+      event("e-past", "2026-09-28"),
+      event("e-later", "2026-10-03"),
+      event("e-soon", "2026-10-01"),
+      makeItem({ id: "t-late", kind: "personal", dueDate: "2026-09-28" }),
+    ];
+
+    const { late } = agendaGroups(items, "2026-09-30", "2026-09-30");
+    expect(late.map((i) => i.id)).toEqual(["t-late"]);
+
+    const groups = timelineGroups(items);
+    expect(groups.map((g) => g.id)).toEqual(["personal", "calendar"]);
+    expect(groups[1].items.map((i) => i.id)).toEqual(["e-past", "e-soon", "e-later"]);
+    expect(visible(items, new Set<ItemKind>(["calendar"])).map((i) => i.id)).toEqual(["t-late"]);
+  });
 });

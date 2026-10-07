@@ -139,6 +139,11 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
+      if ((e.altKey && (e.key === "F4" || key === "f4")) || (e.ctrlKey && !e.shiftKey && (key === "q" || key === "w"))) {
+        e.preventDefault();
+        void api.closeWindow();
+        return;
+      }
       if (e.ctrlKey && !e.shiftKey && !e.altKey && (key === "k" || key === "n")) {
         e.preventDefault();
         setOverlay("palette");

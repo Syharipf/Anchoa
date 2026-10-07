@@ -35,6 +35,7 @@ Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Fedora Linux
 - **Email Gmail.** Satu akun Gmail via App Password; ringkasan dan saran balasan dari asisten berjalan lokal.
 - **Kunci PIN dan backup otomatis.** PIN di-hash dengan Argon2id dan divalidasi di sisi Rust; backup database harian disimpan otomatis.
 - **Sinkronisasi terenkripsi (opsional).** Data tersinkron antarperangkat melalui Supabase dengan enkripsi XChaCha20-Poly1305; tanpa sync, tidak ada data yang keluar.
+- **Baki sistem (Tray).** Tetap berjalan di latar belakang saat jendela ditutup sehingga pengingat notifikasi, sinkronisasi, dan antrean unduhan terus bekerja. Klik menu Keluar di baki sistem untuk keluar sepenuhnya.
 
 ## Modul
 
@@ -51,7 +52,7 @@ Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Fedora Linux
 | Berkas | Jelajah folder lokal, pratinjau, salin, pindah, buang ke Tong Sampah |
 | Unduhan | File langsung serta video/audio lewat yt-dlp dan ffmpeg, dengan antrean |
 | Asisten | Chat dan suara, usulan aksi yang harus disetujui, model per tugas |
-| Notifikasi, Profil, Pengaturan | Pengingat, statistik, kunci PIN, model AI, suara, backup, integrasi, sinkronisasi |
+| Notifikasi, Profil, Pengaturan | Pengingat, statistik, kunci PIN, model AI, suara, backup, baki sistem, integrasi, sinkronisasi |
 
 Cara memakai setiap modul ada di [panduan pengguna](docs/MANUAL.md).
 

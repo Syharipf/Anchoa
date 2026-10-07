@@ -74,8 +74,7 @@ export function OsNotifyStatus() {
         </p>
       )}
       <p className="m-0 text-xs leading-relaxed text-muted">
-        Pengingat dikirim ke sistem selama Anchoa berjalan, termasuk saat jendelanya diminimalkan. Setelah
-        Anchoa ditutup, pengingat menunggu sampai Anchoa dibuka lagi.
+        Pengingat dikirim ke sistem selama Anchoa berjalan, termasuk di baki sistem (tray) setelah jendela ditutup. Pengingat menunggu jika Anchoa benar-benar ditutup lewat menu Keluar.
       </p>
       {status && (
         <div className="flex flex-col gap-1">

@@ -36,6 +36,7 @@ mod settings;
 pub mod sync;
 mod tasks;
 mod time;
+pub mod tray;
 
 use tauri::Manager;
 
@@ -81,10 +82,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+            tray::show_main_window(app);
         }))
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -171,6 +169,8 @@ pub fn run() {
             #[cfg(not(debug_assertions))]
             let calendar_keys = keystore::KeyringStore::default();
             app.manage(calendar::CalendarState::new(calendar_keys));
+            let tray_available = tray::init_tray(app.handle());
+            app.manage(tray::TrayState { available: tray_available });
             sync::commands::spawn_scheduler(app.handle().clone());
             downloader::spawn_scheduler(app.handle().clone());
             notify::spawn_scheduler(app.handle().clone());
@@ -328,6 +328,9 @@ pub fn run() {
             commands::uninstall_native_host,
             commands::native_host_status,
             commands::save_browser_integration,
+            commands::tray_settings,
+            commands::save_close_to_tray,
+            commands::close_window,
             commands::pages_tree,
             commands::create_page,
             commands::rename_page,
@@ -360,6 +363,31 @@ pub fn run() {
                 && let Some(sync) = window.app_handle().try_state::<sync::commands::SyncState>()
             {
                 sync.set_focused(*focused);
+            }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let tray_available = window
+                    .app_handle()
+                    .try_state::<tray::TrayState>()
+                    .map(|s| s.available)
+                    .unwrap_or(false);
+                let close_to_tray = match window.app_handle().try_state::<db::Db>() {
+                    Some(db) => match db.conn() {
+                        Ok(conn) => tray::close_to_tray_setting(&conn),
+                        Err(_) => true,
+                    },
+                    None => true,
+                };
+                let action = tray::decide_close_action(close_to_tray, tray_available);
+                log::info!("CloseRequested event received, action: {action:?}");
+                match action {
+                    tray::CloseAction::Hide => {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                    tray::CloseAction::Exit => {
+                        window.app_handle().exit(0);
+                    }
+                }
             }
         })
         .build(tauri::generate_context!())

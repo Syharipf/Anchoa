@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { BudgetLevel, FinanceSummary } from "../api";
 import { billChip } from "../finance/view";
 import { formatBalance, formatRupiah } from "../money";
@@ -7,8 +8,20 @@ const CHIP = { danger: "border-danger bg-danger-row text-danger", ink: "border-l
 const DOT = { danger: "bg-danger", ink: "bg-muted", accent: "bg-accent" } as const;
 const LEVEL_TEXT: Record<BudgetLevel, string> = { ok: "text-muted", warn: "text-warn", over: "text-danger" };
 
+const MONEY_STORAGE_KEY = "anchoa.money.hidden";
+
+function loadMoneyHidden(): boolean {
+  try { return localStorage.getItem(MONEY_STORAGE_KEY) === "1"; } catch { return false; }
+}
+function saveMoneyHidden(hidden: boolean): void {
+  try { localStorage.setItem(MONEY_STORAGE_KEY, hidden ? "1" : "0"); } catch {}
+}
+
 /** Bento card: balance, spent this month against the limit, and the bill chip. Opens Keuangan. */
 export function FinanceCard({ finance, onSelect }: Readonly<{ finance?: FinanceSummary; onSelect: (page: PageId) => void }>) {
+  const [moneyHidden, setMoneyHidden] = useState(loadMoneyHidden);
+  useEffect(() => saveMoneyHidden(moneyHidden), [moneyHidden]);
+
   const chip = finance ? billChip(finance.dueBills) : null;
   return (
     <button
@@ -35,14 +48,28 @@ export function FinanceCard({ finance, onSelect }: Readonly<{ finance?: FinanceS
         </svg>
         <span id="c-uang" className="font-display text-sm font-semibold text-ink">Keuangan</span>
         <span className="ml-auto text-xs text-accent">›</span>
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); setMoneyHidden((c) => !c); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setMoneyHidden((c) => !c); } }}
+          className="rounded-full bg-surface-2 p-1 text-[9px] text-muted transition-colors hover:bg-surface"
+          aria-label={moneyHidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
+        >
+          {moneyHidden ? "•••" : "₡"}
+        </span>
       </div>
       {finance && !finance.hasAccounts && <span className="text-xs text-muted">Belum ada akun</span>}
       {finance?.hasAccounts && chip && (
         <>
-          <span className="text-[11px] uppercase tracking-[0.08em] text-muted">Saldo</span>
-          <span className={`font-mono text-[22px] font-medium leading-[1.1] ${finance.balance < 0 ? "text-danger" : ""}`}>
-            {formatBalance(finance.balance)}
-          </span>
+          {moneyHidden || (
+            <span className="text-[11px] uppercase tracking-[0.08em] text-muted">Saldo</span>
+          )}
+          {moneyHidden || (
+            <span className={`font-mono text-[22px] font-medium leading-[1.1] ${finance.balance < 0 ? "text-danger" : ""}`}>
+              {formatBalance(finance.balance)}
+            </span>
+          )}
           <span className={`text-xs ${LEVEL_TEXT[finance.budget?.level ?? "ok"]}`}>
             Keluar bulan ini {formatRupiah(finance.expense)}
             {finance.budget && ` dari ${formatRupiah(finance.budget.amount)}`}

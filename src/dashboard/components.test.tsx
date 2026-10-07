@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DayTask, FinanceSummary } from "../api";
-import { elements } from "../test/hookHarness";
+import { elements, hookHarness } from "../test/hookHarness";
 import { Dashboard } from "./Dashboard";
 import { FinanceCard } from "./FinanceCard";
 import { TodayPanel } from "./TodayPanel";
@@ -40,7 +40,7 @@ describe("dashboard branches", () => {
     const onSelect = mock((_page: string) => {});
     expect(renderToStaticMarkup(<FinanceCard onSelect={onSelect} />)).not.toContain("Belum ada akun");
     expect(renderToStaticMarkup(<FinanceCard finance={{ ...finance, hasAccounts: false }} onSelect={onSelect} />)).toContain("Belum ada akun");
-    const node = FinanceCard({ finance, onSelect });
+    const node = hookHarness(() => FinanceCard({ finance, onSelect })).render(false);
     const html = renderToStaticMarkup(node);
     expect(html).toContain("−Rp 1");
     expect(html).toMatch(/Keluar bulan ini Rp 1(?![\d.])/);

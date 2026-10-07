@@ -45,7 +45,7 @@ Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Fedora Linux
 | Jurnal | Ide, curhat, catatan singkat, tag, suasana hati; ide bisa dijadikan tugas |
 | Catatan | Halaman bertingkat, editor blok Markdown, `[[wikilink]]` dan tautan balik, sampah, ekspor Markdown |
 | Email | Satu akun Gmail: baca, tulis, balas, bintang, arsip, ringkasan dan saran balasan dari asisten |
-| Jadwal | Kalender bulanan dan timeline 8 minggu dari tugas, tagihan, dan Google Kalender (hanya baca) |
+| Jadwal | Kalender bulanan dan timeline 8 minggu dari tugas, tagihan, dan Google Kalender (sinkron dua arah) |
 | Habit | Centang harian, hari aktif, pengingat, streak, riwayat |
 | Keuangan | Akun, pemasukan, pengeluaran, transfer, tagihan, batas pengeluaran bulanan |
 | Proyek | Kanban, sub-tugas, papan agen kode dengan utas aktivitas |

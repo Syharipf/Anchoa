@@ -81,7 +81,6 @@ const CHEVRON_RIGHT = <path d="M9 6l6 6-6 6" />;
 
 const COLLAPSED_KEY = "anchoa.sidebar.collapsed";
 
-/** Rail visibility survives restarts; localStorage mirrors SchedulePage's `anchoa.schedule.off` pattern. */
 function loadCollapsed(): boolean {
   try {
     return localStorage.getItem(COLLAPSED_KEY) === "1";
@@ -108,7 +107,10 @@ function NavIcon({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-/** Icon-only navigation rail (72px). Sized to fit the 720px minimum window height. */
+/** Sidebar navigation rail with collapsed/expanded behavior per DESIGN.md.
+ *  Closed: 72px rail, icons only, no labels.
+ *  Open: semi-transparent layer, circular icon arrangement, labels appear.
+ */
 export function Sidebar({
   current,
   onSelect,
@@ -163,7 +165,7 @@ export function Sidebar({
         aria-label="Menu utama"
         aria-hidden={collapsed}
         inert={collapsed}
-        className={`flex flex-col items-center gap-1.5 overflow-hidden bg-sidebar py-4 transition-[width] duration-200 ${collapsed ? "w-0" : "w-[72px] border-r border-line"}`}
+        className={`flex flex-col items-center gap-1.5 overflow-hidden bg-sidebar py-4 transition-[width] duration-200 ${collapsed ? "w-0" : "w-[72px] border-r border-line relative"}`}
       >
         <div className="mb-2 shrink-0">
           <AnchoaLogo tile size={40} label="Logo Anchoa" />

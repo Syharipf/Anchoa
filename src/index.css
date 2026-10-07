@@ -2,17 +2,17 @@
 
 /* Design D tokens (docs/design/DESIGN.md §2). Dark only. */
 @theme {
-  --color-canvas: #0f1115;
-  --color-sidebar: #0b0d10;
-  --color-surface: #171a21;
-  --color-surface-2: #1d2129;
-  --color-stage: #12151b;
-  --color-stage-disc: #171b22;
-  --color-line: #262b35;
-  --color-ink: #e7e9ee;
-  --color-muted: #9aa3b2;
-  --color-done: #8a93a3;
-  --color-disabled: #3a4150;
+  --color-canvas: #0C1417;
+  --color-sidebar: #081013;
+  --color-surface: #121d21;
+  --color-surface-2: #18262b;
+  --color-stage: #0e181b;
+  --color-stage-disc: #141f23;
+  --color-line: #22343a;
+  --color-ink: #e6eef0;
+  --color-muted: #94a8ae;
+  --color-done: #899da4;
+  --color-disabled: #31474e;
   --color-accent: #c6f36b;
   --color-accent-hover: #ddfa9e;
   --color-danger: #ff8a7a;

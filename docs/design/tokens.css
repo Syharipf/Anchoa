@@ -1,106 +1,102 @@
 /* Anchoa — design tokens (Studio Malam, mode gelap)
-   Sumber: artboard "Panduan gaya" di canvas desain. Nilai di sini = nilai di desain. */
+  Sumber: artboard "Panduan gaya" di canvas desain. Nilai di sini = nilai di desain. */
 
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
 
-:root {
-  color-scheme: dark;
+::root {
+ color-scheme: dark;
 
-  /* Permukaan */
-  --bg: #0F1115;            /* latar halaman */
-  --sidebar: #0B0D10;       /* nav, aside, header tabel */
-  --stage: #12151B;         /* panel dalam, kolom kanban, stage avatar */
-  --surface: #171A21;       /* kartu, input */
-  --surface-2: #1D2129;     /* hover, item aktif, tile ikon */
-  --border: #262B35;        /* semua garis 1px */
-  --border-strong: #3A4150; /* tombol sekunder, garis putus */
-  --popup-border: #2E3440;
+/* Permukaan */
+--bg: #0C1417;            /* latar halaman */
+--sidebar: #081013;       /* nav, aside, header tabel */
+--stage: #0E181B;         /* panel dalam, kolom kanban, stage avatar */
+--surface: #121D21;       /* kartu, input */
+--surface-2: #18262B;     /* hover, item aktif, tile ikon */
+--border: #22343A;        /* semua garis 1px */
+--border-strong: #31474E; /* tombol sekunder, garis putus */
+--popup-border: #263A40;
 
-  /* Teks */
-  --text: #E7E9EE;
-  --text-soft: #C9CED8;
-  --muted: #9AA3B2;
-  --text-done: #8A93A3;
-  --faint: #5B6475;
-  --disabled: #3A4150;
+/* Teks */
+--text: #E6EEF0;
+--text-soft: #C3D2D6;
+--muted: #94A8AE;
+--text-done: #899DA4;
+--faint: #556C73;
+--disabled: #31474E;
 
-  /* Aksen & status */
-  --accent: #C6F36B;        /* aksi utama, fokus, sukses */
-  --accent-hover: #DDFA9E;
-  --accent-deep: #86B33A;   /* proses, seeding */
-  --done: #4E6A26;          /* bar selesai, border terpilih, field fokus */
-  --danger: #FF8A7A;        /* terlambat, pengeluaran, mikrofon aktif */
-  --danger-row: #221A1C;
-  --warning: #E5B547;       /* bisa dipulihkan / menunggu (kuota, offline, peringatan) */
-  --on-accent: #0F1115;     /* teks di atas lime/coral */
+/* Aksen & status */
+--accent: #C6F36B;        /* aksi utama, fokus, sukses */
+--accent-hover: #DDFA9E;
+--accent-deep: #86B33A;   /* proses, seeding */
+--done: #4E6A26;          /* bar selesai, border terpilih, field fokus */
+--danger: #FF8A7A;        /* terlambat, pengeluaran, mikrofon aktif */
+--danger-row: #221A1C;
+--warning: #E5B547;       /* bisa dipulihkan / menunggu (kuota, offline, peringatan) */
+--on-accent: #0C1417;     /* teks di atas lime/coral */
 
-  /* Kategori data (Jadwal, label email) — lolos cek buta warna untuk semua pasangan.
-     Jangan tambah kategori ke-4 di tampilan yang mencampur semuanya. */
-  --cat-proyek: #3987E5;
-  --cat-tagihan: #C98500;
-  --cat-pribadi: #D55181;
+/* Kategori data (Jadwal, label email) — lolos cek buta warna untuk semua pasangan.
+    Jangan tambah kategori ke-4 di tampilan yang mencampur semuanya. */
+--cat-proyek: #3987E5;
+--cat-tagihan: #C98500;
+--cat-pribadi: #D55181;
 
-  /* Heatmap kontribusi: 0 · 1–3 · 4–6 · 7–9 · 10+ */
-  --heat-0: #1A1E25;
-  --heat-1: #2F3B1E;
-  --heat-2: #4E6A26;
-  --heat-3: #86B33A;
-  --heat-4: #C6F36B;
+/* Heatmap kontribusi: 0 · 1–3 · 4–6 · 7–9 · 10+ */
+--heat-0: #1A2225;
+--heat-1: #2F3B1E;
+--heat-2: #4E6A26;
+--heat-3: #86B33A;
+--heat-4: #C6F36B;
 
-  /* Tipografi */
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-body: "IBM Plex Sans", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+/* Tipografi */
+--font-display: "Space Grotesk", system-ui, sans-serif;
+--font-body: "IBM Plex Sans", system-ui, sans-serif;
+--font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  /* Radius */
-  --r-chip: 6px;
-  --r-row: 8px;
-  --r-input: 10px;
-  --r-nav: 12px;
-  --r-card: 14px;
-  --r-popup: 18px;
-  --r-pill: 999px;
+/* Radius */
+--r-chip: 6px;
+--r-row: 8px;
+--r-input: 10px;
+--r-nav: 12px;
+--r-card: 14px;
+--r-popup: 18px;
+--r-pill: 999px;
 
-  /* Jarak */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 14px;
-  --s-5: 18px;
-  --s-6: 24px;
-  --s-7: 28px;
+/* Jarak */
+--s-1: 4px;
+--s-2: 8px;
+--s-3: 12px;
+--s-4: 14px;
+--s-5: 18px;
+--s-6: 24px;
+--s-7: 28px;
 
-  /* Layout */
-  --nav-w: 72px;
-  --aside-w: 380px;         /* panel asisten di Dashboard */
-  --popup-w: 304px;         /* asisten mini */
+/* Layout */
+--nav-w: 72px;
+--aside-w: 380px;         /* panel asisten di Dashboard */
+--popup-w: 304px;         /* asisten mini */
 
-  /* Gerak */
-  --t-hover: 150ms;
-  --t-pop: 200ms;
-  --t-slide: 180ms;
-  --shadow-popup: 0 16px 40px rgba(0, 0, 0, 0.45);
+/* Gerak */
+--t-hover: 150ms;
+--t-pop: 200ms;
+--t-slide: 180ms;
+--shadow-popup: 0 16px 40px rgba(0, 0, 0, 0.45);
+
+/* Tombol */
+--btn-bg: #0E1418;
+--btn-bg-hover: #172129;
+--btn-bg-active: #0C1417;
+--btn-text: #E6EEF0;
+--btn-text-muted: #94A8AE;
+--btn-border: #22343A;
+
+/* Input */
+--input-bg: #121D21;
+--input-border: #263A40;
+--input-text: #E6EEF0;
+
+/* Status bar */
+--status-bg: #0E1418;
+--status-text: #E6EEF0;
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-body);
-}
-
-:where(button, a, input):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-@keyframes anchoa-school { to { transform: rotate(360deg); } }                         /* 48s dashboard · 12s mini · 7s loading */
-@keyframes anchoa-wave   { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } } /* 0.9s */
-@keyframes anchoa-pulse  { 0% { transform: scale(1); opacity: .45; } 100% { transform: scale(1.7); opacity: 0; } } /* 1.6s */
-@keyframes anchoa-pop    { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes anchoa-slide  { from { transform: translateX(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes anchoa-fade   { from { opacity: 0; } to { opacity: 1; } }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-}
+/* Note: This file is auto-generated from the design tokens. Do not edit manually beyond these values. */

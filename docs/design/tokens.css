@@ -21,10 +21,8 @@
 --text-soft: #C3D2D6;
 --muted: #94A8AE;
 --text-done: #899DA4;
---faint: #556C73;
---disabled: #31474E;
+--faint: #556C73: #31474E;
 
-/* Aksen & status */
 --accent: #C6F36B;        /* aksi utama, fokus, sukses */
 --accent-hover: #DDFA9E;
 --accent-deep: #86B33A;   /* proses, seeding */

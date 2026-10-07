@@ -1496,6 +1496,74 @@ check_email_assist() {
   SERVER=
 }
 
+check_tray() {
+  fresh
+  export ANCHOA_NOTIFY_TICK_SECS=2
+  start_app
+
+  # 1. Open Pengaturan > Integrasi and screenshot the tray section
+  click 36 760                 # nav: Pengaturan
+  sleep 1
+  click 170 340                # Integrasi
+  sleep 1
+  shot 23-tray-settings        # expect: Baki sistem (Tray), Tetap berjalan di tray...
+
+  # 2. Window is visible
+  local wid
+  wid=$(xdotool search --onlyvisible --name '^Anchoa$' | tail -n 1)
+  [[ -n "$wid" ]] || fail "tray: window not visible initially"
+
+  # Record baseline notify ticks
+  local ticks_before
+  ticks_before=$(grep -c "notify scheduler tick" "$WORK/app.log" 2>/dev/null || echo 0)
+
+  # 3. Close window with keyboard shortcut (setting on by default -> hides to tray)
+  xdotool windowfocus --sync "$wid"
+  xdotool key ctrl+w
+  sleep 1
+
+  # Window must be hidden (unmapped)
+  local visible_after
+  visible_after=$(xdotool search --onlyvisible --name '^Anchoa$' 2>/dev/null || true)
+  [[ -z "$visible_after" ]] || fail "tray: window still visible after close with setting on"
+
+  # Process must still be alive
+  kill -0 "$APP" 2>/dev/null || fail "tray: process died after window close with setting on"
+
+  # Wait for a notification scheduler tick to run while hidden
+  sleep 3
+  local ticks_after
+  ticks_after=$(grep -c "notify scheduler tick" "$WORK/app.log" 2>/dev/null || echo 0)
+  [[ "$ticks_after" -gt "$ticks_before" ]] || fail "tray: notify scheduler did not tick while window closed"
+
+  # 4. Launching a second instance must restore/unhide the window
+  "$BIN" >>"$WORK/app.log" 2>&1 &
+  local second_app=$!
+  wait "$second_app" 2>/dev/null || true
+  sleep 1
+  wid=$(xdotool search --onlyvisible --name '^Anchoa$' | head -n 1)
+  [[ -n "$wid" ]] || fail "tray: second launch failed to restore hidden window"
+  shot 23-tray-restored
+
+  # 5. Disable close_to_tray setting in DB, then close window -> process must exit
+  sql "INSERT INTO settings (key, value) VALUES ('tray.close_to_tray', '0') ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+  xdotool windowfocus --sync "$wid"
+  xdotool key ctrl+w
+  sleep 1
+  local exited=false
+  for _ in $(seq 1 10); do
+    if ! kill -0 "$APP" 2>/dev/null; then
+      exited=true
+      break
+    fi
+    sleep 0.5
+  done
+  [[ "$exited" == "true" ]] || fail "tray: process failed to exit on close when setting was off"
+  wait "$APP" 2>/dev/null || true
+  APP=
+  unset ANCHOA_NOTIFY_TICK_SECS
+}
+
 if [[ -n "${E2E_ONLY:-}" ]]; then
   "$E2E_ONLY"
   echo "PASS ($E2E_ONLY). Screenshots in $WORK"
@@ -1534,4 +1602,5 @@ check_voice_settings
 check_pin
 check_email
 check_email_assist
+check_tray
 echo "PASS. Screenshots in $WORK"

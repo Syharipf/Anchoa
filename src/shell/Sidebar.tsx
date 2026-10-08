@@ -78,7 +78,8 @@ export function Sidebar({
   const prefersReduced =
     (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) ?? false;
 
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverTimer = useRef<number | undefined>(undefined);
+  const closeTimeout = useRef<number | undefined>(undefined);
   const lastWheel  = useRef(0);
   const dragY      = useRef<number | null>(null);
   const prevOff    = useRef<Record<string, number>>({});
@@ -88,15 +89,28 @@ export function Sidebar({
   }, []);
 
   const turn = useCallback((d: number) => {
-    setRot((r) => r + d);
+    const next = rot + d;
+    setRot(next);
+    const idx = ((next % N) + N) % N;
+    const id = wheelPages[idx].id;
+    if (id !== current) onSelect(id);
     setOpen(true);
+  }, [N, current, onSelect, rot, wheelPages]);
+
+  const cancelClose = useCallback(() => {
+    window.clearTimeout(closeTimeout.current);
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    window.clearTimeout(closeTimeout.current);
+    closeTimeout.current = window.setTimeout(() => setOpen(false), 180);
   }, []);
 
   const close = useCallback(() => {
-    if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
+    window.clearTimeout(closeTimeout.current);
+    closeTimeout.current = undefined;
     setOpen(false);
   }, []);
-
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
@@ -107,7 +121,7 @@ export function Sidebar({
     return () => window.removeEventListener("keydown", fn);
   }, [toggle]);
 
-  useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
+  useEffect(() => () => { window.clearTimeout(hoverTimer.current); window.clearTimeout(closeTimeout.current); }, []);
 
   const prev = prevOff.current;
   const arc  = open ? ARC.open : ARC.closed;
@@ -221,10 +235,11 @@ export function Sidebar({
         {/* Layer 3 – interactive hover + gesture zone; expands 72→320px */}
         <div
           onMouseEnter={() => {
-            if (hoverTimer.current) clearTimeout(hoverTimer.current);
-            hoverTimer.current = setTimeout(() => setOpen(true), 140);
+            cancelClose();
+            window.clearTimeout(hoverTimer.current);
+            hoverTimer.current = window.setTimeout(() => setOpen(true), 140);
           }}
-          onMouseLeave={close}
+          onMouseLeave={scheduleClose}
           onWheel={(e) => {
             const now = Date.now();
             if (now - lastWheel.current < 160) return;

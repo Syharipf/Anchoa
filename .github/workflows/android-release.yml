@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -61,7 +61,7 @@ jobs:
         env:
           NDK_HOME: ${{ env.NDK_HOME }}
         run: |
-          bun tauri android build --apk --target aarch64-linux-android
+          bun tauri android build --apk --target aarch64
 
       - name: Find generated APK
         id: find-apk

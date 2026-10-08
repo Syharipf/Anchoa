@@ -65,6 +65,7 @@ pub fn set_close_to_tray(conn: &Connection, enabled: bool) -> Result<(), AppErro
 pub fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
+        #[cfg(desktop)]
         let _ = window.unminimize();
         let _ = window.set_focus();
     }

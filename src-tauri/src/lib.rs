@@ -80,6 +80,7 @@ pub fn run() {
     // Must stay first: it may call set_var, which is only sound before other threads start.
     let gpu_node = gpu::apply_linux_workaround();
 
+    #[allow(unused_mut)]
     let mut builder = tauri::Builder::default();
     #[cfg(desktop)]
     {

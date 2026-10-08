@@ -73,6 +73,7 @@ pub fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 /// Initializes the system tray icon with "Buka Anchoa" and "Keluar" menu items.
 ///
 /// Returns `true` if tray icon was created successfully, `false` otherwise.
+#[cfg(desktop)]
 pub fn init_tray<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
     let show_item = match tauri::menu::MenuItem::with_id(app, "show", "Buka Anchoa", true, None::<&str>) {
         Ok(item) => item,
@@ -134,6 +135,11 @@ pub fn init_tray<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
             false
         }
     }
+}
+
+#[cfg(not(desktop))]
+pub fn init_tray<R: tauri::Runtime>(_app: &tauri::AppHandle<R>) -> bool {
+    false
 }
 
 #[cfg(test)]

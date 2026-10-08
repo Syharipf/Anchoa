@@ -29,14 +29,16 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK & NDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK
+      - name: Setup Android NDK
         run: |
-          sdkmanager --install "ndk;26.1.10909125" "build-tools;34.0.0" "platforms;android-34"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
-
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          NDK_VERSION=$(ls -1 /usr/local/lib/android/sdk/ndk 2>/dev/null | sort -V | tail -n 1)
+          if [[ -z "$NDK_VERSION" ]]; then
+            yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
+            NDK_VERSION="26.1.10909125"
+          fi
+          echo "NDK_HOME=/usr/local/lib/android/sdk/ndk/$NDK_VERSION" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/$NDK_VERSION" >> $GITHUB_ENV
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:

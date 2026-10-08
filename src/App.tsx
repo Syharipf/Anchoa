@@ -29,6 +29,7 @@ import { assistantHint, pageInfo, type PageId } from "./shell/nav";
 import { Sidebar } from "./shell/Sidebar";
 import { TopBar } from "./shell/TopBar";
 import { useToast } from "./shell/toast";
+import { MobileDock } from "./shell/MobileDock";
 
 /** `intent` remounts Catatan on navigation or opens Keuangan's transaction form. */
 type Page =
@@ -219,23 +220,25 @@ export function App() {
 
   return (
     <div className="flex h-full bg-canvas">
-      <Sidebar
-        current={page.name}
-        onSelect={(name) => {
-          setOverlay(null);
-          go(name);
-        }}
-        reminders={reminderCount(
-          data?.today ?? [],
-          data?.finance ?? null,
-          data?.habitReminders ?? [],
-          notifyPrefs,
-          data?.journalReminder ?? false,
-        )}
-        notificationsOpen={overlay === "notifications"}
-        onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
-      />
-      <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-7 py-6">
+      <div className="hidden md:flex shrink-0">
+        <Sidebar
+          current={page.name}
+          onSelect={(name) => {
+            setOverlay(null);
+            go(name);
+          }}
+          reminders={reminderCount(
+            data?.today ?? [],
+            data?.finance ?? null,
+            data?.habitReminders ?? [],
+            notifyPrefs,
+            data?.journalReminder ?? false,
+          )}
+          notificationsOpen={overlay === "notifications"}
+          onToggleNotifications={() => setOverlay((o) => (o === "notifications" ? null : "notifications"))}
+        />
+      </div>
+      <main className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-4 py-4 pb-28 md:px-7 md:py-6 md:pb-6">
         <TopBar onOpenPalette={() => setOverlay("palette")} />
         {page.name === "dashboard" && <Dashboard data={data} onToggle={dashboard.toggle} onOpen={openItem} onSelect={go} onOpenAssistant={openAssistant} />}
         {page.name === "jurnal" && <JournalPage key={`${captures}:${assistantDataVersion}`} onOpenItem={openItem} onChanged={reload} onOpenAssistant={openAssistant} onOpenSettings={openSettings} />}
@@ -297,26 +300,39 @@ export function App() {
           />
         )}
       </main>
-      {page.name === "dashboard" ? (
-        <Aside
-          request={request}
-          contributionsVersion={contributionsVersion}
-          onOpenSettings={() => openSettings("integrations")}
-          onOpenAiSettings={() => openSettings("ai")}
-          onOpenVoiceSettings={() => openSettings("suara")}
-          onChanged={onAssistantChanged}
+      <div className="hidden md:flex shrink-0">
+        {page.name === "dashboard" ? (
+          <Aside
+            request={request}
+            contributionsVersion={contributionsVersion}
+            onOpenSettings={() => openSettings("integrations")}
+            onOpenAiSettings={() => openSettings("ai")}
+            onOpenVoiceSettings={() => openSettings("suara")}
+            onChanged={onAssistantChanged}
+          />
+        ) : (
+          <AssistantMini
+            request={request}
+            key={page.name === "item" ? page.id : page.name}
+            hint={assistantHint(info)}
+            onOpenFull={() => go("dashboard")}
+            onOpenAiSettings={() => openSettings("ai")}
+            onOpenVoiceSettings={() => openSettings("suara")}
+            onChanged={onAssistantChanged}
+          />
+        )}
+      </div>
+      <div className="md:hidden">
+        <MobileDock
+          current={page.name}
+          onSelect={(name) => {
+            setOverlay(null);
+            go(name);
+          }}
+          onOpenSearch={() => setOverlay("palette")}
+          onOpenAssistant={() => openAssistant({ kind: "voice" })}
         />
-      ) : (
-        <AssistantMini
-          request={request}
-          key={page.name === "item" ? page.id : page.name}
-          hint={assistantHint(info)}
-          onOpenFull={() => go("dashboard")}
-          onOpenAiSettings={() => openSettings("ai")}
-          onOpenVoiceSettings={() => openSettings("suara")}
-          onChanged={onAssistantChanged}
-        />
-      )}
+      </div>
       {overlay === "palette" && (
         <CommandPalette
           recent={data?.recent ?? []}

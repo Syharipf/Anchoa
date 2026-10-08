@@ -1,0 +1,85 @@
+name: Android Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach APK (e.g. v0.31.4)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "ndk;26.1.10909125" "build-tools;34.0.0" "platforms;android-34"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Initialize Tauri Android project
+        run: |
+          bun tauri android init --ci --skip-targets-install
+
+      - name: Build Android APK
+        env:
+          NDK_HOME: ${{ env.NDK_HOME }}
+        run: |
+          bun tauri android build --apk --target aarch64-linux-android
+
+      - name: Find generated APK
+        id: find-apk
+        run: |
+          APK_PATH=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
+          if [[ -z "$APK_PATH" ]]; then
+            echo "Error: No APK found"
+            exit 1
+          fi
+          echo "Found APK at: $APK_PATH"
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+
+      - name: Upload APK to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          TARGET_TAG="$TAG"
+          if [[ -z "$TARGET_TAG" ]]; then
+            TARGET_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          fi
+          echo "Uploading ${{ steps.find-apk.outputs.apk_path }} to release $TARGET_TAG"
+          gh release upload "$TARGET_TAG" "${{ steps.find-apk.outputs.apk_path }}" --clobber

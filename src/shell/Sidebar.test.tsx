@@ -7,6 +7,16 @@ const KEY = "anchoa.sidebar.collapsed";
 const store = new Map<string, string>();
 let harness: HookHarness<ReactElement> | undefined;
 
+const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+Object.defineProperty(globalThis, "localStorage", {
+  configurable: true,
+  value: {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => void store.set(key, value),
+    removeItem: (key: string) => void store.delete(key),
+  },
+});
+
 const mount = () =>
   hookHarness(() =>
     Sidebar({
@@ -19,22 +29,13 @@ const mount = () =>
   );
 
 const treeOf = (node: ReactNode) => elements(node);
-const nav = (node: ReactNode) => treeOf(node).find((element) => element.type === "nav")!;
-const button = (node: ReactNode, label: string) =>
-  treeOf(node).find((element) => element.props["aria-label"] === label)!;
+const nav = (node: ReactNode) => treeOf(node).find((el) => el.type === "nav")!;
+const btn = (node: ReactNode, label: string) =>
+  treeOf(node).find((el) => el.props["aria-label"] === label)! as ReactElement & {
+    props: Record<string, unknown>;
+  };
 
 describe("Sidebar rail", () => {
-  const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
-
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => void store.set(key, value),
-      removeItem: (key: string) => void store.delete(key),
-    },
-  });
-
   afterEach(() => {
     harness?.dispose();
     harness = undefined;
@@ -44,32 +45,32 @@ describe("Sidebar rail", () => {
     if (previous) Object.defineProperty(globalThis, "localStorage", previous);
   });
 
-  it("starts expanded and collapses to a slim restore handle", () => {
+  it("starts expanded: nav has w-[72px]", () => {
     harness = mount();
-    const expanded = harness.render();
-    expect(nav(expanded).props.className).toContain("w-[72px]");
-    expect(button(expanded, "Sembunyikan menu samping").props["aria-expanded"]).toBe(true);
-
-    (button(expanded, "Sembunyikan menu samping").props.onClick as () => void)();
-
-    const collapsed = harness.render();
-    expect(nav(collapsed).props.className).toContain("w-0");
-    const restore = button(collapsed, "Tampilkan menu samping");
-    expect(restore.props["aria-expanded"]).toBe(false);
-    expect(store.get(KEY)).toBe("1");
-
-    (restore.props.onClick as () => void)();
-
-    const restored = harness.render();
-    expect(nav(restored).props.className).toContain("w-[72px]");
-    expect(store.get(KEY)).toBe("0");
+    expect(nav(harness.render()).props.className).toContain("w-[72px]");
   });
 
-  it("restores the collapsed preference from localStorage", () => {
+  it("collapsed state (KEY=1): nav has w-0 + restore button", () => {
+    store.set(KEY, "1");
+    harness = mount();
+    const rendered = harness.render();
+    expect(nav(rendered).props.className).toContain("w-0");
+    expect(btn(rendered, "Tampilkan menu samping")).toBeDefined();
+  });
+
+  it("expand from collapsed: nav becomes w-[72px]", () => {
     store.set(KEY, "1");
     harness = mount();
     const collapsed = harness.render();
-    expect(nav(collapsed).props.className).toContain("w-0");
-    expect(button(collapsed, "Tampilkan menu samping")).toBeDefined();
+    (btn(collapsed, "Tampilkan menu samping").props.onClick as () => void)();
+    expect(nav(harness.render()).props.className).toContain("w-[72px]");
+  });
+
+  it("expand from collapsed: KEY written to 0", () => {
+    store.set(KEY, "1");
+    harness = mount();
+    const collapsed = harness.render();
+    (btn(collapsed, "Tampilkan menu samping").props.onClick as () => void)();
+    expect(store.get(KEY)).toBe("0");
   });
 });

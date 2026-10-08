@@ -63,18 +63,8 @@ jobs:
         run: |
           bun tauri android build --apk --target aarch64
 
-      - name: Find generated APK
-        id: find-apk
-        run: |
-          APK_PATH=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
-          if [[ -z "$APK_PATH" ]]; then
-            echo "Error: No APK found"
-            exit 1
-          fi
-          echo "Found APK at: $APK_PATH"
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-
-      - name: Upload APK to Release
+      - name: Sign APK
+        id: sign-apk
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -83,5 +73,34 @@ jobs:
           if [[ -z "$TARGET_TAG" ]]; then
             TARGET_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
           fi
-          echo "Uploading ${{ steps.find-apk.outputs.apk_path }} to release $TARGET_TAG"
-          gh release upload "$TARGET_TAG" "${{ steps.find-apk.outputs.apk_path }}" --clobber
+          UNSIGNED_APK=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
+          if [[ -z "$UNSIGNED_APK" ]]; then
+            echo "Error: No APK found"
+            exit 1
+          fi
+          echo "Found unsigned APK at: $UNSIGNED_APK"
+
+          # Generate release keystore
+          keytool -genkey -v -keystore release.keystore -alias anchoa -keyalg RSA -keysize 2048 -validity 10000 -storepass anchoarelease -keypass anchoarelease -dname "CN=Anchoa, OU=Anchoa, O=Anchoa, L=Jakarta, ST=Jakarta, C=ID"
+
+          ZIPALIGN=$(find /usr/local/lib/android/sdk/build-tools -name zipalign | sort -V | tail -n 1)
+          APKSIGNER=$(find /usr/local/lib/android/sdk/build-tools -name apksigner | sort -V | tail -n 1)
+          echo "Using zipalign at: $ZIPALIGN"
+          echo "Using apksigner at: $APKSIGNER"
+
+          ALIGNED_APK="aligned-${TARGET_TAG}.apk"
+          "$ZIPALIGN" -p -f 4 "$UNSIGNED_APK" "$ALIGNED_APK"
+
+          OUTPUT_APK="Anchoa-${TARGET_TAG}.apk"
+          "$APKSIGNER" sign --ks release.keystore --ks-key-alias anchoa --ks-pass pass:anchoarelease --key-pass pass:anchoarelease --out "$OUTPUT_APK" "$ALIGNED_APK"
+          "$APKSIGNER" verify "$OUTPUT_APK"
+
+          echo "apk_path=$OUTPUT_APK" >> $GITHUB_OUTPUT
+          echo "target_tag=$TARGET_TAG" >> $GITHUB_OUTPUT
+
+      - name: Upload APK to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Uploading ${{ steps.sign-apk.outputs.apk_path }} to release ${{ steps.sign-apk.outputs.target_tag }}"
+          gh release upload "${{ steps.sign-apk.outputs.target_tag }}" "${{ steps.sign-apk.outputs.apk_path }}" --clobber

@@ -155,3 +155,32 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  # Installs Anchoa from the deployed pacman repo with the README steps, as a
+  # CachyOS/Arch user would.
+  verify-pacman:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      - name: Install from https://syharipf.github.io/Anchoa/arch
+        run: |
+          pacman-key --init
+          pacman -Syu --noconfirm --needed curl
+          cd "$(mktemp -d)"
+          if ! curl -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg; then
+            echo "No pacman repo deployed yet."
+            exit 0
+          fi
+          if ! curl -fsS -o /dev/null https://syharipf.github.io/Anchoa/arch/x86_64/anchoa.db; then
+            echo "No Arch package released yet; only the key is published."
+            exit 0
+          fi
+          pacman-key --add anchoa.gpg
+          pacman-key --lsign-key "$(gpg --show-keys --with-colons anchoa.gpg | awk -F: '/^fpr/ {print $10; exit}')"
+          # shellcheck disable=SC2016 # $arch is for pacman, not the shell
+          printf '\n[anchoa]\nSigLevel = Required DatabaseRequired\nServer = https://syharipf.github.io/Anchoa/arch/$arch\n' >> /etc/pacman.conf
+          pacman -Syu --noconfirm anchoa
+          pacman -Qi anchoa | grep -E '^(Name|Version)'
+          [[ -x /usr/bin/anchoa ]]
+        shell: bash

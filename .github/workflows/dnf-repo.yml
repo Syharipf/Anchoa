@@ -168,11 +168,11 @@ jobs:
           pacman-key --init
           pacman -Syu --noconfirm --needed curl
           cd "$(mktemp -d)"
-          if ! curl -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg; then
+          if ! curl --proto '=https' --tlsv1.2 -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg; then
             echo "No pacman repo deployed yet."
             exit 0
           fi
-          if ! curl -fsS -o /dev/null https://syharipf.github.io/Anchoa/arch/x86_64/anchoa.db; then
+          if ! curl --proto '=https' --tlsv1.2 -fsS -o /dev/null https://syharipf.github.io/Anchoa/arch/x86_64/anchoa.db; then
             echo "No Arch package released yet; only the key is published."
             exit 0
           fi

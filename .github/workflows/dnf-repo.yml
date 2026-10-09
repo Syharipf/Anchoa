@@ -1,9 +1,10 @@
 name: dnf repo
 
-# Publishes GitHub Pages: the landing page (landing/) at https://syharipf.github.io/Anchoa/
-# and the RPMs of the latest releases as a signed dnf repository at
-# https://syharipf.github.io/Anchoa/anchoa.repo. Each Pages deploy replaces the
-# whole site, so both are always built together.
+# Publishes GitHub Pages: the landing page (landing/) at https://syharipf.github.io/Anchoa/,
+# the RPMs of the latest releases as a signed dnf repository at
+# https://syharipf.github.io/Anchoa/anchoa.repo, and their Arch packages as a
+# signed pacman repository at https://syharipf.github.io/Anchoa/arch/x86_64.
+# Each Pages deploy replaces the whole site, so all three are always built together.
 on:
   release:
     types: [published]
@@ -20,7 +21,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The pacman repo needs repo-add, so it is built in an Arch container and
+  # merged into the site by the build job.
+  arch-repo:
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      - name: Install tools
+        run: pacman -Syu --noconfirm --needed github-cli gnupg
+      - name: Download the Arch packages of the latest releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Same 5 releases as the dnf repo; releases made before Arch support have no package.
+        run: |
+          mkdir -p arch/x86_64
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 5 --json tagName --jq '.[].tagName' |
+            while read -r tag; do
+              gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*.pkg.tar.zst' --dir arch/x86_64 ||
+                echo "$tag has no Arch package"
+            done
+          ls arch/x86_64
+        shell: bash
+      - name: Sign the packages and build the repository database
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+        run: |
+          [[ -n "$RPM_GPG_PRIVATE_KEY" ]] || { echo "Secret RPM_GPG_PRIVATE_KEY is missing"; exit 1; }
+          printf '%s\n' "$RPM_GPG_PRIVATE_KEY" | gpg --batch --import
+          fpr=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')
+          gpg --export "$fpr" > arch/anchoa.gpg
+          cd arch/x86_64
+          shopt -s nullglob
+          pkgs=(*.pkg.tar.zst)
+          if [[ ${#pkgs[@]} -eq 0 ]]; then
+            echo "No Arch packages yet; publishing the key only."
+            exit 0
+          fi
+          for pkg in "${pkgs[@]}"; do
+            gpg --batch --yes --local-user "$fpr" --detach-sign --no-armor "$pkg"
+          done
+          GPGKEY="$fpr" repo-add --sign --key "$fpr" anchoa.db.tar.gz "${pkgs[@]}"
+          # repo-add makes anchoa.db and anchoa.files symlinks; Pages needs real files.
+          for link in anchoa.db anchoa.db.sig anchoa.files anchoa.files.sig; do
+            [[ -L "$link" ]] && cp --remove-destination "$(readlink -f "$link")" "$link"
+          done
+          ls -l
+        shell: bash
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: arch-repo
+          path: arch/
+
   build:
+    needs: arch-repo
     runs-on: ubuntu-24.04
     container: fedora:44
     steps:
@@ -73,6 +126,10 @@ jobs:
           gpg --armor --export "$fpr" > site/RPM-GPG-KEY-anchoa
           cp packaging/anchoa.repo site/
         shell: bash
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: arch-repo
+          path: site/arch
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site

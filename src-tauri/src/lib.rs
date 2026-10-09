@@ -78,7 +78,7 @@ pub fn wrap_invoke_handler<R: tauri::Runtime>(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Must stay first: it may call set_var, which is only sound before other threads start.
-    let gpu_node = gpu::apply_linux_workaround();
+    let gpu_workaround = gpu::apply_linux_workaround();
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default();
@@ -99,8 +99,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
-            if let Some(node) = &gpu_node {
-                log::info!("NVIDIA workaround: WEBKIT_WEB_RENDER_DEVICE_FILE={node}");
+            if let Some(workaround) = &gpu_workaround {
+                log::info!("NVIDIA workaround: {workaround}");
             }
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;

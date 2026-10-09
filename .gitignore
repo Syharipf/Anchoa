@@ -12,3 +12,6 @@ src-tauri/.tmp*
 src-tauri/sync-*
 *.part
 graphify-out/
+
+# Claude Code subagent worktrees
+.claude/worktrees/

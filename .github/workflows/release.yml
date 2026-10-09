@@ -1,0 +1,209 @@
+name: Release
+
+# Merging a version bump in src-tauri/tauri.conf.json into main releases it:
+# builds the RPM (Fedora container) and the Arch package (Arch container),
+# creates the GitHub Release v<version>, then dispatches the Pages repos and the
+# Android build. A release made with GITHUB_TOKEN fires no `release` event, so
+# those workflows are dispatched explicitly. workflow_dispatch rebuilds and
+# re-attaches the packages of an existing tag.
+on:
+  push:
+    branches: [main]
+    paths: [src-tauri/tauri.conf.json]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to rebuild, v0.33.0 or later (earlier tags have no Arch packaging); empty releases the version in tauri.conf.json from main"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      ref: ${{ steps.plan.outputs.ref }}
+      create: ${{ steps.plan.outputs.create }}
+      build: ${{ steps.plan.outputs.build }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          cargo_version=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -n 1)
+          npm_version=$(jq -r .version package.json)
+          if [[ -z "$INPUT_TAG" && "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "New releases are cut from main only (got $GITHUB_REF)."
+            exit 1
+          fi
+          if [[ -n "$INPUT_TAG" ]]; then
+            gh release view "$INPUT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && create=false || create=true
+            { echo "tag=$INPUT_TAG"; echo "ref=$INPUT_TAG"; echo "create=$create"; echo "build=true"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! [[ "$version" == "$cargo_version" && "$version" == "$npm_version" ]]; then
+            echo "Version mismatch: tauri.conf.json=$version Cargo.toml=$cargo_version package.json=$npm_version"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version already exists; nothing to release."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          { echo "tag=v$version"; echo "ref=$GITHUB_SHA"; echo "create=true"; echo "build=true"; } >> "$GITHUB_OUTPUT"
+
+  rpm:
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    steps:
+      - name: Install build dependencies
+        run: dnf install -y --setopt=install_weak_deps=False git gcc unzip webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel openssl-devel
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun tauri build --bundles rpm
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: rpm
+          path: src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
+
+  arch:
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: pacman -Syu --noconfirm --needed git unzip webkit2gtk-4.1 libayatana-appindicator librsvg openssl
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Build the tarball, the pacman package, and the AUR files
+        run: |
+          packaging/arch/build.sh out
+          useradd -m builder
+          chown -R builder out
+          cd out
+          runuser -u builder -- makepkg --nodeps --noconfirm
+          mkdir aur
+          sed -e 's/^pkgname=anchoa$/pkgname=anchoa-bin/' \
+              -e "s/^conflicts=('anchoa-bin')$/provides=('anchoa')\nconflicts=('anchoa')/" PKGBUILD > aur/PKGBUILD
+          chown -R builder aur
+          (cd aur && runuser -u builder -- makepkg --printsrcinfo > .SRCINFO)
+          grep -q '^pkgname=anchoa-bin$' aur/PKGBUILD && grep -q 'provides = anchoa$' aur/.SRCINFO
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: arch
+          path: |
+            out/*.pkg.tar.zst
+            out/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: aur
+          path: out/aur/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  arch-install:
+    needs: arch
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: arch
+          path: pkg
+      - run: bash packaging/arch/smoke.sh pkg/*.pkg.tar.zst
+
+  publish:
+    needs: [prepare, rpm, arch, arch-install]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: rpm
+          path: assets
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: arch
+          path: assets
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          REF: ${{ needs.prepare.outputs.ref }}
+          CREATE: ${{ needs.prepare.outputs.create }}
+        run: |
+          ls -l assets
+          if [[ "$CREATE" == "true" ]]; then
+            gh release create "$TAG" assets/* --repo "$GITHUB_REPOSITORY" --target "$REF" --title "Anchoa $TAG" --generate-notes
+          else
+            gh release upload "$TAG" assets/* --repo "$GITHUB_REPOSITORY" --clobber
+          fi
+      - name: Publish the dnf and pacman repos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run dnf-repo.yml --repo "$GITHUB_REPOSITORY" --ref main
+      - name: Build the Android APK
+        if: needs.prepare.outputs.create == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh workflow run android-release.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$TAG"
+
+  # Optional: needs an AUR account whose SSH key is stored as AUR_SSH_PRIVATE_KEY.
+  aur:
+    needs: [prepare, publish]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: aur
+          path: aur
+      - name: Push anchoa-bin to the AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          if [[ -z "$AUR_SSH_PRIVATE_KEY" ]]; then
+            echo "::notice::AUR_SSH_PRIVATE_KEY is not set; skipping the AUR push."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o IdentitiesOnly=yes"
+          git clone ssh://aur@aur.archlinux.org/anchoa-bin.git aur-repo
+          cp aur/PKGBUILD aur/.SRCINFO aur-repo/
+          cd aur-repo
+          git config user.name "Anchoa release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git diff --cached --quiet && { echo "AUR already up to date"; exit 0; }
+          git commit -m "Update to ${TAG#v}"
+          git push origin HEAD:master

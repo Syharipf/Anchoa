@@ -64,6 +64,36 @@ import { site } from '../config/site';
           </div>
         </div>
       </article>
+      <article class="card arch reveal">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span
+            class="status ready"
+            data-i18n="dl.ready"
+            set:html={copy['dl.ready']}
+          />
+          <h3 data-i18n="dl.archT" set:html={copy['dl.archT']} />
+          <p data-i18n="dl.archD" set:html={copy['dl.archD']} />
+        </div>
+        <div class="cmds">
+          {
+            [...site.archCommands, site.aurCommand].map((command, index) => (
+              <div class="cmd">
+                <code id={`ca${index + 1}`} tabindex="0">
+                  {command}
+                </code>
+                <button
+                  class="copy"
+                  type="button"
+                  data-copy-target={`ca${index + 1}`}
+                  aria-label="Salin perintah instalasi Arch Linux"
+                  data-i18n="copy"
+                  set:html={copy['copy']}
+                />
+              </div>
+            ))
+          }
+        </div>
+      </article>
       <article class="card reveal">
         <span
           class="status soon"
@@ -119,7 +149,7 @@ import { site } from '../config/site';
             <svg class="route-fish" viewBox="-12 -4 22 8" aria-hidden="true">
               <path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" />
             </svg>
-            <b>Fedora</b>
+            <b>Fedora · Arch</b>
             <small data-i18n="rm.s1" set:html={copy['rm.s1']} />
           </li>
           <li class="next">

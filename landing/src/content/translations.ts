@@ -4,11 +4,11 @@ export const id = {
   'nav.eng': 'Rekayasa',
   'nav.download': 'Unduh',
   'nav.cta': 'Unduh',
-  'hero.eyebrow': 'v0.18.0 · tersedia di Fedora · Windows/Android direncanakan',
+  'hero.eyebrow': 'v0.33.0 · tersedia di Fedora & Arch · Windows/Android direncanakan',
   'hero.title': 'Satu kawanan untuk <em>semua urusan harianmu.</em>',
   'hero.lead':
     'Anchoa menyatukan tugas, jadwal, keuangan, jurnal, catatan, habit, email, berkas, dan unduhan di laptop. Dashboard dan asisten suara membantu urusan harianmu.',
-  'hero.cta1': 'Unduh untuk Fedora',
+  'hero.cta1': 'Unduh untuk Fedora & Arch',
   'hero.cta2': 'Lihat kode',
   'hero.hint':
     'gerakkan kursor untuk membubarkan kawanan, klik untuk memberi makan, gulir untuk menyelam',
@@ -56,7 +56,7 @@ export const id = {
   'how.title': 'Data aplikasi lokal, asisten di laptop.',
   'how.lead':
     'Data modul tersimpan di SQLite pada laptop. Ollama menjalankan asisten secara lokal; email dan unduhan menghubungi sumbernya. Sinkron antarperangkat masih direncanakan.',
-  'how.n1tag': 'desktop · Fedora',
+  'how.n1tag': 'desktop · Fedora · Arch',
   'how.n1a': 'Tauri 2 + React + Rust',
   'how.n1b': 'Data modul dibaca dari database lokal',
   'how.n1c': 'Panel asisten, email, dan unduhan',
@@ -88,9 +88,9 @@ export const id = {
   'e4.t': 'Usulan asisten menunggu persetujuan',
   'e4.d':
     'Setujui atau Tolak sebelum asisten mengubah data. Agen kode memakai perintah lokal pilihanmu; izin perintah mengikuti program agen itu sendiri.',
-  'dl.title': 'Saat ini baru tersedia di Fedora.',
+  'dl.title': 'Saat ini tersedia di Fedora dan Arch Linux.',
   'dl.lead':
-    'Paket .rpm tersedia di GitHub Releases. Repo DNF Anchoa juga tersedia untuk pemasangan dan pembaruan. Windows, Android, dan sinkron antarperangkat masih direncanakan.',
+    'Paket .rpm dan .pkg.tar.zst tersedia di GitHub Releases. Repo DNF (Fedora) dan repo pacman (Arch Linux, CachyOS) Anchoa juga tersedia untuk pemasangan dan pembaruan. Windows dan Android masih direncanakan.',
   'dl.ready': 'tersedia',
   'dl.rpmT': 'Fedora · paket .rpm',
   'dl.rpmD':
@@ -101,11 +101,14 @@ export const id = {
   'dl.dnfT': 'Repo DNF Anchoa',
   'dl.dnfD':
     'Tambahkan repo Anchoa sekali, pasang paket, lalu perbarui lewat dnf upgrade.',
+  'dl.archT': 'Arch Linux / CachyOS · repo pacman',
+  'dl.archD':
+    'Impor kunci GPG Anchoa, tambahkan repo [anchoa] ke pacman.conf, lalu pasang. Pembaruan ikut sudo pacman -Syu atau paru. Paket AUR anchoa-bin menyusul setelah terbit di AUR.',
   'dl.flatD':
     'Paket Flatpak belum tersedia. Dukungan distro Linux lain masih direncanakan.',
   'rm.title': 'Rute platform',
   'rm.note': 'urutan bisa berubah',
-  'rm.s1': '.rpm · repo DNF · tersedia',
+  'rm.s1': '.rpm · repo DNF · repo pacman · tersedia',
   'rm.l2': 'Linux lain',
   'rm.s2': 'paket belum tersedia',
   'rm.s3': 'direncanakan',
@@ -121,7 +124,7 @@ export const id = {
   q4: 'Kenapa namanya Anchoa?',
   a4: 'Anchoa adalah kata Spanyol untuk ikan teri. Kawanan teri menjadi gambaran urusan harian yang saling terhubung dalam satu aplikasi.',
   q6: 'Bisa dipakai di Windows, macOS, atau Ubuntu?',
-  a6: 'Belum. Versi 0.18.0 tersedia untuk Fedora Linux (.rpm dan repo DNF). Windows dan Android masih direncanakan; platform lain belum tersedia.',
+  a6: 'Belum. Versi 0.33.0 tersedia untuk Fedora Linux (.rpm dan repo DNF) serta Arch Linux dan CachyOS (repo pacman). Windows dan Android masih direncanakan; platform lain belum tersedia.',
   q5: 'Avatar-nya bisa diganti?',
   a5: 'Belum. Avatar saat ini memakai kawanan teri statis. Bagian Avatar Live2D di Pengaturan masih berupa keterangan; impor model Live2D belum tersedia.',
   'g.title': 'Yang berenang di halaman ini',
@@ -143,7 +146,7 @@ export const id = {
   'au.eyebrow': 'di balik Anchoa',
   'au.title': 'Proyek Anchoa',
   'au.d':
-    'Aplikasi desktop dengan React, Tauri 2, Rust, dan SQLite. Kode dan spec tersedia di repositori; fitur yang berjalan mengikuti implementasi versi 0.18.0.',
+    'Aplikasi desktop dengan React, Tauri 2, Rust, dan SQLite. Kode dan spec tersedia di repositori; fitur yang berjalan mengikuti implementasi versi 0.33.0.',
   'au.port': 'Repositori',
   'ft.live2d': 'Avatar aplikasi masih statis. Dukungan Live2D direncanakan.',
   'ft.top': 'Kembali ke permukaan',
@@ -166,11 +169,11 @@ export const en: Record<TranslationKey, string> = {
   'nav.eng': 'Engineering',
   'nav.download': 'Download',
   'nav.cta': 'Download',
-  'hero.eyebrow': 'v0.18.0 · available on Fedora · Windows/Android planned',
+  'hero.eyebrow': 'v0.33.0 · available on Fedora & Arch · Windows/Android planned',
   'hero.title': 'One school for <em>everything in your day.</em>',
   'hero.lead':
     'Anchoa brings tasks, schedules, money, journal, notes, habits, email, files and downloads together on your laptop. A dashboard and voice assistant help with your day.',
-  'hero.cta1': 'Download for Fedora',
+  'hero.cta1': 'Download for Fedora & Arch',
   'hero.cta2': 'View the code',
   'hero.hint':
     'move your cursor to scatter the school, click to feed it, scroll to dive',
@@ -219,7 +222,7 @@ export const en: Record<TranslationKey, string> = {
   'how.title': 'Local app data, an assistant on your laptop.',
   'how.lead':
     'Module data stays in SQLite on your laptop. Ollama runs the assistant locally; email and downloads contact their sources. Sync between devices is still planned.',
-  'how.n1tag': 'desktop · Fedora',
+  'how.n1tag': 'desktop · Fedora · Arch',
   'how.n1a': 'Tauri 2 + React + Rust',
   'how.n1b': 'Module data read from the local database',
   'how.n1c': 'Assistant, email and download panels',
@@ -251,9 +254,9 @@ export const en: Record<TranslationKey, string> = {
   'e4.t': 'Assistant proposals wait for approval',
   'e4.d':
     'Approve or reject before the assistant changes data. Coding agents use your chosen local command; command permissions follow that agent program.',
-  'dl.title': 'Available on Fedora, for now.',
+  'dl.title': 'Available on Fedora and Arch Linux.',
   'dl.lead':
-    'The .rpm package is available on GitHub Releases. The Anchoa DNF repo is also available for installation and updates. Windows, Android and device sync are still planned.',
+    'The .rpm and .pkg.tar.zst packages are available on GitHub Releases. The Anchoa DNF repo (Fedora) and pacman repo (Arch Linux, CachyOS) are also available for installation and updates. Windows and Android are still planned.',
   'dl.ready': 'available',
   'dl.rpmT': 'Fedora · .rpm package',
   'dl.rpmD':
@@ -263,11 +266,14 @@ export const en: Record<TranslationKey, string> = {
   'dl.dnfT': 'Anchoa DNF repository',
   'dl.dnfD':
     'Add the Anchoa repo once, install the package, then update through dnf upgrade.',
+  'dl.archT': 'Arch Linux / CachyOS · pacman repository',
+  'dl.archD':
+    'Import the Anchoa GPG key, add the [anchoa] repo to pacman.conf, then install. Updates come with sudo pacman -Syu or paru. The AUR package anchoa-bin follows once it is published to the AUR.',
   'dl.flatD':
     'A Flatpak package is not available yet. Support for other Linux distributions is still planned.',
   'rm.title': 'Platform route',
   'rm.note': 'order may change',
-  'rm.s1': '.rpm · DNF repo · available',
+  'rm.s1': '.rpm · DNF repo · pacman repo · available',
   'rm.l2': 'Other Linux',
   'rm.s2': 'packages not available yet',
   'rm.s3': 'planned',
@@ -283,13 +289,13 @@ export const en: Record<TranslationKey, string> = {
   q4: 'Why is it called Anchoa?',
   a4: 'Anchoa is Spanish for anchovy. A school of anchovies represents daily tasks connected within one application.',
   q6: 'Can I use it on Windows, macOS or Ubuntu?',
-  a6: 'Not yet. Version 0.18.0 is available for Fedora Linux (.rpm and DNF repo). Windows and Android are planned; other platforms are not available yet.',
+  a6: 'Not yet. Version 0.33.0 is available for Fedora Linux (.rpm and DNF repo) and for Arch Linux and CachyOS (pacman repo). Windows and Android are planned; other platforms are not available yet.',
   q5: 'Can I change the avatar?',
   a5: 'Not yet. The current avatar is a static school of anchovies. The Avatar Live2D settings section is informational; Live2D model import is not available.',
   'au.eyebrow': 'behind Anchoa',
   'au.title': 'The Anchoa project',
   'au.d':
-    'A desktop app using React, Tauri 2, Rust and SQLite. Code and specs are available in the repository; current features follow the implementation in version 0.18.0.',
+    'A desktop app using React, Tauri 2, Rust and SQLite. Code and specs are available in the repository; current features follow the implementation in version 0.33.0.',
   'au.port': 'Repository',
   'g.title': 'Who swims on this page',
   'g.lead':

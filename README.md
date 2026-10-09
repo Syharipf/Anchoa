@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/Syharipf/Anchoa/releases/latest"><img alt="Rilis terbaru" src="https://img.shields.io/github/v/release/Syharipf/Anchoa?label=versi&color=c6f36b&labelColor=0f1115"></a>
   <a href="https://github.com/Syharipf/Anchoa/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Syharipf/Anchoa/ci.yml?branch=main&label=CI&labelColor=0f1115"></a>
-  <img alt="Platform: Fedora Linux" src="https://img.shields.io/badge/platform-Fedora%20Linux-51a2da?labelColor=0f1115">
+  <img alt="Platform: Fedora and Arch Linux" src="https://img.shields.io/badge/platform-Fedora%20%26%20Arch%20Linux-51a2da?labelColor=0f1115">
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 
 ---
 
-Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Fedora Linux yang menggabungkan manajemen tugas, kalender, keuangan, jurnal, catatan, berkas, unduhan, dan email dalam satu antarmuka. Semua data disimpan secara lokal di satu basis data SQLite, sehingga aplikasi tetap berfungsi penuh tanpa koneksi internet maupun akun cloud. Asisten AI-nya berjalan di [Ollama](https://ollama.com/) di mesin yang sama, sehingga percakapan dan pemrosesan dokumen tidak meninggalkan perangkat. Sinkronisasi antarperangkat tersedia sebagai opsi dan selalu terenkripsi ujung-ke-ujung.
+Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Fedora dan Arch Linux (termasuk CachyOS) yang menggabungkan manajemen tugas, kalender, keuangan, jurnal, catatan, berkas, unduhan, dan email dalam satu antarmuka. Semua data disimpan secara lokal di satu basis data SQLite, sehingga aplikasi tetap berfungsi penuh tanpa koneksi internet maupun akun cloud. Asisten AI-nya berjalan di [Ollama](https://ollama.com/) di mesin yang sama, sehingga percakapan dan pemrosesan dokumen tidak meninggalkan perangkat. Sinkronisasi antarperangkat tersedia sebagai opsi dan selalu terenkripsi ujung-ke-ujung.
 
 ## Fitur utama
 
@@ -75,6 +75,34 @@ File `.rpm` juga tersedia di [GitHub Releases](https://github.com/Syharipf/Ancho
 sudo dnf install ./Anchoa-<versi>-1.x86_64.rpm
 ```
 
+### Arch Linux / CachyOS (repo pacman)
+
+Repo pacman `anchoa` (hanya x86_64) berada di `https://syharipf.github.io/Anchoa/arch/$arch`. Paket dan database repo ditandatangani GPG dengan kunci yang sama seperti repo dnf; kunci publiknya ada di `https://syharipf.github.io/Anchoa/arch/anchoa.gpg`. Impor kunci, tambahkan repo, lalu pasang:
+
+```bash
+curl -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg
+sudo pacman-key --add anchoa.gpg
+sudo pacman-key --lsign-key "$(gpg --show-keys --with-colons anchoa.gpg | awk -F: '/^fpr/ {print $10; exit}')"
+printf '\n[anchoa]\nSigLevel = Required DatabaseRequired\nServer = https://syharipf.github.io/Anchoa/arch/$arch\n' | sudo tee -a /etc/pacman.conf
+sudo pacman -Syu anchoa      # atau: paru -Syu anchoa
+```
+
+Pembaruan datang bersama `sudo pacman -Syu` atau `paru` seperti biasa. Dependensi runtime (`webkit2gtk-4.1`, `gtk3`, `libayatana-appindicator`) ikut terpasang otomatis. Dependensi opsional:
+
+- `ollama` untuk asisten AI lokal.
+- `gnome-keyring` atau KWallet (Secret Service) untuk menyimpan password email dan token.
+- `gst-plugins-good` untuk pemutaran media.
+
+Paket AUR `anchoa-bin` (`paru -S anchoa-bin` atau `yay -S anchoa-bin`) tersedia setelah dipublikasikan ke AUR; jalur utama tetap repo pacman di atas.
+
+Di [GitHub Releases](https://github.com/Syharipf/Anchoa/releases/latest) juga terlampir tarball `anchoa-<versi>-x86_64.tar.gz` dan paket `anchoa-<versi>-1-x86_64.pkg.tar.zst`. Pasang paketnya dengan:
+
+```bash
+sudo pacman -U ./anchoa-<versi>-1-x86_64.pkg.tar.zst
+```
+
+Di mesin yang hanya memakai GPU NVIDIA, jendela bisa kosong karena renderer DMA-BUF WebKitGTK. Anchoa mengatur `WEBKIT_DISABLE_DMABUF_RENDERER=1` secara otomatis pada mesin seperti itu; kalau ingin mengubahnya, setel variabel tersebut sendiri sebelum menjalankan `anchoa`.
+
 ### Dari kode sumber
 
 Kebutuhan: Rust stable, [bun](https://bun.sh), dan library sistem untuk Tauri:
@@ -82,6 +110,14 @@ Kebutuhan: Rust stable, [bun](https://bun.sh), dan library sistem untuk Tauri:
 ```bash
 sudo dnf install webkit2gtk4.1-devel librsvg2-devel libappindicator-gtk3-devel libxdo-devel
 ```
+
+Di Arch Linux / CachyOS:
+
+```bash
+sudo pacman -S --needed base-devel webkit2gtk-4.1 libayatana-appindicator librsvg xdotool openssl rust
+```
+
+lalu pasang bun dari <https://bun.sh>.
 
 Dari akar repo:
 
@@ -179,7 +215,7 @@ flowchart LR
 
 ## Roadmap
 
-Pengembangan berjalan per fase; setiap fase punya spec di [`docs/superpowers/specs/`](docs/superpowers/specs/) dan rencana implementasi per PR di [`docs/superpowers/plans/`](docs/superpowers/plans/), dengan isu GitHub yang dikelompokkan dalam milestone. Status saat ini: tersedia untuk Fedora Linux; build Windows dan Android direncanakan pada Fase 9. Fitur yang tersedia mengikuti kode, bukan rencana.
+Pengembangan berjalan per fase; setiap fase punya spec di [`docs/superpowers/specs/`](docs/superpowers/specs/) dan rencana implementasi per PR di [`docs/superpowers/plans/`](docs/superpowers/plans/), dengan isu GitHub yang dikelompokkan dalam milestone. Status saat ini: tersedia untuk Fedora dan Arch Linux/CachyOS; build Windows dan Android direncanakan pada Fase 9. Fitur yang tersedia mengikuti kode, bukan rencana.
 
 ## Kontribusi
 

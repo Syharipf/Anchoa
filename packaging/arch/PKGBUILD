@@ -1,0 +1,40 @@
+# Maintainer: Syharipf <https://github.com/Syharipf>
+#
+# Repackages the prebuilt release tarball, which CI builds in an Arch container
+# (packaging/arch/build.sh). The pacman repo ships this as `anchoa`; the AUR
+# copy is renamed to `anchoa-bin` by .github/workflows/release.yml.
+pkgname=anchoa
+pkgver=0.33.0
+pkgrel=1
+pkgdesc="Kelola catatan, task, keuangan, jadwal, dan email di satu tempat"
+arch=('x86_64')
+url="https://github.com/Syharipf/Anchoa"
+license=('unknown')
+depends=(
+  'cairo'
+  'dbus'
+  'gcc-libs'
+  'gdk-pixbuf2'
+  'glib2'
+  'glibc'
+  'gtk3'
+  'hicolor-icon-theme'
+  'libayatana-appindicator'
+  'libsoup3'
+  'webkit2gtk-4.1'
+  'xdg-utils'
+)
+optdepends=(
+  'ollama: asisten AI lokal'
+  'gnome-keyring: Secret Service untuk password email dan token'
+  'kwallet: Secret Service di KDE Plasma'
+  'gst-plugins-good: pemutaran audio dan video'
+)
+conflicts=('anchoa-bin')
+options=('!strip' '!debug')
+source=("anchoa-$pkgver-x86_64.tar.gz::https://github.com/Syharipf/Anchoa/releases/download/v$pkgver/anchoa-$pkgver-x86_64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  cp -a "$srcdir/usr" "$pkgdir/"
+}

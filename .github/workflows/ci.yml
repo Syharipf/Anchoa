@@ -47,3 +47,49 @@ jobs:
       - run: supabase start -x studio,imgproxy,storage,edge-runtime,logflare,vector,realtime,inbucket
       - run: supabase test db
       - run: supabase db lint --level error --fail-on error
+
+  # Builds the Arch Linux package in an Arch container, then installs it in a
+  # fresh one and starts the app on Xvfb (packaging/arch/smoke.sh).
+  arch-build:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: pacman -Syu --noconfirm --needed git unzip webkit2gtk-4.1 libayatana-appindicator librsvg openssl
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: src-tauri
+          key: arch
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Build the tarball and PKGBUILD
+        run: packaging/arch/build.sh out --debug
+      - name: makepkg
+        run: |
+          useradd -m builder
+          chown -R builder out
+          cd out && runuser -u builder -- makepkg --nodeps --noconfirm
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: arch-package
+          path: out/*.pkg.tar.zst
+
+  arch-install:
+    needs: arch-build
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: arch-package
+          path: pkg
+      - run: bash packaging/arch/smoke.sh pkg/*.pkg.tar.zst anchoa-arch-smoke.png
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: always()
+        with:
+          name: arch-smoke-screenshot
+          path: anchoa-arch-smoke.png
+          if-no-files-found: ignore

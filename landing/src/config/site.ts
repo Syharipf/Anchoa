@@ -2,15 +2,23 @@ export const site = {
   name: 'Anchoa',
   title: 'Anchoa — Satu kawanan untuk semua urusan harianmu',
   description:
-    'Dashboard pribadi dengan asisten suara. Tugas, jadwal, keuangan, jurnal, habit, dan file bergerak bersama dalam satu kawanan. Tersedia untuk Fedora Linux.',
+    'Dashboard pribadi dengan asisten suara. Tugas, jadwal, keuangan, jurnal, habit, dan file bergerak bersama dalam satu kawanan. Tersedia untuk Fedora dan Arch Linux.',
   author: 'Anchoa',
   repository: 'https://github.com/Syharipf/Anchoa',
   releases: 'https://github.com/Syharipf/Anchoa/releases/latest',
   profile: 'https://github.com/Syharipf/Anchoa',
-  version: '0.18.0',
+  version: '0.33.0',
   installCommand: 'sudo dnf install ./Anchoa-*.x86_64.rpm',
   coprCommand:
     'sudo dnf config-manager addrepo --from-repofile=https://syharipf.github.io/Anchoa/anchoa.repo',
+  archCommands: [
+    'curl -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg',
+    'sudo pacman-key --add anchoa.gpg',
+    'sudo pacman-key --lsign-key "$(gpg --show-keys --with-colons anchoa.gpg | awk -F: \'/^fpr/ {print $10; exit}\')"',
+    "printf '\\n[anchoa]\\nSigLevel = Required DatabaseRequired\\nServer = https://syharipf.github.io/Anchoa/arch/$arch\\n' | sudo tee -a /etc/pacman.conf",
+    'sudo pacman -Syu anchoa',
+  ],
+  aurCommand: 'paru -S anchoa-bin',
   flatpakCommand: '# Flatpak: planned',
   linkedin: 'https://www.linkedin.com/',
 } as const;

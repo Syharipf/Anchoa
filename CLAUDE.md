@@ -5,6 +5,9 @@
 3. **Delegation default.** Multi-file / refactor / fitur / investigasi wajib dipecah ke subagent `task` (1 batch paralel), bukan dikerjakan sendiri di thread utama. Thread utama cukup untuk: edit 1 file < 30 baris, jawab pertanyaan tanpa ubah kode, atau perintah CLI eksplisit dari user.
 4. **Setiap pekerjaan > 3 langkah pakai `todo`** (plan → task → advisor). Track per fase: Audit/ingest → Implementasi → Verifikasi & review.
 5. **Uji setiap perubahan.** Setelah edit, jalankan test yang menyentuh file itu (`bun test src/<module>` atau `bun test src/pet src/brand ...`) sebelum lanjut. Jangan hanya percaya `bun run test` global — `bun test src` di bun 1.4.2 hanya scan file `*.test.*` di depth 1 dari `src/`; test di subfolder baru perlu dipanggil eksplisit atau ditaruh di folder yang sudah ter-scan.
+
+**Catatan sesi cloud Claude Code:** di sesi cloud `~/.omp/agent/config.yml` tidak ada, jadi role → model dipetakan lewat frontmatter `model:` di `.claude/agents/`: `implementer` = sonnet, `reviewer-opus` = opus, `helper-haiku` = haiku (untuk pekerjaan kecil yang mekanis). Perencanaan dikerjakan di thread utama (Opus).
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -37,7 +40,7 @@ Status: PIN lock built (spec `2026-10-02-anchoa-pin-design.md`, Argon2id, enforc
 - Frontend: React + TypeScript + Vite + Tailwind, under `src/`.
 - Database: SQLite via `rusqlite`.
 - JS tooling: bun. On the dev machine `node` is a shim for bun.
-- Targets: Fedora Linux now; Windows and Android in Fase 9.
+- Targets: Fedora and Arch Linux/CachyOS now; Windows and Android in Fase 9.
 
 ## Architecture rules
 
@@ -74,7 +77,7 @@ On the dev laptop, NVIDIA is the X `PrimaryGPU`, and Intel is also present.
 4. Before opening a PR, run the full check suite and the Xvfb UI check. Put the evidence (test output, screenshots) in the PR body, together with `Closes #N`.
 5. Run the review (see below), verify each finding, and fix the real ones. Then hand the PR to the user.
 6. Merge once every check is green (tests, clippy, E2E, review, CI, SonarCloud); the user approved this on 2026-10-01. Use `gh pr merge --squash --delete-branch`, or the GitHub merge API when the branch is checked out in another worktree.
-7. At the end of a phase, tag the release (`v0.1.0` for Fase 1) and attach the RPM to a GitHub Release. Publishing the release runs `.github/workflows/dnf-repo.yml`, which signs the RPMs of the last 5 releases and publishes the dnf repo on GitHub Pages (`packaging/anchoa.repo`) together with the landing page from `landing/` (Astro; a push to `main` that changes `landing/**` also redeploys). It needs the `RPM_GPG_PRIVATE_KEY` secret.
+7. Releases are automatic. A PR to `main` that bumps the version in `src-tauri/tauri.conf.json` triggers `.github/workflows/release.yml` once merged: it builds the RPM (Fedora container) and the Arch package (Arch container), creates the GitHub Release `v<version>` with both attached, then dispatches `dnf-repo.yml` and `android-release.yml`. It also pushes `anchoa-bin` to the AUR, but only if the `AUR_SSH_PRIVATE_KEY` secret exists. `dnf-repo.yml` signs the RPMs of the last 5 releases and publishes the dnf repo (`packaging/anchoa.repo`), the signed pacman repo (`https://syharipf.github.io/Anchoa/arch/$arch`, repo name `anchoa`, same GPG key) and the landing page from `landing/` (Astro; a push to `main` that changes `landing/**` also redeploys) on GitHub Pages. It needs the `RPM_GPG_PRIVATE_KEY` secret. Tag a phase release (`v0.1.0` for Fase 1) by bumping the version in the same way.
 
 Do not start implementing a phase until the user approves moving from planning to code.
 

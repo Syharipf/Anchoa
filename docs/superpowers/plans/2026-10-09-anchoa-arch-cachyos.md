@@ -30,12 +30,12 @@
 ### Task 2: Packaging & workflow (`packaging/arch/`, `.github/workflows/`)
 
 - [ ] `packaging/arch/PKGBUILD`: `pkgname=anchoa`, ekstrak tarball rilis, dependensi runtime Arch, `optdepends` (ollama, gnome-keyring/kwallet, gst-plugins).
-- [ ] `packaging/arch/build-tarball.sh`: build bundle deb Tauri, kemas `data/` jadi tarball.
+- [ ] `packaging/arch/build.sh`: build bundle deb Tauri, kemas `data/` jadi tarball, siapkan `PKGBUILD` dengan versi dan checksum.
 - [ ] `packaging/arch/smoke.sh`: `pacman -U`, cek `ldd` tanpa `not found`, jalankan `/usr/bin/anchoa` di Xvfb dengan D-Bus privat, tunggu DB + jendela, screenshot, pastikan layar tidak kosong.
-- [ ] `ci.yml` job `arch`: build debug di container Arch, `makepkg`, `smoke.sh`, unggah screenshot.
+- [ ] `ci.yml` job `arch-build` (build debug di container Arch, `makepkg`) dan `arch-install` (container Arch baru, `smoke.sh`, unggah screenshot).
 - [ ] `release.yml` seperti di Architecture.
 - [ ] `dnf-repo.yml`: job `arch-repo` (container Arch) mengunduh `*.pkg.tar.zst` 5 rilis terakhir, `gpg --detach-sign`, `repo-add --sign`, menyalin symlink jadi file biasa; job Pages menggabungkannya ke `site/arch/`.
-- [ ] `packaging/arch/anchoa-pacman.conf`: potongan `pacman.conf`.
+- [ ] Potongan `pacman.conf` ditulis langsung di README dan landing (tanpa file terpisah).
 
 ### Task 3: Dokumentasi
 

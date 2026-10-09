@@ -34,6 +34,11 @@ mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
 XVFB=$!
+for _ in $(seq 1 50); do
+  [[ -S /tmp/.X11-unix/X99 ]] && break
+  sleep 0.1
+done
+[[ -S /tmp/.X11-unix/X99 ]] || fail "Xvfb did not start"
 { read -r DBUS_SESSION_BUS_ADDRESS; read -r DBUS_PID; } < <(dbus-daemon --session --fork --print-address=1 --print-pid=1)
 export DBUS_SESSION_BUS_ADDRESS
 /usr/bin/anchoa >"$WORK/app.log" 2>&1 &

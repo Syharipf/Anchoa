@@ -4,7 +4,7 @@ export const id = {
   'nav.eng': 'Rekayasa',
   'nav.download': 'Unduh',
   'nav.cta': 'Unduh',
-  'hero.eyebrow': 'v0.18.0 · tersedia di Fedora & Arch · Windows/Android direncanakan',
+  'hero.eyebrow': 'v0.33.0 · tersedia di Fedora & Arch · Windows/Android direncanakan',
   'hero.title': 'Satu kawanan untuk <em>semua urusan harianmu.</em>',
   'hero.lead':
     'Anchoa menyatukan tugas, jadwal, keuangan, jurnal, catatan, habit, email, berkas, dan unduhan di laptop. Dashboard dan asisten suara membantu urusan harianmu.',
@@ -124,7 +124,7 @@ export const id = {
   q4: 'Kenapa namanya Anchoa?',
   a4: 'Anchoa adalah kata Spanyol untuk ikan teri. Kawanan teri menjadi gambaran urusan harian yang saling terhubung dalam satu aplikasi.',
   q6: 'Bisa dipakai di Windows, macOS, atau Ubuntu?',
-  a6: 'Belum. Versi 0.18.0 tersedia untuk Fedora Linux (.rpm dan repo DNF) serta Arch Linux dan CachyOS (repo pacman). Windows dan Android masih direncanakan; platform lain belum tersedia.',
+  a6: 'Belum. Versi 0.33.0 tersedia untuk Fedora Linux (.rpm dan repo DNF) serta Arch Linux dan CachyOS (repo pacman). Windows dan Android masih direncanakan; platform lain belum tersedia.',
   q5: 'Avatar-nya bisa diganti?',
   a5: 'Belum. Avatar saat ini memakai kawanan teri statis. Bagian Avatar Live2D di Pengaturan masih berupa keterangan; impor model Live2D belum tersedia.',
   'g.title': 'Yang berenang di halaman ini',
@@ -146,7 +146,7 @@ export const id = {
   'au.eyebrow': 'di balik Anchoa',
   'au.title': 'Proyek Anchoa',
   'au.d':
-    'Aplikasi desktop dengan React, Tauri 2, Rust, dan SQLite. Kode dan spec tersedia di repositori; fitur yang berjalan mengikuti implementasi versi 0.18.0.',
+    'Aplikasi desktop dengan React, Tauri 2, Rust, dan SQLite. Kode dan spec tersedia di repositori; fitur yang berjalan mengikuti implementasi versi 0.33.0.',
   'au.port': 'Repositori',
   'ft.live2d': 'Avatar aplikasi masih statis. Dukungan Live2D direncanakan.',
   'ft.top': 'Kembali ke permukaan',
@@ -169,7 +169,7 @@ export const en: Record<TranslationKey, string> = {
   'nav.eng': 'Engineering',
   'nav.download': 'Download',
   'nav.cta': 'Download',
-  'hero.eyebrow': 'v0.18.0 · available on Fedora & Arch · Windows/Android planned',
+  'hero.eyebrow': 'v0.33.0 · available on Fedora & Arch · Windows/Android planned',
   'hero.title': 'One school for <em>everything in your day.</em>',
   'hero.lead':
     'Anchoa brings tasks, schedules, money, journal, notes, habits, email, files and downloads together on your laptop. A dashboard and voice assistant help with your day.',
@@ -289,13 +289,13 @@ export const en: Record<TranslationKey, string> = {
   q4: 'Why is it called Anchoa?',
   a4: 'Anchoa is Spanish for anchovy. A school of anchovies represents daily tasks connected within one application.',
   q6: 'Can I use it on Windows, macOS or Ubuntu?',
-  a6: 'Not yet. Version 0.18.0 is available for Fedora Linux (.rpm and DNF repo) and for Arch Linux and CachyOS (pacman repo). Windows and Android are planned; other platforms are not available yet.',
+  a6: 'Not yet. Version 0.33.0 is available for Fedora Linux (.rpm and DNF repo) and for Arch Linux and CachyOS (pacman repo). Windows and Android are planned; other platforms are not available yet.',
   q5: 'Can I change the avatar?',
   a5: 'Not yet. The current avatar is a static school of anchovies. The Avatar Live2D settings section is informational; Live2D model import is not available.',
   'au.eyebrow': 'behind Anchoa',
   'au.title': 'The Anchoa project',
   'au.d':
-    'A desktop app using React, Tauri 2, Rust and SQLite. Code and specs are available in the repository; current features follow the implementation in version 0.18.0.',
+    'A desktop app using React, Tauri 2, Rust and SQLite. Code and specs are available in the repository; current features follow the implementation in version 0.33.0.',
   'au.port': 'Repository',
   'g.title': 'Who swims on this page',
   'g.lead':

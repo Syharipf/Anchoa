@@ -32,8 +32,16 @@ jobs:
       - name: Download the Arch packages of the latest releases
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
         # Same 5 releases as the dnf repo; releases made before Arch support have no package.
         run: |
+          # "published" can fire before the package is attached: wait for it (up to 10 minutes).
+          if [[ -n "$TAG" ]]; then
+            for _ in $(seq 1 30); do
+              gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -q '\.pkg\.tar\.zst$' && break
+              sleep 20
+            done
+          fi
           mkdir -p arch/x86_64
           gh release list --repo "$GITHUB_REPOSITORY" --limit 5 --json tagName --jq '.[].tagName' |
             while read -r tag; do
@@ -52,7 +60,8 @@ jobs:
           gpg --export "$fpr" > arch/anchoa.gpg
           cd arch/x86_64
           shopt -s nullglob
-          pkgs=(*.pkg.tar.zst)
+          # repo-add keeps the last package it sees for a name: add them oldest first.
+          mapfile -t pkgs < <(printf '%s\n' *.pkg.tar.zst | sort -V)
           if [[ ${#pkgs[@]} -eq 0 ]]; then
             echo "No Arch packages yet; publishing the key only."
             exit 0
@@ -60,7 +69,7 @@ jobs:
           for pkg in "${pkgs[@]}"; do
             gpg --batch --yes --local-user "$fpr" --detach-sign --no-armor "$pkg"
           done
-          GPGKEY="$fpr" repo-add --sign --key "$fpr" anchoa.db.tar.gz "${pkgs[@]}"
+          GPGKEY="$fpr" repo-add --sign --key "$fpr" --prevent-downgrade anchoa.db.tar.gz "${pkgs[@]}"
           # repo-add makes anchoa.db and anchoa.files symlinks; Pages needs real files.
           for link in anchoa.db anchoa.db.sig anchoa.files anchoa.files.sig; do
             [[ -L "$link" ]] && cp --remove-destination "$(readlink -f "$link")" "$link"

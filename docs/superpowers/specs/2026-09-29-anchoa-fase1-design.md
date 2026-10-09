@@ -240,10 +240,11 @@ Data dashboard dimuat saat halaman dibuka dan setelah setiap aksi. Tidak ada pem
 
 Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat:
 
-1. Lewati kalau bukan Linux, atau kalau `WEBKIT_WEB_RENDER_DEVICE_FILE` sudah di-set.
+1. Lewati kalau bukan Linux, atau kalau `WEBKIT_WEB_RENDER_DEVICE_FILE` atau `WEBKIT_DISABLE_DMABUF_RENDERER` sudah di-set.
 2. Baca `/dev/dri/renderD*` dan cari driver masing-masing lewat `/sys/class/drm/<node>/device/driver`.
 3. Kalau ada node dengan driver `nvidia` **dan** ada node dengan driver lain, set `WEBKIT_WEB_RENDER_DEVICE_FILE` ke node non-NVIDIA yang pertama.
-4. Catat keputusan itu di log.
+4. Kalau semua node memakai driver `nvidia` (mesin NVIDIA-only, umum di CachyOS), set `WEBKIT_DISABLE_DMABUF_RENDERER=1`; tanpa itu jendela kosong.
+5. Catat keputusan itu di log.
 
 `std::env::set_var` bersifat `unsafe` di Rust edition 2024. Pemanggilan ini aman karena dilakukan sebelum ada thread lain. Mesin tanpa NVIDIA tidak terpengaruh.
 

@@ -59,9 +59,9 @@ jobs:
           fpr=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')
           gpg --export "$fpr" > arch/anchoa.gpg
           cd arch/x86_64
-          shopt -s nullglob
           # repo-add keeps the last package it sees for a name: add them oldest first.
-          mapfile -t pkgs < <(printf '%s\n' *.pkg.tar.zst | sort -V)
+          # find prints nothing when there are no packages (printf would print one empty line).
+          mapfile -t pkgs < <(find . -maxdepth 1 -name '*.pkg.tar.zst' -printf '%f\n' | sort -V)
           if [[ ${#pkgs[@]} -eq 0 ]]; then
             echo "No Arch packages yet; publishing the key only."
             exit 0

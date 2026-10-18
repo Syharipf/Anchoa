@@ -89,13 +89,27 @@ export function Sidebar({
   }, []);
 
   const turn = useCallback((d: number) => {
-    const next = rot + d;
-    setRot(next);
-    const idx = ((next % N) + N) % N;
-    const id = wheelPages[idx].id;
-    if (id !== current) onSelect(id);
+    setRot((prevRot) => {
+      const next = prevRot + d;
+      const idx = ((next % N) + N) % N;
+      const id = wheelPages[idx].id;
+      if (id !== current) onSelect(id);
+      return next;
+    });
     setOpen(true);
-  }, [N, current, onSelect, rot, wheelPages]);
+  }, [N, current, onSelect, wheelPages]);
+
+  // Keep wheel centered on the active item whenever current page changes
+  useEffect(() => {
+    const idx = wheelPages.findIndex((p) => p.id === current);
+    if (idx >= 0) {
+      setRot((r) => {
+        let off = ((idx - r) % N + N) % N;
+        if (off > N / 2) off -= N;
+        return r + off;
+      });
+    }
+  }, [current, N, wheelPages]);
 
   const cancelClose = useCallback(() => {
     window.clearTimeout(closeTimeout.current);
@@ -236,10 +250,10 @@ export function Sidebar({
             position: "fixed", inset: 0,
             pointerEvents: "none",
             opacity: open ? 1 : 0,
-            visibility: open ? "visible" : "hidden",
-            transition: "opacity 0.35s ease, visibility 0.35s",
-            backdropFilter: open && !prefersReduced ? "blur(2px)" : "none",
-            WebkitBackdropFilter: open && !prefersReduced ? "blur(2px)" : "none",
+            transition: "opacity 0.3s cubic-bezier(.3,.7,.2,1)",
+            willChange: "opacity",
+            backdropFilter: prefersReduced ? "none" : "blur(2px)",
+            WebkitBackdropFilter: prefersReduced ? "none" : "blur(2px)",
             background: "linear-gradient(90deg, rgba(10,36,45,0.88) 0, rgba(10,36,45,0.74) 300px, rgba(8,26,33,0.46) 640px, rgba(8,26,33,0.32) 100%)",
           }}
         >
@@ -380,11 +394,18 @@ export function Sidebar({
           </button>
 
           {/* Arc icon items — 44px circles, exact per ANCHOA_NAV items[] */}
-          {items.map((it) => (
+          {items.map((it, i) => (
             <button
               key={it.page.id}
               type="button"
-              onClick={() => onSelect(it.page.id)}
+              onClick={() => {
+                let off = ((i - rot) % N + N) % N;
+                if (off > N / 2) off -= N;
+                if (off !== 0) {
+                  setRot((r) => r + off);
+                }
+                onSelect(it.page.id);
+              }}
               aria-label={it.page.label}
               aria-current={it.here ? "page" : undefined}
               tabIndex={it.show ? 0 : -1}

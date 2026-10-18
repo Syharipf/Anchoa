@@ -522,9 +522,9 @@ export function AgentTab({
       : "Agen tidak berjalan";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+    <div className="flex w-full flex-col gap-5">
       {/* Bilah status di atas */}
-      <div className="flex items-center justify-between rounded-[14px] border border-line bg-surface px-4 py-3">
+      <div className="flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3.5 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="relative flex h-2.5 w-2.5">
             {running && (
@@ -561,10 +561,10 @@ export function AgentTab({
       </div>
 
       {/* Main grid */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_356px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
         {/* Left: Aktivitas agen feed */}
-        <section aria-labelledby="ag-feed-title" className="flex min-h-0 flex-col rounded-[14px] border border-line bg-surface">
-          <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
+        <section aria-labelledby="ag-feed-title" className="flex min-h-[580px] flex-col rounded-2xl border border-line bg-surface shadow-sm overflow-hidden">
+          <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3.5">
             <h2 id="ag-feed-title" className={H2}>Aktivitas agen</h2>
             <div role="group" aria-label="Saring aktivitas" className="flex gap-1 rounded-[8px] bg-stage p-0.5">
               {ACTIVITY_FILTERS.map((f) => (
@@ -586,7 +586,7 @@ export function AgentTab({
             <span className="ml-auto text-[11px] text-muted">dicatat lewat anchoa agent</span>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2">
+          <div className="p-5 flex flex-col gap-3 min-h-[500px]">
             {filtered.length === 0 ? (
               <p className="m-0 py-8 text-center text-sm text-muted">Belum ada aktivitas agen.</p>
             ) : (
@@ -604,7 +604,7 @@ export function AgentTab({
         </section>
 
         {/* Right column: Kirim ke agen + Agen terhubung */}
-        <div className="flex min-h-0 flex-col gap-4">
+        <div className="flex flex-col gap-5">
           <AgentRequest
             key={project.id}
             project={project}

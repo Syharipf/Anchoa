@@ -24,11 +24,31 @@
       "label": "Tolak: Cooldown 30s",
       "type": "error",
       "desc": "Gagal 5x Berturut"
+    },
+    {
+      "id": "step_5",
+      "label": "Langkah 5",
+      "type": "process",
+      "desc": "Proses baru"
     }
   ],
   "edges": [
-    { "from": "start", "to": "verify" },
-    { "from": "verify", "to": "unlock" },
-    { "from": "verify", "to": "cooldown", "condition": "fail" }
+    {
+      "from": "start",
+      "to": "verify"
+    },
+    {
+      "from": "verify",
+      "to": "unlock"
+    },
+    {
+      "from": "verify",
+      "to": "cooldown",
+      "condition": "fail"
+    },
+    {
+      "from": "cooldown",
+      "to": "step_5"
+    }
   ]
 }

@@ -122,6 +122,13 @@ export function Sidebar({
   }, [toggle]);
 
   useEffect(() => () => { window.clearTimeout(hoverTimer.current); window.clearTimeout(closeTimeout.current); }, []);
+  useEffect(() => {
+    if (notificationsOpen || current === "profil" || current === "settings") {
+      window.clearTimeout(hoverTimer.current);
+      close();
+    }
+  }, [notificationsOpen, current, close]);
+
 
   const prev = prevOff.current;
   const arc  = open ? ARC.open : ARC.closed;
@@ -191,7 +198,20 @@ export function Sidebar({
         data-navwheel
         aria-label="Menu utama"
         tabIndex={0}
-        onFocus={() => setOpen(true)}
+        onFocus={(e) => {
+          const target = e.target as HTMLElement | null;
+          if (
+            target?.closest("[data-bottom-nav]") ||
+            target?.closest("[data-nav-logo]") ||
+            notificationsOpen ||
+            current === "profil" ||
+            current === "settings"
+          ) {
+            close();
+            return;
+          }
+          setOpen(true);
+        }}
         onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) close(); }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); turn(1); }
@@ -235,6 +255,11 @@ export function Sidebar({
         {/* Layer 3 – interactive hover + gesture zone; expands 72→320px */}
         <div
           onMouseEnter={(e) => {
+            if (notificationsOpen || current === "profil" || current === "settings") {
+              window.clearTimeout(hoverTimer.current);
+              close();
+              return;
+            }
             const y = e.clientY;
             if (y < 90 || y > window.innerHeight - 170) {
               window.clearTimeout(hoverTimer.current);
@@ -246,6 +271,11 @@ export function Sidebar({
             hoverTimer.current = window.setTimeout(() => setOpen(true), 140);
           }}
           onMouseMove={(e) => {
+            if (notificationsOpen || current === "profil" || current === "settings") {
+              window.clearTimeout(hoverTimer.current);
+              if (open) close();
+              return;
+            }
             const y = e.clientY;
             if (y < 90 || y > window.innerHeight - 170) {
               window.clearTimeout(hoverTimer.current);
@@ -291,11 +321,25 @@ export function Sidebar({
 
           {/* Logo + "Anchoa" text */}
           <div
+            data-nav-logo
             role="button"
             tabIndex={0}
             aria-label="Anchoa, ke Dashboard"
-            onClick={() => onSelect("dashboard")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect("dashboard"); } }}
+            onClick={() => {
+              close();
+              onSelect("dashboard");
+            }}
+            onFocus={(e) => {
+              e.stopPropagation();
+              close();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                close();
+                onSelect("dashboard");
+              }
+            }}
             onMouseEnter={() => {
               window.clearTimeout(hoverTimer.current);
               close();
@@ -383,6 +427,7 @@ export function Sidebar({
 
           {/* Bottom stack: Notif · Profil · Pengaturan (left:14 bottom:14, gap:6) */}
           <div
+            data-bottom-nav
             onMouseEnter={() => {
               window.clearTimeout(hoverTimer.current);
               close();
@@ -392,7 +437,14 @@ export function Sidebar({
             {/* Notifikasi */}
             <button
               type="button"
-              onClick={onToggleNotifications}
+              onClick={() => {
+                close();
+                onToggleNotifications();
+              }}
+              onFocus={(e) => {
+                e.stopPropagation();
+                close();
+              }}
               aria-label={reminders > 0 ? `Notifikasi, ${reminders} pengingat` : "Notifikasi"}
               aria-haspopup="dialog"
               aria-expanded={notificationsOpen}
@@ -414,7 +466,14 @@ export function Sidebar({
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => onSelect(p.id)}
+                  onClick={() => {
+                    close();
+                    onSelect(p.id);
+                  }}
+                  onFocus={(e) => {
+                    e.stopPropagation();
+                    close();
+                  }}
                   aria-label={p.label}
                   aria-current={active ? "page" : undefined}
                   style={{ position: "relative", width: 44, height: 44, borderRadius: 12, border: active ? "1px solid #C6F36B" : 0, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: active ? "rgba(22,60,72,0.9)" : "rgba(8,26,33,0.75)", color: active ? "#C6F36B" : "#CFE3EA" }}
@@ -423,9 +482,8 @@ export function Sidebar({
                 </button>
               );
             })}
-
-
           </div>
+
         </div>
       </nav>
     </div>

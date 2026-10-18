@@ -116,7 +116,7 @@ export function Sidebar({
 
   const scheduleClose = useCallback(() => {
     window.clearTimeout(closeTimeout.current);
-    closeTimeout.current = window.setTimeout(() => setOpen(false), 180);
+    closeTimeout.current = window.setTimeout(() => setOpen(false), 220);
   }, []);
 
   const close = useCallback(() => {
@@ -242,16 +242,22 @@ export function Sidebar({
           <NavRailOcean paused={prefersReduced} />
         </div>
 
-        {/* Layer 2 – full-screen ocean depth overlay (pure GPU gradient fade, no heavy blur) */}
+        {/* Layer 2 – expanding drawer ocean backdrop (confined to drawer, zero full-screen flash) */}
         <div
           aria-hidden="true"
           style={{
-            position: "fixed",
-            inset: 0,
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: open ? 320 : 72,
+            height: "100%",
             pointerEvents: "none",
-            opacity: open ? 1 : 0,
-            transition: "opacity 0.25s ease",
-            background: "linear-gradient(90deg, rgba(8,26,33,0.92) 0, rgba(8,26,33,0.78) 320px, rgba(8,26,33,0.45) 640px, rgba(8,26,33,0.3) 100%)",
+            transition: "width 0.28s cubic-bezier(.3,.7,.2,1), box-shadow 0.28s ease",
+            background: "linear-gradient(90deg, #092027 0%, #0B2934 220px, #081B22 320px)",
+            borderRight: "1px solid #1F3E49",
+            boxShadow: open ? "16px 0 36px rgba(0,0,0,0.65)" : "none",
+            overflow: "hidden",
+            zIndex: 1,
           }}
         />
 
@@ -321,11 +327,7 @@ export function Sidebar({
                 onSelect("dashboard");
               }
             }}
-            onMouseEnter={() => {
-              window.clearTimeout(hoverTimer.current);
-              close();
-            }}
-            style={{ position: "absolute", left: 16, top: 18, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textDecoration: "none" }}
+            style={{ position: "absolute", left: 16, top: 18, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textDecoration: "none", zIndex: 10 }}
           >
             <AnchoaLogo tile size={40} label="Logo Anchoa" />
             <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 600, color: "#E7E9EE", opacity: open ? 1 : 0, transition: "opacity 0.25s", pointerEvents: "none", whiteSpace: "nowrap" }}>
@@ -387,6 +389,7 @@ export function Sidebar({
                 transformOrigin: "22px 22px",
                 transition: it.tr,
                 textAlign: "left",
+                zIndex: 5,
               }}
             >
               <span
@@ -416,11 +419,7 @@ export function Sidebar({
           {/* Bottom stack: Notif · Profil · Pengaturan (left:14 bottom:14, gap:6) */}
           <div
             data-bottom-nav
-            onMouseEnter={() => {
-              window.clearTimeout(hoverTimer.current);
-              close();
-            }}
-            style={{ position: "absolute", left: 14, bottom: 14, display: "flex", flexDirection: "column", gap: 6 }}
+            style={{ position: "absolute", left: 14, bottom: 14, display: "flex", flexDirection: "column", gap: 6, zIndex: 10 }}
           >
             {/* Notifikasi */}
             <button

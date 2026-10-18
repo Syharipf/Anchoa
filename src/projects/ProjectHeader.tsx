@@ -13,8 +13,8 @@ export function ProjectHeader({
   project: ProjectDetail | null;
   looseCount: LooseCount;
   onEdit: () => void;
-  tab?: "kanban" | "agent";
-  onTabChange?: (tab: "kanban" | "agent") => void;
+  tab?: "kanban" | "prd" | "diff" | "agent";
+  onTabChange?: (tab: "kanban" | "prd" | "diff" | "agent") => void;
   running?: boolean;
 }>) {
   const toast = useToast();
@@ -79,6 +79,26 @@ export function ProjectHeader({
                   aria-current={tab === "kanban" ? "page" : undefined}
                 >
                   Kanban
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTabChange?.("prd")}
+                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                    tab === "prd" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                  }`}
+                  aria-current={tab === "prd" ? "page" : undefined}
+                >
+                  PRD &amp; Bisnis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTabChange?.("diff")}
+                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                    tab === "diff" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                  }`}
+                  aria-current={tab === "diff" ? "page" : undefined}
+                >
+                  Perubahan &amp; Diff
                 </button>
                 <button
                   type="button"

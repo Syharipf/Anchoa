@@ -10,6 +10,7 @@ import {
   type ProjectSummary,
   type TaskCard,
   type TaskStatus,
+  type StudioContext,
 } from "../api";
 import { useToast } from "../shell/toast";
 import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
@@ -24,6 +25,7 @@ import { ProjectList } from "./ProjectList";
 import { UpcomingList } from "./UpcomingList";
 import { useProjectBoard } from "./useProjectBoard";
 import { boardColumns, hasFilter, nextStatus } from "./view";
+import { PipelineTracker } from "./PipelineTracker";
 
 export function ProjectsPage({
   onOpenItem,
@@ -39,7 +41,8 @@ export function ProjectsPage({
   const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined);
   const [formOpen, setFormOpen] = useState<{ edit?: ProjectDetail | null } | null>(null);
   const [version, setVersion] = useState(0);
-  const [tab, setTab] = useState<"kanban" | "agent">("kanban");
+  const [tab, setTab] = useState<"kanban" | "prd" | "diff" | "agent">("kanban");
+  const [studioContext, setStudioContext] = useState<StudioContext | null>(null);
   const [filter, setFilter] = useState<BoardFilter>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
@@ -85,6 +88,25 @@ export function ProjectsPage({
     );
     return () => { active = false; };
   }, [version, toast]);
+  useEffect(() => {
+    if (!agentProject) {
+      setStudioContext(null);
+      return;
+    }
+    let active = true;
+    api.projectStudioContext(agentProject.id).then(
+      (ctx) => {
+        if (active) setStudioContext(ctx);
+      },
+      () => {
+        if (active) setStudioContext(null);
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, [agentProject?.id, version]);
+
 
   if (!overview) {
     return <h1 className={H1}>Proyek</h1>;
@@ -332,6 +354,24 @@ export function ProjectsPage({
             onTabChange={(t) => setTab(t)}
             running={running}
           />
+          {agentProject && (
+            <PipelineTracker
+              status={{
+                hasPrd: Boolean(studioContext?.prd),
+                hasFlow: Boolean(studioContext?.flow),
+                planCount: studioContext?.planTasks ?? board?.columns.plan.length ?? 0,
+                doingCount: studioContext?.doingTasks ?? board?.columns.doing.length ?? 0,
+                testReviewCount:
+                  (studioContext?.testTasks ?? board?.columns.test.length ?? 0) +
+                  (studioContext?.reviewTasks ?? board?.columns.review.length ?? 0),
+                doneCount: studioContext?.doneTasks ?? board?.columns.done.length ?? 0,
+              }}
+              onSelectStage={(stage) => {
+                if (stage === 1 || stage === 2) setTab("prd");
+                else setTab("kanban");
+              }}
+            />
+          )}
           {activeTab === "agent" && agentProject ? (
             <AgentTab
               key={agentProject.id}
@@ -349,6 +389,18 @@ export function ProjectsPage({
               onOpenItem={onOpenItem}
               onEditProject={() => setFormOpen({ edit: agentProject })}
             />
+          ) : activeTab === "prd" && agentProject ? (
+            <div className="flex flex-1 flex-col items-center justify-center rounded-[12px] border border-line bg-surface p-8 text-center">
+              <p className="text-sm font-medium text-ink">PRD &amp; Alur Bisnis</p>
+              <p className="mt-1 font-mono text-xs text-muted">
+                {studioContext?.prd ? ".anchoa/prd.md termuat" : "Belum ada dokumen .anchoa/prd.md"}
+              </p>
+            </div>
+          ) : activeTab === "diff" && agentProject ? (
+            <div className="flex flex-1 flex-col items-center justify-center rounded-[12px] border border-line bg-surface p-8 text-center">
+              <p className="text-sm font-medium text-ink">Perubahan &amp; Diff</p>
+              <p className="mt-1 font-mono text-xs text-muted">Inspeksi perubahan Git lokal</p>
+            </div>
           ) : board ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3.5">
               <BoardFilterBar

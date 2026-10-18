@@ -55,8 +55,9 @@ export function ProjectsPage({
   selectedProject.current = selectedId;
   const openTaskId = panel && panel.projectId === selectedId && !panel.log ? panel.taskId : null;
   const { board, lastActors, activities, running } = useProjectBoard(selectedId, version, openTaskId, filter);
-  const agentProject = board?.project?.agent ? board.project : null;
-  const activeTab = agentProject ? tab : "kanban";
+  const currentProject = board?.project ?? null;
+  const agentProject = currentProject?.agent ? currentProject : null;
+  const activeTab = tab === "agent" && !agentProject ? "kanban" : tab;
   const cards = board ? Object.values(board.columns).flat() : [];
   const panelTask = agentProject && panel?.projectId === agentProject.id
     ? cards.find((card) => card.id === panel.taskId) : undefined;
@@ -94,12 +95,12 @@ export function ProjectsPage({
     return () => { active = false; };
   }, [version, toast]);
   useEffect(() => {
-    if (!agentProject) {
+    if (!currentProject) {
       setStudioContext(null);
       return;
     }
     let active = true;
-    api.projectStudioContext(agentProject.id).then(
+    api.projectStudioContext(currentProject.id).then(
       (ctx) => {
         if (active) setStudioContext(ctx);
       },
@@ -110,7 +111,7 @@ export function ProjectsPage({
     return () => {
       active = false;
     };
-  }, [agentProject?.id, version]);
+  }, [currentProject?.id, version]);
 
 
   if (!overview) {
@@ -352,15 +353,15 @@ export function ProjectsPage({
 
         <div className="flex min-h-0 min-w-0 flex-col gap-3.5 self-stretch">
           <ProjectHeader
-            project={board?.project ?? null}
+            project={currentProject}
             looseCount={overview.loose}
-            onEdit={() => board?.project && setFormOpen({ edit: board.project })}
+            onEdit={() => currentProject && setFormOpen({ edit: currentProject })}
             tab={activeTab}
             onTabChange={(t) => setTab(t)}
             running={running}
-            onOpenDraftAi={agentProject ? () => setReviewOpen(true) : undefined}
+            onOpenDraftAi={currentProject ? () => setReviewOpen(true) : undefined}
           />
-          {agentProject && (
+          {currentProject && (
             <PipelineTracker
               status={{
                 hasPrd: Boolean(studioContext?.prd),
@@ -395,10 +396,10 @@ export function ProjectsPage({
               onOpenItem={onOpenItem}
               onEditProject={() => setFormOpen({ edit: agentProject })}
             />
-          ) : activeTab === "prd" && agentProject ? (
+          ) : activeTab === "prd" && currentProject ? (
             <PrdCanvasTab
-              key={agentProject.id}
-              projectId={agentProject.id}
+              key={currentProject.id}
+              projectId={currentProject.id}
               prdContent={studioContext?.prd ?? null}
               flowJson={studioContext?.flow ?? null}
               onPrdSaved={(content) => {
@@ -410,8 +411,8 @@ export function ProjectsPage({
                 setVersion((v) => v + 1);
               }}
             />
-          ) : activeTab === "diff" && agentProject ? (
-            <GitDiffTab key={agentProject.id} projectId={agentProject.id} />
+          ) : activeTab === "diff" && currentProject ? (
+            <GitDiffTab key={currentProject.id} projectId={currentProject.id} />
           ) : board ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3.5">
               <BoardFilterBar
@@ -451,9 +452,9 @@ export function ProjectsPage({
               {boardColumns(false).map(({ status }) => <div key={status} className="rounded-[14px] border border-line bg-stage p-3" />)}
             </div>
           )}
-          {agentProject && (
+          {currentProject && (
             <TerminalDrawer
-              projectId={agentProject.id}
+              projectId={currentProject.id}
               running={running}
               taskId={logTaskId}
               onPromptSent={handleAgentChanged}
@@ -497,9 +498,9 @@ export function ProjectsPage({
           </div>
         </div>
       )}
-      {reviewOpen && agentProject && (
+      {reviewOpen && currentProject && (
         <PrdReviewModal
-          projectId={agentProject.id}
+          projectId={currentProject.id}
           initialPrd={studioContext?.prd ?? null}
           initialFlow={studioContext?.flow ?? null}
           onClose={() => setReviewOpen(false)}

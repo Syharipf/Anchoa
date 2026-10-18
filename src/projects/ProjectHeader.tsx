@@ -70,8 +70,7 @@ export function ProjectHeader({
             <h2 id="proyek-judul" aria-live="polite" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
               {project.name}
             </h2>
-            {project.agent && (
-              <nav aria-label="Tampilan proyek" className="flex gap-1 rounded-[10px] border border-line bg-stage p-1">
+            <nav aria-label="Tampilan proyek" className="flex gap-1 rounded-[10px] border border-line bg-stage p-1">
                 <button
                   type="button"
                   onClick={() => onTabChange?.("kanban")}
@@ -102,6 +101,7 @@ export function ProjectHeader({
                 >
                   Perubahan &amp; Diff
                 </button>
+              {project.agent && (
                 <button
                   type="button"
                   onClick={() => onTabChange?.("agent")}
@@ -113,15 +113,15 @@ export function ProjectHeader({
                   Agen kode
                   <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent animate-pulse" : "bg-disabled"}`} />
                 </button>
-              </nav>
-            )}
+              )}
+            </nav>
           </div>
           {project.description && (
             <p className="m-0 text-[13px] text-muted">{project.description}</p>
           )}
         </div>
         <div className="flex items-center gap-3">
-          {project.agent && onOpenDraftAi && (
+          {onOpenDraftAi && (
             <button
               type="button"
               onClick={onOpenDraftAi}

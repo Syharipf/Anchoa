@@ -26,6 +26,7 @@ import { UpcomingList } from "./UpcomingList";
 import { useProjectBoard } from "./useProjectBoard";
 import { boardColumns, hasFilter, nextStatus } from "./view";
 import { PipelineTracker } from "./PipelineTracker";
+import { PrdCanvasTab } from "./PrdCanvasTab";
 
 export function ProjectsPage({
   onOpenItem,
@@ -390,12 +391,20 @@ export function ProjectsPage({
               onEditProject={() => setFormOpen({ edit: agentProject })}
             />
           ) : activeTab === "prd" && agentProject ? (
-            <div className="flex flex-1 flex-col items-center justify-center rounded-[12px] border border-line bg-surface p-8 text-center">
-              <p className="text-sm font-medium text-ink">PRD &amp; Alur Bisnis</p>
-              <p className="mt-1 font-mono text-xs text-muted">
-                {studioContext?.prd ? ".anchoa/prd.md termuat" : "Belum ada dokumen .anchoa/prd.md"}
-              </p>
-            </div>
+            <PrdCanvasTab
+              key={agentProject.id}
+              projectId={agentProject.id}
+              prdContent={studioContext?.prd ?? null}
+              flowJson={studioContext?.flow ?? null}
+              onPrdSaved={(content) => {
+                setStudioContext((prev) => (prev ? { ...prev, prd: content } : null));
+                setVersion((v) => v + 1);
+              }}
+              onFlowSaved={(flow) => {
+                setStudioContext((prev) => (prev ? { ...prev, flow } : null));
+                setVersion((v) => v + 1);
+              }}
+            />
           ) : activeTab === "diff" && agentProject ? (
             <div className="flex flex-1 flex-col items-center justify-center rounded-[12px] border border-line bg-surface p-8 text-center">
               <p className="text-sm font-medium text-ink">Perubahan &amp; Diff</p>

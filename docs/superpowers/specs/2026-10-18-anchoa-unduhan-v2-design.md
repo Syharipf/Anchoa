@@ -26,6 +26,20 @@ Modul Unduhan ditingkatkan dengan teknologi akselerasi dan proteksi korupsi:
 
 ## 2. Keputusan Desain & Arsitektur
 
+5. **Auto-Catch Clipboard:**
+   - Memantau clipboard sistem saat jendela Anchoa aktif / fokus (`window.onfocus` atau clipboard listener).
+   - Jika mendeteksi URL yang valid (video, audio, berkas, magnet), muncul floating badge dialog "Tautan terdeteksi: [URL] [Unduh] [Tutup]".
+6. **Dukungan Torrent & Magnet (via aria2c):**
+   - Menghapus larangan `magnet:` dan `.torrent`.
+   - Eksekusi engine torrent via binary `aria2c`:
+     `aria2c --dir=<dir> --seed-time=0 --max-connection-per-server=8 --split=8 <url>`
+   - Parser stdout aria2c menangkap byte terunduh, total byte, kecepatan, dan status selesai.
+7. **Pemutar Media Langsung (Built-in Media Player):**
+   - Komponen modal `MediaPlayerModal.tsx` yang memutar file video (`.mp4`, `.mkv`, `.webm`) atau audio (`.mp3`, `.m4a`, `.flac`, `.opus`, `.wav`) yang berstatus "done".
+   - Menggunakan URL protokol asset Tauri `http://asset.localhost/<filepath>` yang sudah dikonfigurasi di `tauri.conf.json`.
+8. **Batch / Multi-Link Downloader:**
+   - Mode input banyak tautan sekaligus di `AddDownload.tsx` (satu tautan per baris).
+   - Otomatis memecah dan mendaftarkan seluruh tautan secara berurutan ke antrean database.
 | Kode | Keputusan | Alasan |
 |---|---|---|
 | A1 | Hapus syarat `probe.is_strong_etag` pada `fetch_multi_range`. Cukup `supports_range && total >= 2MB`. | Mayoritas server modern (Cloudflare, AWS S3, GitHub) mengirimkan weak ETag (`W/"..."`) atau hanya `Last-Modified`. Syarat strong ETag menyebabkan unduhan lambat single-stream. |

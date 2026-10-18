@@ -37,6 +37,7 @@ export function DownloadQueue({
   onRemove,
   onOpen,
   onReveal,
+  onPlay,
 }: Readonly<{
   items: readonly DownloadView[];
   onPause: (id: string) => void;
@@ -45,6 +46,7 @@ export function DownloadQueue({
   onRemove: (id: string) => void;
   onOpen: (id: string) => void;
   onReveal: (id: string) => void;
+  onPlay?: (row: DownloadView) => void;
 }>) {
   const [tab, setTab] = useState<DownloadTab>("all");
   const [cancelTarget, setCancelTarget] = useState<DownloadView | null>(null);
@@ -290,6 +292,25 @@ export function DownloadQueue({
                   )}
                   {row.status === "done" && (
                     <>
+                      {row.filePath && /\.(mp4|mkv|webm|mp3|m4a|flac|opus|wav|ogg)$/i.test(row.filePath) && onPlay && (
+                        <button
+                          type="button"
+                          onClick={() => onPlay(row)}
+                          aria-label={`Putar ${row.title}`}
+                          title="Putar media"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-accent hover:bg-surface-2 transition-colors"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => onOpen(row.id)}

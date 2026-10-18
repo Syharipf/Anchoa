@@ -21,6 +21,22 @@ Cabang: `feat/unduhan-accelerator`
 ## Task 4: UI Format Selector & Tempel Clipboard (AddDownload.tsx)
 - Tambahkan resolusi 1440p (2K) dan format FLAC & WAV.
 - Tambahkan tombol "Tempel Clipboard" di samping input URL.
+## Task 6: Auto-Catch Clipboard (useClipboardCatch.ts & DownloadsPage.tsx)
+- Buat hook `useClipboardCatch`: periksa clipboard saat window focus.
+- Tampilkan floating banner "Tautan terdeteksi di clipboard: Unduh?".
+
+## Task 7: Engine Torrent & Magnet aria2c (downloader.rs & downloads.rs)
+- Tambahkan runner torrent di `downloader.rs` memanggil `aria2c`.
+- Buat parser progres output console `aria2c`.
+- Izinkan jenis URL `magnet:` dan `.torrent` di `downloads.rs`.
+
+## Task 8: In-App Media Player Modal (MediaPlayerModal.tsx & DownloadQueue.tsx)
+- Buat modal dialog pemutar video/audio bawaan di `src/downloads/MediaPlayerModal.tsx`.
+- Tambahkan tombol "Putar Media" pada kartu tugas unduhan berstatus "done".
+
+## Task 9: Batch Multi-Link Downloader (AddDownload.tsx)
+- Tambahkan toggle "Mode Batch" (textarea untuk memasukkan banyak tautan sekaligus).
+- Validasi setiap baris dan tambahkan semua tautan valid ke antrean unduhan secara otomatis.
 
 ## Task 5: Verifikasi Penuh (@advisor)
 - Jalankan `cargo test downloads` dan `cargo test downloader`.

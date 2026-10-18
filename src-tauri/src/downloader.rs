@@ -184,6 +184,9 @@ fn worker(app: AppHandle, id: String, cancel: Arc<AtomicBool>, limit: u64, dir: 
         None => Err(AppError::DbUnavailable),
     };
     let outcome = match row {
+        Ok(row) if is_torrent(&row.url) => {
+            run_torrent(&app, &id, &row, &dir, &part_dir, &cancel)
+        }
         Ok(row) if row.kind == DownloadKind::File => {
             run_file(&app, &id, &row, &dir, &part_dir, limit, &cancel)
         }
@@ -248,6 +251,130 @@ fn run_file(
         Err(e) => Outcome::Failed(e.to_string()),
     }
 }
+fn is_torrent(url: &str) -> bool {
+    let lower = url.to_lowercase();
+    lower.starts_with("magnet:") || lower.ends_with(".torrent") || lower.contains(".torrent?")
+}
+
+fn run_torrent(
+    app: &AppHandle,
+    id: &str,
+    row: &DownloadRow,
+    dir: &Path,
+    part_dir: &Path,
+    cancel: &AtomicBool,
+) -> Outcome {
+    let _ = std::fs::create_dir_all(part_dir);
+    let mut cmd = Command::new("aria2c");
+    cmd.arg(format!("--dir={}", dir.to_string_lossy()))
+        .arg("--seed-time=0")
+        .arg("--summary-interval=1")
+        .arg("--max-connection-per-server=8")
+        .arg("--split=8")
+        .arg(format!(
+            "--dht-file-path={}",
+            part_dir.join("dht.dat").to_string_lossy()
+        ))
+        .arg(&row.url)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Outcome::Failed("aria2c belum terpasang di sistem".into());
+        }
+        Err(e) => return Outcome::Failed(format!("aria2c gagal: {e}")),
+    };
+
+    let stdout = child.stdout.take();
+    with_live(app, id, |live| live.child = Some(child));
+
+    if let Some(pipe) = stdout {
+        let lines = BufReader::new(pipe).lines().map_while(Result::ok);
+        for line in lines {
+            if cancel.load(Ordering::SeqCst) {
+                break;
+            }
+            if let Some((done, total, speed)) = parse_aria2_progress(&line) {
+                with_live(app, id, |live| {
+                    live.done = done;
+                    live.total = total;
+                    if speed.is_some() {
+                        live.speed = speed;
+                    }
+                });
+            }
+        }
+    }
+
+    let child = with_live(app, id, |live| live.child.take()).flatten();
+    let status = child.and_then(|mut child| {
+        if cancel.load(Ordering::SeqCst) {
+            let _ = child.kill();
+        }
+        child.wait().ok()
+    });
+
+    match status {
+        Some(s) if s.success() => Outcome::Done,
+        _ if cancel.load(Ordering::SeqCst) => Outcome::Stopped,
+        s => Outcome::Failed(format!(
+            "aria2c selesai dengan status {:?}",
+            s.and_then(|c| c.code())
+        )),
+    }
+}
+
+pub fn parse_aria2_progress(line: &str) -> Option<(u64, Option<u64>, Option<f64>)> {
+    let trimmed = line.trim();
+    if !trimmed.starts_with("[#") {
+        return None;
+    }
+    let slash_idx = trimmed.find('/')?;
+    let start_idx = trimmed[..slash_idx].rfind(' ')? + 1;
+    let done_str = &trimmed[start_idx..slash_idx];
+
+    let paren_idx = trimmed[slash_idx..].find('(')? + slash_idx;
+    let total_str = &trimmed[slash_idx + 1..paren_idx];
+
+    let done_bytes = parse_human_bytes(done_str)?;
+    let total_bytes = parse_human_bytes(total_str);
+
+    let speed = if let Some(spd_idx) = trimmed.find("SPD:") {
+        let rest = &trimmed[spd_idx + 4..];
+        let end_spd = rest.find([' ', ']']).unwrap_or(rest.len());
+        let spd_str = rest[..end_spd].trim_end_matches('s').trim_end_matches("/s");
+        parse_human_bytes(spd_str).map(|b| b as f64)
+    } else {
+        None
+    };
+
+    Some((done_bytes, total_bytes, speed))
+}
+
+fn parse_human_bytes(s: &str) -> Option<u64> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    let num_end = s
+        .find(|c: char| !c.is_ascii_digit() && c != '.')
+        .unwrap_or(s.len());
+    let val: f64 = s[..num_end].parse().ok()?;
+    let unit = s[num_end..].to_lowercase();
+    let mult = if unit.contains("gib") || unit.contains("gb") {
+        1024.0 * 1024.0 * 1024.0
+    } else if unit.contains("mib") || unit.contains("mb") {
+        1024.0 * 1024.0
+    } else if unit.contains("kib") || unit.contains("kb") {
+        1024.0
+    } else {
+        1.0
+    };
+    Some((val * mult) as u64)
+}
+
 
 fn run_media(
     app: &AppHandle,
@@ -425,7 +552,7 @@ fn filename_from_content_disposition(cd: &str) -> Option<String> {
 }
 
 /// Decodes `%XX` escapes. An invalid escape stays as it is.
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -1720,5 +1847,16 @@ mod tests {
         let res = fetch_file(&opts, &cancel, |_, _| {});
         assert!(res.is_err(), "Truncated file should fail and not be published as Done");
         assert!(!dir.join("truncate.bin").exists(), "Partial file must not be published");
+    }
+
+    #[test]
+    fn test_parse_aria2_progress_line() {
+        let line = "[#2089b0 24.0MiB/100MiB(24%) CN:8 SPD:1.2MiBs ETA:1m10s]";
+        let parsed = parse_aria2_progress(line);
+        assert!(parsed.is_some());
+        let (done, total, speed) = parsed.unwrap();
+        assert_eq!(done, (24.0 * 1024.0 * 1024.0) as u64);
+        assert_eq!(total, Some((100.0 * 1024.0 * 1024.0) as u64));
+        assert_eq!(speed, Some(1258291.0));
     }
 }

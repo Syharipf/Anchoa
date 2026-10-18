@@ -186,28 +186,41 @@ pub fn safe_name(raw: &str) -> String {
 }
 
 fn initial_title(url: &str, kind: DownloadKind) -> String {
-    let clean = url.split('#').next().unwrap_or(url);
-    let clean = clean.split('?').next().unwrap_or(clean);
-    match kind {
-        DownloadKind::Media => {
-            let stripped = clean
-                .strip_prefix("https://")
-                .or_else(|| clean.strip_prefix("http://"))
-                .unwrap_or(clean);
-            let host = stripped.split('/').next().unwrap_or("media");
-            let host = host.split(':').next().unwrap_or(host);
-            if host.is_empty() {
-                "media".to_string()
-            } else {
-                host.to_string()
+    if url.starts_with("magnet:") {
+        if let Some(dn_start) = url.find("dn=") {
+            let rest = &url[dn_start + 3..];
+            let dn_end = rest.find('&').unwrap_or(rest.len());
+            let name = &rest[..dn_end];
+            let decoded = crate::downloader::percent_decode(name);
+            let safe = safe_name(&decoded);
+            if !safe.is_empty() && safe != "unduhan" {
+                return safe;
             }
         }
-        DownloadKind::File => {
-            let segment = clean.rsplit('/').find(|s| !s.is_empty()).unwrap_or("unduhan");
-            safe_name(segment)
-        }
+        return "Torrent".to_string();
     }
-}
+     let clean = url.split('#').next().unwrap_or(url);
+     let clean = clean.split('?').next().unwrap_or(clean);
+     match kind {
+         DownloadKind::Media => {
+             let stripped = clean
+                 .strip_prefix("https://")
+                 .or_else(|| clean.strip_prefix("http://"))
+                 .unwrap_or(clean);
+             let host = stripped.split('/').next().unwrap_or("media");
+             let host = host.split(':').next().unwrap_or(host);
+             if host.is_empty() {
+                 "media".to_string()
+             } else {
+                 host.to_string()
+             }
+         }
+         DownloadKind::File => {
+             let segment = clean.rsplit('/').find(|s| !s.is_empty()).unwrap_or("unduhan");
+             safe_name(segment)
+         }
+     }
+ }
 
 fn row_from_sql(row: &rusqlite::Row<'_>) -> rusqlite::Result<DownloadRow> {
     let options_raw: String = row.get(4)?;
@@ -242,11 +255,9 @@ pub fn add(conn: &Connection, input: &NewDownload, now: i64) -> Result<DownloadR
     if url.is_empty() {
         return Err(AppError::Invalid("URL tidak boleh kosong".into()));
     }
-    if url.starts_with("magnet:") || url.ends_with(".torrent") || url.contains(".torrent?") {
-        return Err(AppError::Invalid("Torrent belum didukung".into()));
-    }
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(AppError::Invalid("URL harus berawalan http:// atau https://".into()));
+    let is_torrent = url.starts_with("magnet:") || url.ends_with(".torrent") || url.contains(".torrent?");
+    if !is_torrent && !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err(AppError::Invalid("URL harus berawalan http://, https://, atau magnet:".into()));
     }
 
     let expected_sha256 = if let Some(hash) = &input.expected_sha256 {
@@ -802,14 +813,13 @@ mod tests {
         let empty = NewDownload::file("   ");
         assert!(matches!(add(&conn, &empty, 1000), Err(AppError::Invalid(_))));
 
-        let magnet = NewDownload::file("magnet:?xt=urn:btih:1234567890abcdef");
-        let err = add(&conn, &magnet, 1000).unwrap_err();
-        assert_eq!(err.to_string(), "Torrent belum didukung");
+        let magnet = NewDownload::file("magnet:?xt=urn:btih:1234567890abcdef&dn=archlinux.iso");
+        let row_m = add(&conn, &magnet, 1000).unwrap();
+        assert_eq!(row_m.title, "archlinux.iso");
 
         let torrent_file = NewDownload::file("https://example.com/distro.iso.torrent");
-        let err = add(&conn, &torrent_file, 1000).unwrap_err();
-        assert_eq!(err.to_string(), "Torrent belum didukung");
-
+        let row_t = add(&conn, &torrent_file, 1000).unwrap();
+        assert_eq!(row_t.title, "distro.iso.torrent");
         let bad_proto = NewDownload::file("ftp://example.com/file.zip");
         assert!(matches!(add(&conn, &bad_proto, 1000), Err(AppError::Invalid(_))));
 

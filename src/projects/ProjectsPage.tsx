@@ -27,6 +27,8 @@ import { useProjectBoard } from "./useProjectBoard";
 import { boardColumns, hasFilter, nextStatus } from "./view";
 import { PipelineTracker } from "./PipelineTracker";
 import { PrdCanvasTab } from "./PrdCanvasTab";
+import { GitDiffTab } from "./GitDiffTab";
+import { TerminalDrawer } from "./TerminalDrawer";
 
 export function ProjectsPage({
   onOpenItem,
@@ -406,10 +408,7 @@ export function ProjectsPage({
               }}
             />
           ) : activeTab === "diff" && agentProject ? (
-            <div className="flex flex-1 flex-col items-center justify-center rounded-[12px] border border-line bg-surface p-8 text-center">
-              <p className="text-sm font-medium text-ink">Perubahan &amp; Diff</p>
-              <p className="mt-1 font-mono text-xs text-muted">Inspeksi perubahan Git lokal</p>
-            </div>
+            <GitDiffTab key={agentProject.id} projectId={agentProject.id} />
           ) : board ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3.5">
               <BoardFilterBar
@@ -448,6 +447,14 @@ export function ProjectsPage({
             <div className="grid min-h-0 flex-1 grid-cols-3 gap-3.5">
               {boardColumns(false).map(({ status }) => <div key={status} className="rounded-[14px] border border-line bg-stage p-3" />)}
             </div>
+          )}
+          {agentProject && (
+            <TerminalDrawer
+              projectId={agentProject.id}
+              running={running}
+              taskId={logTaskId}
+              onPromptSent={handleAgentChanged}
+            />
           )}
         </div>
       </div>

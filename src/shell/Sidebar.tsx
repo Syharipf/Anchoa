@@ -3,7 +3,6 @@ import { PAGES, type PageId } from "./nav";
 import { AnchoaLogo } from "../brand/AnchoaLogo";
 import { NavRailOcean } from "./NavRailOcean";
 import { NavFishSchool } from "./NavFishSchool";
-import { NAV_OVERLAY_BG } from "./navOverlayBg";
 
 
 const ICON_PATHS: Record<string, string[]> = {
@@ -243,58 +242,26 @@ export function Sidebar({
           <NavRailOcean paused={prefersReduced} />
         </div>
 
-        {/* Layer 2 – full-screen overlay (pointer-events none, page still clickable) */}
+        {/* Layer 2 – full-screen ocean depth overlay (pure GPU gradient fade, no heavy blur) */}
         <div
           aria-hidden="true"
           style={{
-            position: "fixed", inset: 0,
+            position: "fixed",
+            inset: 0,
             pointerEvents: "none",
             opacity: open ? 1 : 0,
-            transition: "opacity 0.3s cubic-bezier(.3,.7,.2,1)",
-            willChange: "opacity",
-            backdropFilter: prefersReduced ? "none" : "blur(2px)",
-            WebkitBackdropFilter: prefersReduced ? "none" : "blur(2px)",
-            background: "linear-gradient(90deg, rgba(10,36,45,0.88) 0, rgba(10,36,45,0.74) 300px, rgba(8,26,33,0.46) 640px, rgba(8,26,33,0.32) 100%)",
+            transition: "opacity 0.25s ease",
+            background: "linear-gradient(90deg, rgba(8,26,33,0.92) 0, rgba(8,26,33,0.78) 320px, rgba(8,26,33,0.45) 640px, rgba(8,26,33,0.3) 100%)",
           }}
-        >
-          {/* Laut overlay image (36% opacity) – exact from artboard */}
-          <img
-            src={NAV_OVERLAY_BG}
-            alt=""
-            aria-hidden="true"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.36 }}
-          />
-        </div>
+        />
 
         {/* Layer 3 – interactive hover + gesture zone; expands 72→320px */}
         <div
-          onMouseEnter={(e) => {
-            if (notificationsOpen || current === "profil" || current === "settings") {
-              window.clearTimeout(hoverTimer.current);
-              close();
-              return;
-            }
-            const y = e.clientY;
-            if (y < 90 || y > window.innerHeight - 170) {
-              window.clearTimeout(hoverTimer.current);
-              close();
-              return;
-            }
+          onMouseEnter={() => {
+            if (notificationsOpen || current === "profil" || current === "settings") return;
             cancelClose();
             window.clearTimeout(hoverTimer.current);
-            hoverTimer.current = window.setTimeout(() => setOpen(true), 140);
-          }}
-          onMouseMove={(e) => {
-            if (notificationsOpen || current === "profil" || current === "settings") {
-              window.clearTimeout(hoverTimer.current);
-              if (open) close();
-              return;
-            }
-            const y = e.clientY;
-            if (y < 90 || y > window.innerHeight - 170) {
-              window.clearTimeout(hoverTimer.current);
-              if (open) close();
-            }
+            hoverTimer.current = window.setTimeout(() => setOpen(true), 130);
           }}
           onMouseLeave={scheduleClose}
           onWheel={(e) => {
@@ -316,7 +283,7 @@ export function Sidebar({
             width: open ? 320 : 72,
             height: "100%",
             touchAction: "none",
-            transition: "width 0.35s cubic-bezier(.3,.7,.2,1)",
+            transition: "width 0.28s cubic-bezier(.3,.7,.2,1)",
           }}
         >
           {/* Fish school — rotates with arc, wobbles via nav-swim */}

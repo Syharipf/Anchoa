@@ -425,7 +425,15 @@ export function ProjectsPage({
               }}
             />
           ) : activeTab === "diff" && currentProject ? (
-            <GitDiffTab key={currentProject.id} projectId={currentProject.id} />
+            <div className="flex flex-col gap-5 w-full">
+              <GitDiffTab key={currentProject.id} projectId={currentProject.id} />
+              <TerminalDrawer
+                projectId={currentProject.id}
+                running={running}
+                taskId={logTaskId}
+                onPromptSent={handleAgentChanged}
+              />
+            </div>
           ) : board ? (
             <div className="flex flex-col gap-4 w-full">
               <BoardFilterBar
@@ -464,14 +472,6 @@ export function ProjectsPage({
             <div className="grid min-h-0 flex-1 grid-cols-3 gap-3.5">
               {boardColumns(false).map(({ status }) => <div key={status} className="rounded-[14px] border border-line bg-stage p-3" />)}
             </div>
-          )}
-          {currentProject && (
-            <TerminalDrawer
-              projectId={currentProject.id}
-              running={running}
-              taskId={logTaskId}
-              onPromptSent={handleAgentChanged}
-            />
           )}
         </div>
       ) : (

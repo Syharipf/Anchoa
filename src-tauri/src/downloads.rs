@@ -685,17 +685,35 @@ pub fn build_ytdlp_args(
         args.push("--limit-rate".to_string());
         args.push(limit.to_string());
     }
+    // If aria2c is available on the system, use it to accelerate downloads
+    if std::process::Command::new("aria2c")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        args.push("--downloader".to_string());
+        args.push("aria2c".to_string());
+        args.push("--downloader-args".to_string());
+        args.push("aria2c:-s 8 -x 8 -k 1M -j 8".to_string());
+    }
 
     args.push("--newline".to_string());
     args.push("--no-colors".to_string());
     args.push("--no-playlist".to_string());
     args.push("--continue".to_string());
     args.push("--retries".to_string());
-    args.push("3".to_string());
+    args.push("10".to_string());
     args.push("--fragment-retries".to_string());
-    args.push("3".to_string());
+    args.push("10".to_string());
+    args.push("--file-access-retries".to_string());
+    args.push("5".to_string());
     args.push("--concurrent-fragments".to_string());
-    args.push("4".to_string());
+    args.push("8".to_string());
+    args.push("--buffer-size".to_string());
+    args.push("64K".to_string());
+    args.push("--http-chunk-size".to_string());
+    args.push("10M".to_string());
     args.push("--no-overwrites".to_string());
     args.push("--progress".to_string());
     args.push("--progress-template".to_string());
@@ -1064,10 +1082,10 @@ mod tests {
         assert!(args_video.contains(&"--no-colors".to_string()));
         assert!(args_video.contains(&"--no-playlist".to_string()));
         assert!(args_video.contains(&"--retries".to_string()));
-        assert!(args_video.contains(&"3".to_string()));
+        assert!(args_video.contains(&"10".to_string()));
         assert!(args_video.contains(&"--fragment-retries".to_string()));
         assert!(args_video.contains(&"--concurrent-fragments".to_string()));
-        assert!(args_video.contains(&"4".to_string()));
+        assert!(args_video.contains(&"8".to_string()));
         assert!(args_video.contains(&"--no-overwrites".to_string()));
         assert!(args_video.contains(&"--progress".to_string()));
 

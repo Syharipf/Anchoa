@@ -13,10 +13,10 @@ import {
   extractHost,
 } from "./view";
 
-const VIDEO_QUALITIES = ["2160p", "1080p", "720p", "480p"] as const;
-const AUDIO_QUALITIES = ["320 kbps", "192 kbps", "128 kbps"] as const;
+const VIDEO_QUALITIES = ["2160p", "1440p", "1080p", "720p", "480p", "360p"] as const;
+const AUDIO_QUALITIES = ["320 kbps", "256 kbps", "192 kbps", "128 kbps"] as const;
 const VIDEO_FORMATS = ["MP4", "MKV", "WEBM"] as const;
-const AUDIO_FORMATS = ["MP3", "M4A", "OPUS"] as const;
+const AUDIO_FORMATS = ["MP3", "M4A", "FLAC", "OPUS", "WAV"] as const;
 
 export function AddDownload({
   onAdded,
@@ -157,6 +157,38 @@ export function AddDownload({
             {forcedMedia ? "Media (dipaksa)" : info.label}
           </button>
         </div>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const clip = await navigator.clipboard.readText();
+              if (clip.trim()) {
+                setUrl(clip.trim());
+                setForcedMedia(false);
+              }
+            } catch {
+              toast("Gagal membaca clipboard", "error");
+            }
+          }}
+          title="Tempel tautan dari clipboard"
+          className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 text-xs font-semibold text-ink hover:border-accent hover:text-accent transition-colors"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          </svg>
+          Tempel
+        </button>
         <button
           type="button"
           onClick={() => void handleAdd()}

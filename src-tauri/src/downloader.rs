@@ -632,10 +632,9 @@ pub fn fetch_file(
 
     let payload_path = opts.part_dir.join("payload.part");
 
-    // 4-range workers: size >= 8 MiB, strong ETag, total known, range supported
+    // Multi-range workers: size >= 2 MiB, total known, range supported
     let use_multi_range = probe.supports_range
-        && probe.is_strong_etag
-        && probe.total.map(|t| t >= 8 * 1024 * 1024).unwrap_or(false);
+        && probe.total.map(|t| t >= 2 * 1024 * 1024).unwrap_or(false);
 
     if use_multi_range {
         let total = probe.total.unwrap();
@@ -1018,7 +1017,7 @@ fn fetch_multi_range(
     cancel: &AtomicBool,
     on_progress: &mut impl FnMut(u64, Option<u64>),
 ) -> Result<(), AppError> {
-    const NUM_WORKERS: usize = 4;
+    const NUM_WORKERS: usize = 8;
     let chunk_size = total / (NUM_WORKERS as u64);
 
     let mut ranges = Vec::with_capacity(NUM_WORKERS);
@@ -1062,12 +1061,7 @@ fn fetch_multi_range(
     drop(file);
 
     let static_ranges = ranges.clone();
-    let dones = Arc::new([
-        AtomicU64::new(ranges[0].done),
-        AtomicU64::new(ranges[1].done),
-        AtomicU64::new(ranges[2].done),
-        AtomicU64::new(ranges[3].done),
-    ]);
+    let dones: Arc<Vec<AtomicU64>> = Arc::new(ranges.iter().map(|r| AtomicU64::new(r.done)).collect());
     let initial_done: u64 = ranges.iter().map(|r| r.done).sum();
     let total_done = Arc::new(AtomicU64::new(initial_done));
 

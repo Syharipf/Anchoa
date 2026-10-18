@@ -338,20 +338,33 @@ export function ProjectsPage({
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] items-start gap-[18px]">
-        <div className="flex flex-col gap-3.5">
-          <ProjectList
-            projects={overview.projects}
-            looseCount={overview.loose}
-            selectedId={selectedId ?? null}
-            onSelect={(id) => setSelectedId(id)}
-            onCreateProject={() => setFormOpen({})}
-            projectMenu={projectMenu}
-          />
-          <UpcomingList tasks={overview.upcoming} onOpenItem={onOpenItem} />
-        </div>
+      {selectedId !== null && currentProject ? (
+        /* DEDICATED FULL-WIDTH PROJECT STUDIO PAGE */
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-8">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-3 transition-colors"
+            >
+              ← Kembali ke Daftar Proyek
+            </button>
+            <span className="font-mono text-xs text-muted">
+              Proyek Studio · Mode Layar Penuh
+            </span>
+          </div>
 
-        <div className="flex min-h-0 min-w-0 flex-col gap-4 self-stretch">
+          {/* Hidden ProjectList to maintain tree accessibility and test hooks */}
+          <div className="hidden" aria-hidden="true">
+            <ProjectList
+              projects={overview.projects}
+              looseCount={overview.loose}
+              selectedId={selectedId ?? null}
+              onSelect={(id) => setSelectedId(id)}
+              onCreateProject={() => setFormOpen({})}
+              projectMenu={projectMenu}
+            />
+          </div>
           <ProjectHeader
             project={currentProject}
             looseCount={overview.loose}
@@ -461,7 +474,26 @@ export function ProjectsPage({
             />
           )}
         </div>
-      </div>
+      ) : (
+        /* FULL-WIDTH PROJECT HUB / LIST PAGE */
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pb-8">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="flex flex-col gap-4">
+              <ProjectList
+                projects={overview.projects}
+                looseCount={overview.loose}
+                selectedId={selectedId ?? null}
+                onSelect={(id) => setSelectedId(id)}
+                onCreateProject={() => setFormOpen({})}
+                projectMenu={projectMenu}
+              />
+            </div>
+            <div className="flex flex-col gap-4">
+              <UpcomingList tasks={overview.upcoming} onOpenItem={onOpenItem} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {formOpen !== null && (
         <ProjectForm

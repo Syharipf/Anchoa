@@ -556,6 +556,199 @@ pub fn active_projects(
         .take(limit)
         .collect())
 }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioContext {
+    pub project_id: String,
+    pub branch: Option<String>,
+    pub prd: Option<String>,
+    pub flow: Option<String>,
+    pub plan_tasks: i64,
+    pub doing_tasks: i64,
+    pub test_tasks: i64,
+    pub review_tasks: i64,
+    pub done_tasks: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitFileChange {
+    pub path: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitChanges {
+    pub branch: Option<String>,
+    pub files: Vec<GitFileChange>,
+}
+
+fn get_project_agent_dir(conn: &Connection, project_id: &str) -> Result<String, AppError> {
+    let dir: Option<String> = conn
+        .query_row(
+            "SELECT p.agent_dir FROM projects p JOIN items i ON i.id = p.item_id WHERE i.id = ?1 AND i.deleted_at IS NULL",
+            [project_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .ok_or(AppError::NotFound)?;
+    dir.filter(|d| !d.trim().is_empty())
+        .ok_or_else(|| invalid("Folder agen belum diatur"))
+}
+
+/// Whitelist allowed project context files inside `.anchoa/`.
+/// ponytail: only `prd.md` and `flow.json` supported; upgrade to dynamic specs if requested.
+pub fn save_project_anchoa_file(
+    conn: &Connection,
+    project_id: &str,
+    filename: &str,
+    content: &str,
+) -> Result<(), AppError> {
+    if filename != "prd.md" && filename != "flow.json" {
+        return Err(invalid("Nama file tidak diizinkan"));
+    }
+    let dir = get_project_agent_dir(conn, project_id)?;
+
+    let anchoa_dir = std::path::Path::new(&dir).join(".anchoa");
+    std::fs::create_dir_all(&anchoa_dir).map_err(|e| AppError::Other(e.to_string()))?;
+    let file_path = anchoa_dir.join(filename);
+    std::fs::write(&file_path, content).map_err(|e| AppError::Other(e.to_string()))?;
+    Ok(())
+}
+
+pub fn get_studio_context(
+    conn: &Connection,
+    project_id: &str,
+) -> Result<StudioContext, AppError> {
+    let mut prd = None;
+    let mut flow = None;
+    let mut branch = None;
+
+    if let Ok(dir) = get_project_agent_dir(conn, project_id) {
+        let anchoa_dir = std::path::Path::new(&dir).join(".anchoa");
+        if let Ok(text) = std::fs::read_to_string(anchoa_dir.join("prd.md")) {
+            prd = Some(text);
+        }
+        if let Ok(text) = std::fs::read_to_string(anchoa_dir.join("flow.json")) {
+            flow = Some(text);
+        }
+        branch = get_git_branch(&dir);
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT tt.status, COUNT(*)
+         FROM items ti
+         JOIN tasks tt ON tt.item_id = ti.id
+         WHERE ti.deleted_at IS NULL AND ti.type = 'task' AND ti.parent_id IS NULL
+           AND tt.project_id = ?1
+         GROUP BY tt.status",
+    )?;
+    let rows = stmt.query_map([project_id], |row| {
+        let status: String = row.get(0)?;
+        let count: i64 = row.get(1)?;
+        Ok((status, count))
+    })?;
+
+    let mut plan_tasks = 0;
+    let mut doing_tasks = 0;
+    let mut test_tasks = 0;
+    let mut review_tasks = 0;
+    let mut done_tasks = 0;
+
+    for r in rows.flatten() {
+        match r.0.as_str() {
+            "plan" => plan_tasks = r.1,
+            "doing" => doing_tasks = r.1,
+            "test" => test_tasks = r.1,
+            "review" => review_tasks = r.1,
+            "done" => done_tasks = r.1,
+            _ => {}
+        }
+    }
+
+    Ok(StudioContext {
+        project_id: project_id.into(),
+        branch,
+        prd,
+        flow,
+        plan_tasks,
+        doing_tasks,
+        test_tasks,
+        review_tasks,
+        done_tasks,
+    })
+}
+
+pub fn get_git_branch(dir: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(dir)
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !branch.is_empty() && branch != "HEAD" {
+            return Some(branch);
+        }
+    }
+    None
+}
+
+pub fn parse_git_status_porcelain(stdout: &str) -> Vec<GitFileChange> {
+    let mut changes = Vec::new();
+    for line in stdout.lines() {
+        if line.len() < 4 {
+            continue;
+        }
+        let status_code = line[..2].trim().to_string();
+        let path = line[3..].trim().to_string();
+        if !path.is_empty() {
+            changes.push(GitFileChange { path, status: status_code });
+        }
+    }
+    changes
+}
+
+pub fn get_git_diff(conn: &Connection, project_id: &str) -> Result<GitChanges, AppError> {
+    let dir = get_project_agent_dir(conn, project_id)?;
+    let branch = get_git_branch(&dir);
+    let output = std::process::Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(&dir)
+        .output()
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let files = parse_git_status_porcelain(&stdout);
+
+    Ok(GitChanges { branch, files })
+}
+
+pub fn open_external_terminal(conn: &Connection, project_id: &str) -> Result<(), AppError> {
+    let dir = get_project_agent_dir(conn, project_id)?;
+
+    let terminals = [
+        "x-terminal-emulator",
+        "kitty",
+        "ghostty",
+        "gnome-terminal",
+        "alacritty",
+        "konsole",
+        "xfce4-terminal",
+    ];
+    for term in terminals {
+        if let Ok(child) = std::process::Command::new(term)
+            .current_dir(&dir)
+            .spawn()
+        {
+            let _ = child;
+            return Ok(());
+        }
+    }
+    Err(AppError::Other("Terminal emulator tidak ditemukan".into()))
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -1058,5 +1251,43 @@ mod tests {
 
         let parsed: BoardFilter = serde_json::from_value(serde_json::json!({ "due": "none", "priority": 2 })).unwrap();
         assert_eq!((parsed.due, parsed.priority), (Some(DueFilter::NoDue), Some(2)));
+    }
+
+    #[test]
+    fn test_studio_context_and_anchoa_files() {
+        let conn = open_in_memory();
+        let dir = tempfile::tempdir_in(".").unwrap();
+        let input: ProjectInput = serde_json::from_value(serde_json::json!({
+            "name": "Studio Test", "kind": "app", "description": "", "agent": true,
+            "agentCommand": "echo run", "agentDir": dir.path().join(".")
+        })).unwrap();
+        let saved = save_project(&conn, &input, now(), &jakarta()).unwrap();
+        let proj_id = &saved.summary.id;
+
+        let ctx = get_studio_context(&conn, proj_id).unwrap();
+        assert_eq!(ctx.prd, None);
+        assert_eq!(ctx.flow, None);
+        assert_eq!(ctx.plan_tasks, 0);
+
+        save_project_anchoa_file(&conn, proj_id, "prd.md", "# Test PRD").unwrap();
+        save_project_anchoa_file(&conn, proj_id, "flow.json", r#"{"nodes":[]}"#).unwrap();
+        assert!(save_project_anchoa_file(&conn, proj_id, "hack.sh", "evil").is_err());
+
+        let ctx2 = get_studio_context(&conn, proj_id).unwrap();
+        assert_eq!(ctx2.prd.as_deref(), Some("# Test PRD"));
+        assert_eq!(ctx2.flow.as_deref(), Some(r#"{"nodes":[]}"#));
+    }
+
+    #[test]
+    fn test_git_status_parser() {
+        let output = " M src/main.rs\n?? .anchoa/prd.md\nA  src/auth.rs\n";
+        let changes = parse_git_status_porcelain(output);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0].path, "src/main.rs");
+        assert_eq!(changes[0].status, "M");
+        assert_eq!(changes[1].path, ".anchoa/prd.md");
+        assert_eq!(changes[1].status, "??");
+        assert_eq!(changes[2].path, "src/auth.rs");
+        assert_eq!(changes[2].status, "A");
     }
 }

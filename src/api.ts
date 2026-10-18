@@ -241,6 +241,28 @@ export interface ProjectInput {
   agentCommand?: string | null;
   agentDir?: string | null;
 }
+export interface StudioContext {
+  projectId: string;
+  branch: string | null;
+  prd: string | null;
+  flow: string | null;
+  planTasks: number;
+  doingTasks: number;
+  testTasks: number;
+  reviewTasks: number;
+  doneTasks: number;
+}
+
+export interface GitFileChange {
+  path: string;
+  status: string;
+}
+
+export interface GitChanges {
+  branch: string | null;
+  files: GitFileChange[];
+}
+
 
 export interface LooseCount {
   done: number;
@@ -1144,6 +1166,16 @@ export const api = {
   saveProject: (input: ProjectInput) => invoke<ProjectDetail>("save_project", { input }),
   deleteProject: (id: string) => invoke<void>("delete_project", { id }),
   openRepo: (id: string) => invoke<void>("open_repo", { id }),
+  projectStudioContext: (projectId: string) =>
+    invoke<StudioContext>("project_studio_context", { projectId }),
+  projectSavePrd: (projectId: string, content: string) =>
+    invoke<void>("project_save_prd", { projectId, content }),
+  projectSaveFlow: (projectId: string, flowJson: string) =>
+    invoke<void>("project_save_flow", { projectId, flowJson }),
+  projectGitDiff: (projectId: string) =>
+    invoke<GitChanges>("project_git_diff", { projectId }),
+  projectOpenExternalTerminal: (projectId: string) =>
+    invoke<void>("project_open_external_terminal", { projectId }),
   agentRequest: (projectId: string, text: string) => invoke<TaskCard>("agent_request", { projectId, text }),
   agentStop: (projectId: string) => invoke<void>("agent_stop", { projectId }),
   agentRunning: () => invoke<string[]>("agent_running"),

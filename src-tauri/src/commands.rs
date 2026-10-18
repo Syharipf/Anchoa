@@ -110,6 +110,31 @@ pub fn open_repo(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), Ap
         .open_url(url, None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
 }
+#[tauri::command]
+pub fn project_studio_context(db: State<'_, Db>, project_id: String) -> Result<projects::StudioContext, AppError> {
+    projects::get_studio_context(&*db.conn()?, &project_id)
+}
+
+#[tauri::command]
+pub fn project_save_prd(db: State<'_, Db>, project_id: String, content: String) -> Result<(), AppError> {
+    projects::save_project_anchoa_file(&*db.conn()?, &project_id, "prd.md", &content)
+}
+
+#[tauri::command]
+pub fn project_save_flow(db: State<'_, Db>, project_id: String, flow_json: String) -> Result<(), AppError> {
+    projects::save_project_anchoa_file(&*db.conn()?, &project_id, "flow.json", &flow_json)
+}
+
+#[tauri::command]
+pub fn project_git_diff(db: State<'_, Db>, project_id: String) -> Result<projects::GitChanges, AppError> {
+    projects::get_git_diff(&*db.conn()?, &project_id)
+}
+
+#[tauri::command]
+pub fn project_open_external_terminal(db: State<'_, Db>, project_id: String) -> Result<(), AppError> {
+    projects::open_external_terminal(&*db.conn()?, &project_id)
+}
+
 
 #[tauri::command]
 pub fn agent_request(

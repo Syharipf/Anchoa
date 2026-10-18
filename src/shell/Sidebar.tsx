@@ -54,9 +54,6 @@ function saveCollapsed(v: boolean) {
   }
 }
 
-const ARC = { cx: -250, r: 290, step: 11 };
-const CY = 388;
-
 export function Sidebar({
   current,
   onSelect,
@@ -148,24 +145,35 @@ export function Sidebar({
     const mid = off === 0;
     const here = m.id === current;
     const show = ad <= half;
-    const a = off * ARC.step;
-    const rad = (a * Math.PI) / 180;
-    const x = (ARC.cx + ARC.r * Math.cos(rad) - 22).toFixed(1);
-    const y = (CY + ARC.r * Math.sin(rad) - 22).toFixed(1);
+
+    // Smooth cylindrical depth within 72px rail:
+    // Center: x=14, y=368
+    // Step 1: x=11, y=368 ± 60
+    // Step 2: x=7, y=368 ± 116
+    const x = mid ? 14 : ad === 1 ? 11 : 7;
+    const y = 368 + off * (ad === 2 ? 58 : 60);
+
     return {
       page: m,
       here,
+      mid,
       show,
       x,
       y,
-      scale: mid ? 1.05 : ad === 1 ? 0.9 : 0.78,
-      op: show ? (mid ? 1 : 0.65) : 0,
+      scale: mid ? 1.15 : ad === 1 ? 0.88 : 0.72,
+      op: show ? (mid ? 1 : ad === 1 ? 0.72 : 0.35) : 0,
       pe: show ? ("auto" as const) : ("none" as const),
-      color: here ? "#C6F36B" : "#DCEAEE",
-      bg: here ? "#10303A" : mid ? "rgba(16,48,58,0.95)" : "rgba(8,26,33,0.78)",
-      border: here ? "#C6F36B" : mid ? "#5E9AAA" : "#2C5868",
-      glow: here ? "0 0 0 3px rgba(198,243,107,0.14), 0 0 14px rgba(198,243,107,0.3)" : "none",
-      tr: "transform 0.35s cubic-bezier(.25,.7,.2,1), opacity 0.25s ease",
+      color: here || mid ? "#C6F36B" : "#CFE3EA",
+      bg: here || mid ? "#10303A" : "rgba(10,36,45,0.85)",
+      border: here ? "#C6F36B" : mid ? "#5E9AAA" : "#223E4A",
+      glow: here
+        ? "0 0 0 2px #C6F36B, 0 0 16px rgba(198,243,107,0.38), inset 0 0 8px rgba(198,243,107,0.18)"
+        : mid
+          ? "0 0 12px rgba(47,116,134,0.4)"
+          : "none",
+      tr: prefersReduced
+        ? "none"
+        : "transform 0.42s cubic-bezier(.22, 1, .36, 1), opacity 0.3s ease, border-color 0.25s, box-shadow 0.25s",
     };
   });
 
@@ -293,6 +301,35 @@ export function Sidebar({
           <NavRailOcean paused={prefersReduced} />
         </div>
 
+        {/* Ambient center radial glow */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 346,
+            width: 72,
+            height: 88,
+            pointerEvents: "none",
+            background: "radial-gradient(circle, rgba(47,116,134,0.35) 0%, transparent 70%)",
+          }}
+        />
+
+        {/* Active center indicator pill on right edge */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 380,
+            width: 3,
+            height: 20,
+            borderRadius: "2px 0 0 2px",
+            background: "#C6F36B",
+            boxShadow: "0 0 8px #C6F36B",
+          }}
+        />
+
         {/* Logo at top */}
         <div
           role="button"
@@ -322,7 +359,8 @@ export function Sidebar({
           type="button"
           onClick={() => turn(-1)}
           aria-label="Menu sebelumnya"
-          title="Menu sebelumnya"
+          title="Menu sebelumnya (Scroll / Panah Atas)"
+          className="group hover:border-accent hover:text-accent transition-all duration-200 hover:scale-105 active:scale-95"
           style={{
             position: "absolute",
             left: 22,
@@ -350,11 +388,29 @@ export function Sidebar({
             strokeWidth="2.2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="transition-transform group-hover:-translate-y-0.5"
             aria-hidden="true"
           >
             <path d="M6 15l6-6 6 6" />
           </svg>
         </button>
+
+        {/* Position readout — top: 154px */}
+        <span
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 154,
+            width: 72,
+            textAlign: "center",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10,
+            color: "#8FB3BE",
+            pointerEvents: "none",
+          }}
+        >
+          {activeIdx >= 0 ? `${activeIdx + 1}/${N}` : "—"}
+        </span>
 
         {/* Vertical Arc Menu Items (Up/Down motion inside 72px rail) */}
         {items.map((it, i) => (
@@ -366,6 +422,7 @@ export function Sidebar({
             title={it.page.label}
             aria-current={it.here ? "page" : undefined}
             tabIndex={it.show ? 0 : -1}
+            className="group outline-none"
             style={{
               position: "absolute",
               left: 0,
@@ -382,7 +439,7 @@ export function Sidebar({
               transform: `translate(${it.x}px, ${it.y}px) scale(${it.scale})`,
               transformOrigin: "22px 22px",
               transition: it.tr,
-              zIndex: 5,
+              zIndex: it.mid ? 8 : 5,
             }}
           >
             <span
@@ -400,9 +457,11 @@ export function Sidebar({
                 justifyContent: "center",
                 boxShadow: it.glow,
                 pointerEvents: it.pe,
+                transition: "border-color 0.2s, background-color 0.2s, transform 0.2s, box-shadow 0.2s",
               }}
+              className="group-hover:border-accent group-hover:scale-105"
             >
-              <NavSvg id={it.page.id} size={20} />
+              <NavSvg id={it.page.id} size={it.mid ? 22 : 19} />
               {it.page.id === "email" && reminders > 0 && (
                 <span
                   aria-hidden="true"
@@ -431,16 +490,17 @@ export function Sidebar({
           </button>
         ))}
 
-        {/* Down arrow ▼ — top: 590px */}
+        {/* Down arrow ▼ — top: 580px */}
         <button
           type="button"
           onClick={() => turn(1)}
           aria-label="Menu berikutnya"
-          title="Menu berikutnya"
+          title="Menu berikutnya (Scroll / Panah Bawah)"
+          className="group hover:border-accent hover:text-accent transition-all duration-200 hover:scale-105 active:scale-95"
           style={{
             position: "absolute",
             left: 22,
-            top: 590,
+            top: 580,
             width: 28,
             height: 28,
             borderRadius: "50%",
@@ -464,9 +524,10 @@ export function Sidebar({
             strokeWidth="2.2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="transition-transform group-hover:translate-y-0.5"
             aria-hidden="true"
           >
-            <path d="M6 9l6 6 6-6" />
+            <path d="M6 9l6 6-6 6" />
           </svg>
         </button>
 
@@ -490,6 +551,7 @@ export function Sidebar({
             title="Notifikasi"
             aria-haspopup="dialog"
             aria-expanded={notificationsOpen}
+            className="transition-transform hover:scale-105 active:scale-95"
             style={{
               position: "relative",
               width: 44,
@@ -546,6 +608,7 @@ export function Sidebar({
                 aria-label={p.label}
                 title={p.label}
                 aria-current={active ? "page" : undefined}
+                className="transition-transform hover:scale-105 active:scale-95"
                 style={{
                   position: "relative",
                   width: 44,

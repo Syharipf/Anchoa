@@ -9,6 +9,7 @@ export function ProjectHeader({
   tab = "kanban",
   onTabChange,
   running = false,
+  onOpenDraftAi,
 }: Readonly<{
   project: ProjectDetail | null;
   looseCount: LooseCount;
@@ -16,6 +17,7 @@ export function ProjectHeader({
   tab?: "kanban" | "prd" | "diff" | "agent";
   onTabChange?: (tab: "kanban" | "prd" | "diff" | "agent") => void;
   running?: boolean;
+  onOpenDraftAi?: () => void;
 }>) {
   const toast = useToast();
 
@@ -119,6 +121,18 @@ export function ProjectHeader({
           )}
         </div>
         <div className="flex items-center gap-3">
+          {project.agent && onOpenDraftAi && (
+            <button
+              type="button"
+              onClick={onOpenDraftAi}
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-stage px-2.5 py-1 text-xs font-semibold text-accent transition-colors hover:bg-surface-2"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Draft Sasaran AI
+            </button>
+          )}
           <button
             type="button"
             onClick={onEdit}

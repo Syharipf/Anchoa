@@ -29,6 +29,7 @@ import { PipelineTracker } from "./PipelineTracker";
 import { PrdCanvasTab } from "./PrdCanvasTab";
 import { GitDiffTab } from "./GitDiffTab";
 import { TerminalDrawer } from "./TerminalDrawer";
+import { PrdReviewModal } from "./PrdReviewModal";
 
 export function ProjectsPage({
   onOpenItem,
@@ -48,6 +49,7 @@ export function ProjectsPage({
   const [studioContext, setStudioContext] = useState<StudioContext | null>(null);
   const [filter, setFilter] = useState<BoardFilter>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
   const selectedProject = useRef(selectedId);
   selectedProject.current = selectedId;
@@ -356,6 +358,7 @@ export function ProjectsPage({
             tab={activeTab}
             onTabChange={(t) => setTab(t)}
             running={running}
+            onOpenDraftAi={agentProject ? () => setReviewOpen(true) : undefined}
           />
           {agentProject && (
             <PipelineTracker
@@ -493,6 +496,18 @@ export function ProjectsPage({
             </div>
           </div>
         </div>
+      )}
+      {reviewOpen && agentProject && (
+        <PrdReviewModal
+          projectId={agentProject.id}
+          initialPrd={studioContext?.prd ?? null}
+          initialFlow={studioContext?.flow ?? null}
+          onClose={() => setReviewOpen(false)}
+          onApproved={() => {
+            setReviewOpen(false);
+            setVersion((v) => v + 1);
+          }}
+        />
       )}
     </>
   );

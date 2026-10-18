@@ -101,6 +101,27 @@ Header bulan + Catat lewat suara + Transaksi. 4 kartu (Saldo, Pemasukan, Pengelu
 - **HP (`HpAgen`)**: kartu izin besar (tombol 50px), progres sesi, event terakhir, perintah cepat (dari HP bawaannya Rencana saja).
 - Kanban: kartu dari agen diberi lencana kecil "dari agen".
 
+### Proyek › Studio Mission Control (`ProyekStudio`, `ProyekPrdReview`)
+- **Pusat Observabilitas AI (Bukan IDE)**: Memantau pengerjaan AI dari sasaran, PRD, arsitektur, kanban, hingga commit/diff, tersambung ke harness eksternal (omp).
+- **Pipeline Tracker (Banner SVG Animasi)**:
+  - 6 tahapan: *1. PRD & Bisnis* (Disetujui) → *2. Arsitektur* (Valid) → *3. Rencana* (Kanban antre) → *4. Coding/Harness* (Aktif berdenyut, garis konektor mengalir `stroke-dasharray`) → *5. Tes & Review* → *6. Selesai/Release*.
+  - Interaktif: Klik node untuk berpindah tab atau memfilter fokus tampilan.
+- **Tab Navigasi Studio**:
+  - **Kanban (5 Kolom)**: Rencana, Dikerjakan, Tes, Review, Selesai. Kartu menampilkan lencana harness (aktor, role, prioritas, durasi, commit/PR link).
+  - **PRD & Alur Bisnis**:
+    - Kolom kiri: File `.anchoa/prd.md` di folder repo (User Story, Aturan Bisnis, Kriteria Selesai).
+    - Kolom kanan: Canvas alur proses bisnis interaktif berbasis `.anchoa/flow.json` (node-edge DSL hemat token, auto-layout SVG).
+  - **Perubahan & Diff**: Daftar file berubah (`+` / `-`), patch diff ringkas per task/commit.
+- **Alur Planning & Approval (`ProyekPrdReview`)**:
+  - User kirim sasaran umum → Harness menghasilkan draf PRD, flow diagram, dan pemecahan task → Tampil banner review di Anchoa.
+  - User dapat mengedit teks PRD langsung di editor, menggeser/menambah node di canvas, atau meminta revisi via prompt bar.
+  - Tombol aksi: *Batal/Buang Draft*, *Revisi Draft*, dan tombol utama lime *Setujui & Eksekusi Pipeline ▶*.
+- **Drawer Terminal PTY & Prompt Harness (Collapsible Bawah, 165px)**:
+  - Header: Status koneksi harness (`omp` di repo lokal, PID proses).
+  - Terminal output live: Menampilkan stdout/stderr proses (log test, compile, aktivitas `anchoa agent`).
+  - Prompt bar bawah: Meneruskan instruksi langsung ke stdin proses harness yang aktif.
+  - Tombol *Terminal Luar ↗*: Menjalankan terminal emulator OS (`kitty`, `ghostty`, dll.) di folder proyek.
+
 ### Proyek
 Daftar proyek (kartu progres, klik pilih) + Tenggat terdekat. Header proyek (persen, deadline, status repo). Kanban 3 kolom (Rencana / Dikerjakan / Selesai); tombol → memindah kartu ke kolom berikutnya; progres ikut diperbarui.
 

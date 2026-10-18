@@ -5,12 +5,14 @@
 3. **Delegation default.** Multi-file / refactor / fitur / investigasi wajib dipecah ke subagent `task` (1 batch paralel), bukan dikerjakan sendiri di thread utama. Thread utama cukup untuk: edit 1 file < 30 baris, jawab pertanyaan tanpa ubah kode, atau perintah CLI eksplisit dari user.
 4. **Setiap pekerjaan > 3 langkah pakai `todo`** (plan → task → advisor). Track per fase: Audit/ingest → Implementasi → Verifikasi & review.
 5. **Uji setiap perubahan.** Setelah edit, jalankan test yang menyentuh file itu (`bun test src/<module>` atau `bun test src/pet src/brand ...`) sebelum lanjut. Jangan hanya percaya `bun run test` global — `bun test src` di bun 1.4.2 hanya scan file `*.test.*` di depth 1 dari `src/`; test di subfolder baru perlu dipanggil eksplisit atau ditaruh di folder yang sudah ter-scan.
+6. **Siklus wajib 3 Role (Plan → Task → Advisor):** Setiap pekerjaan fitur atau perubahan wajib melewati 3 peran secara berurutan:
+   - `@plan`: Audit, perumusan spesifikasi, alur proses, dan rincian langkah tugas di `todo`.
+   - `@task`: Eksekusi pembuatan kode / berkas artboard secara modular dan teruji.
+   - `@advisor`: Evaluasi arsitektur, verifikasi kepatuhan terhadap spec & token, serta review kualitas/keamanan sebelum selesai.
 
-**Catatan sesi cloud Claude Code:** di sesi cloud `~/.omp/agent/config.yml` tidak ada, jadi role → model dipetakan lewat frontmatter `model:` di `.claude/agents/`: `implementer` = sonnet, `reviewer-opus` = opus, `helper-haiku` = haiku (untuk pekerjaan kecil yang mekanis). Perencanaan dikerjakan di thread utama (Opus).
+# AGENTS.md / CLAUDE.md
 
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Panduan kerja agen AI (omp) untuk repo Anchoa.
 
 ## Project
 
@@ -90,9 +92,9 @@ When a task belongs to an agent project in Anchoa, report through the CLI in the
 - Save plans with `anchoa agent plan --task ID --actor <name> --file plan.md`. The plan also becomes a Catatan page under "Rencana <project>".
 - Move the card as work progresses: `anchoa agent task status --task ID doing|test|review|done --actor <name>`. Status changes are logged automatically.
 - MANDATORY AUTO-STEP: Setiap menyelesaikan PR / rilis, jangan tunggu user meminta. Wajib otomatis:
-  1. Log review findings: `anchoa agent log --task ID --actor Claude --role review --body "..."`
-  2. Log PR link: `anchoa agent log --task ID --actor Claude --role merge --kind link --body "https://github.com/..."`
-  3. Pindahkan status task ke `done`: `anchoa agent task status --task ID done --actor Claude`
+  1. Log review findings: `anchoa agent log --task ID --actor omp --role review --body "..."`
+  2. Log PR link: `anchoa agent log --task ID --actor omp --role merge --kind link --body "https://github.com/..."`
+  3. Pindahkan status task ke `done`: `anchoa agent task status --task ID done --actor omp`
   4. Lapor ringkasan dan status kartu ke user.
 - Never send file contents, secrets, or `.env` values to Anchoa.
 

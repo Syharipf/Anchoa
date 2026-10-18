@@ -15,7 +15,7 @@ import {
 import { useToast } from "../shell/toast";
 import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
 import { type MenuEntry } from "../shell/ContextMenu";
-import { AgentTab } from "./AgentTab";
+import { AgentTab, ConnectAgentDialog } from "./AgentTab";
 import { AgentThread } from "./AgentThread";
 import { BoardFilterBar } from "./BoardFilterBar";
 import { Kanban } from "./Kanban";
@@ -50,6 +50,7 @@ export function ProjectsPage({
   const [filter, setFilter] = useState<BoardFilter>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
   const selectedProject = useRef(selectedId);
   selectedProject.current = selectedId;
@@ -287,71 +288,52 @@ export function ProjectsPage({
 
   return (
     <>
-      <div className="flex items-center gap-3.5">
-        <h1 className={H1}>Proyek</h1>
-        <span className="rounded-full border border-line px-2.5 py-0.5 font-mono text-xs text-muted">
-          {overview.activeCount} aktif
-        </span>
-        <div className="ml-auto flex gap-2.5">
-          <button
-            type="button"
-            onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={`${HEADER_SECONDARY} flex items-center gap-2`}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              className="text-accent"
-            >
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5 11a7 7 0 0 0 14 0" />
-              <path d="M12 18v3" />
-            </svg>
-            Tambah lewat suara
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormOpen({})}
-            className={`${HEADER_PRIMARY} flex items-center gap-2`}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Proyek
-          </button>
-        </div>
-      </div>
-
       {selectedId !== null && currentProject ? (
         /* DEDICATED FULL-WIDTH PROJECT STUDIO PAGE */
-        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pb-16 px-1">
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setSelectedId(null)}
-              className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-3 transition-colors"
-            >
-              ← Kembali ke Daftar Proyek
-            </button>
-            <span className="font-mono text-xs text-muted">
-              Proyek Studio · Mode Layar Penuh
-            </span>
+        <div className="flex w-full flex-col gap-6 pb-20">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-3 transition-colors"
+              >
+                ← Semua Proyek
+              </button>
+              <span className="text-muted">/</span>
+              <span className="font-display text-sm font-semibold text-ink">
+                {currentProject.name}
+              </span>
+              {currentProject.agent && (
+                <span className="rounded-md border border-done/40 bg-done/15 px-2 py-0.5 font-mono text-[11px] font-medium text-accent">
+                  AI Studio
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {currentProject.agent && (
+                <button
+                  type="button"
+                  onClick={() => setGuideOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-3 transition-colors"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  Panduan Agen CLI
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setReviewOpen(true)}
+                className={`${HEADER_PRIMARY} text-xs`}
+              >
+                Draft Sasaran AI
+              </button>
+            </div>
           </div>
 
           {/* Hidden ProjectList to maintain tree accessibility and test hooks */}
@@ -476,7 +458,58 @@ export function ProjectsPage({
         </div>
       ) : (
         /* FULL-WIDTH PROJECT HUB / LIST PAGE */
-        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pb-8">
+        <div className="flex w-full flex-col gap-6 pb-20">
+          <div className="flex items-center gap-3.5">
+            <h1 className={H1}>Semua Proyek</h1>
+            <span className="rounded-full border border-line px-2.5 py-0.5 font-mono text-xs text-muted">
+              {overview.activeCount} aktif
+            </span>
+            <div className="ml-auto flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => onOpenAssistant({ kind: "voice" })}
+                className={`${HEADER_SECONDARY} flex items-center gap-2`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="text-accent"
+                >
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0" />
+                  <path d="M12 18v3" />
+                </svg>
+                Tambah lewat suara
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormOpen({})}
+                className={`${HEADER_PRIMARY} flex items-center gap-2`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Proyek
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_340px]">
             <div className="flex flex-col gap-4">
               <ProjectList
@@ -529,6 +562,14 @@ export function ProjectsPage({
             </div>
           </div>
         </div>
+      )}
+      {guideOpen && currentProject && (
+        <ConnectAgentDialog
+          project={currentProject}
+          onClose={() => setGuideOpen(false)}
+          onSaved={() => setVersion((v) => v + 1)}
+          onEditProject={() => setFormOpen({ edit: currentProject })}
+        />
       )}
       {reviewOpen && currentProject && (
         <PrdReviewModal

@@ -30,6 +30,12 @@
       "label": "Langkah 5",
       "type": "process",
       "desc": "Proses baru"
+    },
+    {
+      "id": "step_6",
+      "label": "Langkah 6",
+      "type": "process",
+      "desc": "Proses baru"
     }
   ],
   "edges": [
@@ -49,6 +55,10 @@
     {
       "from": "cooldown",
       "to": "step_5"
+    },
+    {
+      "from": "step_5",
+      "to": "step_6"
     }
   ]
 }

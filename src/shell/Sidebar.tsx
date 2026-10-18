@@ -186,7 +186,7 @@ export function Sidebar({
   }
 
   return (
-    <div className="flex shrink-0">
+    <div className="flex shrink-0 sticky top-0 h-screen z-40">
       <nav
         data-navwheel
         aria-label="Menu utama"
@@ -198,13 +198,13 @@ export function Sidebar({
           else if (e.key === "ArrowUp") { e.preventDefault(); turn(-1); }
           else if (e.key === "Escape") close();
         }}
-        className="w-[72px] h-[800px] relative select-none"
-        style={{ position: "relative", zIndex: 40, width: 72, height: 800, flexShrink: 0, outline: "none", userSelect: "none" }}
+        className="w-[72px] h-full relative select-none"
+        style={{ position: "relative", zIndex: 40, width: 72, height: "100%", flexShrink: 0, outline: "none", userSelect: "none" }}
       >
         {/* Layer 1 – 72px rail background: underwater ocean */}
         <div
           aria-hidden="true"
-          style={{ position: "absolute", left: 0, top: 0, width: 72, height: 800, overflow: "hidden", borderRight: "1px solid #1F3E49" }}
+          style={{ position: "absolute", left: 0, top: 0, width: 72, height: "100%", overflow: "hidden", borderRight: "1px solid #1F3E49" }}
         >
           <NavRailOcean paused={prefersReduced} />
         </div>
@@ -234,10 +234,23 @@ export function Sidebar({
 
         {/* Layer 3 – interactive hover + gesture zone; expands 72→320px */}
         <div
-          onMouseEnter={() => {
+          onMouseEnter={(e) => {
+            const y = e.clientY;
+            if (y < 90 || y > window.innerHeight - 170) {
+              window.clearTimeout(hoverTimer.current);
+              close();
+              return;
+            }
             cancelClose();
             window.clearTimeout(hoverTimer.current);
             hoverTimer.current = window.setTimeout(() => setOpen(true), 140);
+          }}
+          onMouseMove={(e) => {
+            const y = e.clientY;
+            if (y < 90 || y > window.innerHeight - 170) {
+              window.clearTimeout(hoverTimer.current);
+              if (open) close();
+            }
           }}
           onMouseLeave={scheduleClose}
           onWheel={(e) => {
@@ -257,7 +270,7 @@ export function Sidebar({
           style={{
             position: "absolute", left: 0, top: 0,
             width: open ? 320 : 72,
-            height: 800,
+            height: "100%",
             touchAction: "none",
             transition: "width 0.35s cubic-bezier(.3,.7,.2,1)",
           }}
@@ -283,6 +296,10 @@ export function Sidebar({
             aria-label="Anchoa, ke Dashboard"
             onClick={() => onSelect("dashboard")}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect("dashboard"); } }}
+            onMouseEnter={() => {
+              window.clearTimeout(hoverTimer.current);
+              close();
+            }}
             style={{ position: "absolute", left: 16, top: 18, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textDecoration: "none" }}
           >
             <AnchoaLogo tile size={40} label="Logo Anchoa" />
@@ -365,7 +382,13 @@ export function Sidebar({
           ))}
 
           {/* Bottom stack: Notif · Profil · Pengaturan (left:14 bottom:14, gap:6) */}
-          <div style={{ position: "absolute", left: 14, bottom: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div
+            onMouseEnter={() => {
+              window.clearTimeout(hoverTimer.current);
+              close();
+            }}
+            style={{ position: "absolute", left: 14, bottom: 14, display: "flex", flexDirection: "column", gap: 6 }}
+          >
             {/* Notifikasi */}
             <button
               type="button"

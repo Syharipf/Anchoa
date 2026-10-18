@@ -219,7 +219,7 @@ export function App() {
   const data = dashboard.data;
 
   return (
-    <div className="flex h-full bg-canvas">
+    <div className="flex h-screen w-screen overflow-hidden bg-canvas">
       <div className="hidden md:flex shrink-0">
         <Sidebar
           current={page.name}

@@ -42,16 +42,16 @@ export interface FlowLayout {
 
 export function calculateFlowLayout(data: FlowData): FlowLayout {
   const nodeMap: Record<string, PositionedNode> = {};
-  const nodeWidth = 140;
-  const nodeHeight = 48;
-  const startX = 30;
-  const spacingX = 190;
+  const nodeWidth = 165;
+  const nodeHeight = 54;
+  const startX = 35;
+  const spacingX = 225;
   let mainX = startX;
 
   for (const node of data.nodes) {
     const isError = node.type === "error";
     const x = isError ? Math.max(startX, mainX - spacingX) : mainX;
-    const y = isError ? 140 : 50;
+    const y = isError ? 150 : 50;
     if (!isError) {
       mainX += spacingX;
     }
@@ -89,8 +89,8 @@ export function calculateFlowLayout(data: FlowData): FlowLayout {
   return {
     nodes: Object.values(nodeMap),
     edges: positionedEdges,
-    width: Math.max(650, mainX + 40),
-    height: 220,
+    width: Math.max(720, mainX + 50),
+    height: 250,
   };
 }
 
@@ -149,10 +149,9 @@ export function FlowCanvas({
       toast(errorMessage(err), "error");
     }
   }
-
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[10px] border border-line bg-surface">
-      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3.5 py-2">
+    <div className="flex min-h-[540px] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="font-display text-xs font-semibold text-ink">
             Canvas Alur Proses Bisnis
@@ -226,21 +225,21 @@ export function FlowCanvas({
                     strokeWidth={isSelected ? 2 : 1.5}
                   />
                   <text
-                    x="12"
-                    y="22"
+                    x="14"
+                    y="25"
                     fill={isError ? "#FF8A7A" : isSelected ? "#C6F36B" : "#E6EEF0"}
                     fontFamily="sans-serif"
-                    fontSize="11.5"
+                    fontSize="12.5"
                     fontWeight="600"
                   >
                     {node.label}
                   </text>
                   <text
-                    x="12"
-                    y="37"
+                    x="14"
+                    y="41"
                     fill="#94A8AE"
                     fontFamily="monospace"
-                    fontSize="9.5"
+                    fontSize="10.5"
                   >
                     {node.desc || node.type || "process"}
                   </text>

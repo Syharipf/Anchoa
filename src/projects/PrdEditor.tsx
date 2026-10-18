@@ -34,8 +34,8 @@ export function PrdEditor({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[10px] border border-line bg-surface">
-      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3.5 py-2">
+    <div className="flex min-h-[540px] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-accent">.anchoa/prd.md</span>
           <span className="text-[11px] text-muted">· Git Tracked</span>
@@ -61,7 +61,7 @@ export function PrdEditor({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-5">
         {editing ? (
           <form onSubmit={handleSave} className="flex h-full flex-col gap-3">
             <textarea
@@ -69,7 +69,7 @@ export function PrdEditor({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="# PRD: Nama Fitur&#10;&#10;## 1. Sasaran&#10;...&#10;&#10;## 2. Aturan Bisnis&#10;...&#10;&#10;## 3. Kriteria Selesai&#10;..."
-              className={`${FIELD} flex-1 font-mono text-xs leading-relaxed resize-none`}
+              className={`${FIELD} min-h-[420px] flex-1 font-mono text-[13px] leading-relaxed resize-y`}
             />
             <div className="flex items-center justify-end gap-2">
               <button
@@ -82,7 +82,7 @@ export function PrdEditor({
             </div>
           </form>
         ) : (
-          <div className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-ink">
+          <div className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-ink">
             {content.trim() || (
               <span className="text-muted italic">
                 Belum ada dokumen PRD. Klik "Ubah Spec" untuk mulai menulis spesifikasi fitur.

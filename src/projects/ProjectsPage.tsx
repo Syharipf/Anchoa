@@ -340,7 +340,7 @@ export function ProjectsPage({
 
       {selectedId !== null && currentProject ? (
         /* DEDICATED FULL-WIDTH PROJECT STUDIO PAGE */
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-8">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pb-16 px-1">
           <div className="flex items-center justify-between">
             <button
               type="button"
@@ -427,13 +427,13 @@ export function ProjectsPage({
           ) : activeTab === "diff" && currentProject ? (
             <GitDiffTab key={currentProject.id} projectId={currentProject.id} />
           ) : board ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+            <div className="flex flex-col gap-4 w-full">
               <BoardFilterBar
                 filter={filter}
                 tags={board.tags}
                 onChange={setFilter}
               />
-              <div className="flex min-h-0 flex-1 gap-3.5">
+              <div className="flex min-h-[560px] gap-4 w-full">
                 <Kanban
                   key={selectedId ?? "loose"}
                   columns={board.columns}

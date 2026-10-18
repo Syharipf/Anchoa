@@ -148,7 +148,7 @@ export function Kanban({
   }
 
   return (
-    <div className={agent ? "grid min-h-0 flex-1 grid-cols-[repeat(5,minmax(150px,1fr))] gap-3.5 overflow-x-auto" : "grid min-h-0 flex-1 grid-cols-3 gap-3.5"}>
+    <div className={agent ? "grid w-full min-h-[540px] grid-cols-[repeat(5,minmax(210px,1fr))] gap-4 overflow-x-auto pb-4" : "grid w-full min-h-[540px] grid-cols-1 md:grid-cols-3 gap-4"}>
       {boardColumns(agent).map((col) => {
         const cards = columns[col.status];
         const isAdding = addingCol === col.status;
@@ -168,7 +168,7 @@ export function Kanban({
               const card = dropTarget(columns, e.dataTransfer.getData("text/plain"), col.status);
               if (card && onDropCard) onDropCard(card, col.status);
             }}
-            className={`flex min-h-0 flex-col gap-2 overflow-y-auto rounded-[14px] border bg-stage p-3 transition-colors ${
+            className={`flex min-h-[540px] flex-col gap-3 rounded-2xl border bg-stage p-3.5 transition-colors ${
               overCol === col.status ? "border-accent ring-1 ring-accent" : "border-line"
             }`}
           >

@@ -30,7 +30,7 @@ describe("calculateFlowLayout", () => {
 
     expect(step1!.y).toBe(50);
     expect(step2!.y).toBe(50);
-    expect(err!.y).toBe(140);
+    expect(err!.y).toBe(150);
 
     // Straight horizontal edge
     expect(layout.edges[0].path).toContain("L");

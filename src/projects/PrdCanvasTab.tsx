@@ -15,7 +15,7 @@ export function PrdCanvasTab({
   onFlowSaved?: (flowJson: string) => void;
 }>) {
   return (
-    <div className="grid flex-1 min-h-0 grid-cols-1 gap-3.5 md:grid-cols-[400px_minmax(0,1fr)]">
+    <div className="grid flex-1 min-h-0 grid-cols-1 gap-4 md:grid-cols-[460px_minmax(0,1fr)]">
       <PrdEditor
         projectId={projectId}
         initialContent={prdContent}

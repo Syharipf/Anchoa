@@ -351,7 +351,7 @@ export function ProjectsPage({
           <UpcomingList tasks={overview.upcoming} onOpenItem={onOpenItem} />
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-col gap-3.5 self-stretch">
+        <div className="flex min-h-0 min-w-0 flex-col gap-4 self-stretch">
           <ProjectHeader
             project={currentProject}
             looseCount={overview.loose}

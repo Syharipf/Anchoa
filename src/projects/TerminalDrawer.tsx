@@ -71,7 +71,7 @@ export function TerminalDrawer({
       className="flex shrink-0 flex-col overflow-hidden rounded-[12px] border border-line bg-[#081013]"
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3 py-1.5">
+      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <svg
             width="13"
@@ -114,7 +114,7 @@ export function TerminalDrawer({
 
       {/* Expanded output screen */}
       {expanded && (
-        <div className="h-36 overflow-y-auto p-3 font-mono text-xs leading-relaxed text-[#C3D2D6]">
+        <div className="h-48 overflow-y-auto p-4 font-mono text-[12px] leading-relaxed text-[#C3D2D6]">
           {log ? (
             <pre className="whitespace-pre-wrap font-mono">{log}</pre>
           ) : (
@@ -131,7 +131,7 @@ export function TerminalDrawer({
       {/* Quick Prompt Bar */}
       <form
         onSubmit={handleSendPrompt}
-        className="flex items-center gap-2 border-t border-line bg-surface p-2"
+        className="flex items-center gap-2.5 border-t border-line bg-surface px-4 py-2.5"
       >
         <span className="font-mono text-xs font-bold text-accent">&gt;</span>
         <input

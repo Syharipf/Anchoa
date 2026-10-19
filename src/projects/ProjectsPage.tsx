@@ -13,7 +13,7 @@ import {
   type StudioContext,
 } from "../api";
 import { useToast } from "../shell/toast";
-import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
+import { H1, HEADER_PRIMARY } from "../shell/ui";
 import { type MenuEntry } from "../shell/ContextMenu";
 import { AgentTab, ConnectAgentDialog } from "./AgentTab";
 import { AgentThread } from "./AgentThread";
@@ -464,15 +464,15 @@ export function ProjectsPage({
             <span className="rounded-full border border-line px-2.5 py-0.5 font-mono text-xs text-muted">
               {overview.activeCount} aktif
             </span>
-            <div className="ml-auto flex gap-2.5">
+            <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => onOpenAssistant({ kind: "voice" })}
-                className={`${HEADER_SECONDARY} flex items-center gap-2`}
+                className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
               >
                 <svg
-                  width="16"
-                  height="16"
+                  width="14"
+                  height="14"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -491,11 +491,11 @@ export function ProjectsPage({
               <button
                 type="button"
                 onClick={() => setFormOpen({})}
-                className={`${HEADER_PRIMARY} flex items-center gap-2`}
+                className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
               >
                 <svg
-                  width="16"
-                  height="16"
+                  width="14"
+                  height="14"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"

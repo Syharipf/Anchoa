@@ -64,6 +64,41 @@ export function monthGrid(month: string): MonthCell[][] {
   return grid;
 }
 
+/**
+ * Returns 7 days for the week containing `targetDate` (Monday-first).
+ */
+export function weekGrid(targetDate: string): MonthCell[] {
+  const [year, mon, day] = targetDate.split("-").map(Number);
+  const dt = new Date(year, mon - 1, day);
+  const dayOfWeek = dt.getDay(); // 0 = Sunday, 1 = Monday
+  const lead = (dayOfWeek + 6) % 7;
+  const monday = new Date(year, mon - 1, day - lead);
+  const week: MonthCell[] = [];
+  for (let c = 0; c < 7; c++) {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + c);
+    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    week.push({ date: dateStr, inMonth: true });
+  }
+  return week;
+}
+
+/** "2026-10-12" to "2026-10-18" -> "12 – 18 Okt 2026" or "28 Sep – 4 Okt 2026". */
+export function weekLabel(fromDate: string, toDate: string): string {
+  const [y1, m1, d1] = fromDate.split("-").map(Number);
+  const [y2, m2, d2] = toDate.split("-").map(Number);
+  const dt1 = new Date(y1, m1 - 1, d1);
+  const dt2 = new Date(y2, m2 - 1, d2);
+  const mName1 = dt1.toLocaleDateString("id-ID", { month: "short" });
+  const mName2 = dt2.toLocaleDateString("id-ID", { month: "short" });
+  if (y1 === y2 && m1 === m2) {
+    return `${d1} – ${d2} ${mName2} ${y1}`;
+  }
+  if (y1 === y2) {
+    return `${d1} ${mName1} – ${d2} ${mName2} ${y1}`;
+  }
+  return `${d1} ${mName1} ${y1} – ${d2} ${mName2} ${y2}`;
+}
+
 /** Returns up to 3 chips (or 2 when 6 rows) for a date cell, plus the remaining count. */
 export function chipsFor(
   items: readonly ScheduleItem[],

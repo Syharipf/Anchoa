@@ -626,7 +626,7 @@ export function EntryEditor({
             <button
               type="button"
               onClick={() => onOpenTask(entry.taskId!)}
-              className="min-h-[34px] rounded-lg border border-[#4E6A26] bg-transparent px-3 text-[13px] text-accent transition-colors hover:bg-surface-2"
+              className="flex h-8 items-center rounded-lg border border-[#4E6A26] bg-transparent px-3 text-xs text-accent transition-colors hover:bg-surface-2"
             >
               Buka tugas
             </button>
@@ -635,7 +635,7 @@ export function EntryEditor({
               type="button"
               disabled={converting || deleting}
               onClick={() => void handleConvertToTask()}
-              className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
+              className="flex h-8 items-center rounded-lg border border-line bg-transparent px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
             >
               Jadikan tugas
             </button>
@@ -646,7 +646,7 @@ export function EntryEditor({
           type="button"
           disabled={!title.trim() && !body.trim()}
           onClick={() => onOpenAssistant({ kind: "speak", text: [title, body].filter((text) => text.trim()).join(". ") })}
-          className="min-h-[34px] rounded-lg border border-line bg-transparent px-3 text-[13px] text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
+          className="flex h-8 items-center rounded-lg border border-line bg-transparent px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
         >
           Bacakan
         </button>
@@ -654,7 +654,7 @@ export function EntryEditor({
         <button
           type="button"
           onClick={() => onOpenAssistant({ kind: "compose", text: `Berikan tanggapan yang suportif untuk entri jurnal ini:\n\n${title || "Tanpa judul"}\n${body}` })}
-          className="min-h-[34px] rounded-lg border border-[#4E6A26] bg-transparent px-3 text-[13px] text-accent transition-colors hover:bg-surface-2"
+          className="flex h-8 items-center rounded-lg border border-[#4E6A26] bg-transparent px-3 text-xs text-accent transition-colors hover:bg-surface-2"
         >
           Minta tanggapan
         </button>

@@ -85,11 +85,21 @@ export function DownloadsPage({
   );
 
   useEffect(() => {
-    if (!hasActive) return;
+    // Refresh list immediately when app window gains focus
+    const onFocus = () => void reloadList();
+    window.addEventListener("focus", onFocus);
+
+    // Poll faster (1s) when active downloads exist, or idle background poll (3s)
+    // so new downloads from the browser extension appear in real-time
+    const intervalTime = hasActive ? 1000 : 3000;
     const interval = setInterval(() => {
       void reloadList();
-    }, 1000);
-    return () => clearInterval(interval);
+    }, intervalTime);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(interval);
+    };
   }, [hasActive, reloadList]);
 
   const handlePause = async (id: string) => {

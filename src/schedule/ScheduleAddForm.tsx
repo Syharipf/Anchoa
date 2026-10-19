@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { api, errorMessage } from "../api";
+import { useEffect, useState, type FormEvent } from "react";
+import { api, errorMessage, type ProjectSummary } from "../api";
 import { dateInputToMs } from "../format";
 import { Dialog, DialogActions, Field } from "../shell/Dialog";
 import { FIELD } from "../shell/ui";
@@ -27,8 +27,23 @@ export function ScheduleAddForm({
 }>) {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(defaultDate);
+  const [projectId, setProjectId] = useState<string>("");
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.projectsOverview().then(
+      (res) => {
+        if (active) setProjects(res.projects);
+      },
+      () => {},
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -41,7 +56,12 @@ export function ScheduleAddForm({
     setError(null);
     setBusy(true);
     try {
-      await api.createTask({ title: title.trim(), status: "plan", dueAt: checked.dueAt });
+      await api.createTask({
+        title: title.trim(),
+        status: "plan",
+        dueAt: checked.dueAt,
+        projectId: projectId ? projectId : null,
+      });
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -69,6 +89,22 @@ export function ScheduleAddForm({
             className={FIELD}
           />
         </Field>
+        {projects.length > 0 && (
+          <Field label="Proyek (opsional)">
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className={FIELD}
+            >
+              <option value="">Pribadi (tanpa proyek)</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         {error !== null && (
           <p role="alert" className="m-0 text-[13px] text-danger">
             {error}

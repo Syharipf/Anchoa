@@ -31,13 +31,82 @@ export function formatBalance(amount: number): string {
   return amount < 0 ? signedRupiah(amount) : formatRupiah(amount);
 }
 
-/** "25000", "25.000", "Rp 25.000" or "-25.000" to whole rupiah. Decimals and text give null. */
+/**
+ * Safely calculates simple math expression (+, -, *, /) without eval/Function.
+ * Operates strictly on integers and valid safe math symbols.
+ */
+export function evaluateSafeMath(expr: string): number | null {
+  const cleaned = expr.replaceAll(/\s+/g, "").replaceAll("Rp", "").replaceAll("rp", "");
+  // Strictly allow only digits, periods, and operators + - * /
+  if (!/^[0-9.+\-*/]+$/.test(cleaned)) return null;
+  // Split tokens while preserving delimiters
+  const tokens = cleaned.match(/([0-9.]+|[+\-*/])/g);
+  if (!tokens || tokens.length === 0) return null;
+
+  // First pass: replace numbers without dots into integers
+  const parsedTokens: (number | string)[] = [];
+  for (const tok of tokens) {
+    if (tok === "+" || tok === "-" || tok === "*" || tok === "/") {
+      parsedTokens.push(tok);
+    } else {
+      const num = Number(tok.replaceAll(".", ""));
+      if (!Number.isSafeInteger(num) || isNaN(num)) return null;
+      parsedTokens.push(num);
+    }
+  }
+
+  // Pass 1: handle multiplication and division left to right
+  const intermediate: (number | string)[] = [];
+  let i = 0;
+  while (i < parsedTokens.length) {
+    const curr = parsedTokens[i];
+    if (curr === "*" || curr === "/") {
+      const prev = intermediate.pop();
+      const next = parsedTokens[i + 1];
+      if (typeof prev !== "number" || typeof next !== "number") return null;
+      if (curr === "/" && next === 0) return null;
+      const res = curr === "*" ? prev * next : Math.round(prev / next);
+      if (!Number.isSafeInteger(res)) return null;
+      intermediate.push(res);
+      i += 2;
+    } else {
+      intermediate.push(curr);
+      i++;
+    }
+  }
+
+  // Pass 2: handle addition and subtraction
+  if (intermediate.length === 0 || typeof intermediate[0] !== "number") return null;
+  let total = intermediate[0];
+  let j = 1;
+  while (j < intermediate.length) {
+    const op = intermediate[j];
+    const nextVal = intermediate[j + 1];
+    if (typeof nextVal !== "number") return null;
+    if (op === "+") total += nextVal;
+    else if (op === "-") total -= nextVal;
+    else return null;
+    if (!Number.isSafeInteger(total)) return null;
+    j += 2;
+  }
+  return total;
+}
+
+/** "25000", "25.000", "Rp 25.000", "-25.000", or safe math "15000 + 25000". */
 export function parseRupiah(text: string): number | null {
-  const match = AMOUNT.exec(text.trim());
-  if (!match) return null;
-  const value = Number(match[2].replaceAll(".", ""));
-  if (!Number.isSafeInteger(value)) return null;
-  return match[1] ? -value : value;
+  const trimmed = text.trim();
+  // Try plain amount first
+  const match = AMOUNT.exec(trimmed);
+  if (match) {
+    const value = Number(match[2].replaceAll(".", ""));
+    if (!Number.isSafeInteger(value)) return null;
+    return match[1] ? -value : value;
+  }
+  // Fallback to safe math evaluation
+  if (/[+\-*/]/.test(trimmed)) {
+    return evaluateSafeMath(trimmed);
+  }
+  return null;
 }
 
 function parts(month: string): [year: number, month: number] {

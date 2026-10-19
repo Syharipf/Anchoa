@@ -44,9 +44,9 @@ export function TransactionList({
 }: Readonly<{ until: string; version: number; onEdit: (t: TransactionView) => void }>) {
   const toast = useToast();
   const [flow, setFlow] = useState<Flow>("all");
+  const [search, setSearch] = useState("");
   const [items, setItems] = useState<TransactionView[] | null>(null);
   const [more, setMore] = useState(false);
-
   useEffect(() => {
     api.listTransactions(until, flow, 0).then(
       (page) => {
@@ -68,23 +68,57 @@ export function TransactionList({
 
   return (
     <section aria-labelledby="transaksi-judul" className={`${PANEL} flex flex-col gap-2`}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="transaksi-judul" className={H2}>
-          Transaksi terbaru
-        </h2>
-        <div className="w-[220px]">
-          <Segmented label="Filter transaksi" options={FLOWS} value={flow} onChange={setFlow} />
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="transaksi-judul" className={H2}>
+            Transaksi terbaru
+          </h2>
+          <div className="w-[200px]">
+            <Segmented label="Filter transaksi" options={FLOWS} value={flow} onChange={setFlow} />
+          </div>
+        </div>
+        <div className="relative">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari transaksi berdasarkan judul, kategori, atau catatan..."
+            className="w-full rounded-lg border border-line bg-surface-2/40 px-3 py-1.5 text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
+          />
         </div>
       </div>
       {items?.length === 0 && <p className="m-0 py-6 text-center text-sm text-muted">Tidak ada transaksi untuk filter ini.</p>}
-      {groupByMonth(items ?? []).map((g) => (
-        <div key={g.month} className="flex flex-col">
-          <span className="px-2 pt-2 pb-1 text-[11px] tracking-[0.08em] text-muted uppercase">{monthLabel(g.month)}</span>
-          {g.items.map((t) => (
-            <TransactionRow key={t.id} t={t} onEdit={onEdit} />
-          ))}
-        </div>
-      ))}
+      {(() => {
+        const q = search.trim().toLowerCase();
+        const filtered = q
+          ? (items ?? []).filter(
+              (t) =>
+                t.title.toLowerCase().includes(q) ||
+                (t.category && t.category.toLowerCase().includes(q)) ||
+                (t.body && t.body.toLowerCase().includes(q)) ||
+                t.accountName.toLowerCase().includes(q),
+            )
+          : items ?? [];
+
+        if (filtered.length === 0) {
+          return (
+            <p className="m-0 py-6 text-center text-sm text-muted">
+              {q ? "Tidak ada transaksi yang cocok dengan pencarian." : "Tidak ada transaksi untuk filter ini."}
+            </p>
+          );
+        }
+
+        return groupByMonth(filtered).map((g) => (
+          <div key={g.month} className="flex flex-col">
+            <span className="px-2 pt-2 pb-1 text-[11px] tracking-[0.08em] text-muted uppercase">
+              {monthLabel(g.month)}
+            </span>
+            {g.items.map((t) => (
+              <TransactionRow key={t.id} t={t} onEdit={onEdit} />
+            ))}
+          </div>
+        ));
+      })()}
       {more && (
         <button onClick={() => void loadMore()} className={`${SECONDARY} self-center`}>
           Muat lagi

@@ -11,13 +11,14 @@ import {
 } from "../api";
 import { addMonths, formatRupiah, monthLabel } from "../money";
 import { useToast } from "../shell/toast";
-import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
+import { H1 } from "../shell/ui";
 import { AccountForm } from "./AccountForm";
 import { AccountsSection } from "./AccountsSection";
 import { BillForm } from "./BillForm";
 import { BillsSection } from "./BillsSection";
 import { BudgetForm } from "./BudgetForm";
 import { CashFlowChart } from "./CashFlowChart";
+import { CategoryBreakdown } from "./CategoryBreakdown";
 import { SummaryCards } from "./SummaryCards";
 import { TransactionForm } from "./TransactionForm";
 import { TransactionList } from "./TransactionList";
@@ -135,17 +136,21 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
             <Chevron d="M9 6l6 6-6 6" />
           </button>
         </div>
-        <div className="ml-auto flex gap-2.5">
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
             onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={HEADER_SECONDARY}
+            className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
             <MicIcon />
             <span>Catat lewat suara</span>
           </button>
-          <button onClick={() => setOpen({ form: "transaction" })} className={HEADER_PRIMARY}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+          <button
+            type="button"
+            onClick={() => setOpen({ form: "transaction" })}
+            className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
             </svg>
             <span>Transaksi</span>
@@ -170,6 +175,7 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
             onEdit={(b) => setOpen({ form: "bill", edit: b })}
             onPay={(b) => void pay(b)}
           />
+          <CategoryBreakdown month={overview.month} version={version} />
         </div>
       </div>
       {form()}

@@ -90,7 +90,7 @@ export function BrowserIntegrationModal({
         <div className="flex flex-col gap-3 rounded-xl border border-line bg-canvas p-3.5 text-xs">
           <span className="font-semibold text-accent">Langkah 1: Pasang Ekstensi di Browser</span>
           <ol className="list-decimal pl-5 space-y-1 text-muted">
-            <li>Buka <code className="text-ink">chrome://extensions/</code> (Chrome/Brave) lalu aktifkan <b>Developer mode</b>.</li>
+            <li>Buka halaman ekstensi browser: <code className="text-ink">chrome://extensions/</code> (Chrome/Brave/Helium) lalu aktifkan <b>Developer mode</b>.</li>
             <li>Klik <b>Load unpacked</b> lalu pilih folder <code className="text-ink">browser-extension/</code> di direktori repo Anchoa.</li>
             <li>Salin <b>ID Ekstensi</b> yang muncul (32 karakter huruf a-p).</li>
           </ol>
@@ -102,7 +102,7 @@ export function BrowserIntegrationModal({
           
           <div>
             <label htmlFor="chrome-id-input" className="block text-muted mb-1 font-medium">
-              ID Ekstensi Chrome / Chromium / Brave:
+              ID Ekstensi Chrome / Chromium / Brave / Helium:
             </label>
             <div className="flex gap-2">
               <input
@@ -120,7 +120,7 @@ export function BrowserIntegrationModal({
                 disabled={loading || chromeId.trim().length !== 32}
                 className={`${PRIMARY} py-1 text-xs`}
               >
-                Hubungkan Chrome/Brave
+                Hubungkan Chromium/Helium
               </button>
             </div>
           </div>

@@ -9,7 +9,7 @@ import {
 } from "../api";
 import { fullDate } from "../format";
 import { useToast } from "../shell/toast";
-import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
+import { H1 } from "../shell/ui";
 import { HabitDetail } from "./HabitDetail";
 import { HabitForm } from "./HabitForm";
 import { SummaryCards } from "./SummaryCards";
@@ -165,11 +165,11 @@ export function HabitsPage({
         <div className="flex items-center gap-3">
           <h1 className={H1}>Habit</h1>
           <span className="text-[13px] text-muted">{subtitle}</span>
-          <div className="ml-auto flex items-center gap-2.5">
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
               onClick={() => onOpenAssistant({ kind: "voice" })}
-              className={HEADER_SECONDARY}
+              className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
             >
               <MicIcon />
               <span>Catat lewat suara</span>
@@ -177,7 +177,7 @@ export function HabitsPage({
             <button
               type="button"
               onClick={() => setFormOpen({})}
-              className={HEADER_PRIMARY}
+              className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
             >
               <PlusIcon />
               <span>Habit</span>

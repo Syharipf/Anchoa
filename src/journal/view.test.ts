@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  formatDailyRecap,
   JOURNAL_TEMPLATES,
   KIND_META,
   MOODS,
@@ -61,6 +62,23 @@ describe("journal view rules", () => {
     expect(nextPrompt(0)).toBe(1);
     expect(nextPrompt(6)).toBe(7);
     expect(nextPrompt(7)).toBe(0);
+  });
+
+  it("formats daily recap into structured markdown", () => {
+    const text = formatDailyRecap({
+      tasks: [
+        { title: "Beli kopi", done: true },
+        { title: "Kirim email", done: false },
+      ],
+      habits: [{ name: "Olahraga", doneToday: true }],
+      income: 50000,
+      expense: 20000,
+    });
+    expect(text).toContain("- [x] Beli kopi");
+    expect(text).toContain("- [ ] Kirim email");
+    expect(text).toContain("- [x] Olahraga");
+    expect(text).toContain("Pemasukan: Rp 50.000");
+    expect(text).toContain("Pengeluaran: Rp 20.000");
   });
 
   it("parses and validates tags", () => {

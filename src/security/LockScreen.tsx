@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorMessage, type SecurityStatus } from "../api";
-import { FIELD, H1, PRIMARY } from "../shell/ui";
+import { FIELD, H1 } from "../shell/ui";
 import { LautAko } from "../pet/LautAko";
 import { AnchoaPet } from "../pet/AnchoaPet";
 
@@ -172,7 +172,7 @@ export function LockScreen({
           <button
             type="submit"
             disabled={disabled || !secret}
-            className={`${PRIMARY} w-full`}
+            className="flex h-9 w-full items-center justify-center rounded-[9px] bg-accent px-4 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
             {busy ? "Membuka…" : "Buka"}
           </button>

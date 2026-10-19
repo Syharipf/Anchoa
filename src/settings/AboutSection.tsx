@@ -2,7 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
 import { api, errorMessage, type UpdateCheck } from "../api";
 import { useToast } from "../shell/toast";
-import { H2, PANEL, SECONDARY } from "../shell/ui";
+import { H2, PANEL } from "../shell/ui";
 import { sectionStatus, THIRD_PARTY_LICENSES } from "./view";
 
 const REPO_URL = "https://github.com/Syharipf/Anchoa";
@@ -74,7 +74,7 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
             type="button"
             onClick={() => void handleCheckUpdate()}
             disabled={checking}
-            className={SECONDARY}
+            className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
             {checking
               ? "Memeriksa…"

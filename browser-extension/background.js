@@ -88,12 +88,30 @@ function commitWithRecovery(requestId, url, filename, maxRetries = 3) {
       { version: 1, action: "commit", requestId },
       (res) => {
         if (!chrome.runtime.lastError && res && res.accepted) {
+          const name = safeBasename(filename) || "Berkas unduhan";
+          chrome.notifications?.create({
+            type: "basic",
+            iconUrl: "icons/icon-128.png",
+            title: "Dialihkan ke Anchoa",
+            message: `${name} sedang diunduh di Anchoa.`,
+            priority: 1
+          }, () => {
+            if (chrome.runtime.lastError) {
+              // fallback if icon missing
+              chrome.notifications?.create({
+                type: "basic",
+                iconUrl: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23C6F36B'><path d='M12 2v14M6 10l6 6 6-6M4 20h16'/></svg>",
+                title: "Dialihkan ke Anchoa",
+                message: `${name} sedang diunduh di Anchoa.`,
+                priority: 1
+              });
+            }
+          });
           return;
         }
         if (attempt < maxRetries) {
           setTimeout(tryCommit, attempt * 1000);
         } else {
-          // Recovery: restart in browser safely
           recoverDownloadInBrowser(url, filename);
         }
       }
@@ -101,19 +119,33 @@ function commitWithRecovery(requestId, url, filename, maxRetries = 3) {
   }
   tryCommit();
 }
-
-// Context Menu setup
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "anchoa-download-link",
-    title: "Unduh dengan Anchoa",
-    contexts: ["link"]
+function setupContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "anchoa-download-link",
+      title: "Unduh dengan Anchoa",
+      contexts: ["link", "image", "video", "audio"]
+    });
   });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  setupContextMenus();
 });
 
+chrome.runtime.onStartup.addListener(() => {
+  setupContextMenus();
+});
+
+// Ensure context menu is created immediately upon service worker start
+setupContextMenus();
+
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "anchoa-download-link" && info.linkUrl) {
-    handoffDownload(info.linkUrl, null, tab && tab.url);
+  if (info.menuItemId === "anchoa-download-link") {
+    const targetUrl = info.linkUrl || info.srcUrl;
+    if (targetUrl) {
+      handoffDownload(targetUrl, null, tab && tab.url);
+    }
   }
 });
 

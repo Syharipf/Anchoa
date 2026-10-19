@@ -16,13 +16,15 @@ export function FileTabsBar({
   activeId,
   onActivate,
   onClose,
+  onNewTab,
 }: Readonly<{
   tabs: readonly FileTab[];
   activeId: string;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onNewTab?: () => void;
 }>) {
-  if (tabs.length < 2) return null;
+  if (tabs.length < 2 && !onNewTab) return null;
   return (
     <div role="tablist" aria-label="Tab berkas" className="flex min-w-0 gap-1 overflow-x-auto">
       {tabs.map((tab) => {
@@ -58,6 +60,19 @@ export function FileTabsBar({
           </div>
         );
       })}
+      {onNewTab && (
+        <button
+          type="button"
+          onClick={onNewTab}
+          aria-label="Tab baru"
+          title="Tab baru (Ctrl+T)"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

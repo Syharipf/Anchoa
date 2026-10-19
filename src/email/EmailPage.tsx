@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage, type EmailFilter, type EmailFolder, type EmailMessage, type EmailStatus } from "../api";
 import { usePageVisible } from "../assistant/usePageVisible";
-import { H1, HEADER_PRIMARY, HEADER_SECONDARY, SECONDARY } from "../shell/ui";
+import { H1, SECONDARY } from "../shell/ui";
 import { ComposeDialog } from "./ComposeDialog";
 import { ConnectionForm } from "./ConnectionForm";
 import { EmailList } from "./EmailList";
@@ -14,7 +14,7 @@ import { EMAIL_LABELS, FOLDERS } from "./view";
  * BACKGROUND_INTERVAL 300s) but stays slower than the 60s focused tick because each
  * tick is an IMAP round trip. Raise it before lowering it.
  */
-export const EMAIL_SYNC_INTERVAL = 120_000;
+export const EMAIL_SYNC_INTERVAL = 30_000;
 
 export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?: () => void; onOpenAssistant?: (req: { kind: "voice" }) => void }>) {
   const [status, setStatus] = useState<EmailStatus | null>(null);
@@ -96,15 +96,23 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
   useEffect(() => { if (connected) void sync(); }, [connected, sync]);
   useEffect(() => { if (connected) void loadList(); }, [connected, folder, filter, loadList]);
 
-  // Background re-sync: only while the page is visible and an account is connected.
-  // `sync()` already skips a tick while one is in flight (syncPending guard) and
-  // re-runs on state changes; manual "Sinkronkan" stays the immediate path.
+  // Background re-sync: every 30s while visible and connected, plus immediate sync on window focus
   useEffect(() => {
-    if (!connected || !visible) return;
-    const timer = window.setInterval(() => void sync(), EMAIL_SYNC_INTERVAL);
-    return () => window.clearInterval(timer);
-  }, [connected, visible, sync]);
+    if (!connected) return;
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void sync();
+    };
+    window.addEventListener("focus", onFocus);
 
+    if (!visible) {
+      return () => window.removeEventListener("focus", onFocus);
+    }
+    const timer = window.setInterval(() => void sync(), EMAIL_SYNC_INTERVAL);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
+  }, [connected, visible, sync]);
   function selectFolder(next: EmailFolder) {
     if (next === folder) return;
     lists.current++;
@@ -193,25 +201,39 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
             {status.address}
           </span>
           <span className="text-xs text-muted">{syncing ? "Menyinkronkan…" : "Disinkronkan"}</span>
-          <div className="ml-auto flex items-center gap-2.5">
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
               aria-label="Sinkronkan"
               disabled={syncing || busy}
               onClick={() => void sync()}
-              className={HEADER_SECONDARY}
+              className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
             >
-              {syncing ? "Menyinkronkan…" : "Sinkronkan"}
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={syncing ? "animate-spin text-accent" : ""}
+                aria-hidden="true"
+              >
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+              </svg>
+              <span>{syncing ? "Menyinkronkan…" : "Sinkronkan"}</span>
             </button>
             <button
               type="button"
               aria-label="Tulis lewat suara"
               onClick={() => onOpenAssistant?.({ kind: "voice" })}
-              className={HEADER_SECONDARY}
+              className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
             >
               <svg
-                width="15"
-                height="15"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -225,10 +247,15 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
                 <path d="M5 11a7 7 0 0 0 14 0" />
                 <path d="M12 18v3" />
               </svg>
-              <span>Tulis lewat suara</span>
+              <span>Tulis suara</span>
             </button>
-            <button type="button" aria-label="Tulis" onClick={() => setComposing(true)} className={`${HEADER_PRIMARY} flex items-center gap-1.5`}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <button
+              type="button"
+              aria-label="Tulis"
+              onClick={() => setComposing(true)}
+              className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M4 20h4L19 9l-4-4L4 16z" />
               </svg>
               <span>Tulis</span>

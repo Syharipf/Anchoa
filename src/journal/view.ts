@@ -65,6 +65,50 @@ export const JOURNAL_TEMPLATES: readonly JournalTemplate[] = [
   },
 ];
 
+/** Formats a daily recap markdown body from dashboard state. */
+export function formatDailyRecap(data: {
+  tasks: readonly { title: string; done?: boolean }[];
+  habits: readonly { name: string; doneToday: boolean }[];
+  income?: number;
+  expense?: number;
+}): string {
+  const doneTasks = data.tasks.filter((t) => t.done);
+  const pendingTasks = data.tasks.filter((t) => !t.done);
+
+  let body = "### 🎯 Tugas Hari Ini\n";
+  if (doneTasks.length === 0 && pendingTasks.length === 0) {
+    body += "_Tidak ada tugas terjadwal hari ini._\n";
+  } else {
+    for (const t of doneTasks) body += `- [x] ${t.title}\n`;
+    for (const t of pendingTasks) body += `- [ ] ${t.title}\n`;
+  }
+
+  body += "\n### 🌟 Kebiasaan (Habits)\n";
+  if (data.habits.length === 0) {
+    body += "_Belum ada habit yang dijadwalkan._\n";
+  } else {
+    for (const h of data.habits) {
+      body += `- [${h.doneToday ? "x" : " "}] ${h.name}\n`;
+    }
+  }
+
+  if (data.income !== undefined || data.expense !== undefined) {
+    body += "\n### 💰 Keuangan\n";
+    if (data.income !== undefined && data.income > 0) {
+      body += `- Pemasukan: Rp ${Math.abs(data.income).toLocaleString("id-ID")}\n`;
+    }
+    if (data.expense !== undefined && data.expense > 0) {
+      body += `- Pengeluaran: Rp ${Math.abs(data.expense).toLocaleString("id-ID")}\n`;
+    }
+    if ((!data.income || data.income === 0) && (!data.expense || data.expense === 0)) {
+      body += "_Tidak ada transaksi tercatat hari ini._\n";
+    }
+  }
+
+  body += "\n### 📝 Refleksi Singkat\n\n";
+  return body;
+}
+
 export const MOODS = ["Berat", "Kurang", "Biasa", "Baik", "Senang"] as const;
 
 export interface MoodBar {

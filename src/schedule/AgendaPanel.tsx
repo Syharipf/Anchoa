@@ -1,4 +1,5 @@
-import type { ScheduleItem } from "../api";
+import { useEffect, useState } from "react";
+import { api, type HabitRow, type ScheduleItem } from "../api";
 import {
   addDays,
   agendaGroups,
@@ -7,7 +8,6 @@ import {
   KIND_COLORS,
   READ_ONLY_HINT,
 } from "./layout";
-
 function ItemCheckbox({
   item,
   onToggleTask,
@@ -173,7 +173,36 @@ export function AgendaPanel({
   onOpenFinance: () => void;
   onOpenCalendarEvent?: (item: ScheduleItem) => void;
   calendarReadOnly?: boolean;
+  onHabitToggled?: () => void;
 }>) {
+  const [habits, setHabits] = useState<HabitRow[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    api.habitsOverview().then(
+      (res) => {
+        if (active) {
+          setHabits(res.habits.filter((h) => !h.archived && h.scheduledToday));
+        }
+      },
+      () => {},
+    );
+    return () => {
+      active = false;
+    };
+  }, [today]);
+
+  async function handleToggleHabit(habit: HabitRow) {
+    try {
+      const updated = await api.checkHabit(habit.id, !habit.doneToday, today);
+      setHabits((prev) =>
+        prev.map((h) => (h.id === habit.id ? { ...h, doneToday: updated.doneToday } : h)),
+      );
+    } catch {
+      // ignore
+    }
+  }
+
   const { late, due, next } = agendaGroups(items, selectedDate, today);
   const isToday = selectedDate === today;
   const nextDays: { date: string; label: string; items: ScheduleItem[] }[] = [];
@@ -270,6 +299,42 @@ export function AgendaPanel({
           ))
         )}
       </div>
+
+      {isToday && habits.length > 0 && (
+        <div className="flex flex-col gap-1.5 border-t border-line/60 pt-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] uppercase tracking-[0.08em] text-muted">
+              Kebiasaan Hari Ini
+            </span>
+            <span className="font-mono text-[11px] text-muted">
+              {habits.filter((h) => h.doneToday).length}/{habits.length}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            {habits.map((habit) => (
+              <label
+                key={habit.id}
+                className="flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-surface-2"
+              >
+                <input
+                  type="checkbox"
+                  checked={habit.doneToday}
+                  onChange={() => void handleToggleHabit(habit)}
+                  aria-label={`Tandai habit ${habit.name}`}
+                  className="h-4 w-4 shrink-0 cursor-pointer accent-accent"
+                />
+                <span
+                  className={`truncate text-xs ${
+                    habit.doneToday ? "text-done line-through" : "text-ink"
+                  }`}
+                >
+                  {habit.name}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1">
         <span className="text-[11px] uppercase tracking-[0.08em] text-muted">

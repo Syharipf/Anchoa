@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, type GithubStatus } from "../api";
 import { useToast } from "../shell/toast";
-import { FIELD, H2, PANEL, PRIMARY, SECONDARY } from "../shell/ui";
+import { FIELD, H2, PANEL } from "../shell/ui";
 
 /** Connect a GitHub token for the contributions heatmap. The token never comes back to the UI. */
 export function GithubSection({ onChanged }: Readonly<{ onChanged: () => void }>) {
@@ -59,10 +59,18 @@ export function GithubSection({ onChanged }: Readonly<{ onChanged: () => void }>
             Tersambung sebagai <span className="font-mono text-accent">@{status.login}</span>
           </p>
           <div className="flex gap-2">
-            <button onClick={() => void refresh()} disabled={busy} className={SECONDARY}>
+            <button
+              onClick={() => void refresh()}
+              disabled={busy}
+              className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+            >
               Muat ulang data
             </button>
-            <button onClick={() => void disconnect()} disabled={busy} className={SECONDARY}>
+            <button
+              onClick={() => void disconnect()}
+              disabled={busy}
+              className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-danger transition-colors hover:bg-danger-row disabled:opacity-50"
+            >
               Putuskan
             </button>
           </div>
@@ -82,7 +90,11 @@ export function GithubSection({ onChanged }: Readonly<{ onChanged: () => void }>
               placeholder="ghp_…"
               className={`${FIELD} flex-1 font-mono placeholder:text-muted`}
             />
-            <button type="submit" disabled={busy || !token.trim()} className={PRIMARY}>
+            <button
+              type="submit"
+              disabled={busy || !token.trim()}
+              className="flex h-8 items-center rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted self-start"
+            >
               {busy ? "Memeriksa…" : "Sambungkan"}
             </button>
           </div>

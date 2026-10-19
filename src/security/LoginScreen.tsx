@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { api, type SyncProvider } from "../api";
-import { PRIMARY, SECONDARY } from "../shell/ui";
 
 export function LoginScreen({
   onSignedIn,
@@ -58,7 +57,7 @@ export function LoginScreen({
             type="button"
             disabled={busy}
             onClick={() => signIn("google")}
-            className={`${PRIMARY} w-full`}
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-[9px] bg-accent px-4 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
             {busy ? "Memproses…" : "Lanjutkan dengan Google"}
           </button>
@@ -67,7 +66,7 @@ export function LoginScreen({
             type="button"
             disabled={busy}
             onClick={() => signIn("github")}
-            className={`${SECONDARY} w-full`}
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-[9px] border border-line bg-surface px-4 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
             Masuk dengan GitHub
           </button>
@@ -84,14 +83,14 @@ export function LoginScreen({
           <button
             type="button"
             onClick={onSkip}
-            className="w-full rounded-lg border border-line bg-surface p-3 text-left text-sm text-muted hover:bg-surface-2 transition-colors"
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-[9px] border border-line bg-surface px-4 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
-            <div className="flex items-center gap-2">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5a3 3 0 0 0-.9-2.4c3-.3 6-1.4 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.6 1.4a12.5 12.5 0 0 0-6.6 0C5.9 1.3 4.8 1.6 4.8 1.6a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 3.3 8.6c0 5.1 3 6.2 6 6.5a3 3 0 0 0-.9 2.4V21" />
-              </svg>
-              <span>Lewati — pakai lokal saja</span>
-            </div>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+            <span>Lewati — pakai lokal saja</span>
           </button>
 
           <p className="m-0 text-center text-xs text-muted leading-relaxed">

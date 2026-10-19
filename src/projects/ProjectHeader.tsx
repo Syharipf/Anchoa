@@ -9,13 +9,15 @@ export function ProjectHeader({
   tab = "kanban",
   onTabChange,
   running = false,
+  onOpenDraftAi,
 }: Readonly<{
   project: ProjectDetail | null;
   looseCount: LooseCount;
   onEdit: () => void;
-  tab?: "kanban" | "agent";
-  onTabChange?: (tab: "kanban" | "agent") => void;
+  tab?: "kanban" | "prd" | "diff" | "agent";
+  onTabChange?: (tab: "kanban" | "prd" | "diff" | "agent") => void;
   running?: boolean;
+  onOpenDraftAi?: () => void;
 }>) {
   const toast = useToast();
 
@@ -68,8 +70,7 @@ export function ProjectHeader({
             <h2 id="proyek-judul" aria-live="polite" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
               {project.name}
             </h2>
-            {project.agent && (
-              <nav aria-label="Tampilan proyek" className="flex gap-1 rounded-[10px] border border-line bg-stage p-1">
+            <nav aria-label="Tampilan proyek" className="flex gap-1 rounded-[10px] border border-line bg-stage p-1">
                 <button
                   type="button"
                   onClick={() => onTabChange?.("kanban")}
@@ -82,6 +83,27 @@ export function ProjectHeader({
                 </button>
                 <button
                   type="button"
+                  onClick={() => onTabChange?.("prd")}
+                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                    tab === "prd" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                  }`}
+                  aria-current={tab === "prd" ? "page" : undefined}
+                >
+                  PRD &amp; Bisnis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTabChange?.("diff")}
+                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                    tab === "diff" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                  }`}
+                  aria-current={tab === "diff" ? "page" : undefined}
+                >
+                  Perubahan &amp; Diff
+                </button>
+              {project.agent && (
+                <button
+                  type="button"
                   onClick={() => onTabChange?.("agent")}
                   className={`flex min-h-[28px] items-center gap-1.5 rounded-[7px] px-3 text-xs transition-colors ${
                     tab === "agent" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
@@ -91,14 +113,26 @@ export function ProjectHeader({
                   Agen kode
                   <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent animate-pulse" : "bg-disabled"}`} />
                 </button>
-              </nav>
-            )}
+              )}
+            </nav>
           </div>
           {project.description && (
             <p className="m-0 text-[13px] text-muted">{project.description}</p>
           )}
         </div>
         <div className="flex items-center gap-3">
+          {onOpenDraftAi && (
+            <button
+              type="button"
+              onClick={onOpenDraftAi}
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-stage px-2.5 py-1 text-xs font-semibold text-accent transition-colors hover:bg-surface-2"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Draft Sasaran AI
+            </button>
+          )}
           <button
             type="button"
             onClick={onEdit}

@@ -186,28 +186,41 @@ pub fn safe_name(raw: &str) -> String {
 }
 
 fn initial_title(url: &str, kind: DownloadKind) -> String {
-    let clean = url.split('#').next().unwrap_or(url);
-    let clean = clean.split('?').next().unwrap_or(clean);
-    match kind {
-        DownloadKind::Media => {
-            let stripped = clean
-                .strip_prefix("https://")
-                .or_else(|| clean.strip_prefix("http://"))
-                .unwrap_or(clean);
-            let host = stripped.split('/').next().unwrap_or("media");
-            let host = host.split(':').next().unwrap_or(host);
-            if host.is_empty() {
-                "media".to_string()
-            } else {
-                host.to_string()
+    if url.starts_with("magnet:") {
+        if let Some(dn_start) = url.find("dn=") {
+            let rest = &url[dn_start + 3..];
+            let dn_end = rest.find('&').unwrap_or(rest.len());
+            let name = &rest[..dn_end];
+            let decoded = crate::downloader::percent_decode(name);
+            let safe = safe_name(&decoded);
+            if !safe.is_empty() && safe != "unduhan" {
+                return safe;
             }
         }
-        DownloadKind::File => {
-            let segment = clean.rsplit('/').find(|s| !s.is_empty()).unwrap_or("unduhan");
-            safe_name(segment)
-        }
+        return "Torrent".to_string();
     }
-}
+     let clean = url.split('#').next().unwrap_or(url);
+     let clean = clean.split('?').next().unwrap_or(clean);
+     match kind {
+         DownloadKind::Media => {
+             let stripped = clean
+                 .strip_prefix("https://")
+                 .or_else(|| clean.strip_prefix("http://"))
+                 .unwrap_or(clean);
+             let host = stripped.split('/').next().unwrap_or("media");
+             let host = host.split(':').next().unwrap_or(host);
+             if host.is_empty() {
+                 "media".to_string()
+             } else {
+                 host.to_string()
+             }
+         }
+         DownloadKind::File => {
+             let segment = clean.rsplit('/').find(|s| !s.is_empty()).unwrap_or("unduhan");
+             safe_name(segment)
+         }
+     }
+ }
 
 fn row_from_sql(row: &rusqlite::Row<'_>) -> rusqlite::Result<DownloadRow> {
     let options_raw: String = row.get(4)?;
@@ -242,11 +255,9 @@ pub fn add(conn: &Connection, input: &NewDownload, now: i64) -> Result<DownloadR
     if url.is_empty() {
         return Err(AppError::Invalid("URL tidak boleh kosong".into()));
     }
-    if url.starts_with("magnet:") || url.ends_with(".torrent") || url.contains(".torrent?") {
-        return Err(AppError::Invalid("Torrent belum didukung".into()));
-    }
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(AppError::Invalid("URL harus berawalan http:// atau https://".into()));
+    let is_torrent = url.starts_with("magnet:") || url.ends_with(".torrent") || url.contains(".torrent?");
+    if !is_torrent && !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err(AppError::Invalid("URL harus berawalan http://, https://, atau magnet:".into()));
     }
 
     let expected_sha256 = if let Some(hash) = &input.expected_sha256 {
@@ -685,17 +696,35 @@ pub fn build_ytdlp_args(
         args.push("--limit-rate".to_string());
         args.push(limit.to_string());
     }
+    // If aria2c is available on the system, use it to accelerate downloads
+    if std::process::Command::new("aria2c")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        args.push("--downloader".to_string());
+        args.push("aria2c".to_string());
+        args.push("--downloader-args".to_string());
+        args.push("aria2c:-s 8 -x 8 -k 1M -j 8".to_string());
+    }
 
     args.push("--newline".to_string());
     args.push("--no-colors".to_string());
     args.push("--no-playlist".to_string());
     args.push("--continue".to_string());
     args.push("--retries".to_string());
-    args.push("3".to_string());
+    args.push("10".to_string());
     args.push("--fragment-retries".to_string());
-    args.push("3".to_string());
+    args.push("10".to_string());
+    args.push("--file-access-retries".to_string());
+    args.push("5".to_string());
     args.push("--concurrent-fragments".to_string());
-    args.push("4".to_string());
+    args.push("8".to_string());
+    args.push("--buffer-size".to_string());
+    args.push("64K".to_string());
+    args.push("--http-chunk-size".to_string());
+    args.push("10M".to_string());
     args.push("--no-overwrites".to_string());
     args.push("--progress".to_string());
     args.push("--progress-template".to_string());
@@ -784,14 +813,13 @@ mod tests {
         let empty = NewDownload::file("   ");
         assert!(matches!(add(&conn, &empty, 1000), Err(AppError::Invalid(_))));
 
-        let magnet = NewDownload::file("magnet:?xt=urn:btih:1234567890abcdef");
-        let err = add(&conn, &magnet, 1000).unwrap_err();
-        assert_eq!(err.to_string(), "Torrent belum didukung");
+        let magnet = NewDownload::file("magnet:?xt=urn:btih:1234567890abcdef&dn=archlinux.iso");
+        let row_m = add(&conn, &magnet, 1000).unwrap();
+        assert_eq!(row_m.title, "archlinux.iso");
 
         let torrent_file = NewDownload::file("https://example.com/distro.iso.torrent");
-        let err = add(&conn, &torrent_file, 1000).unwrap_err();
-        assert_eq!(err.to_string(), "Torrent belum didukung");
-
+        let row_t = add(&conn, &torrent_file, 1000).unwrap();
+        assert_eq!(row_t.title, "distro.iso.torrent");
         let bad_proto = NewDownload::file("ftp://example.com/file.zip");
         assert!(matches!(add(&conn, &bad_proto, 1000), Err(AppError::Invalid(_))));
 
@@ -1064,10 +1092,10 @@ mod tests {
         assert!(args_video.contains(&"--no-colors".to_string()));
         assert!(args_video.contains(&"--no-playlist".to_string()));
         assert!(args_video.contains(&"--retries".to_string()));
-        assert!(args_video.contains(&"3".to_string()));
+        assert!(args_video.contains(&"10".to_string()));
         assert!(args_video.contains(&"--fragment-retries".to_string()));
         assert!(args_video.contains(&"--concurrent-fragments".to_string()));
-        assert!(args_video.contains(&"4".to_string()));
+        assert!(args_video.contains(&"8".to_string()));
         assert!(args_video.contains(&"--no-overwrites".to_string()));
         assert!(args_video.contains(&"--progress".to_string()));
 

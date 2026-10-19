@@ -1075,6 +1075,94 @@ pub fn create_dir(parent: &str, name: &str, hidden: bool, roots: &Roots) -> Resu
     fs::create_dir(&dest)?;
     list_dir(&canonical.to_string_lossy(), hidden, roots)
 }
+
+/// Extracts an archive (.zip, .tar, .tar.gz, .tgz, .tar.bz2, .tar.xz, .7z) safely within allowed roots.
+/// Returns the destination folder path.
+pub fn extract_archive(
+    archive_path: &str,
+    dest_dir: Option<&str>,
+    roots: &Roots,
+) -> Result<String, AppError> {
+    let canonical = guard(archive_path, roots)?;
+    if !canonical.is_file() {
+        return Err(AppError::Invalid("Arsip tidak ditemukan atau bukan berkas".into()));
+    }
+    let parent = canonical
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| AppError::Invalid("Folder induk tidak ditemukan".into()))?;
+
+    let file_name = canonical
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| AppError::Invalid("Nama berkas tidak valid".into()))?;
+
+    let target_dir = match dest_dir {
+        Some(d) => guard(d, roots)?,
+        None => {
+            let lower = file_name.to_lowercase();
+            let stem = if lower.ends_with(".tar.gz") {
+                &file_name[..file_name.len() - 7]
+            } else if lower.ends_with(".tar.bz2") || lower.ends_with(".tar.xz") {
+                &file_name[..file_name.len() - 8]
+            } else {
+                Path::new(file_name)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("extracted")
+            };
+            let mut out = parent.join(stem);
+            if out.exists() {
+                out = unique_name(&parent, stem);
+            }
+            fs::create_dir_all(&out)?;
+            out
+        }
+    };
+
+    let lower = file_name.to_lowercase();
+    let status = if lower.ends_with(".zip") {
+        std::process::Command::new("unzip")
+            .arg("-q")
+            .arg("-o")
+            .arg(&canonical)
+            .arg("-d")
+            .arg(&target_dir)
+            .status()
+            .map_err(|e| AppError::Other(format!("Gagal menjalankan unzip: {e}")))?
+    } else if lower.ends_with(".tar.gz")
+        || lower.ends_with(".tgz")
+        || lower.ends_with(".tar.bz2")
+        || lower.ends_with(".tar.xz")
+        || lower.ends_with(".tar")
+    {
+        std::process::Command::new("tar")
+            .arg("-xf")
+            .arg(&canonical)
+            .arg("-C")
+            .arg(&target_dir)
+            .status()
+            .map_err(|e| AppError::Other(format!("Gagal menjalankan tar: {e}")))?
+    } else if lower.ends_with(".7z") || lower.ends_with(".rar") {
+        std::process::Command::new("7z")
+            .arg("x")
+            .arg("-y")
+            .arg(format!("-o{}", target_dir.display()))
+            .arg(&canonical)
+            .status()
+            .map_err(|e| AppError::Other(format!("Gagal menjalankan 7z: {e}")))?
+    } else {
+        return Err(AppError::Invalid(
+            "Format arsip tidak didukung (gunakan .zip, .tar.gz, .tgz, .tar.bz2, .tar.xz, .7z)".into(),
+        ));
+    };
+
+    if !status.success() {
+        return Err(AppError::Other("Proses ekstraksi berkas gagal".into()));
+    }
+
+    Ok(target_dir.to_string_lossy().to_string())
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1822,6 +1910,33 @@ XDG_MUSIC_DIR="$HOME/NonExistentMusic"
             assert_eq!(rep.failed.len(), 1, "{original:?}");
             assert!(Path::new(&item).exists(), "{original:?} moved the item");
         }
+    }
+
+    #[test]
+    fn extract_archive_extracts_tar_and_creates_folder() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let file_txt = home.path().join("hello.txt");
+        fs::write(&file_txt, "halo dunia").unwrap();
+
+        let archive = home.path().join("test.tar");
+        let status = std::process::Command::new("tar")
+            .arg("-cf")
+            .arg(&archive)
+            .arg("-C")
+            .arg(home.path())
+            .arg("hello.txt")
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let extracted_dir = extract_archive(archive.to_str().unwrap(), None, &roots).unwrap();
+        assert!(Path::new(&extracted_dir).is_dir());
+        assert!(Path::new(&extracted_dir).join("hello.txt").exists());
+        assert_eq!(
+            fs::read_to_string(Path::new(&extracted_dir).join("hello.txt")).unwrap(),
+            "halo dunia"
+        );
     }
 }
 

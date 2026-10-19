@@ -1,5 +1,12 @@
 import type { ScheduleItem } from "../api";
-import { agendaTitle, chipsFor, KIND_COLORS, monthGrid, READ_ONLY_HINT } from "./layout";
+import {
+  agendaTitle,
+  chipsFor,
+  KIND_COLORS,
+  monthGrid,
+  READ_ONLY_HINT,
+  type MonthCell,
+} from "./layout";
 
 const DAYS_OF_WEEK = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
 
@@ -30,6 +37,7 @@ export function CalendarView({
   items,
   onSelectDate,
   calendarReadOnly = false,
+  customGrid,
 }: Readonly<{
   month: string;
   today: string;
@@ -37,8 +45,9 @@ export function CalendarView({
   items: readonly ScheduleItem[];
   onSelectDate: (date: string) => void;
   calendarReadOnly?: boolean;
+  customGrid?: MonthCell[][];
 }>) {
-  const grid = monthGrid(month);
+  const grid = customGrid ?? monthGrid(month);
   const rows = grid.length;
 
   return (
@@ -60,7 +69,11 @@ export function CalendarView({
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-7 auto-rows-fr gap-[1px] bg-line">
+      <div
+        className={`grid min-h-0 flex-1 grid-cols-7 ${
+          rows === 1 ? "auto-rows-fr" : "auto-rows-fr"
+        } gap-[1px] bg-line`}
+      >
         {grid.flatMap((row) =>
           row.map((cell) => {
             const { shown, more } = chipsFor(items, cell.date, rows);
@@ -78,7 +91,7 @@ export function CalendarView({
                 onClick={() => onSelectDate(cell.date)}
                 aria-pressed={isSelected}
                 aria-label={agendaTitle(cell.date)}
-                className={`flex min-h-0 min-w-0 flex-col items-stretch gap-1 p-1.5 text-left transition-colors ${bgClass} ${todayRing}`}
+                className={`flex min-h-0 min-w-0 flex-col items-stretch gap-1 p-2 text-left transition-colors ${bgClass} ${todayRing}`}
               >
                 <span
                   className={`flex h-[22px] min-w-[22px] self-start items-center justify-center rounded-full px-1 font-mono text-xs ${numClass}`}

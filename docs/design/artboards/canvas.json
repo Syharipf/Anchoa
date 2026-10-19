@@ -380,6 +380,24 @@
    "x": 2720,
    "y": 0
   },
+  "ProyekStudio.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "proyek",
+   "title": "Proyek · Studio Mission Control (Pipeline, PRD Canvas, Terminal)",
+   "w": 1280,
+   "x": 4080,
+   "y": 0
+  },
+  "ProyekPrdReview.dc.html": {
+   "h": 800,
+   "is_interactive": true,
+   "page": "proyek",
+   "title": "Proyek · Review & Edit Draft PRD (AI Draft Approval)",
+   "w": 1280,
+   "x": 5440,
+   "y": 0
+  },
   "State.dc.html": {
    "h": 1760,
    "page": "state",
@@ -455,6 +473,8 @@
   "Proyek.dc.html",
   "ProyekAgen.dc.html",
   "ProyekAgenHubungkan.dc.html",
+  "ProyekStudio.dc.html",
+  "ProyekPrdReview.dc.html",
   "Berkas.dc.html",
   "Unduhan.dc.html",
   "ProgressKawanan.dc.html",

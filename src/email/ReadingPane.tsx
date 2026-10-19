@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorMessage, type EmailAssistance, type EmailMessage } from "../api";
 import { ProposalCard } from "../assistant/ProposalCard";
-import { FIELD, PRIMARY, SECONDARY } from "../shell/ui";
+import { FIELD } from "../shell/ui";
 import { StarButton } from "./StarButton";
 import { emailDate, replySubject, sender, textParts } from "./view";
 import { useEmailSend } from "./useEmailSend";
@@ -97,7 +97,14 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
         <div className="flex items-start gap-2">
           <h2 id="email-reading-subject" className="m-0 min-w-0 flex-1 break-words font-display text-[19px] font-semibold">{message.subject || "(Tanpa subjek)"}</h2>
           <StarButton message={message} busy={busy || sending.busy} onStar={onStar} />
-          <button type="button" disabled={busy || sending.busy} onClick={() => onArchive(message)} className={`${SECONDARY} shrink-0 px-3`}>Arsipkan</button>
+          <button
+            type="button"
+            disabled={busy || sending.busy}
+            onClick={() => onArchive(message)}
+            className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+          >
+            Arsipkan
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 font-display text-sm font-semibold">{sender(message).charAt(0).toUpperCase()}</span>
@@ -110,8 +117,15 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
         <section aria-labelledby="email-assistant-heading" aria-busy={assisting} className="flex flex-col gap-2 rounded-xl border border-line bg-stage px-3.5 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 id="email-assistant-heading" className="m-0 text-xs font-semibold tracking-wider text-accent uppercase">Ringkasan asisten</h3>
-            <button type="button" aria-label="Ringkas email" disabled={busy || assisting || !!assistance?.action} onClick={assist}
-              className={`${SECONDARY} min-h-8 px-3 text-xs disabled:opacity-50`}>{assistance ? "Ringkas lagi" : "Ringkas email"}</button>
+            <button
+              type="button"
+              aria-label="Ringkas email"
+              disabled={busy || assisting || !!assistance?.action}
+              onClick={assist}
+              className="flex h-7 items-center rounded-md border border-line bg-surface-2 px-2.5 text-xs text-ink transition-colors hover:bg-surface disabled:opacity-50"
+            >
+              {assistance ? "Ringkas lagi" : "Ringkas email"}
+            </button>
           </div>
           {assisting && <p role="status" className="m-0 text-xs text-muted">Asisten sedang merangkum…</p>}
           {assistance && <ul className="m-0 flex list-disc flex-col gap-1 pl-[18px] text-[13px] leading-relaxed text-ink">
@@ -138,7 +152,14 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
         <div className="flex items-end gap-2">
           <textarea id="email-reply" rows={2} required disabled={busy || sending.busy} value={reply}
             onChange={(e) => setReply(e.target.value)} placeholder="Tulis balasan, atau tekan mikrofon untuk mendikte…" className={`${FIELD} min-w-0 flex-1 resize-y`} />
-          <button type="submit" aria-label="Kirim balasan" disabled={busy || sending.busy || !reply.trim()} className={PRIMARY}>{sending.busy ? "Mengirim…" : "Kirim"}</button>
+          <button
+            type="submit"
+            aria-label="Kirim balasan"
+            disabled={busy || sending.busy || !reply.trim()}
+            className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
+          >
+            {sending.busy ? "Mengirim…" : "Kirim"}
+          </button>
         </div>
         {sending.error && <p role="alert" className="m-0 text-sm text-danger">{sending.error}</p>}
       </form>

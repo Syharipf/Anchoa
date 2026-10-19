@@ -241,6 +241,28 @@ export interface ProjectInput {
   agentCommand?: string | null;
   agentDir?: string | null;
 }
+export interface StudioContext {
+  projectId: string;
+  branch: string | null;
+  prd: string | null;
+  flow: string | null;
+  planTasks: number;
+  doingTasks: number;
+  testTasks: number;
+  reviewTasks: number;
+  doneTasks: number;
+}
+
+export interface GitFileChange {
+  path: string;
+  status: string;
+}
+
+export interface GitChanges {
+  branch: string | null;
+  files: GitFileChange[];
+}
+
 
 export interface LooseCount {
   done: number;
@@ -386,6 +408,10 @@ export interface HabitRow {
   rate30: number;
   week: DayState[];
   createdAt: number;
+  category?: string | null;
+  icon?: string | null;
+  targetDays?: number | null;
+  archived?: boolean;
 }
 
 export interface TopStreak {
@@ -432,6 +458,10 @@ export interface HabitInput {
   remindAt?: string | null;
   remindOn: boolean;
   autoJournal?: boolean;
+  category?: string | null;
+  icon?: string | null;
+  targetDays?: number | null;
+  archived?: boolean;
 }
 
 export type EntryKind = "idea" | "vent" | "note";
@@ -1144,6 +1174,16 @@ export const api = {
   saveProject: (input: ProjectInput) => invoke<ProjectDetail>("save_project", { input }),
   deleteProject: (id: string) => invoke<void>("delete_project", { id }),
   openRepo: (id: string) => invoke<void>("open_repo", { id }),
+  projectStudioContext: (projectId: string) =>
+    invoke<StudioContext>("project_studio_context", { projectId }),
+  projectSavePrd: (projectId: string, content: string) =>
+    invoke<void>("project_save_prd", { projectId, content }),
+  projectSaveFlow: (projectId: string, flowJson: string) =>
+    invoke<void>("project_save_flow", { projectId, flowJson }),
+  projectGitDiff: (projectId: string) =>
+    invoke<GitChanges>("project_git_diff", { projectId }),
+  projectOpenExternalTerminal: (projectId: string) =>
+    invoke<void>("project_open_external_terminal", { projectId }),
   agentRequest: (projectId: string, text: string) => invoke<TaskCard>("agent_request", { projectId, text }),
   agentStop: (projectId: string) => invoke<void>("agent_stop", { projectId }),
   agentRunning: () => invoke<string[]>("agent_running"),
@@ -1203,8 +1243,8 @@ export const api = {
     invoke<HabitHistory>("habit_history", { id, month }),
   saveHabit: (input: HabitInput) => invoke<HabitRow>("save_habit", { input }),
   deleteHabit: (id: string) => invoke<void>("delete_habit", { id }),
-  checkHabit: (id: string, done: boolean) =>
-    invoke<HabitRow>("check_habit", { id, done }),
+  checkHabit: (id: string, done: boolean, date?: string) =>
+    invoke<HabitRow>("check_habit", { id, done, date }),
   journalList: (f: JournalFilter = {}) =>
     invoke<JournalList>("journal_list", { query: f.query, kind: f.kind, tag: f.tag, mood: f.mood, date: f.date }),
   journalEntry: (id: string) => invoke<Entry>("journal_entry", { id }),
@@ -1224,6 +1264,12 @@ export const api = {
   filePlaces: () => invoke<FilePlaces>("file_places"),
   listDir: (path: string, hidden: boolean) =>
     invoke<Listing>("list_dir", { path, hidden }),
+  createDir: (parent: string, name: string, hidden: boolean) =>
+    invoke<Listing>("create_dir", { parent, name, hidden }),
+  extractArchive: (path: string, destDir?: string) =>
+    invoke<string>("extract_archive", { path, destDir }),
+  renameEntry: (path: string, newName: string, hidden: boolean) =>
+    invoke<Listing>("rename_entry", { path, newName, hidden }),
   fileRemotes: () => invoke<RemotePlaces>("file_remotes"),
   listRemote: (path: string, hidden: boolean) =>
     invoke<Listing>("list_remote", { path, hidden }),

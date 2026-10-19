@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Proyek: Studio Mission Control</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C1417;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E6EEF0}
+a{color:#C6F36B}a:hover{color:#DDFA9E}
+:where(button,a,input,textarea):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s}[data-hover]:hover{background-color:#18262B!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.03)}[data-press]:active{transform:scale(.97)}
+[data-card]{transition:border-color .2s,box-shadow .2s}[data-card]:hover{border-color:#31474E!important}
+@keyframes pulse-ring{0%{transform:scale(0.95);opacity:.8}50%{transform:scale(1.2);opacity:0}100%{transform:scale(0.95);opacity:0}}
+@keyframes pipe-flow{0%{stroke-dashoffset:40}100%{stroke-dashoffset:0}}
+@keyframes glow-bar{0%,100%{opacity:.6}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.anim-flow,.anim-pulse{animation:none!important}}
+</style>
+</helmet>
+
+<div style="position: relative; width: 1280px; height: 800px; display: flex; background: #0C1417; color: #E6EEF0; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+
+  <!-- Nav Kiri Rail (72px) -->
+  <nav data-navwheel aria-label="Menu utama" tabindex="0" onFocus="{{navw.focus}}" onBlur="{{navw.blur2}}" onKeyDown="{{navw.key}}" style="position: relative; z-index: 40; width: 72px; height: 800px; flex-shrink: 0; outline: none; user-select: none"><div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 72px; height: 800px; overflow: hidden; border-right: 1px solid #1F3E49"><svg width="220" height="800" viewBox="0 0 220 800" aria-hidden="true" style="position: absolute; inset: 0; display: block"><defs><linearGradient id="nav-water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17495A"/><stop offset="0.35" stop-color="#103642"/><stop offset="0.75" stop-color="#0B2630"/><stop offset="1" stop-color="#081A21"/></linearGradient><radialGradient id="nav-hub" cx="0" cy="0.5" r="1"><stop offset="0" stop-color="#2F7486" stop-opacity="0.45"/><stop offset="1" stop-color="#2F7486" stop-opacity="0"/></radialGradient></defs><rect width="220" height="800" fill="url(#nav-water)"/><ellipse cx="-100" cy="388" rx="260" ry="300" fill="url(#nav-hub)"/><circle cx="-100" cy="388" r="198" fill="none" stroke="#CFE3EA" stroke-opacity="0.12" stroke-width="1.5" stroke-dasharray="2 7"/></svg></div><div onMouseEnter="{{navw.enter}}" onMouseLeave="{{navw.leave}}" style="position: absolute; left: 0; top: 0; width: 72px; height: 800px"><a href="Main.dc.html" aria-label="Anchoa, ke Dashboard" style="position: absolute; left: 16px; top: 18px; display: flex; align-items: center; gap: 10px; color: #E6EEF0; text-decoration: none"><div style="width: 40px; height: 40px; border-radius: 11px; background: #10303A; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #C6F36B; font-size: 18px">A</div></a><div style="position: absolute; left: 14px; top: 160px; display: flex; flex-direction: column; gap: 14px"><a href="Main.dc.html" title="Dashboard" style="width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #94A8AE; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></a><a href="Proyek.dc.html" title="Proyek" aria-current="page" style="width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #18262B; border: 1px solid #4E6A26; color: #C6F36B; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></a><a href="Jurnal.dc.html" title="Jurnal" style="width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #94A8AE; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></a><a href="Berkas.dc.html" title="Berkas" style="width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #94A8AE; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg></a></div><div style="position: absolute; left: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 6px"><a href="Profil.dc.html" style="width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(8,26,33,0.75); text-decoration: none"><span style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid #31474E; background: #18262B; color: #C6F36B; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 600">S</span></a><a href="Pengaturan.dc.html" style="width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(8,26,33,0.75); color: #CFE3EA; text-decoration: none"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a></div></div></nav>
+
+  <!-- Area Konten Utama Studio -->
+  <main style="flex-grow: 1; padding: 18px 24px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; min-width: 0; height: 800px; overflow: hidden">
+
+    <!-- Top Bar: Quick Search + Clock -->
+    <div style="display: flex; align-items: center; gap: 14px; flex-shrink: 0">
+      <button onClick="{{openPalette}}" aria-label="Buka command palette" style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 38px; background: #121D21; border: 1px solid #22343A; border-radius: 10px; color: #94A8AE; font: inherit; font-size: 13px; text-align: left; cursor: pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94A8AE" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span style="flex-grow: 1">Cari PRD, tugas kanban, instruksi harness…</span>
+        <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #94A8AE; border: 1px solid #22343A; border-radius: 6px; padding: 1px 6px">Ctrl K</kbd>
+      </button>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #94A8AE; flex-shrink: 0">Min 18 Okt · 14:30</span>
+    </div>
+
+    <!-- Project Header Bar -->
+    <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0">
+      <a href="Proyek.dc.html" style="font-size: 13px; color: #94A8AE; text-decoration: none">Proyek</a>
+      <span aria-hidden="true" style="color: #556C73">›</span>
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 22px; letter-spacing: -0.01em">Anchoa v1</h1>
+
+      <!-- Repo & Branch Badge -->
+      <div style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: #121D21; border: 1px solid #22343A; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #C3D2D6">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+        <span>github: syharipf/Anchoa</span>
+        <span style="color: #556C73">·</span>
+        <span style="color: #C6F36B">feat/otp-wa</span>
+      </div>
+
+      <!-- Harness Indicator -->
+      <div style="display: flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 8px; background: #121D21; border: 1px solid #22343A; font-family: 'JetBrains Mono', monospace; font-size: 11px">
+        <span style="position: relative; width: 8px; height: 8px; display: flex; align-items: center; justify-content: center">
+          <span class="anim-pulse" style="position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #C6F36B; opacity: 0.35; animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"></span>
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #C6F36B"></span>
+        </span>
+        <span style="color: #E6EEF0; font-weight: 500">omp</span>
+        <span style="color: #94A8AE">PID: 84210</span>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px">
+        <a href="ProyekPrdReview.dc.html" data-press style="min-height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 8px; border: 1px solid #4E6A26; background: rgba(198,243,107,0.12); color: #C6F36B; font: inherit; font-size: 12px; font-weight: 600; text-decoration: none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Draft Sasaran AI
+        </a>
+        <button data-hover onClick="{{runNativeApp}}" style="min-height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 8px; border: 1px solid #22343A; background: #121D21; color: #E6EEF0; font: inherit; font-size: 12px; cursor: pointer">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#C6F36B" stroke="#C6F36B" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Jalankan App
+        </button>
+      </div>
+    </div>
+
+    <!-- PIPELINE TRACKER ANIMATED (SVG Flow) -->
+    <section aria-label="Alur Pipeline Proyek" style="position: relative; flex-shrink: 0; padding: 10px 14px; background: #0E181B; border: 1px solid #22343A; border-radius: 12px; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <span style="font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; color: #C3D2D6; text-transform: uppercase; letter-spacing: 0.06em">Pipeline Siklus Pengerjaan</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #C6F36B">Tahap 4/6: Coding Sedang Berjalan</span>
+      </div>
+
+      <!-- SVG Pipeline Visualization -->
+      <svg width="100%" height="46" viewBox="0 0 1150 46" fill="none" style="display: block; overflow: visible">
+        <defs>
+          <linearGradient id="flow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#4E6A26"/>
+            <stop offset="60%" stop-color="#C6F36B"/>
+            <stop offset="100%" stop-color="#22343A"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Connector Lines -->
+        <!-- Stage 1 -> 2 (Done) -->
+        <line x1="160" y1="23" x2="230" y2="23" stroke="#4E6A26" stroke-width="2.5"/>
+        <!-- Stage 2 -> 3 (Done) -->
+        <line x1="390" y1="23" x2="460" y2="23" stroke="#4E6A26" stroke-width="2.5"/>
+        <!-- Stage 3 -> 4 (Active Flow Animated) -->
+        <line x1="620" y1="23" x2="690" y2="23" stroke="#C6F36B" stroke-width="2.5" stroke-dasharray="6 4" class="anim-flow" style="animation: pipe-flow 1s linear infinite"/>
+        <!-- Stage 4 -> 5 (Pending) -->
+        <line x1="850" y1="23" x2="920" y2="23" stroke="#22343A" stroke-width="2" stroke-dasharray="4 4"/>
+        <!-- Stage 5 -> 6 (Pending) -->
+        <line x1="1040" y1="23" x2="1080" y2="23" stroke="#22343A" stroke-width="2" stroke-dasharray="4 4"/>
+
+        <!-- Node 1: PRD & Bisnis (Done) -->
+        <g transform="translate(10, 6)" style="cursor: pointer" onClick="{{switchTabPrd}}">
+          <rect width="150" height="34" rx="8" fill="#121D21" stroke="#4E6A26" stroke-width="1.5"/>
+          <circle cx="20" cy="17" r="8" fill="#1E2A12"/>
+          <path d="M16 17l3 3 5-5" stroke="#C6F36B" stroke-width="1.8" stroke-linecap="round"/>
+          <text x="36" y="16" fill="#E6EEF0" font-family="'IBM Plex Sans', sans-serif" font-size="11.5" font-weight="600">1. PRD &amp; Bisnis</text>
+          <text x="36" y="27" fill="#86B33A" font-family="'JetBrains Mono', monospace" font-size="9.5">Disetujui ✓</text>
+        </g>
+
+        <!-- Node 2: Arsitektur (Done) -->
+        <g transform="translate(240, 6)" style="cursor: pointer" onClick="{{switchTabPrd}}">
+          <rect width="150" height="34" rx="8" fill="#121D21" stroke="#4E6A26" stroke-width="1.5"/>
+          <circle cx="20" cy="17" r="8" fill="#1E2A12"/>
+          <path d="M16 17l3 3 5-5" stroke="#C6F36B" stroke-width="1.8" stroke-linecap="round"/>
+          <text x="36" y="16" fill="#E6EEF0" font-family="'IBM Plex Sans', sans-serif" font-size="11.5" font-weight="600">2. Arsitektur</text>
+          <text x="36" y="27" fill="#86B33A" font-family="'JetBrains Mono', monospace" font-size="9.5">4 Node Valid</text>
+        </g>
+
+        <!-- Node 3: Rencana Kanban (Ready) -->
+        <g transform="translate(470, 6)" style="cursor: pointer" onClick="{{switchTabKanban}}">
+          <rect width="150" height="34" rx="8" fill="#121D21" stroke="#4E6A26" stroke-width="1.5"/>
+          <circle cx="20" cy="17" r="8" fill="#18262B"/>
+          <text x="17" y="20" fill="#C6F36B" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="bold">3</text>
+          <text x="36" y="16" fill="#E6EEF0" font-family="'IBM Plex Sans', sans-serif" font-size="11.5" font-weight="600">3. Rencana</text>
+          <text x="36" y="27" fill="#94A8AE" font-family="'JetBrains Mono', monospace" font-size="9.5">2 Task Antre</text>
+        </g>
+
+        <!-- Node 4: Coding AI / Harness (ACTIVE PULSE) -->
+        <g transform="translate(700, 6)" style="cursor: pointer" onClick="{{switchTabKanban}}">
+          <rect width="150" height="34" rx="8" fill="#18262B" stroke="#C6F36B" stroke-width="2"/>
+          <!-- Pulse Dot -->
+          <circle cx="20" cy="17" r="7" fill="#C6F36B" class="anim-pulse" style="animation: pulse-ring 1.6s ease-out infinite"/>
+          <circle cx="20" cy="17" r="4" fill="#0C1417"/>
+          <text x="36" y="16" fill="#C6F36B" font-family="'IBM Plex Sans', sans-serif" font-size="11.5" font-weight="600">4. Coding (omp)</text>
+          <text x="36" y="27" fill="#DDFA9E" font-family="'JetBrains Mono', monospace" font-size="9.5">1 Aktif di Repo</text>
+        </g>
+
+        <!-- Node 5: Test & Review (Pending) -->
+        <g transform="translate(930, 6)" style="cursor: pointer">
+          <rect width="150" height="34" rx="8" fill="#121D21" stroke="#22343A" stroke-width="1"/>
+          <circle cx="20" cy="17" r="7" fill="#18262B"/>
+          <text x="17" y="20" fill="#94A8AE" font-family="'JetBrains Mono', monospace" font-size="9">○</text>
+          <text x="36" y="16" fill="#94A8AE" font-family="'IBM Plex Sans', sans-serif" font-size="11.5" font-weight="500">5. Tes &amp; Review</text>
+          <text x="36" y="27" fill="#556C73" font-family="'JetBrains Mono', monospace" font-size="9.5">0 Task</text>
+        </g>
+      </svg>
+    </section>
+
+    <!-- Navigasi Tab Proyek -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-bottom: 1px solid #22343A; padding-bottom: 2px">
+      <nav aria-label="Sub-menu Studio" style="display: flex; gap: 4px">
+        <button onClick="{{switchTabKanban}}" aria-current="{{tabKanbanCurrent}}" style="min-height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 8px 8px 0 0; background: {{tabKanbanBg}}; color: {{tabKanbanColor}}; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid {{tabKanbanBorder}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="10" rx="1"/></svg>
+          Papan Kanban (5 Kolom)
+        </button>
+        <button onClick="{{switchTabPrd}}" aria-current="{{tabPrdCurrent}}" style="min-height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 8px 8px 0 0; background: {{tabPrdBg}}; color: {{tabPrdColor}}; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid {{tabPrdBorder}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          PRD &amp; Alur Bisnis
+        </button>
+        <button onClick="{{switchTabDiff}}" aria-current="{{tabDiffCurrent}}" style="min-height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 8px 8px 0 0; background: {{tabDiffBg}}; color: {{tabDiffColor}}; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid {{tabDiffBorder}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+          Perubahan &amp; Diff <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #1E2A12; color: #C6F36B">+3 file</span>
+        </button>
+      </nav>
+
+      <!-- Filter / View Controls -->
+      <div style="display: flex; align-items: center; gap: 8px">
+        <span style="font-size: 11px; color: #94A8AE">Otomatis sync via SQLite WAL</span>
+      </div>
+    </div>
+
+    <!-- AREA KONTEN TAB: KANBAN atau PRD CANVAS -->
+    <div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden">
+
+      <!-- VIEW A: KANBAN 5 KOLOM (Default) -->
+      <sc-if value="{{isTabKanban}}" hint-placeholder-val="{{ true }}">
+        <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 4px">
+
+          <!-- Kolom 1: Rencana -->
+          <div style="display: flex; flex-direction: column; background: #0E181B; border: 1px solid #22343A; border-radius: 10px; overflow: hidden">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #121D21; border-bottom: 1px solid #22343A">
+              <span style="font-size: 12px; font-weight: 600; color: #C3D2D6">Rencana</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #18262B; color: #94A8AE">2</span>
+            </div>
+            <div style="flex-grow: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px">
+              <div data-card style="padding: 10px; background: #121D21; border: 1px solid #22343A; border-radius: 8px; display: flex; flex-direction: column; gap: 6px">
+                <div style="display: flex; align-items: center; justify-content: space-between">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #C98500">Prioritas Tinggi</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94A8AE">#102</span>
+                </div>
+                <span style="font-size: 12.5px; font-weight: 500; color: #E6EEF0">Integrasi Rust WhatsApp Gateway Client</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #86B33A">draft dari PRD</span>
+                  <button data-hover style="padding: 2px 6px; border: 1px solid #22343A; border-radius: 4px; background: transparent; color: #C3D2D6; font-size: 11px; cursor: pointer">→</button>
+                </div>
+              </div>
+
+              <div data-card style="padding: 10px; background: #121D21; border: 1px solid #22343A; border-radius: 8px; display: flex; flex-direction: column; gap: 6px">
+                <span style="font-size: 12.5px; font-weight: 500; color: #E6EEF0">UI Input OTP 6 Digit di Modal Reset</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #94A8AE">Frontend React</span>
+                  <button data-hover style="padding: 2px 6px; border: 1px solid #22343A; border-radius: 4px; background: transparent; color: #C3D2D6; font-size: 11px; cursor: pointer">→</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kolom 2: Dikerjakan (Sedang Berjalan di Harness) -->
+          <div style="display: flex; flex-direction: column; background: #0E181B; border: 1px solid #4E6A26; border-radius: 10px; overflow: hidden">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #18262B; border-bottom: 1px solid #4E6A26">
+              <span style="font-size: 12px; font-weight: 600; color: #C6F36B">Dikerjakan</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #1E2A12; color: #C6F36B">1 AKTIF</span>
+            </div>
+            <div style="flex-grow: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px">
+              <div data-card style="padding: 10px; background: #121D21; border: 1px solid #C6F36B; border-radius: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 0 12px rgba(198,243,107,0.08)">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <span class="anim-pulse" style="width: 6px; height: 6px; border-radius: 50%; background: #C6F36B"></span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #C6F36B; font-weight: 500">omp: implement</span>
+                </div>
+                <span style="font-size: 12.5px; font-weight: 600; color: #E6EEF0">Handler Endpoint Rust: POST /auth/request-otp</span>
+                <span style="font-size: 11px; color: #94A8AE; line-height: 1.4">Menulis logic verifikasi nomor HP dan hashing token Argon2...</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 6px; border-top: 1px solid #22343A">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #C3D2D6">branch: feat/otp-wa</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #C6F36B">3m 12s</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kolom 3: Tes -->
+          <div style="display: flex; flex-direction: column; background: #0E181B; border: 1px solid #22343A; border-radius: 10px; overflow: hidden">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #121D21; border-bottom: 1px solid #22343A">
+              <span style="font-size: 12px; font-weight: 600; color: #C3D2D6">Tes</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #18262B; color: #94A8AE">1</span>
+            </div>
+            <div style="flex-grow: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px">
+              <div data-card style="padding: 10px; background: #121D21; border: 1px solid #22343A; border-radius: 8px; display: flex; flex-direction: column; gap: 6px">
+                <span style="font-size: 12.5px; font-weight: 500; color: #E6EEF0">Rate-limit OTP 3x Percobaan Maksimal</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #FF8A7A">1 tes gagal (timeout 5s)</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #94A8AE">cargo test</span>
+                  <button data-hover style="padding: 2px 6px; border: 1px solid #22343A; border-radius: 4px; background: transparent; color: #C3D2D6; font-size: 11px; cursor: pointer">→</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kolom 4: Review -->
+          <div style="display: flex; flex-direction: column; background: #0E181B; border: 1px solid #22343A; border-radius: 10px; overflow: hidden">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #121D21; border-bottom: 1px solid #22343A">
+              <span style="font-size: 12px; font-weight: 600; color: #C3D2D6">Review</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #18262B; color: #94A8AE">0</span>
+            </div>
+            <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 20px; color: #556C73; font-size: 11px">
+              Belum ada PR masuk
+            </div>
+          </div>
+
+          <!-- Kolom 5: Selesai -->
+          <div style="display: flex; flex-direction: column; background: #0E181B; border: 1px solid #22343A; border-radius: 10px; overflow: hidden">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #121D21; border-bottom: 1px solid #22343A">
+              <span style="font-size: 12px; font-weight: 600; color: #C3D2D6">Selesai</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #1E2A12; color: #C6F36B">5</span>
+            </div>
+            <div style="flex-grow: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px">
+              <div data-card style="padding: 10px; background: #121D21; border: 1px solid #22343A; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; opacity: 0.85">
+                <span style="font-size: 12.5px; font-weight: 500; color: #C3D2D6; text-decoration: line-through">Skema Database Migration 018: OTP Tokens</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #86B33A">commit 4a91c2f · PR #166 disetujui</span>
+              </div>
+              <div data-card style="padding: 10px; background: #121D21; border: 1px solid #22343A; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; opacity: 0.85">
+                <span style="font-size: 12.5px; font-weight: 500; color: #C3D2D6; text-decoration: line-through">Draft PRD &amp; Diagram Alur Bisnis</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #86B33A">Disetujui di Studio Anchoa</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </sc-if>
+
+      <!-- VIEW B: PRD DOKUMEN & CANVAS ALUR BISNIS -->
+      <sc-if value="{{isTabPrd}}" hint-placeholder-val="{{ false }}">
+        <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 12px; overflow: hidden">
+
+          <!-- Kiri: Dokumen PRD Markdown (.anchoa/prd.md) -->
+          <div style="display: flex; flex-direction: column; background: #0E181B; border: 1px solid #22343A; border-radius: 10px; overflow: hidden">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #121D21; border-bottom: 1px solid #22343A">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #C6F36B">.anchoa/prd.md</span>
+                <span style="font-size: 10px; color: #94A8AE">· Git Tracked</span>
+              </div>
+              <a href="ProyekPrdReview.dc.html" data-hover style="padding: 3px 8px; border-radius: 6px; border: 1px solid #31474E; background: transparent; color: #C3D2D6; font-size: 11px; text-decoration: none; cursor: pointer">Edit Spec</a>
+            </div>
+            <div style="flex-grow: 1; overflow-y: auto; padding: 14px; font-size: 12.5px; line-height: 1.6; color: #C3D2D6">
+              <h2 style="margin: 0 0 8px; font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: #E6EEF0"># Fitur Reset Password via OTP WhatsApp</h2>
+              <p style="margin: 0 0 10px; font-size: 12px; color: #94A8AE">Sasaran: Mengizinkan pengguna memulihkan akses akun tanpa ketergantungan email server.</p>
+
+              <h3 style="margin: 12px 0 6px; font-size: 13px; color: #E6EEF0">## Aturan Bisnis &amp; Keamanan</h3>
+              <ul style="margin: 0 0 10px; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 12px">
+                <li>Panjang kode: 6 digit angka acak (CSPRNG).</li>
+                <li>Masa berlaku: 5 menit sejak pengiriman.</li>
+                <li>Rate limit: Maksimal 3 kali permintaan per nomor per jam.</li>
+                <li>Harness executor: Dikerjakan dengan Rust command di backend + React form.</li>
+              </ul>
+
+              <h3 style="margin: 12px 0 6px; font-size: 13px; color: #E6EEF0">## Kriteria Keberhasilan</h3>
+              <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 12px">
+                <li><span style="color: #86B33A">✓</span> Skema token tersimpan aman dengan Argon2.</li>
+                <li><span style="color: #86B33A">✓</span> E2E test Xvfb mencakup skenario input valid &amp; kedaluwarsa.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Kanan: Canvas Alur Bisnis Visual (Interactive Node Flow) -->
+          <div style="display: flex; flex-direction: column; background: #0E181B; border: 1px solid #22343A; border-radius: 10px; overflow: hidden; position: relative">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #121D21; border-bottom: 1px solid #22343A; z-index: 10">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 600; color: #E6EEF0">Canvas Alur Proses Bisnis</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94A8AE">(.anchoa/flow.json)</span>
+              </div>
+              <div style="display: flex; gap: 6px">
+                <button data-hover style="padding: 3px 8px; border-radius: 6px; border: 1px solid #22343A; background: #18262B; color: #C3D2D6; font-size: 11px; cursor: pointer">+ Node</button>
+                <button data-hover style="padding: 3px 8px; border-radius: 6px; border: 1px solid #22343A; background: #18262B; color: #C3D2D6; font-size: 11px; cursor: pointer">Auto-Layout</button>
+              </div>
+            </div>
+
+            <!-- Canvas Workspace Grid -->
+            <div style="flex-grow: 1; position: relative; background: radial-gradient(#18262B 1px, transparent 1px); background-size: 16px 16px; overflow: hidden">
+              <svg width="100%" height="100%" viewBox="0 0 700 320" style="position: absolute; inset: 0">
+                <!-- Connectors between business nodes -->
+                <path d="M160 80 L230 80" stroke="#4E6A26" stroke-width="2" marker-end="url(#arrow)"/>
+                <path d="M370 80 L440 80" stroke="#4E6A26" stroke-width="2"/>
+                <path d="M510 102 L510 170" stroke="#FF8A7A" stroke-width="1.8" stroke-dasharray="4 3"/>
+                <path d="M580 80 L620 80" stroke="#C6F36B" stroke-width="2" stroke-dasharray="4 2"/>
+
+                <!-- Node 1: Input HP -->
+                <g transform="translate(30, 56)">
+                  <rect width="130" height="48" rx="8" fill="#121D21" stroke="#22343A" stroke-width="1.5"/>
+                  <text x="14" y="22" fill="#E6EEF0" font-family="'IBM Plex Sans', sans-serif" font-size="12" font-weight="600">1. Input No HP</text>
+                  <text x="14" y="38" fill="#94A8AE" font-family="'JetBrains Mono', monospace" font-size="10">Form Modal Reset</text>
+                </g>
+
+                <!-- Node 2: Validasi & Limit -->
+                <g transform="translate(230, 56)">
+                  <rect width="140" height="48" rx="8" fill="#121D21" stroke="#4E6A26" stroke-width="1.5"/>
+                  <text x="14" y="22" fill="#E6EEF0" font-family="'IBM Plex Sans', sans-serif" font-size="12" font-weight="600">2. Cek Rate Limit</text>
+                  <text x="14" y="38" fill="#86B33A" font-family="'JetBrains Mono', monospace" font-size="10">Rust Token Bucket</text>
+                </g>
+
+                <!-- Node 3: Generate Token -->
+                <g transform="translate(440, 56)">
+                  <rect width="140" height="48" rx="8" fill="#18262B" stroke="#C6F36B" stroke-width="1.8"/>
+                  <text x="14" y="22" fill="#C6F36B" font-family="'IBM Plex Sans', sans-serif" font-size="12" font-weight="600">3. Generate OTP</text>
+                  <text x="14" y="38" fill="#DDFA9E" font-family="'JetBrains Mono', monospace" font-size="10">6 Digit CSPRNG</text>
+                </g>
+
+                <!-- Node 3b: Error Exceeded Limit -->
+                <g transform="translate(440, 170)">
+                  <rect width="140" height="42" rx="8" fill="#221A1C" stroke="#FF8A7A" stroke-width="1.2"/>
+                  <text x="14" y="20" fill="#FF8A7A" font-family="'IBM Plex Sans', sans-serif" font-size="11.5" font-weight="600">Exceeded Limit</text>
+                  <text x="14" y="33" fill="#94A8AE" font-family="'JetBrains Mono', monospace" font-size="9.5">Toast "Coba 1 jam lagi"</text>
+                </g>
+
+                <!-- Node 4: Kirim WhatsApp -->
+                <g transform="translate(620, 56)">
+                  <rect width="70" height="48" rx="8" fill="#121D21" stroke="#22343A" stroke-width="1.5"/>
+                  <text x="12" y="28" fill="#C3D2D6" font-family="'IBM Plex Sans', sans-serif" font-size="11.5" font-weight="500">Kirim WA</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+        </div>
+      </sc-if>
+
+    </div>
+
+    <!-- DRAWER BAWAH COLLAPSIBLE: TERMINAL PTY & PROMPT HARNESS -->
+    <section aria-label="Terminal &amp; Kontrol Harness" style="position: relative; flex-shrink: 0; height: 165px; background: #081013; border: 1px solid #22343A; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+
+      <!-- Drawer Header Bar -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 14px; background: #0E181B; border-bottom: 1px solid #22343A; flex-shrink: 0">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C6F36B" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 12.5px; font-weight: 600; color: #E6EEF0">Terminal Harness (PTY)</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #86B33A">● omp aktif di ~/repo/Anchoa</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px">
+          <button data-hover onClick="{{openExternalTerminal}}" title="Buka terminal sistem di folder proyek" style="display: flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 6px; border: 1px solid #22343A; background: transparent; color: #C3D2D6; font-size: 11px; cursor: pointer">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Terminal Luar ↗
+          </button>
+          <button data-hover onClick="{{toggleDrawerSize}}" style="padding: 2px 6px; border-radius: 6px; border: 1px solid #22343A; background: transparent; color: #94A8AE; font-size: 11px; cursor: pointer">▲</button>
+        </div>
+      </div>
+
+      <!-- Live Terminal Output Area -->
+      <div style="flex-grow: 1; min-height: 0; padding: 8px 14px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.5; color: #C3D2D6; background: #081013">
+        <div><span style="color: #94A8AE">[14:28:01]</span> <span style="color: #C6F36B; font-weight: bold">$ anchoa agent log</span> --task 0192a8f --actor omp --role implement --body "Menulis skema tabel otp_tokens di Rust rusqlite..."</div>
+        <div><span style="color: #94A8AE">[14:28:15]</span> <span style="color: #C3D2D6">Writing src-tauri/src/auth/otp.rs (38 lines)</span></div>
+        <div><span style="color: #94A8AE">[14:29:02]</span> <span style="color: #C6F36B; font-weight: bold">$ bun test src/auth/otp.test.ts</span></div>
+        <div><span style="color: #94A8AE">[14:29:05]</span> <span style="color: #86B33A">✓ OTP generator produces 6-digit numeric string [12ms]</span></div>
+        <div><span style="color: #94A8AE">[14:29:07]</span> <span style="color: #86B33A">✓ Rate limiter blocks 4th request within 1 hour [18ms]</span></div>
+        <div><span style="color: #94A8AE">[14:29:10]</span> <span style="color: #FF8A7A">✗ Expiry check rejects tokens older than 300 seconds [fail: expected 403 got 200]</span></div>
+        <div><span style="color: #94A8AE">[14:29:12]</span> <span style="color: #DDFA9E">omp: Analyzing failure... patching validation branch in src-tauri/src/auth/otp.rs</span></div>
+      </div>
+
+      <!-- Quick Prompt Injection Bar to Harness -->
+      <form onSubmit="{{sendPromptToHarness}}" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #0E181B; border-top: 1px solid #22343A; flex-shrink: 0">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #C6F36B; font-weight: bold">&gt;</span>
+        <input type="text" placeholder="Ketik instruksi langsung ke harness omp (contoh: perbaiki test expiry di otp.rs)..." style="flex-grow: 1; height: 28px; background: transparent; border: 0; color: #E6EEF0; font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; outline: none"/>
+        <button type="submit" data-press style="height: 26px; padding: 0 10px; border-radius: 6px; border: 0; background: #C6F36B; color: #0C1417; font-family: 'IBM Plex Sans', sans-serif; font-size: 11.5px; font-weight: 600; cursor: pointer">Kirim Enter</button>
+      </form>
+    </section>
+
+  </main>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  getInitialState() {
+    return {
+      activeTab: 'kanban', // 'kanban' | 'prd' | 'diff'
+      drawerOpen: true,
+      palette: false
+    };
+  }
+
+  render() {
+    const st = this.state || {};
+    const tab = st.activeTab || 'kanban';
+
+    return {
+      isTabKanban: tab === 'kanban',
+      isTabPrd: tab === 'prd',
+      isTabDiff: tab === 'diff',
+
+      tabKanbanCurrent: tab === 'kanban' ? 'page' : 'false',
+      tabKanbanBg: tab === 'kanban' ? '#0E181B' : 'transparent',
+      tabKanbanColor: tab === 'kanban' ? '#C6F36B' : '#94A8AE',
+      tabKanbanBorder: tab === 'kanban' ? '#C6F36B' : 'transparent',
+
+      tabPrdCurrent: tab === 'prd' ? 'page' : 'false',
+      tabPrdBg: tab === 'prd' ? '#0E181B' : 'transparent',
+      tabPrdColor: tab === 'prd' ? '#C6F36B' : '#94A8AE',
+      tabPrdBorder: tab === 'prd' ? '#C6F36B' : 'transparent',
+
+      tabDiffCurrent: tab === 'diff' ? 'page' : 'false',
+      tabDiffBg: tab === 'diff' ? '#0E181B' : 'transparent',
+      tabDiffColor: tab === 'diff' ? '#C6F36B' : '#94A8AE',
+      tabDiffBorder: tab === 'diff' ? '#C6F36B' : 'transparent',
+
+      switchTabKanban: () => this.setState({ activeTab: 'kanban' }),
+      switchTabPrd: () => this.setState({ activeTab: 'prd' }),
+      switchTabDiff: () => this.setState({ activeTab: 'diff' }),
+
+      runNativeApp: () => alert('Menjalankan target app lokal via Rust process runner...'),
+      openExternalTerminal: () => alert('Membuka terminal OS di folder repo ~/repo/Anchoa...'),
+      toggleDrawerSize: () => this.setState({ drawerOpen: !st.drawerOpen }),
+      sendPromptToHarness: (e) => { e.preventDefault(); alert('Prompt diteruskan ke stdin proses harness omp.'); },
+      openPalette: () => this.setState({ palette: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

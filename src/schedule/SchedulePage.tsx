@@ -14,6 +14,7 @@ import { useToast } from "../shell/toast";
 import { AgendaPanel } from "./AgendaPanel";
 import { CalendarView } from "./CalendarView";
 import {
+  addDays,
   addMonths,
   monthGrid,
   monthLabel,
@@ -21,6 +22,8 @@ import {
   timelineLabel,
   timelineWindow,
   visible,
+  weekGrid,
+  weekLabel,
 } from "./layout";
 import { CalendarEventForm } from "./CalendarEventForm";
 import { ScheduleAddForm } from "./ScheduleAddForm";
@@ -68,6 +71,7 @@ export function SchedulePage({
 }>) {
   const toast = useToast();
   const [view, setView] = useState<"calendar" | "timeline">("calendar");
+  const [calMode, setCalMode] = useState<"month" | "week">("month");
   const [month, setMonth] = useState<string>(() => monthOf(Date.now()));
   const [selectedDate, setSelectedDate] = useState<string>(() =>
     msToDateInput(Date.now()),
@@ -79,15 +83,31 @@ export function SchedulePage({
   const [adding, setAdding] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ScheduleItem | null>(null);
   const [calendarReadOnly, setCalendarReadOnly] = useState(false);
+  const [calendarAccount, setCalendarAccount] = useState<string | null>(null);
+  const [calendarSyncing, setCalendarSyncing] = useState(false);
   const today = schedule?.today ?? msToDateInput(Date.now());
   const grid = useMemo(() => monthGrid(month), [month]);
+  const curWeekDays = useMemo(
+    () => weekGrid(selectedDate || today),
+    [selectedDate, today],
+  );
   const window = useMemo(
     () => timelineWindow(today, timelineShift),
     [today, timelineShift],
   );
 
-  const from = view === "calendar" ? grid[0][0].date : window.from;
-  const to = view === "calendar" ? grid[grid.length - 1][6].date : window.to;
+  const from =
+    view === "calendar"
+      ? calMode === "month"
+        ? grid[0][0].date
+        : curWeekDays[0].date
+      : window.from;
+  const to =
+    view === "calendar"
+      ? calMode === "month"
+        ? grid[grid.length - 1][6].date
+        : curWeekDays[6].date
+      : window.to;
 
   useEffect(() => {
     let active = true;
@@ -124,11 +144,38 @@ export function SchedulePage({
   useEffect(() => {
     let active = true;
     api.calendarStatus().then(
-      (st) => { if (active) setCalendarReadOnly(Boolean(st.readOnly)); },
+      (st) => {
+        if (!active) return;
+        setCalendarReadOnly(Boolean(st.readOnly));
+        setCalendarAccount(st.account || null);
+      },
       () => {},
     );
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [version]);
+
+  async function handleSyncCalendar() {
+    if (calendarSyncing) return;
+    setCalendarSyncing(true);
+    try {
+      if (!calendarAccount) {
+        const st = await api.calendarConnect();
+        setCalendarAccount(st.account || null);
+        toast("Google Kalender terhubung");
+      } else {
+        await api.calendarRefresh();
+        toast("Google Kalender disinkronkan");
+      }
+      setVersion((v) => v + 1);
+      onChanged();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setCalendarSyncing(false);
+    }
+  }
 
   function handleToggleKind(kind: ItemKind) {
     setOff((prev) => {
@@ -167,9 +214,15 @@ export function SchedulePage({
 
   function handlePrev() {
     if (view === "calendar") {
-      const nextMonth = addMonths(month, -1);
-      setMonth(nextMonth);
-      setSelectedDate(navSelectedDate(nextMonth, today));
+      if (calMode === "month") {
+        const nextMonth = addMonths(month, -1);
+        setMonth(nextMonth);
+        setSelectedDate(navSelectedDate(nextMonth, today));
+      } else {
+        const prevWeek = addDays(selectedDate || today, -7);
+        setSelectedDate(prevWeek);
+        setMonth(prevWeek.slice(0, 7));
+      }
     } else {
       setTimelineShift((s) => s - 4);
     }
@@ -177,9 +230,15 @@ export function SchedulePage({
 
   function handleNext() {
     if (view === "calendar") {
-      const nextMonth = addMonths(month, 1);
-      setMonth(nextMonth);
-      setSelectedDate(navSelectedDate(nextMonth, today));
+      if (calMode === "month") {
+        const nextMonth = addMonths(month, 1);
+        setMonth(nextMonth);
+        setSelectedDate(navSelectedDate(nextMonth, today));
+      } else {
+        const nextWeek = addDays(selectedDate || today, 7);
+        setSelectedDate(nextWeek);
+        setMonth(nextWeek.slice(0, 7));
+      }
     } else {
       setTimelineShift((s) => s + 4);
     }
@@ -189,7 +248,7 @@ export function SchedulePage({
     if (view === "calendar") {
       const curMonth = today.slice(0, 7);
       setMonth(curMonth);
-      setSelectedDate(navSelectedDate(curMonth, today));
+      setSelectedDate(today);
     } else {
       setTimelineShift(0);
     }
@@ -197,8 +256,11 @@ export function SchedulePage({
 
   const periodLabel =
     view === "calendar"
-      ? monthLabel(month)
+      ? calMode === "month"
+        ? monthLabel(month)
+        : weekLabel(curWeekDays[0].date, curWeekDays[6].date)
       : timelineLabel(window.from, window.to);
+
 
   const counts: Record<ItemKind, number> = {
     project: 0,
@@ -220,7 +282,12 @@ export function SchedulePage({
         onOpenAssistant={onOpenAssistant}
         view={view}
         onViewChange={setView}
+        calMode={calMode}
+        onCalModeChange={setCalMode}
         periodLabel={periodLabel}
+        calendarAccount={calendarAccount}
+        calendarSyncing={calendarSyncing}
+        onCalendarSync={handleSyncCalendar}
         onPrev={handlePrev}
         onNext={handleNext}
         onToday={handleToday}
@@ -261,6 +328,7 @@ export function SchedulePage({
             items={visibleItems}
             onSelectDate={setSelectedDate}
             calendarReadOnly={calendarReadOnly}
+            customGrid={calMode === "week" ? [curWeekDays] : undefined}
           />
           <AgendaPanel
             selectedDate={selectedDate}

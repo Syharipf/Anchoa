@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "start",
+      "label": "1. Buka Aplikasi",
+      "type": "start",
+      "desc": "Startup Lock Guard"
+    },
+    {
+      "id": "verify",
+      "label": "2. Verifikasi PIN",
+      "type": "process",
+      "desc": "Rust Argon2id Hash"
+    },
+    {
+      "id": "unlock",
+      "label": "3. Buka Workspace",
+      "type": "action",
+      "desc": "Dekripsi Sesi Lokal"
+    },
+    {
+      "id": "cooldown",
+      "label": "Tolak: Cooldown 30s",
+      "type": "error",
+      "desc": "Gagal 5x Berturut"
+    },
+    {
+      "id": "step_5",
+      "label": "Langkah 5",
+      "type": "process",
+      "desc": "Proses baru"
+    },
+    {
+      "id": "step_6",
+      "label": "Langkah 6",
+      "type": "process",
+      "desc": "Proses baru"
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "verify"
+    },
+    {
+      "from": "verify",
+      "to": "unlock"
+    },
+    {
+      "from": "verify",
+      "to": "cooldown",
+      "condition": "fail"
+    },
+    {
+      "from": "cooldown",
+      "to": "step_5"
+    },
+    {
+      "from": "step_5",
+      "to": "step_6"
+    }
+  ]
+}

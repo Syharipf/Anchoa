@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, errorMessage, type CalendarStatus } from "../api";
 import { relativeTime } from "../format";
-import { H2, PANEL, PRIMARY, SECONDARY } from "../shell/ui";
+import { H2, PANEL } from "../shell/ui";
 
 /** Google Kalender, pulled read-only into Jadwal. Tokens stay in the OS keyring and never reach the UI. */
 export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void }>) {
@@ -54,7 +54,13 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
       return (
         <div className="flex items-center gap-3">
           <p className="m-0 text-sm text-ink">Menunggu login di browser…</p>
-          <button type="button" onClick={cancelConnect} className={SECONDARY}>Batal</button>
+          <button
+            type="button"
+            onClick={cancelConnect}
+            className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            Batal
+          </button>
         </div>
       );
     }
@@ -68,23 +74,47 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
           {status.readOnly && (
             <div className="flex flex-col items-start gap-1">
               <p className="m-0 text-xs text-muted">Sambungkan ulang untuk sinkron dua arah</p>
-              <button type="button" disabled={busy} onClick={connect} className={PRIMARY}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={connect}
+                className="flex h-8 items-center rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
+              >
                 Sambungkan ulang untuk sinkron dua arah
               </button>
             </div>
           )}
           <div className="flex gap-2">
-            <button type="button" disabled={busy} onClick={() => void run(api.calendarRefresh)} className={SECONDARY}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void run(api.calendarRefresh)}
+              className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+            >
               {busy ? "Memuat…" : "Muat ulang"}
             </button>
-            <button type="button" disabled={busy} onClick={() => void run(api.calendarDisconnect)} className={SECONDARY}>Putuskan</button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void run(api.calendarDisconnect)}
+              className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-danger transition-colors hover:bg-danger-row disabled:opacity-50"
+            >
+              Putuskan
+            </button>
           </div>
         </>
       );
     }
     return (
       <>
-        <button type="button" disabled={busy} onClick={connect} className={PRIMARY}>Sambungkan Google Kalender</button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={connect}
+          className="flex h-8 items-center rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
+        >
+          Sambungkan Google Kalender
+        </button>
         <p className="m-0 text-xs text-muted">
           Acara kalender utama dan tugas Anchoa terhubung dengan sinkron dua arah.
         </p>

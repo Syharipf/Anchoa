@@ -9,7 +9,6 @@ import {
   type TextPreview,
 } from "../api";
 import { isRemotePath, listFolder } from "./remotes";
-import { PRIMARY } from "../shell/ui";
 import { formatSize, KIND_ICONS, KIND_LABELS } from "./view";
 
 function formatModDate(ms: number): string {
@@ -53,6 +52,71 @@ function PdfPreview({ entry }: Readonly<{ entry: FileEntry }>) {
       src={assetUrl(entry.path)}
       className="h-full w-full border-0"
     />
+  );
+}
+
+export function isArchive(name: string): boolean {
+  return /\.(zip|tar|gz|tgz|bz2|xz|7z|rar)$/i.test(name);
+}
+
+export function isAudio(name: string): boolean {
+  return /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(name);
+}
+
+function AudioPreview({ entry }: Readonly<{ entry: FileEntry }>) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4">
+      <svg
+        width="36"
+        height="36"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-accent"
+        aria-hidden="true"
+      >
+        <path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0M21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+      </svg>
+      <audio controls src={assetUrl(entry.path)} className="w-full max-w-[260px]" />
+    </div>
+  );
+}
+
+function ArchivePreview({
+  entry,
+  onExtract,
+}: Readonly<{ entry: FileEntry; onExtract?: (path: string) => void }>) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
+      <svg
+        width="38"
+        height="38"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-accent"
+        aria-hidden="true"
+      >
+        <path d="M4 4h16v16H4zM4 9h16M10 4v5" />
+      </svg>
+      <span className="font-medium text-xs text-ink">Berkas Arsip</span>
+      <span className="text-[11px] text-muted">Dapat diekstrak langsung ke folder</span>
+      {onExtract && (
+        <button
+          type="button"
+          onClick={() => onExtract(entry.path)}
+          className="mt-1 flex h-7 items-center rounded-md bg-accent px-3 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
+        >
+          Ekstrak di sini
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -172,6 +236,7 @@ export function PreviewPanel({
   onOpen,
   onOpenAssistant,
   children,
+  onExtract,
 }: Readonly<{
   entry: FileEntry;
   onClose: () => void;
@@ -179,6 +244,7 @@ export function PreviewPanel({
   onOpenAssistant: OpenAssistant;
   /** Extra actions for this entry, e.g. folder markers. */
   children?: ReactNode;
+  onExtract?: (path: string) => void;
 }>) {
   const sub =
     entry.kind === "folder" ? `${entry.size} item` : formatSize(entry.size);
@@ -220,11 +286,16 @@ export function PreviewPanel({
       </div>
 
       <div className="relative flex h-[212px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-line bg-sidebar">
-        {isRemotePath(entry.path) && entry.kind !== "folder"
-          ? <OtherPreviewBody entry={entry} />
-          : PREVIEW_BODY[entry.kind](entry)}
+        {isRemotePath(entry.path) && entry.kind !== "folder" ? (
+          <OtherPreviewBody entry={entry} />
+        ) : isAudio(entry.name) ? (
+          <AudioPreview entry={entry} />
+        ) : isArchive(entry.name) ? (
+          <ArchivePreview entry={entry} onExtract={onExtract} />
+        ) : (
+          PREVIEW_BODY[entry.kind](entry)
+        )}
       </div>
-
       <dl className="m-0 grid grid-cols-[88px_minmax(0,1fr)] gap-y-1.5 gap-x-2.5 text-xs">
         <dt className="text-muted">Jenis</dt>
         <dd className="m-0 break-words text-ink">{KIND_LABELS[entry.kind]}</dd>
@@ -240,10 +311,19 @@ export function PreviewPanel({
         <button
           type="button"
           onClick={() => onOpen(entry)}
-          className={PRIMARY}
+          className="flex h-8 items-center justify-center rounded-[9px] bg-accent px-4 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
         >
           Buka
         </button>
+        {isArchive(entry.name) && onExtract && (
+          <button
+            type="button"
+            onClick={() => onExtract(entry.path)}
+            className="flex h-8 items-center justify-center rounded-[9px] border border-accent bg-accent/10 px-4 text-xs font-semibold text-accent transition-colors hover:bg-accent/20"
+          >
+            Ekstrak Arsip
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onOpenAssistant({ kind: "compose", text: `Bantu jelaskan informasi berkas ini berdasarkan metadata berikut:\nNama: ${entry.name}\nLokasi: ${entry.path}\nJenis: ${KIND_LABELS[entry.kind]}\nUkuran: ${sub}\nDiubah: ${formatModDate(entry.modified)}` })}

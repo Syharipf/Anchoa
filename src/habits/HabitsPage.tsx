@@ -9,11 +9,13 @@ import {
 } from "../api";
 import { fullDate } from "../format";
 import { useToast } from "../shell/toast";
-import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
+import { H1 } from "../shell/ui";
 import { HabitDetail } from "./HabitDetail";
 import { HabitForm } from "./HabitForm";
 import { SummaryCards } from "./SummaryCards";
 import { TodayList } from "./TodayList";
+import { DailyQuote } from "./DailyQuote";
+import { HabitCelebration } from "./HabitCelebration";
 
 function MicIcon() {
   return (
@@ -108,6 +110,24 @@ export function HabitsPage({
       toast(errorMessage(e), "error");
     }
   }
+  async function handleCheckDate(id: string, date: string, done: boolean) {
+    try {
+      await api.checkHabit(id, done, date);
+      toast(done ? "Habit berhasil dicentang" : "Centang dibatalkan");
+      setVersion((v) => v + 1);
+      onChanged?.();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
+  function handleCheckYesterday(id: string) {
+    if (!overview) return;
+    const [y, m, d] = overview.today.split("-").map(Number);
+    const yestDt = new Date(y, m - 1, d - 1);
+    const yesterdayStr = `${yestDt.getFullYear()}-${String(yestDt.getMonth() + 1).padStart(2, "0")}-${String(yestDt.getDate()).padStart(2, "0")}`;
+    void handleCheckDate(id, yesterdayStr, true);
+  }
 
   async function handleUpdateHabit(input: HabitInput) {
     try {
@@ -141,31 +161,39 @@ export function HabitsPage({
 
   return (
     <>
-      <div className="flex items-center gap-3">
-        <h1 className={H1}>Habit</h1>
-        <span className="text-[13px] text-muted">{subtitle}</span>
-        <div className="ml-auto flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={HEADER_SECONDARY}
-          >
-            <MicIcon />
-            <span>Catat lewat suara</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormOpen({})}
-            className={HEADER_PRIMARY}
-          >
-            <PlusIcon />
-            <span>Habit</span>
-          </button>
+      <div className="flex flex-col gap-3.5">
+        <div className="flex items-center gap-3">
+          <h1 className={H1}>Habit</h1>
+          <span className="text-[13px] text-muted">{subtitle}</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenAssistant({ kind: "voice" })}
+              className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+            >
+              <MicIcon />
+              <span>Catat lewat suara</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormOpen({})}
+              className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
+            >
+              <PlusIcon />
+              <span>Habit</span>
+            </button>
+          </div>
         </div>
+
+        <DailyQuote today={overview.today} />
+
+        {overview.todayTotal > 0 && overview.todayDone === overview.todayTotal && (
+          <HabitCelebration />
+        )}
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_392px] gap-4">
-        <div className="flex min-h-0 flex-col gap-3.5">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_410px] gap-5 items-start pb-8">
+        <div className="flex flex-col gap-4">
           <SummaryCards
             todayDone={overview.todayDone}
             todayTotal={overview.todayTotal}
@@ -181,6 +209,7 @@ export function HabitsPage({
             selectedId={selectedId}
             onSelect={(id) => setSelectedId(id)}
             onToggleCheck={handleToggleCheck}
+            onCheckYesterday={handleCheckYesterday}
             onNewHabit={() => setFormOpen({})}
           />
         </div>
@@ -191,6 +220,7 @@ export function HabitsPage({
           onEdit={(h) => setFormOpen({ edit: h })}
           onDelete={handleDeleteHabit}
           onUpdate={handleUpdateHabit}
+          onCheckDate={handleCheckDate}
         />
       </div>
 

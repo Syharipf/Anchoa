@@ -39,12 +39,14 @@ export function HabitDetail({
   onEdit,
   onDelete,
   onUpdate,
+  onCheckDate,
 }: Readonly<{
   habit: HabitRow | null;
   today: string;
   onEdit: (habit: HabitRow) => void;
   onDelete: (id: string) => void;
   onUpdate: (input: HabitInput) => void;
+  onCheckDate?: (id: string, date: string, done: boolean) => void;
 }>) {
   const maxMonth = today.slice(0, 7);
   const [month, setMonth] = useState(maxMonth);
@@ -115,20 +117,39 @@ export function HabitDetail({
     ? "Masuk ke panel notifikasi"
     : "Mati — tidak ada pengingat";
 
+  const [ty, tm, td] = today.split("-").map(Number);
+  const yestDt = new Date(ty, tm - 1, td - 1);
+  const yesterdayStr = `${yestDt.getFullYear()}-${String(yestDt.getMonth() + 1).padStart(2, "0")}-${String(yestDt.getDate()).padStart(2, "0")}`;
+  const yestCell = history?.cells.find((c) => c.date === yesterdayStr);
+  const missedYesterday = yestCell && (yestCell.state === "miss" || yestCell.state === "todo");
+  const doneYesterday = yestCell && yestCell.state === "done";
   return (
     <aside
       aria-labelledby="h-detail"
       className="flex min-h-0 w-full flex-col gap-3.5 overflow-y-auto rounded-[14px] border border-line bg-surface p-4"
     >
       <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between gap-2">
-          <h2
-            id="h-detail"
-            title={habit.name}
-            className="m-0 min-w-0 flex-1 truncate font-display text-lg font-semibold text-ink"
-          >
-            {habit.name}
-          </h2>
+         <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {habit.icon && <span className="text-xl">{habit.icon}</span>}
+            <h2
+              id="h-detail"
+              title={habit.name}
+              className="m-0 truncate font-display text-lg font-semibold text-ink"
+            >
+              {habit.name}
+            </h2>
+            {habit.category && (
+              <span className="rounded-md border border-line bg-surface-2 px-2 py-0.5 text-[10px] uppercase font-semibold text-accent shrink-0">
+                {habit.category}
+              </span>
+            )}
+            {habit.archived && (
+              <span className="rounded-md border border-warn/40 bg-warn/15 px-2 py-0.5 text-[10px] font-medium text-warn shrink-0">
+                Diarsipkan
+              </span>
+            )}
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
@@ -148,6 +169,48 @@ export function HabitDetail({
         </div>
         <span className="text-xs text-muted">{longSchedule(habit)}</span>
       </div>
+      {habit.targetDays && habit.targetDays > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-[10px] bg-stage p-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium text-ink">Target {habit.targetDays} Hari</span>
+            <span className="font-mono text-accent">
+              {habit.streak} / {habit.targetDays} ({Math.min(100, Math.round((habit.streak / habit.targetDays) * 100))}%)
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-line">
+            <div
+              className="h-full bg-accent transition-all duration-300 rounded-full"
+              style={{ width: `${Math.min(100, (habit.streak / habit.targetDays) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Yesterday Check Tolerance */}
+      {missedYesterday && onCheckDate && (
+        <div className="flex items-center justify-between gap-2 rounded-[10px] border border-warn/30 bg-warn/10 p-2.5 text-xs">
+          <span className="text-warn font-medium">Lupa centang kemarin?</span>
+          <button
+            type="button"
+            onClick={() => onCheckDate(habit.id, yesterdayStr, true)}
+            className="rounded-md bg-accent px-2 py-1 text-[11px] font-semibold text-canvas hover:bg-accent-hover transition-colors"
+          >
+            ✓ Centang Kemarin
+          </button>
+        </div>
+      )}
+      {doneYesterday && onCheckDate && (
+        <div className="flex items-center justify-between gap-2 rounded-[10px] border border-line bg-stage p-2 text-xs">
+          <span className="text-muted text-[11px]">Kemarin tercentang ✓</span>
+          <button
+            type="button"
+            onClick={() => onCheckDate(habit.id, yesterdayStr, false)}
+            className="text-[11px] text-muted hover:text-danger underline"
+          >
+            Batalkan kemarin
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-2">
         <StatBox value={habit.streak} label="streak sekarang" />
@@ -155,7 +218,7 @@ export function HabitDetail({
         <StatBox
           value={`${habit.rate30}%`}
           label="konsistensi 30 hari"
-          note="hari terjadwal yang dicentang; hari di luar jadwal mingguan tidak dihitung, hari ini masuk setelah dicentang"
+          note="30 hari terjadwal"
         />
       </div>
 

@@ -55,6 +55,12 @@ describe("downloads view rules", () => {
       expect(detect("https://t.me/c/12345/678")).toBe("file");
       expect(detect("https://t.me/joinchat/xyz123")).toBe("file");
       expect(detect("https://t.me/+xyz123")).toBe("file");
+      expect(detect("https://www.threads.net/@user/post/xyz123")).toBe("media");
+      expect(detect("https://www.instagram.com/reel/abc123/")).toBe("media");
+      expect(detect("https://www.tiktok.com/@creator/video/123456789")).toBe("media");
+      expect(detect("https://www.facebook.com/reel/123456")).toBe("media");
+      expect(detect("https://fb.watch/xyz123/")).toBe("media");
+      expect(detect("https://reddit.com/r/videos/comments/123/title/")).toBe("media");
     });
     it("detects direct file URLs", () => {
       expect(detect("https://archive.org/download/contoh/dataset-suara-id.zip")).toBe("file");

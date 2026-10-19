@@ -13,10 +13,10 @@ import {
   extractHost,
 } from "./view";
 
-const VIDEO_QUALITIES = ["2160p", "1080p", "720p", "480p"] as const;
-const AUDIO_QUALITIES = ["320 kbps", "192 kbps", "128 kbps"] as const;
+const VIDEO_QUALITIES = ["2160p", "1440p", "1080p", "720p", "480p", "360p"] as const;
+const AUDIO_QUALITIES = ["320 kbps", "256 kbps", "192 kbps", "128 kbps"] as const;
 const VIDEO_FORMATS = ["MP4", "MKV", "WEBM"] as const;
-const AUDIO_FORMATS = ["MP3", "M4A", "OPUS"] as const;
+const AUDIO_FORMATS = ["MP3", "M4A", "FLAC", "OPUS", "WAV"] as const;
 
 export function AddDownload({
   onAdded,
@@ -34,7 +34,8 @@ export function AddDownload({
   const [subtitles, setSubtitles] = useState(false);
   const [expectedSha256, setExpectedSha256] = useState("");
   const [adding, setAdding] = useState(false);
-
+  const [isBatch, setIsBatch] = useState(false);
+  const [batchText, setBatchText] = useState("");
   const detected = detect(url);
   const host = extractHost(url);
   const effectiveKind = detected === "media" || forcedMedia ? "media" : detected;
@@ -43,8 +44,7 @@ export function AddDownload({
 
   const canAdd =
     url.trim().length > 0 &&
-    (effectiveKind === "media" || effectiveKind === "file") &&
-    detected !== "torrent" &&
+    (effectiveKind === "media" || effectiveKind === "file" || effectiveKind === "torrent") &&
     detected !== "invalid";
 
   const buttonLabel = addLabel(effectiveKind === "media" ? "media" : detected, {
@@ -89,16 +89,89 @@ export function AddDownload({
     }
   };
 
+  const handleAddBatch = async () => {
+    const lines = batchText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    if (lines.length === 0 || adding) return;
+    setAdding(true);
+    let successCount = 0;
+    try {
+      for (const line of lines) {
+        const d = detect(line);
+        if (d === "invalid" || d === "none") continue;
+        await api.addDownload({
+          url: line,
+          kind: d === "media" ? "media" : "file",
+          options:
+            d === "media"
+              ? {
+                  audioOnly: false,
+                  quality: "1080p",
+                  format: "MP4",
+                  subtitles: false,
+                }
+              : null,
+        });
+        successCount++;
+      }
+      toast(`${successCount} tautan berhasil ditambahkan ke antrean`);
+      setBatchText("");
+      setIsBatch(false);
+      onAdded?.();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setAdding(false);
+    }
+  };
   return (
     <section
       aria-labelledby="tambah-unduhan-judul"
       className="flex flex-col gap-2.5 rounded-2xl border border-line bg-surface p-3.5"
     >
-      <h2 id="tambah-unduhan-judul" className="sr-only">
-        Tambah unduhan
-      </h2>
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-11 flex-1 min-w-0 items-center gap-2.5 rounded-lg border border-line bg-canvas px-3 focus-within:border-field-focus">
+      <div className="flex items-center justify-between">
+        <h2 id="tambah-unduhan-judul" className="sr-only">
+          Tambah unduhan
+        </h2>
+        <button
+          type="button"
+          onClick={() => setIsBatch(!isBatch)}
+          className="ml-auto flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink hover:border-accent hover:text-accent transition-colors"
+        >
+          {isBatch ? "← Input Tunggal" : "Mode Batch (Banyak Tautan)"}
+        </button>
+      </div>
+
+      {isBatch ? (
+        <div className="flex flex-col gap-2.5">
+          <textarea
+            value={batchText}
+            onChange={(e) => setBatchText(e.target.value)}
+            disabled={adding}
+            rows={4}
+            placeholder={"Tempel banyak tautan sekaligus (satu tautan per baris):\nhttps://www.youtube.com/watch?v=...\nhttps://threads.net/@user/post/...\nhttps://example.com/file.zip\nmagnet:?xt=urn:btih:..."}
+            className="w-full rounded-lg border border-line bg-canvas p-3 font-mono text-xs text-ink outline-none focus:border-field-focus leading-relaxed resize-y"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted">
+              {batchText.split("\n").filter((l) => l.trim().length > 0).length} tautan terdeteksi
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleAddBatch()}
+              disabled={adding || !batchText.trim()}
+              className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-xs font-semibold text-canvas hover:scale-105 active:scale-95 disabled:bg-disabled disabled:text-muted disabled:hover:scale-100 transition-transform"
+            >
+              {adding ? "Menambahkan…" : "Unduh Semua Tautan"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-11 flex-1 min-w-0 items-center gap-2.5 rounded-lg border border-line bg-canvas px-3 focus-within:border-field-focus">
           <svg
             width="16"
             height="16"
@@ -157,6 +230,38 @@ export function AddDownload({
             {forcedMedia ? "Media (dipaksa)" : info.label}
           </button>
         </div>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const clip = await navigator.clipboard.readText();
+              if (clip.trim()) {
+                setUrl(clip.trim());
+                setForcedMedia(false);
+              }
+            } catch {
+              toast("Gagal membaca clipboard", "error");
+            }
+          }}
+          title="Tempel tautan dari clipboard"
+          className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 text-xs font-semibold text-ink hover:border-accent hover:text-accent transition-colors"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          </svg>
+          Tempel
+        </button>
         <button
           type="button"
           onClick={() => void handleAdd()}
@@ -299,6 +404,8 @@ export function AddDownload({
           ))}
         </div>
       </div>
-    </section>
-  );
+      </>
+    )}
+  </section>
+);
 }

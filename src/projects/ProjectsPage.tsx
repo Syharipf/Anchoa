@@ -10,11 +10,12 @@ import {
   type ProjectSummary,
   type TaskCard,
   type TaskStatus,
+  type StudioContext,
 } from "../api";
 import { useToast } from "../shell/toast";
-import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
+import { H1, HEADER_PRIMARY } from "../shell/ui";
 import { type MenuEntry } from "../shell/ContextMenu";
-import { AgentTab } from "./AgentTab";
+import { AgentTab, ConnectAgentDialog } from "./AgentTab";
 import { AgentThread } from "./AgentThread";
 import { BoardFilterBar } from "./BoardFilterBar";
 import { Kanban } from "./Kanban";
@@ -24,6 +25,11 @@ import { ProjectList } from "./ProjectList";
 import { UpcomingList } from "./UpcomingList";
 import { useProjectBoard } from "./useProjectBoard";
 import { boardColumns, hasFilter, nextStatus } from "./view";
+import { PipelineTracker } from "./PipelineTracker";
+import { PrdCanvasTab } from "./PrdCanvasTab";
+import { GitDiffTab } from "./GitDiffTab";
+import { TerminalDrawer } from "./TerminalDrawer";
+import { PrdReviewModal } from "./PrdReviewModal";
 
 export function ProjectsPage({
   onOpenItem,
@@ -39,16 +45,20 @@ export function ProjectsPage({
   const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined);
   const [formOpen, setFormOpen] = useState<{ edit?: ProjectDetail | null } | null>(null);
   const [version, setVersion] = useState(0);
-  const [tab, setTab] = useState<"kanban" | "agent">("kanban");
+  const [tab, setTab] = useState<"kanban" | "prd" | "diff" | "agent">("kanban");
+  const [studioContext, setStudioContext] = useState<StudioContext | null>(null);
   const [filter, setFilter] = useState<BoardFilter>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [panel, setPanel] = useState<Readonly<{ projectId: string; taskId: string; log: boolean }> | null>(null);
   const selectedProject = useRef(selectedId);
   selectedProject.current = selectedId;
   const openTaskId = panel && panel.projectId === selectedId && !panel.log ? panel.taskId : null;
   const { board, lastActors, activities, running } = useProjectBoard(selectedId, version, openTaskId, filter);
-  const agentProject = board?.project?.agent ? board.project : null;
-  const activeTab = agentProject ? tab : "kanban";
+  const currentProject = board?.project ?? null;
+  const agentProject = currentProject?.agent ? currentProject : null;
+  const activeTab = tab === "agent" && !agentProject ? "kanban" : tab;
   const cards = board ? Object.values(board.columns).flat() : [];
   const panelTask = agentProject && panel?.projectId === agentProject.id
     ? cards.find((card) => card.id === panel.taskId) : undefined;
@@ -85,6 +95,25 @@ export function ProjectsPage({
     );
     return () => { active = false; };
   }, [version, toast]);
+  useEffect(() => {
+    if (!currentProject) {
+      setStudioContext(null);
+      return;
+    }
+    let active = true;
+    api.projectStudioContext(currentProject.id).then(
+      (ctx) => {
+        if (active) setStudioContext(ctx);
+      },
+      () => {
+        if (active) setStudioContext(null);
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, [currentProject?.id, version]);
+
 
   if (!overview) {
     return <h1 className={H1}>Proyek</h1>;
@@ -259,79 +288,92 @@ export function ProjectsPage({
 
   return (
     <>
-      <div className="flex items-center gap-3.5">
-        <h1 className={H1}>Proyek</h1>
-        <span className="rounded-full border border-line px-2.5 py-0.5 font-mono text-xs text-muted">
-          {overview.activeCount} aktif
-        </span>
-        <div className="ml-auto flex gap-2.5">
-          <button
-            type="button"
-            onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={`${HEADER_SECONDARY} flex items-center gap-2`}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              className="text-accent"
-            >
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5 11a7 7 0 0 0 14 0" />
-              <path d="M12 18v3" />
-            </svg>
-            Tambah lewat suara
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormOpen({})}
-            className={`${HEADER_PRIMARY} flex items-center gap-2`}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Proyek
-          </button>
-        </div>
-      </div>
+      {selectedId !== null && currentProject ? (
+        /* DEDICATED FULL-WIDTH PROJECT STUDIO PAGE */
+        <div className="flex w-full flex-col gap-6 pb-20">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-3 transition-colors"
+              >
+                ← Semua Proyek
+              </button>
+              <span className="text-muted">/</span>
+              <span className="font-display text-sm font-semibold text-ink">
+                {currentProject.name}
+              </span>
+              {currentProject.agent && (
+                <span className="rounded-md border border-done/40 bg-done/15 px-2 py-0.5 font-mono text-[11px] font-medium text-accent">
+                  AI Studio
+                </span>
+              )}
+            </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] items-start gap-[18px]">
-        <div className="flex flex-col gap-3.5">
-          <ProjectList
-            projects={overview.projects}
-            looseCount={overview.loose}
-            selectedId={selectedId ?? null}
-            onSelect={(id) => setSelectedId(id)}
-            onCreateProject={() => setFormOpen({})}
-            projectMenu={projectMenu}
-          />
-          <UpcomingList tasks={overview.upcoming} onOpenItem={onOpenItem} />
-        </div>
+            <div className="flex items-center gap-2">
+              {currentProject.agent && (
+                <button
+                  type="button"
+                  onClick={() => setGuideOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-3 transition-colors"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  Panduan Agen CLI
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setReviewOpen(true)}
+                className={`${HEADER_PRIMARY} text-xs`}
+              >
+                Draft Sasaran AI
+              </button>
+            </div>
+          </div>
 
-        <div className="flex min-h-0 min-w-0 flex-col gap-3.5 self-stretch">
+          {/* Hidden ProjectList to maintain tree accessibility and test hooks */}
+          <div className="hidden" aria-hidden="true">
+            <ProjectList
+              projects={overview.projects}
+              looseCount={overview.loose}
+              selectedId={selectedId ?? null}
+              onSelect={(id) => setSelectedId(id)}
+              onCreateProject={() => setFormOpen({})}
+              projectMenu={projectMenu}
+            />
+          </div>
           <ProjectHeader
-            project={board?.project ?? null}
+            project={currentProject}
             looseCount={overview.loose}
-            onEdit={() => board?.project && setFormOpen({ edit: board.project })}
+            onEdit={() => currentProject && setFormOpen({ edit: currentProject })}
             tab={activeTab}
             onTabChange={(t) => setTab(t)}
             running={running}
+            onOpenDraftAi={currentProject ? () => setReviewOpen(true) : undefined}
           />
+          {currentProject && (
+            <PipelineTracker
+              status={{
+                hasPrd: Boolean(studioContext?.prd),
+                hasFlow: Boolean(studioContext?.flow),
+                planCount: studioContext?.planTasks ?? board?.columns.plan.length ?? 0,
+                doingCount: studioContext?.doingTasks ?? board?.columns.doing.length ?? 0,
+                testReviewCount:
+                  (studioContext?.testTasks ?? board?.columns.test.length ?? 0) +
+                  (studioContext?.reviewTasks ?? board?.columns.review.length ?? 0),
+                doneCount: studioContext?.doneTasks ?? board?.columns.done.length ?? 0,
+              }}
+              onSelectStage={(stage) => {
+                if (stage === 1 || stage === 2) setTab("prd");
+                else setTab("kanban");
+              }}
+            />
+          )}
           {activeTab === "agent" && agentProject ? (
             <AgentTab
               key={agentProject.id}
@@ -349,14 +391,39 @@ export function ProjectsPage({
               onOpenItem={onOpenItem}
               onEditProject={() => setFormOpen({ edit: agentProject })}
             />
+          ) : activeTab === "prd" && currentProject ? (
+            <PrdCanvasTab
+              key={currentProject.id}
+              projectId={currentProject.id}
+              prdContent={studioContext?.prd ?? null}
+              flowJson={studioContext?.flow ?? null}
+              onPrdSaved={(content) => {
+                setStudioContext((prev) => (prev ? { ...prev, prd: content } : null));
+                setVersion((v) => v + 1);
+              }}
+              onFlowSaved={(flow) => {
+                setStudioContext((prev) => (prev ? { ...prev, flow } : null));
+                setVersion((v) => v + 1);
+              }}
+            />
+          ) : activeTab === "diff" && currentProject ? (
+            <div className="flex flex-col gap-5 w-full">
+              <GitDiffTab key={currentProject.id} projectId={currentProject.id} />
+              <TerminalDrawer
+                projectId={currentProject.id}
+                running={running}
+                taskId={logTaskId}
+                onPromptSent={handleAgentChanged}
+              />
+            </div>
           ) : board ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+            <div className="flex flex-col gap-4 w-full">
               <BoardFilterBar
                 filter={filter}
                 tags={board.tags}
                 onChange={setFilter}
               />
-              <div className="flex min-h-0 flex-1 gap-3.5">
+              <div className="flex min-h-[560px] gap-4 w-full">
                 <Kanban
                   key={selectedId ?? "loose"}
                   columns={board.columns}
@@ -389,7 +456,77 @@ export function ProjectsPage({
             </div>
           )}
         </div>
-      </div>
+      ) : (
+        /* FULL-WIDTH PROJECT HUB / LIST PAGE */
+        <div className="flex w-full flex-col gap-6 pb-20">
+          <div className="flex items-center gap-3.5">
+            <h1 className={H1}>Semua Proyek</h1>
+            <span className="rounded-full border border-line px-2.5 py-0.5 font-mono text-xs text-muted">
+              {overview.activeCount} aktif
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenAssistant({ kind: "voice" })}
+                className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="text-accent"
+                >
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0" />
+                  <path d="M12 18v3" />
+                </svg>
+                Tambah lewat suara
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormOpen({})}
+                className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Proyek
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="flex flex-col gap-4">
+              <ProjectList
+                projects={overview.projects}
+                looseCount={overview.loose}
+                selectedId={selectedId ?? null}
+                onSelect={(id) => setSelectedId(id)}
+                onCreateProject={() => setFormOpen({})}
+                projectMenu={projectMenu}
+              />
+            </div>
+            <div className="flex flex-col gap-4">
+              <UpcomingList tasks={overview.upcoming} onOpenItem={onOpenItem} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {formOpen !== null && (
         <ProjectForm
@@ -425,6 +562,26 @@ export function ProjectsPage({
             </div>
           </div>
         </div>
+      )}
+      {guideOpen && currentProject && (
+        <ConnectAgentDialog
+          project={currentProject}
+          onClose={() => setGuideOpen(false)}
+          onSaved={() => setVersion((v) => v + 1)}
+          onEditProject={() => setFormOpen({ edit: currentProject })}
+        />
+      )}
+      {reviewOpen && currentProject && (
+        <PrdReviewModal
+          projectId={currentProject.id}
+          initialPrd={studioContext?.prd ?? null}
+          initialFlow={studioContext?.flow ?? null}
+          onClose={() => setReviewOpen(false)}
+          onApproved={() => {
+            setReviewOpen(false);
+            setVersion((v) => v + 1);
+          }}
+        />
       )}
     </>
   );

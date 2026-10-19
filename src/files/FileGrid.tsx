@@ -7,15 +7,21 @@ export function FileGrid({
   entries,
   selected,
   markers,
+  clipboard,
   onSelect,
   onOpen,
+  onDropIntoFolder,
+  onContextMenu,
 }: Readonly<{
   entries: readonly FileEntry[];
   selected: readonly number[];
   /** Folder markers keyed by path. */
   markers?: ReadonlyMap<string, FolderMeta>;
+  clipboard?: { mode: "copy" | "move"; paths: readonly string[] } | null;
   onSelect: (index: number, e: MouseEvent) => void;
   onOpen: (entry: FileEntry) => void;
+  onDropIntoFolder?: (sources: string[], targetFolder: string) => void;
+  onContextMenu?: (entry: FileEntry | null, e: MouseEvent) => void;
 }>) {
   if (entries.length === 0) {
     return (
@@ -27,6 +33,10 @@ export function FileGrid({
 
   return (
     <div
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu?.(null, e);
+      }}
       className="grid flex-1 content-start gap-2.5 overflow-y-auto p-3.5"
       style={{
         gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))",
@@ -34,23 +44,59 @@ export function FileGrid({
     >
       {entries.map((entry, index) => {
         const isSelected = selected.includes(index);
+        const isCut = clipboard?.mode === "move" && clipboard.paths.includes(entry.path);
         const meta = markers?.get(entry.path);
         const sub =
           entry.kind === "folder"
             ? `${entry.size} item`
             : formatSize(entry.size);
-
         return (
           <button
             key={entry.path}
             type="button"
             data-file-entry
+            draggable={!isRemotePath(entry.path)}
+            onDragStart={(e) => {
+              const paths =
+                isSelected && selected.length > 1
+                  ? selected.map((idx) => entries[idx]?.path).filter(Boolean)
+                  : [entry.path];
+              e.dataTransfer.setData("application/json", JSON.stringify(paths));
+              e.dataTransfer.setData("text/plain", entry.path);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            onDragOver={(e) => {
+              if (entry.kind === "folder") {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+              }
+            }}
+            onDrop={(e) => {
+              if (entry.kind === "folder" && onDropIntoFolder) {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                  const raw = e.dataTransfer.getData("application/json");
+                  const paths: string[] = raw
+                    ? JSON.parse(raw)
+                    : [e.dataTransfer.getData("text/plain")].filter(Boolean);
+                  if (paths.length > 0) onDropIntoFolder(paths, entry.path);
+                } catch {}
+              }
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onContextMenu?.(entry, e);
+            }}
             onClick={(e) => onSelect(index, e)}
             onDoubleClick={() => onOpen(entry)}
             aria-pressed={isSelected}
             aria-label={`${entry.name}, ${sub}`}
             title={entry.name}
             className={`flex flex-col items-center gap-2 rounded-xl border p-2.5 text-center text-ink transition-colors ${
+              isCut ? "opacity-50" : ""
+            } ${
               isSelected
                 ? "border-field-focus bg-surface-2"
                 : "border-transparent hover:bg-surface"

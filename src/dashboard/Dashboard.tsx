@@ -2,7 +2,6 @@ import type { Dashboard as DashboardData, DayTask } from "../api";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { greeting } from "../format";
 import type { PageId } from "../shell/nav";
-import { HEADER_SECONDARY } from "../shell/ui";
 import { FinanceCard } from "./FinanceCard";
 import { DownloadsCard } from "./DownloadsCard";
 import { ProjectsCard } from "./ProjectsCard";
@@ -11,7 +10,7 @@ import { summaryLine } from "./summary";
 import { TodayPanel } from "./TodayPanel";
 import { UpcomingCard } from "./UpcomingCard";
 const QUICK_PILL =
-  "flex min-h-[34px] items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-[13px] text-ink transition-colors hover:bg-surface-2";
+  "flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs font-medium text-ink transition-colors hover:bg-surface-2";
 
 /** Bento recap from docs/design/artboards/Main.dc.html (spec UI lanjutan U9). */
 export function Dashboard({
@@ -45,11 +44,11 @@ export function Dashboard({
           type="button"
           disabled={!data}
           onClick={() => onOpenAssistant({ kind: "speak", text: `${recap}. ${data?.today.filter((task) => task.completedAt === null).map((task) => task.title || "Tanpa judul").join(". ") ?? ""}` })}
-          className={`${HEADER_SECONDARY} shrink-0 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-surface`}
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-surface"
         >
           <svg
-            width="15"
-            height="15"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -102,7 +101,7 @@ export function Dashboard({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 items-start gap-2">
+      <div className="grid grid-cols-3 items-start gap-3.5">
         <TodayPanel tasks={data?.today} onToggle={onToggle} onOpen={onOpen} onSelect={onSelect} />
         <FinanceCard finance={data?.finance} onSelect={onSelect} />
         <UpcomingCard days={data?.upcoming} onOpen={onOpen} onSelect={onSelect} />
@@ -135,7 +134,9 @@ export function Dashboard({
             ) : null}
             <span className="ml-auto text-xs text-accent">›</span>
           </div>
-          <span className="text-xs leading-relaxed text-muted">Buka kotak masuk</span>
+          <span className="text-xs leading-relaxed text-muted">
+            {data && data.inboxCount > 0 ? `${data.inboxCount} pesan belum dibaca` : "Buka kotak masuk"}
+          </span>
         </button>
         <ProjectsCard projects={data?.projects} onSelect={onSelect} />
         <DownloadsCard downloads={data?.downloads} onSelect={onSelect} />

@@ -13,6 +13,8 @@ import {
   timelineLabel,
   timelineWindow,
   visible,
+  weekGrid,
+  weekLabel,
 } from "./layout";
 
 function makeItem(partial: Partial<ScheduleItem> & { id: string; dueDate: string }): ScheduleItem {
@@ -66,6 +68,19 @@ describe("schedule layout", () => {
     // All 28 days are in Feb 2027, starting Monday 2027-02-01 and ending Sunday 2027-02-28
     expect(grid[0][0]).toEqual({ date: "2027-02-01", inMonth: true });
     expect(grid[3][6]).toEqual({ date: "2027-02-28", inMonth: true });
+  });
+
+  it("weekGrid menghasilkan 7 hari dari Senin sampai Minggu", () => {
+    // 2026-10-14 adalah hari Rabu -> Senin 2026-10-12 s/d Minggu 2026-10-18
+    const week = weekGrid("2026-10-14");
+    expect(week).toHaveLength(7);
+    expect(week[0].date).toBe("2026-10-12");
+    expect(week[6].date).toBe("2026-10-18");
+  });
+
+  it("weekLabel memformat rentang minggu dengan benar", () => {
+    expect(weekLabel("2026-10-12", "2026-10-18")).toBe("12 – 18 Okt 2026");
+    expect(weekLabel("2026-09-28", "2026-10-04")).toBe("28 Sep – 4 Okt 2026");
   });
 
   it("chipsFor memberi more yang benar", () => {

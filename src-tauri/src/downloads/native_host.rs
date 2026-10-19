@@ -429,6 +429,8 @@ fn chrome_manifest_dirs(home: &Path) -> Vec<PathBuf> {
         home.join(".config/google-chrome/NativeMessagingHosts"),
         home.join(".config/chromium/NativeMessagingHosts"),
         home.join(".config/BraveSoftware/Brave-Browser/NativeMessagingHosts"),
+        home.join(".config/net.imput.helium/NativeMessagingHosts"),
+        home.join(".config/helium/NativeMessagingHosts"),
     ]
 }
 

@@ -7,7 +7,12 @@ import { HEADER_PRIMARY } from "../shell/ui";
 export function ScheduleHeader({
   view,
   onViewChange,
+  calMode = "month",
+  onCalModeChange,
   periodLabel,
+  calendarAccount,
+  calendarSyncing = false,
+  onCalendarSync,
   onPrev,
   onNext,
   onToday,
@@ -19,7 +24,12 @@ export function ScheduleHeader({
 }: Readonly<{
   view: "calendar" | "timeline";
   onViewChange: (v: "calendar" | "timeline") => void;
+  calMode?: "month" | "week";
+  onCalModeChange?: (m: "month" | "week") => void;
   periodLabel: string;
+  calendarAccount?: string | null;
+  calendarSyncing?: boolean;
+  onCalendarSync?: () => void;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
@@ -30,70 +40,16 @@ export function ScheduleHeader({
   onAdd: () => void;
 }>) {
   return (
-    <div className="flex flex-col gap-3.5">
-      <div className="flex items-center gap-3.5">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
         <h1 className={H1}>Jadwal</h1>
-        <fieldset className="m-0 flex gap-0.5 rounded-[10px] border border-line bg-surface p-[3px]">
-          <legend className="sr-only">Tampilan</legend>
-          <button
-            type="button"
-            onClick={() => onViewChange("calendar")}
-            aria-pressed={view === "calendar"}
-            className={`flex min-h-8 items-center gap-1.5 rounded-[7px] px-3 text-[13px] transition-colors ${
-              view === "calendar"
-                ? "bg-surface-2 text-ink font-medium"
-                : "text-muted hover:text-ink"
-            }`}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="3" y="5" width="18" height="16" rx="2" />
-              <path d="M3 10h18M8 3v4M16 3v4" />
-            </svg>
-            Kalender
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange("timeline")}
-            aria-pressed={view === "timeline"}
-            className={`flex min-h-8 items-center gap-1.5 rounded-[7px] px-3 text-[13px] transition-colors ${
-              view === "timeline"
-                ? "bg-surface-2 text-ink font-medium"
-                : "text-muted hover:text-ink"
-            }`}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M4 6h9M8 12h12M4 18h7" />
-            </svg>
-            Timeline
-          </button>
-        </fieldset>
 
-        <div className="flex items-center gap-0.5 rounded-[10px] border border-line bg-surface p-0.5">
+        <div className="flex items-center gap-0.5 rounded-[9px] border border-line bg-surface p-0.5">
           <button
             type="button"
             aria-label="Sebelumnya"
             onClick={onPrev}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-2"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-ink transition-colors hover:bg-surface-2"
           >
             <svg
               width="14"
@@ -111,7 +67,7 @@ export function ScheduleHeader({
           </button>
           <span
             aria-live="polite"
-            className="min-w-[150px] text-center font-mono text-[13px] text-ink"
+            className="min-w-[130px] px-1 text-center font-mono text-xs text-ink"
           >
             {periodLabel}
           </span>
@@ -119,7 +75,7 @@ export function ScheduleHeader({
             type="button"
             aria-label="Berikutnya"
             onClick={onNext}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-2"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-ink transition-colors hover:bg-surface-2"
           >
             <svg
               width="14"
@@ -140,11 +96,87 @@ export function ScheduleHeader({
         <button
           type="button"
           onClick={onToday}
-          className="min-h-9 rounded-[10px] border border-line bg-transparent px-3 font-display text-[13px] font-medium text-ink transition-colors hover:bg-surface-2"
+          className="flex h-8 items-center rounded-[9px] border border-line bg-transparent px-3 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
         >
           Hari ini
         </button>
 
+        <fieldset className="m-0 flex gap-0.5 rounded-[9px] border border-line bg-surface p-0.5">
+          <legend className="sr-only">Tampilan</legend>
+          <button
+            type="button"
+            onClick={() => {
+              onViewChange("calendar");
+              onCalModeChange?.("month");
+            }}
+            aria-pressed={view === "calendar" && calMode === "month"}
+            className={`flex h-7 items-center rounded-md px-2.5 text-xs transition-colors ${
+              view === "calendar" && calMode === "month"
+                ? "bg-surface-2 text-ink font-medium"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            Bulan
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onViewChange("calendar");
+              onCalModeChange?.("week");
+            }}
+            aria-pressed={view === "calendar" && calMode === "week"}
+            className={`flex h-7 items-center rounded-md px-2.5 text-xs transition-colors ${
+              view === "calendar" && calMode === "week"
+                ? "bg-surface-2 text-ink font-medium"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            Minggu
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewChange("timeline")}
+            aria-pressed={view === "timeline"}
+            className={`flex h-7 items-center rounded-md px-2.5 text-xs transition-colors ${
+              view === "timeline"
+                ? "bg-surface-2 text-ink font-medium"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            Timeline
+          </button>
+        </fieldset>
+        {onCalendarSync && (
+          <button
+            type="button"
+            onClick={onCalendarSync}
+            disabled={calendarSyncing}
+            title={
+              calendarAccount
+                ? `Google Kalender (${calendarAccount})`
+                : "Sinkronkan Google Kalender"
+            }
+            className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-transparent px-2.5 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={calendarSyncing ? "animate-spin text-accent" : "text-[#2a9d8f]"}
+              aria-hidden="true"
+            >
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+            </svg>
+            <span className="font-medium">
+              {calendarSyncing ? "Sync..." : "Google Kalender"}
+            </span>
+          </button>
+        )}
         <div className="ml-auto flex gap-2.5">
           <button
             type="button"

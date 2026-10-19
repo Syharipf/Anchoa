@@ -13,6 +13,10 @@ import { DownloadQueue } from "./DownloadQueue";
 import { DownloadSettingsPanel } from "./DownloadSettingsPanel";
 import { EnginesPanel } from "./EnginesPanel";
 import { formatSpeed } from "./view";
+import { MediaPlayerModal } from "./MediaPlayerModal";
+import { BrowserIntegrationModal } from "./BrowserIntegrationModal";
+import { useClipboardCatch } from "./useClipboardCatch";
+import { detect } from "./view";
 
 export function DownloadsPage({
   onReveal,
@@ -25,7 +29,14 @@ export function DownloadsPage({
   const [activeCount, setActiveCount] = useState<number>(0);
   const [engines, setEngines] = useState<EnginesInfo | null>(null);
   const [settings, setSettings] = useState<DownloadSettings | null>(null);
+  const [playingMedia, setPlayingMedia] = useState<{
+    title: string;
+    filePath: string;
+    isVideo: boolean;
+  } | null>(null);
+  const [browserModalOpen, setBrowserModalOpen] = useState(false);
 
+  const { detectedUrl, dismiss, clear } = useClipboardCatch();
   // An answer older than one already shown is dropped: a slow poll must not overwrite a later action.
   const requests = useRef(0);
   const applied = useRef(0);
@@ -74,11 +85,21 @@ export function DownloadsPage({
   );
 
   useEffect(() => {
-    if (!hasActive) return;
+    // Refresh list immediately when app window gains focus
+    const onFocus = () => void reloadList();
+    window.addEventListener("focus", onFocus);
+
+    // Poll faster (1s) when active downloads exist, or idle background poll (3s)
+    // so new downloads from the browser extension appear in real-time
+    const intervalTime = hasActive ? 1000 : 3000;
     const interval = setInterval(() => {
       void reloadList();
-    }, 1000);
-    return () => clearInterval(interval);
+    }, intervalTime);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(interval);
+    };
   }, [hasActive, reloadList]);
 
   const handlePause = async (id: string) => {
@@ -218,6 +239,49 @@ export function DownloadsPage({
 
       <div className="grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)_300px] gap-4.5">
         <div className="flex min-h-0 flex-col gap-3.5">
+          {detectedUrl && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-surface-2 p-3 text-xs shadow-md">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/20 text-accent font-bold text-[10px]">
+                  📋
+                </span>
+                <span className="text-muted shrink-0">Tautan di clipboard:</span>
+                <span className="truncate font-mono font-medium text-ink" title={detectedUrl}>
+                  {detectedUrl}
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const url = detectedUrl;
+                    clear();
+                    try {
+                      await api.addDownload({
+                        url,
+                        kind: detect(url) === "media" ? "media" : "file",
+                        options: detect(url) === "media" ? { audioOnly: false, quality: "1080p", format: "MP4", subtitles: false } : null,
+                      });
+                      toast("Tautan dari clipboard berhasil ditambahkan");
+                      void reloadList();
+                    } catch (e) {
+                      toast(errorMessage(e), "error");
+                    }
+                  }}
+                  className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-canvas hover:bg-accent-hover transition-colors"
+                >
+                  Unduh Sekarang
+                </button>
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  className="rounded-md border border-line px-2 py-1 text-xs text-muted hover:text-ink transition-colors"
+                >
+                  Abaikan
+                </button>
+              </div>
+            </div>
+          )}
           <AddDownload onAdded={reloadList} />
           <DownloadQueue
             items={items}
@@ -227,20 +291,60 @@ export function DownloadsPage({
             onRemove={handleRemove}
             onOpen={handleOpen}
             onReveal={handleReveal}
-          />
+            onPlay={(row) => {
+              if (row.filePath) {
+                const isVideo = !row.options?.audioOnly && !/\.(mp3|m4a|flac|opus|wav|ogg)$/i.test(row.filePath);
+                setPlayingMedia({
+                  title: row.title,
+                  filePath: row.filePath,
+                  isVideo,
+                });
+              }
+            }}
+            onDropUrl={async (dropped) => {
+              const trimmed = dropped.trim();
+              if (!trimmed) return;
+              try {
+                const kind = detect(trimmed) === "media" ? "media" : "file";
+                await api.addDownload({
+                  url: trimmed,
+                  kind,
+                  options: kind === "media" ? { audioOnly: false, quality: "1080p", format: "MP4", subtitles: false } : null,
+                });
+                toast("Unduhan ditambahkan dari drag & drop");
+                void reloadList();
+              } catch (e) {
+                toast(errorMessage(e), "error");
+              }
+            }}
+           />
         </div>
 
         <aside
           aria-label="Mesin dan pengaturan unduhan"
           className="flex min-h-0 flex-col gap-3.5 overflow-y-auto"
         >
-          <EnginesPanel engines={engines} />
+          <EnginesPanel
+            engines={engines}
+            onOpenBrowserSetup={() => setBrowserModalOpen(true)}
+          />
           <DownloadSettingsPanel
             settings={settings}
             onSettingsChanged={setSettings}
           />
         </aside>
       </div>
+      {playingMedia && (
+        <MediaPlayerModal
+          title={playingMedia.title}
+          filePath={playingMedia.filePath}
+          isVideo={playingMedia.isVideo}
+          onClose={() => setPlayingMedia(null)}
+        />
+      )}
+      {browserModalOpen && (
+        <BrowserIntegrationModal onClose={() => setBrowserModalOpen(false)} />
+      )}
     </>
   );
 }

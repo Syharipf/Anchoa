@@ -10,11 +10,11 @@ import {
 } from "../api";
 import type { SettingsSection } from "../settings/view";
 import { useToast } from "../shell/toast";
-import { H1, HEADER_PRIMARY, HEADER_SECONDARY } from "../shell/ui";
+import { H1 } from "../shell/ui";
 import { EntryEditor } from "./EntryEditor";
 import { EntryList } from "./EntryList";
 import { JournalSide } from "./JournalSide";
-import { JOURNAL_TEMPLATES, KIND_META, type JournalTemplate } from "./view";
+import { formatDailyRecap, JOURNAL_TEMPLATES, KIND_META, type JournalTemplate } from "./view";
 
 export function JournalPage({
   onOpenItem,
@@ -186,6 +186,29 @@ export function JournalPage({
     }
   }
 
+  async function handleDailyRecap() {
+    setMenuOpen(false);
+    try {
+      const [dash, habitsOverview] = await Promise.all([
+        api.getDashboard().catch(() => null),
+        api.habitsOverview().catch(() => null),
+      ]);
+      const tasks = dash?.today.map((t) => ({ title: t.title, done: t.completedAt !== null })) ?? [];
+      const habits = habitsOverview?.habits.map((h) => ({ name: h.name, doneToday: h.doneToday })) ?? [];
+      const expense = dash?.finance?.expense;
+      const body = formatDailyRecap({ tasks, habits, expense });
+      const todayStr = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+      const title = `Rekap Harian · ${todayStr}`;
+      const created = await api.createEntry("note", title);
+      await api.updateItem(created.id, { body });
+      created.body = body;
+      await openCreated(created);
+      toast("Rekap harian dibuat", "info");
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  }
+
   async function handlePromptSelect(promptText: string) {
     try {
       await openCreated(await api.createEntry("note", promptText));
@@ -286,15 +309,15 @@ export function JournalPage({
           Privat · di perangkat
         </span>
 
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
             onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={HEADER_SECONDARY}
+            className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
             <svg
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -314,11 +337,11 @@ export function JournalPage({
             type="button"
             onClick={() => void handleExportAll()}
             disabled={exporting}
-            className={`${HEADER_SECONDARY} disabled:opacity-50`}
+            className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
             <svg
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -330,18 +353,18 @@ export function JournalPage({
               <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
               <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
             </svg>
-            Ekspor Semua
+            Ekspor
           </button>
 
           <div className="relative inline-flex items-center">
             <button
               type="button"
               onClick={() => void handleNewEntry()}
-              className={`${HEADER_PRIMARY} rounded-l-[10px] rounded-r-none`}
+              className="flex h-8 items-center gap-1.5 rounded-l-[9px] rounded-r-none bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
             >
               <svg
-                width="16"
-                height="16"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -360,12 +383,12 @@ export function JournalPage({
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
-              className={`${HEADER_PRIMARY} rounded-l-none rounded-r-[10px] border-l border-canvas px-2.5`}
+              className="flex h-8 items-center justify-center rounded-l-none rounded-r-[9px] border-l border-canvas/30 bg-accent px-2 text-canvas transition-colors hover:brightness-105"
             >
               <span className="sr-only">Entri baru</span>
               <svg
-                width="14"
-                height="14"
+                width="13"
+                height="13"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -401,6 +424,21 @@ export function JournalPage({
                 >
                   <span className="text-xs font-semibold text-ink">Entri kosong</span>
                   <span className="text-[11px] text-muted">Mulai menulis dari halaman kosong</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void handleDailyRecap()}
+                  className="flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-2"
+                >
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-xs font-semibold text-accent">Rekap Harian Otomatis</span>
+                    <span className="truncate text-[11px] text-muted">Ringkas tugas, habit & keuangan hari ini</span>
+                  </div>
+                  <span className="shrink-0 rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
+                    Auto
+                  </span>
                 </button>
 
                 <div className="my-1 h-px bg-line" role="separator" />

@@ -164,8 +164,8 @@ describe("Unduhan components", () => {
       expect(html).not.toContain("Belum terpasang");
       expect(html).toContain("File langsung");
       expect(html).toContain("Bawaan");
-      expect(html).not.toContain("Torrent");
-      expect(html).not.toContain("Menyusul");
+      expect(html).toContain("aria2c &amp; Torrent");
+      expect(html).toContain("Ekstensi Browser");
     });
 
     it("renders uninstalled engines and stale yt-dlp notice", () => {

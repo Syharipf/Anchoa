@@ -15,6 +15,16 @@ const MEDIA_HOSTS = [
   "bilibili.com",
   "x.com",
   "twitter.com",
+  "threads.net",
+  "instagram.com",
+  "tiktok.com",
+  "facebook.com",
+  "fb.watch",
+  "fb.com",
+  "reddit.com",
+  "pinterest.com",
+  "pin.it",
+  "linkedin.com",
 ];
 
 export function isPublicTelegramMedia(url: string): boolean {

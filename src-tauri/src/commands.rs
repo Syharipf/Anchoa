@@ -110,6 +110,31 @@ pub fn open_repo(app: AppHandle, db: State<'_, Db>, id: String) -> Result<(), Ap
         .open_url(url, None::<&str>)
         .map_err(|e| AppError::Other(e.to_string()))
 }
+#[tauri::command]
+pub fn project_studio_context(db: State<'_, Db>, project_id: String) -> Result<projects::StudioContext, AppError> {
+    projects::get_studio_context(&*db.conn()?, &project_id)
+}
+
+#[tauri::command]
+pub fn project_save_prd(db: State<'_, Db>, project_id: String, content: String) -> Result<(), AppError> {
+    projects::save_project_anchoa_file(&*db.conn()?, &project_id, "prd.md", &content)
+}
+
+#[tauri::command]
+pub fn project_save_flow(db: State<'_, Db>, project_id: String, flow_json: String) -> Result<(), AppError> {
+    projects::save_project_anchoa_file(&*db.conn()?, &project_id, "flow.json", &flow_json)
+}
+
+#[tauri::command]
+pub fn project_git_diff(db: State<'_, Db>, project_id: String) -> Result<projects::GitChanges, AppError> {
+    projects::get_git_diff(&*db.conn()?, &project_id)
+}
+
+#[tauri::command]
+pub fn project_open_external_terminal(db: State<'_, Db>, project_id: String) -> Result<(), AppError> {
+    projects::open_external_terminal(&*db.conn()?, &project_id)
+}
+
 
 #[tauri::command]
 pub fn agent_request(
@@ -524,8 +549,20 @@ pub fn delete_habit(db: State<'_, Db>, id: String) -> Result<(), AppError> {
 }
 
 #[tauri::command]
-pub fn check_habit(db: State<'_, Db>, id: String, done: bool) -> Result<HabitRow, AppError> {
-    habits::check_habit(&*db.conn()?, &id, done, time::now_ms(), &TimeZone::system())
+pub fn check_habit(
+    db: State<'_, Db>,
+    id: String,
+    done: bool,
+    date: Option<String>,
+) -> Result<HabitRow, AppError> {
+    habits::check_habit_date(
+        &*db.conn()?,
+        &id,
+        date.as_deref(),
+        done,
+        time::now_ms(),
+        &TimeZone::system(),
+    )
 }
 
 #[tauri::command]
@@ -723,6 +760,20 @@ pub async fn create_dir(
     tauri::async_runtime::spawn_blocking(move || files::create_dir(&parent, &name, hidden, &roots))
         .await
         .map_err(blocking_error)?
+}
+
+#[tauri::command]
+pub async fn extract_archive(
+    app: AppHandle,
+    path: String,
+    dest_dir: Option<String>,
+) -> Result<String, AppError> {
+    let (_user, roots, _) = current_user_and_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        files::extract_archive(&path, dest_dir.as_deref(), &roots)
+    })
+    .await
+    .map_err(blocking_error)?
 }
 
 #[tauri::command]

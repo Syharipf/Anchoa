@@ -21,6 +21,19 @@ pub enum DayState {
     Miss,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HabitMeta {
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub target_days: Option<i64>,
+    #[serde(default)]
+    pub archived: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HabitRow {
@@ -37,6 +50,10 @@ pub struct HabitRow {
     pub rate30: i64,
     pub week: Vec<DayState>,
     pub created_at: i64,
+    pub category: Option<String>,
+    pub icon: Option<String>,
+    pub target_days: Option<i64>,
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,6 +117,14 @@ pub struct HabitInput {
     pub remind_on: bool,
     #[serde(default)]
     pub auto_journal: bool,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub target_days: Option<i64>,
+    #[serde(default)]
+    pub archived: bool,
 }
 
 /// Bit 0 = Monday ... bit 6 = Sunday.
@@ -254,20 +279,23 @@ fn week_strip(today: Date, created: Date, days: u8, checked: &HashSet<Date>) -> 
     week
 }
 
+type RawHabitRow = (String, u8, Option<String>, i64, i64, i64, Option<String>);
+
 fn get_habit_row(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result<HabitRow, AppError> {
-    let row: Option<(String, u8, Option<String>, i64, i64, i64)> = conn
+    let row: Option<RawHabitRow> = conn
         .query_row(
-            "SELECT i.title, h.days, h.remind_at, h.remind_on, h.auto_journal, i.created_at
+            "SELECT i.title, h.days, h.remind_at, h.remind_on, h.auto_journal, i.created_at, i.body
              FROM habits h JOIN items i ON i.id = h.item_id
              WHERE i.id = ?1 AND i.type = 'habit' AND i.deleted_at IS NULL",
             [id],
-            |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as u8, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as u8, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)),
         )
         .optional()?;
 
-    let Some((name, days, remind_at, remind_on, auto_journal, created_at)) = row else {
+    let Some((name, days, remind_at, remind_on, auto_journal, created_at, body)) = row else {
         return Err(AppError::NotFound);
     };
+    let meta: HabitMeta = body.as_deref().and_then(|b| serde_json::from_str(b).ok()).unwrap_or_default();
 
     let today = local_date(now, tz)?;
     let created = local_date(created_at, tz)?;
@@ -307,6 +335,10 @@ fn get_habit_row(conn: &Connection, id: &str, now: i64, tz: &TimeZone) -> Result
         rate30: rate30_pct,
         week,
         created_at,
+        category: meta.category,
+        icon: meta.icon,
+        target_days: meta.target_days,
+        archived: meta.archived,
     })
 }
 
@@ -315,7 +347,7 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
     let today_str = today.to_string();
 
     let mut stmt = conn.prepare(
-        "SELECT i.id, i.title, h.days, h.remind_at, h.remind_on, h.auto_journal, i.created_at
+        "SELECT i.id, i.title, h.days, h.remind_at, h.remind_on, h.auto_journal, i.created_at, i.body
          FROM habits h
          JOIN items i ON i.id = h.item_id
          WHERE i.deleted_at IS NULL AND i.type = 'habit'
@@ -334,6 +366,7 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
             r.get::<_, i64>(4)? != 0,
             r.get::<_, i64>(5)? != 0,
             r.get::<_, i64>(6)?,
+            r.get::<_, Option<String>>(7)?,
         ))
     })?;
 
@@ -352,7 +385,8 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
     let mut total_sched = 0;
 
     for h in habit_rows {
-        let (id, name, days, remind_at, remind_on, auto_journal, created_at) = h?;
+        let (id, name, days, remind_at, remind_on, auto_journal, created_at, body) = h?;
+        let meta: HabitMeta = body.as_deref().and_then(|b| serde_json::from_str(b).ok()).unwrap_or_default();
         let created = local_date(created_at, tz)?;
         let checked = checks_map.remove(&id).unwrap_or_default();
 
@@ -361,8 +395,11 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
         let streak = current_streak(today, created, days, &checked);
         let best = best_streak(today, created, days, &checked);
         let (done30, sched30) = rate30(today, created, days, &checked);
-        total_done += done30;
-        total_sched += sched30;
+
+        if !meta.archived {
+            total_done += done30;
+            total_sched += sched30;
+        }
 
         let rate30_pct = if sched30 == 0 {
             0
@@ -385,11 +422,15 @@ pub fn habits_overview(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Ove
             rate30: rate30_pct,
             week,
             created_at,
+            category: meta.category,
+            icon: meta.icon,
+            target_days: meta.target_days,
+            archived: meta.archived,
         });
     }
 
-    let today_total = habits.iter().filter(|h| h.scheduled_today).count() as i64;
-    let today_done = habits.iter().filter(|h| h.scheduled_today && h.done_today).count() as i64;
+    let today_total = habits.iter().filter(|h| !h.archived && h.scheduled_today).count() as i64;
+    let today_done = habits.iter().filter(|h| !h.archived && h.scheduled_today && h.done_today).count() as i64;
 
     let top_streak = habits
         .iter()
@@ -518,9 +559,16 @@ pub fn save_habit(conn: &Connection, input: &HabitInput, now: i64, tz: &TimeZone
             if !exists {
                 return Err(AppError::NotFound);
             }
+            let meta = HabitMeta {
+                category: input.category.clone().filter(|s| !s.trim().is_empty()),
+                icon: input.icon.clone().filter(|s| !s.trim().is_empty()),
+                target_days: input.target_days.filter(|&t| t > 0),
+                archived: input.archived,
+            };
+            let body = serde_json::to_string(&meta).unwrap_or_else(|_| "{}".into());
             conn.execute(
-                "UPDATE items SET title = ?1, updated_at = ?2 WHERE id = ?3",
-                params![name, now, id],
+                "UPDATE items SET title = ?1, body = ?2, updated_at = ?3 WHERE id = ?4",
+                params![name, body, now, id],
             )?;
             conn.execute(
                 "UPDATE habits SET days = ?1, remind_at = ?2, remind_on = ?3, auto_journal = ?4 WHERE item_id = ?5",
@@ -530,9 +578,16 @@ pub fn save_habit(conn: &Connection, input: &HabitInput, now: i64, tz: &TimeZone
         }
         None => {
             let id = uuid::Uuid::now_v7().to_string();
+            let meta = HabitMeta {
+                category: input.category.clone().filter(|s| !s.trim().is_empty()),
+                icon: input.icon.clone().filter(|s| !s.trim().is_empty()),
+                target_days: input.target_days.filter(|&t| t > 0),
+                archived: input.archived,
+            };
+            let body = serde_json::to_string(&meta).unwrap_or_else(|_| "{}".into());
             conn.execute(
-                "INSERT INTO items (id, type, title, created_at, updated_at) VALUES (?1, 'habit', ?2, ?3, ?3)",
-                params![id, name, now],
+                "INSERT INTO items (id, type, title, body, created_at, updated_at) VALUES (?1, 'habit', ?2, ?3, ?4, ?4)",
+                params![id, name, body, now],
             )?;
             conn.execute(
                 "INSERT INTO habits (item_id, days, remind_at, remind_on, auto_journal) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -556,7 +611,14 @@ pub fn delete_habit(conn: &Connection, id: &str, now: i64) -> Result<(), AppErro
     Ok(())
 }
 
-pub fn check_habit(conn: &Connection, id: &str, done: bool, now: i64, tz: &TimeZone) -> Result<HabitRow, AppError> {
+pub fn check_habit_date(
+    conn: &Connection,
+    id: &str,
+    target_date: Option<&str>,
+    done: bool,
+    now: i64,
+    tz: &TimeZone,
+) -> Result<HabitRow, AppError> {
     let row: Option<u8> = conn
         .query_row(
             "SELECT h.days FROM habits h JOIN items i ON i.id = h.item_id
@@ -571,15 +633,27 @@ pub fn check_habit(conn: &Connection, id: &str, done: bool, now: i64, tz: &TimeZ
     };
 
     let today = local_date(now, tz)?;
-    if !scheduled(days, today) {
-        return Err(AppError::Invalid("Habit libur hari ini".into()));
+    let target = match target_date {
+        Some(s) if !s.trim().is_empty() => {
+            let parsed: Date = s.trim().parse().map_err(|_| AppError::Invalid("Format tanggal tidak valid".into()))?;
+            let yesterday = today.yesterday().map_err(|_| AppError::Other("Tanggal tidak valid".into()))?;
+            if parsed != today && parsed != yesterday {
+                return Err(AppError::Invalid("Hanya dapat mencentang untuk hari ini atau kemarin".into()));
+            }
+            parsed
+        }
+        _ => today,
+    };
+
+    if !scheduled(days, target) {
+        return Err(AppError::Invalid("Habit libur pada tanggal tersebut".into()));
     }
-    let today_str = today.to_string();
+    let date_str = target.to_string();
 
     let existing: Option<Option<i64>> = conn
         .query_row(
             "SELECT deleted_at FROM habit_checks WHERE habit_id = ?1 AND date = ?2",
-            params![id, today_str],
+            params![id, date_str],
             |r| r.get(0),
         )
         .optional()?;
@@ -589,13 +663,13 @@ pub fn check_habit(conn: &Connection, id: &str, done: bool, now: i64, tz: &TimeZ
             None => {
                 conn.execute(
                     "INSERT INTO habit_checks (habit_id, date, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?3, NULL)",
-                    params![id, today_str, now],
+                    params![id, date_str, now],
                 )?;
             }
             Some(Some(_)) => {
                 conn.execute(
                     "UPDATE habit_checks SET deleted_at = NULL, updated_at = ?3 WHERE habit_id = ?1 AND date = ?2",
-                    params![id, today_str, now],
+                    params![id, date_str, now],
                 )?;
             }
             Some(None) => {}
@@ -604,12 +678,16 @@ pub fn check_habit(conn: &Connection, id: &str, done: bool, now: i64, tz: &TimeZ
         if let Some(None) = existing {
             conn.execute(
                 "UPDATE habit_checks SET deleted_at = ?1, updated_at = ?1 WHERE habit_id = ?2 AND date = ?3",
-                params![now, id, today_str],
+                params![now, id, date_str],
             )?;
         }
     }
 
     get_habit_row(conn, id, now, tz)
+}
+
+pub fn check_habit(conn: &Connection, id: &str, done: bool, now: i64, tz: &TimeZone) -> Result<HabitRow, AppError> {
+    check_habit_date(conn, id, None, done, now, tz)
 }
 
 pub fn due_reminders(conn: &Connection, now: i64, tz: &TimeZone) -> Result<Vec<HabitReminder>, AppError> {
@@ -1223,5 +1301,68 @@ mod tests {
         )
         .unwrap();
         assert!(!h2_updated.remind_on);
+    }
+
+    #[test]
+    fn test_habit_metadata_and_check_yesterday() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let current = now(); // Tuesday 2026-09-29
+
+        let yesterday_ts = current - 86400 * 1000;
+        let h = save_habit(
+            &conn,
+            &HabitInput {
+                name: "Minum Air".into(),
+                days: 127,
+                category: Some("kesehatan".into()),
+                icon: Some("💧".into()),
+                target_days: Some(30),
+                archived: false,
+                ..Default::default()
+            },
+            yesterday_ts,
+            &tz,
+        )
+        .unwrap();
+
+        assert_eq!(h.category.as_deref(), Some("kesehatan"));
+        assert_eq!(h.icon.as_deref(), Some("💧"));
+        assert_eq!(h.target_days, Some(30));
+        assert!(!h.archived);
+
+        // Check yesterday: 2026-09-28 (Monday)
+        let yesterday_str = "2026-09-28";
+        let res = check_habit_date(&conn, &h.id, Some(yesterday_str), true, current, &tz).unwrap();
+        assert!(!res.done_today);
+        assert_eq!(res.streak, 1);
+
+        // Checking an invalid past date (e.g. 5 days ago) is rejected
+        let invalid_past = "2026-09-20";
+        assert!(matches!(
+            check_habit_date(&conn, &h.id, Some(invalid_past), true, current, &tz),
+            Err(AppError::Invalid(_))
+        ));
+
+        // Archive habit
+        let updated = save_habit(
+            &conn,
+            &HabitInput {
+                id: Some(h.id.clone()),
+                name: "Minum Air".into(),
+                days: 127,
+                archived: true,
+                ..Default::default()
+            },
+            current,
+            &tz,
+        )
+        .unwrap();
+        assert!(updated.archived);
+
+        let ov = habits_overview(&conn, current, &tz).unwrap();
+        assert_eq!(ov.today_total, 0); // archived habits are excluded from today_total
+        assert_eq!(ov.habits.len(), 1);
+        assert!(ov.habits[0].archived);
     }
 }

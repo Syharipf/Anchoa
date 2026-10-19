@@ -51,6 +51,16 @@ describe("parseRupiah", () => {
     expect(parseRupiah("-50.000")).toBe(-50000);
   });
 
+  test("evaluates safe math expressions cleanly without eval", () => {
+    expect(parseRupiah("15.000 + 25.000")).toBe(40000);
+    expect(parseRupiah("100.000 - 30.000")).toBe(70000);
+    expect(parseRupiah("5.000 * 4")).toBe(20000);
+    expect(parseRupiah("50.000 / 2")).toBe(25000);
+    expect(parseRupiah("10.000 + 5.000 * 2")).toBe(20000);
+    expect(parseRupiah("50.000 / 0")).toBeNull();
+    expect(parseRupiah("alert(1)")).toBeNull();
+  });
+
   test("rejects decimals and text", () => {
     for (const bad of ["25,5", "25.5", "1.2345", "abc", "", "Rp", "--5"]) {
       expect(parseRupiah(bad)).toBeNull();

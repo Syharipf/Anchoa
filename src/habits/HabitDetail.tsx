@@ -218,7 +218,7 @@ export function HabitDetail({
         <StatBox
           value={`${habit.rate30}%`}
           label="konsistensi 30 hari"
-          note="hari terjadwal yang dicentang; hari di luar jadwal mingguan tidak dihitung, hari ini masuk setelah dicentang"
+          note="30 hari terjadwal"
         />
       </div>
 

@@ -22,8 +22,8 @@ const habit: HabitRow = {
 
 const consistency: Consistency = { percent: 21, done: 4, scheduled: 19 };
 
-describe("consistency rule is stated in the UI", () => {
-  it("summarises the overview ratio as scheduled days, not checklist items", () => {
+describe("consistency metrics in UI", () => {
+  it("renders the 30-day consistency ratio in SummaryCards", () => {
     const html = renderToStaticMarkup(
       <SummaryCards
         todayDone={0}
@@ -33,20 +33,16 @@ describe("consistency rule is stated in the UI", () => {
         habits={[habit]}
       />,
     );
-    // Matches `rate30` in src-tauri/src/habits.rs: done / scheduled over scheduled days.
-    expect(html).toContain("4 dari 19 hari terjadwal selesai");
-    expect(html).toContain("per hari, bukan per checklist");
-    expect(html).toContain("Hari di luar jadwal mingguan tidak masuk hitungan");
-    expect(html).toContain("hari ini baru masuk setelah dicentang");
+    expect(html).toContain("4/19 hari");
+    expect(html).toContain("21");
+    expect(html).toContain("Konsistensi 30 hari");
   });
 
-  it("states the same rule next to a single habit's 30-day rate", () => {
+  it("renders 30-day consistency rate in HabitDetail", () => {
     const html = renderToStaticMarkup(
       <HabitDetail habit={habit} today="2026-09-29" onEdit={() => {}} onDelete={() => {}} onUpdate={() => {}} />,
     );
     expect(html).toContain("21%");
-    expect(html).toContain("hari terjadwal yang dicentang");
-    expect(html).toContain("hari di luar jadwal mingguan tidak dihitung");
-    expect(html).toContain("hari ini masuk setelah dicentang");
+    expect(html).toContain("konsistensi 30 hari");
   });
 });

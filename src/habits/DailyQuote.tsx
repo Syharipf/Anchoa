@@ -18,7 +18,7 @@ export const HABIT_QUOTES: Quote[] = [
     source: "Letters from a Stoic",
   },
   {
-    text: "Kita adalah apa yang kita lakukan berulang-ulang. Keunggulan bukanlah sebuah tindakan, melainkan sebuah kebiasaan.",
+    text: "Kita adalah apa yang kita lakukan berulang-ulang. Keunggulan adalah sebuah kebiasaan.",
     author: "Will Durant",
   },
   {
@@ -31,24 +31,12 @@ export const HABIT_QUOTES: Quote[] = [
     author: "Lao Tzu",
   },
   {
-    text: "Jangan hitung hari-harinya, tapi buatlah setiap hari itu bermakna.",
-    author: "Muhammad Ali",
-  },
-  {
-    text: "Kemenangan terbesar adalah kemenangan atas dirimu sendiri setiap hari.",
-    author: "Plato",
-  },
-  {
     text: "Kemajuan 1% setiap hari akan membuatmu 37 kali lebih baik dalam setahun.",
     author: "James Clear",
     source: "Atomic Habits",
   },
   {
-    text: "Bukan beban yang menghancurkanmu, tapi caramu memikulnya secara konsisten.",
-    author: "Lou Holtz",
-  },
-  {
-    text: "Kebiasaan yang baik membuat waktu menjadi sekutumu, kebiasaan buruk membuat waktu menjadi musuhmu.",
+    text: "Kebiasaan baik membuat waktu menjadi sekutumu, kebiasaan buruk membuat waktu menjadi musuhmu.",
     author: "Epictetus",
   },
 ];
@@ -75,35 +63,29 @@ export function DailyQuote({
   }
 
   return (
-    <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-gradient-to-r from-surface via-surface-2 to-surface p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/20 font-serif text-xs font-bold text-accent">
-            “
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface/80 px-4 py-2.5 shadow-sm">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent/15 font-serif text-xs font-bold text-accent">
+          “
+        </span>
+        <p className="truncate text-xs italic text-ink" title={quote.text}>
+          &ldquo;{quote.text}&rdquo;
+          <span className="ml-1.5 font-sans not-italic text-muted font-medium">
+            — {quote.author}
           </span>
-          <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-accent">
-            Kutipan Inspirasi Harian
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={nextQuote}
-          title="Ganti kutipan"
-          aria-label="Kutipan lain"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
-        >
-          ↻
-        </button>
+        </p>
       </div>
 
-      <p className="my-2.5 text-xs italic leading-relaxed text-ink">
-        &ldquo;{quote.text}&rdquo;
-      </p>
-
-      <div className="flex items-center justify-between text-[11px] text-muted">
-        <span className="font-medium text-[#C3D2D6]">— {quote.author}</span>
-        {quote.source && <span className="font-mono text-[10px] text-muted/80">{quote.source}</span>}
-      </div>
+      <button
+        type="button"
+        onClick={nextQuote}
+        title="Ganti kutipan"
+        aria-label="Kutipan lain"
+        className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-muted hover:border-accent hover:text-accent transition-colors"
+      >
+        <span>↻</span>
+        <span className="text-[10px]">Kutipan</span>
+      </button>
     </div>
   );
 }

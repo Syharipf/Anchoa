@@ -161,35 +161,39 @@ export function HabitsPage({
 
   return (
     <>
-      <div className="flex items-center gap-3">
-        <h1 className={H1}>Habit</h1>
-        <span className="text-[13px] text-muted">{subtitle}</span>
-        <div className="ml-auto flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => onOpenAssistant({ kind: "voice" })}
-            className={HEADER_SECONDARY}
-          >
-            <MicIcon />
-            <span>Catat lewat suara</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormOpen({})}
-            className={HEADER_PRIMARY}
-          >
-            <PlusIcon />
-            <span>Habit</span>
-          </button>
+      <div className="flex flex-col gap-3.5">
+        <div className="flex items-center gap-3">
+          <h1 className={H1}>Habit</h1>
+          <span className="text-[13px] text-muted">{subtitle}</span>
+          <div className="ml-auto flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => onOpenAssistant({ kind: "voice" })}
+              className={HEADER_SECONDARY}
+            >
+              <MicIcon />
+              <span>Catat lewat suara</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormOpen({})}
+              className={HEADER_PRIMARY}
+            >
+              <PlusIcon />
+              <span>Habit</span>
+            </button>
+          </div>
         </div>
+
+        <DailyQuote today={overview.today} />
+
+        {overview.todayTotal > 0 && overview.todayDone === overview.todayTotal && (
+          <HabitCelebration />
+        )}
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_410px] gap-5 items-start pb-8">
         <div className="flex flex-col gap-4">
-          <DailyQuote today={overview.today} />
-          {overview.todayTotal > 0 && overview.todayDone === overview.todayTotal && (
-            <HabitCelebration />
-          )}
           <SummaryCards
             todayDone={overview.todayDone}
             todayTotal={overview.todayTotal}

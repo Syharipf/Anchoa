@@ -549,8 +549,20 @@ pub fn delete_habit(db: State<'_, Db>, id: String) -> Result<(), AppError> {
 }
 
 #[tauri::command]
-pub fn check_habit(db: State<'_, Db>, id: String, done: bool) -> Result<HabitRow, AppError> {
-    habits::check_habit(&*db.conn()?, &id, done, time::now_ms(), &TimeZone::system())
+pub fn check_habit(
+    db: State<'_, Db>,
+    id: String,
+    done: bool,
+    date: Option<String>,
+) -> Result<HabitRow, AppError> {
+    habits::check_habit_date(
+        &*db.conn()?,
+        &id,
+        date.as_deref(),
+        done,
+        time::now_ms(),
+        &TimeZone::system(),
+    )
 }
 
 #[tauri::command]

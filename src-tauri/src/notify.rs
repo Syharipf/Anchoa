@@ -739,6 +739,7 @@ mod tests {
                 remind_at: Some("07:00".into()),
                 remind_on: true,
                 auto_journal: false,
+                ..Default::default()
             },
             today,
             &jakarta(),

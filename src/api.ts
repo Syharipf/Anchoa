@@ -408,6 +408,10 @@ export interface HabitRow {
   rate30: number;
   week: DayState[];
   createdAt: number;
+  category?: string | null;
+  icon?: string | null;
+  targetDays?: number | null;
+  archived?: boolean;
 }
 
 export interface TopStreak {
@@ -454,6 +458,10 @@ export interface HabitInput {
   remindAt?: string | null;
   remindOn: boolean;
   autoJournal?: boolean;
+  category?: string | null;
+  icon?: string | null;
+  targetDays?: number | null;
+  archived?: boolean;
 }
 
 export type EntryKind = "idea" | "vent" | "note";
@@ -1235,8 +1243,8 @@ export const api = {
     invoke<HabitHistory>("habit_history", { id, month }),
   saveHabit: (input: HabitInput) => invoke<HabitRow>("save_habit", { input }),
   deleteHabit: (id: string) => invoke<void>("delete_habit", { id }),
-  checkHabit: (id: string, done: boolean) =>
-    invoke<HabitRow>("check_habit", { id, done }),
+  checkHabit: (id: string, done: boolean, date?: string) =>
+    invoke<HabitRow>("check_habit", { id, done, date }),
   journalList: (f: JournalFilter = {}) =>
     invoke<JournalList>("journal_list", { query: f.query, kind: f.kind, tag: f.tag, mood: f.mood, date: f.date }),
   journalEntry: (id: string) => invoke<Entry>("journal_entry", { id }),

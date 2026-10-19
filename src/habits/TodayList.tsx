@@ -5,10 +5,10 @@ import { FlameIcon } from "./icons";
 import {
   DAY_INITIALS,
   STATE_STYLE,
-  filterHabits,
   metaLabel,
-  type HabitFilter,
 } from "./view";
+
+export type ExtendedHabitFilter = "all" | "open" | "archived";
 
 function CheckIcon() {
   return (
@@ -52,15 +52,21 @@ function HabitRowItem({
   selected,
   onSelect,
   onToggle,
+  onCheckYesterday,
 }: Readonly<{
   row: HabitRow;
   selected: boolean;
   onSelect: (id: string) => void;
   onToggle: (id: string, done: boolean) => void;
+  onCheckYesterday?: (id: string) => void;
 }>) {
   const doneW = row.week.filter((s) => s === "done").length;
   const schedW = row.week.filter((s) => s !== "off" && s !== "blank" && s !== "future").length;
   const weekLabel = `7 hari terakhir: ${doneW} dari ${schedW} hari terjadwal selesai`;
+
+  // Check if yesterday was missed (index 5 in 0..6 week array)
+  const yesterdayState = row.week.length >= 2 ? row.week[row.week.length - 2] : null;
+  const missedYesterday = yesterdayState === "miss" || yesterdayState === "todo";
 
   let checkBtnClass =
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-transform hover:scale-105 active:scale-95";
@@ -75,8 +81,8 @@ function HabitRowItem({
 
   return (
     <div
-      className={`flex items-center gap-3.5 rounded-[10px] p-2.5 transition-colors ${
-        selected ? "bg-surface-2" : "hover:bg-surface-2"
+      className={`flex items-center gap-3.5 rounded-xl p-3 transition-colors ${
+        selected ? "bg-surface-2 border border-line" : "hover:bg-surface-2/60 border border-transparent"
       }`}
     >
       <button
@@ -96,22 +102,52 @@ function HabitRowItem({
         type="button"
         onClick={() => onSelect(row.id)}
         aria-pressed={selected}
-        className="flex min-w-0 flex-1 flex-col gap-0.5 border-0 bg-transparent py-1 text-left"
+        className="flex min-w-0 flex-1 flex-col gap-1 border-0 bg-transparent py-0.5 text-left"
       >
-        <span
-          className={`text-sm font-medium ${
-            row.doneToday ? "text-muted line-through" : "text-ink"
-          }`}
-        >
-          {row.name}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted">
-          <BellIcon />
-          <span>{metaLabel(row)}</span>
-        </span>
+        <div className="flex items-center gap-2">
+          {row.icon && <span className="text-base shrink-0">{row.icon}</span>}
+          <span
+            className={`text-sm font-medium ${
+              row.doneToday ? "text-muted line-through" : "text-ink"
+            }`}
+          >
+            {row.name}
+          </span>
+          {row.category && (
+            <span className="rounded px-1.5 py-0.2 font-mono text-[10px] uppercase font-semibold bg-surface-2 text-accent/90 shrink-0">
+              {row.category}
+            </span>
+          )}
+          {row.targetDays && row.targetDays > 0 && (
+            <span className="rounded bg-stage px-1.5 py-0.2 font-mono text-[10px] text-muted shrink-0">
+              Target {row.targetDays}h
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-muted">
+          <span className="flex items-center gap-1.5">
+            <BellIcon />
+            <span>{metaLabel(row)}</span>
+          </span>
+
+          {missedYesterday && onCheckYesterday && !row.archived && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCheckYesterday(row.id);
+              }}
+              title="Centang untuk hari kemarin"
+              className="rounded bg-warn/15 px-2 py-0.5 font-medium text-[11px] text-warn hover:bg-warn/25 transition-colors"
+            >
+              + Centang Kemarin
+            </button>
+          )}
+        </div>
       </button>
 
-      <span role="img" aria-label={weekLabel} className="flex gap-1">
+      <span role="img" aria-label={weekLabel} className="flex gap-1 shrink-0">
         {row.week.map((state, idx) => (
           <span
             key={idx}
@@ -121,9 +157,9 @@ function HabitRowItem({
       </span>
 
       <span
-        title="Streak saat ini"
-        className={`flex w-16 shrink-0 items-center justify-end gap-1 font-mono text-[13px] ${
-          row.streak > 0 ? "text-accent" : "text-[#5b6475]"
+        aria-label={`Streak: ${row.streak} hari`}
+        className={`flex w-16 shrink-0 items-center justify-end gap-1 font-mono text-sm ${
+          row.streak > 0 ? "text-accent font-semibold" : "text-muted"
         }`}
       >
         <FlameIcon />
@@ -141,6 +177,7 @@ export function TodayList({
   selectedId,
   onSelect,
   onToggleCheck,
+  onCheckYesterday,
   onNewHabit,
 }: Readonly<{
   today: string;
@@ -150,9 +187,10 @@ export function TodayList({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onToggleCheck: (id: string, done: boolean) => void;
+  onCheckYesterday?: (id: string) => void;
   onNewHabit: () => void;
 }>) {
-  const [filter, setFilter] = useState<HabitFilter>("all");
+  const [filter, setFilter] = useState<ExtendedHabitFilter>("all");
 
   const [y, m, d] = today.split("-").map(Number);
   const dayHeads = [6, 5, 4, 3, 2, 1, 0].map((offset) => {
@@ -164,18 +202,23 @@ export function TodayList({
     };
   });
 
-  const filtered = filterHabits(habits, filter);
+  const filtered = habits.filter((h) => {
+    if (filter === "archived") return h.archived;
+    if (h.archived) return false;
+    if (filter === "open") return h.scheduledToday && !h.doneToday;
+    return true;
+  });
 
   const allDone = todayTotal > 0 && todayDone === todayTotal;
-  const emptyFilter = filter === "open" && filtered.length === 0 && habits.length > 0;
+  const emptyFilter = filter === "open" && filtered.length === 0 && habits.some((h) => !h.archived);
 
   return (
     <section
       aria-labelledby="h-today"
-      className="flex min-h-0 flex-1 flex-col rounded-[14px] border border-line bg-surface p-3"
+      className="flex min-h-0 flex-1 flex-col rounded-2xl border border-line bg-surface p-4 shadow-sm"
     >
-      <div className="flex items-center gap-2.5 px-1.5 pb-2.5">
-        <h2 id="h-today" className="m-0 font-display text-base font-semibold">
+      <div className="flex items-center gap-2.5 pb-3 border-b border-line">
+        <h2 id="h-today" className="m-0 font-display text-base font-semibold text-ink">
           Centang hari ini
         </h2>
         <fieldset className="m-0 ml-2 flex gap-1 border-0 p-0">
@@ -185,7 +228,7 @@ export function TodayList({
             aria-pressed={filter === "all"}
             onClick={() => setFilter("all")}
             className={`min-h-7 rounded-md px-2.5 text-xs transition-colors ${
-              filter === "all" ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"
+              filter === "all" ? "bg-surface-2 text-ink font-medium" : "text-muted hover:text-ink"
             }`}
           >
             Semua
@@ -195,18 +238,28 @@ export function TodayList({
             aria-pressed={filter === "open"}
             onClick={() => setFilter("open")}
             className={`min-h-7 rounded-md px-2.5 text-xs transition-colors ${
-              filter === "open" ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"
+              filter === "open" ? "bg-surface-2 text-ink font-medium" : "text-muted hover:text-ink"
             }`}
           >
             Belum
           </button>
+          <button
+            type="button"
+            aria-pressed={filter === "archived"}
+            onClick={() => setFilter("archived")}
+            className={`min-h-7 rounded-md px-2.5 text-xs transition-colors ${
+              filter === "archived" ? "bg-surface-2 text-warn font-medium" : "text-muted hover:text-ink"
+            }`}
+          >
+            Arsip
+          </button>
         </fieldset>
-        <span aria-hidden="true" className="ml-auto flex gap-1 pr-[72px]">
+        <span aria-hidden="true" className="ml-auto flex gap-1 pr-[76px]">
           {dayHeads.map((dh, idx) => (
             <span
               key={idx}
               className={`w-3.5 text-center font-mono text-[10px] ${
-                dh.isToday ? "text-accent" : "text-muted"
+                dh.isToday ? "text-accent font-semibold" : "text-muted"
               }`}
             >
               {dh.initial}
@@ -215,13 +268,21 @@ export function TodayList({
         </span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-        {habits.length === 0 ? (
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pt-3">
+        {filtered.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center">
-            <p className="m-0 text-sm text-muted">Belum ada habit</p>
-            <button type="button" onClick={onNewHabit} className={PRIMARY}>
-              Buat habit
-            </button>
+            <p className="m-0 text-sm text-muted">
+              {filter === "archived"
+                ? "Tidak ada habit di arsip"
+                : filter === "open"
+                  ? "Semua habit sudah dicentang!"
+                  : "Belum ada habit"}
+            </p>
+            {filter === "all" && (
+              <button type="button" onClick={onNewHabit} className={PRIMARY}>
+                Buat habit baru
+              </button>
+            )}
           </div>
         ) : (
           filtered.map((row) => (
@@ -231,17 +292,18 @@ export function TodayList({
               selected={row.id === selectedId}
               onSelect={onSelect}
               onToggle={onToggleCheck}
+              onCheckYesterday={onCheckYesterday}
             />
           ))
         )}
 
-        {allDone && (
-          <p className="m-2.5 text-[13px] text-accent">
-            Semua habit hari ini sudah dicentang.
+        {allDone && filter !== "archived" && (
+          <p className="m-2.5 text-xs text-accent font-medium text-center py-2">
+            ✨ Hebat! Semua habit hari ini sudah berhasil dicentang.
           </p>
         )}
         {emptyFilter && (
-          <p className="m-2.5 text-[13px] text-muted">
+          <p className="m-2.5 text-xs text-muted text-center py-2">
             Tidak ada habit yang belum dicentang.
           </p>
         )}

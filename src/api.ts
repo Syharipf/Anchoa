@@ -1086,6 +1086,9 @@ export const onSyncChanged = (handler: () => void) => listen("sync-changed", () 
 /** Runs the handler after the reminder scheduler handed a batch to the OS. */
 export const onNotifyDelivered = (handler: () => void) => listen("notify-os-delivered", () => handler());
 
+/** Runs the handler when package manager updated the app on disk. */
+export const onAppUpdated = (handler: () => void) => listen("app-updated-on-disk", () => handler());
+
 export const api = {
   syncStatus: () => invoke<SyncStatus>("sync_status"),
   /** Opens the browser and resolves when the login completes; reject after `syncCancelSignIn`. */
@@ -1229,6 +1232,7 @@ export const api = {
   backupNow: () => invoke<string>("backup_now"),
   dataOverview: () => invoke<DataOverview>("data_overview"),
   checkUpdate: () => invoke<UpdateCheck>("check_update"),
+  restartApp: () => invoke<void>("restart_app"),
   schedule: (from: string, to: string) =>
     invoke<Schedule>("schedule", { range: { from, to } }),
   getProfile: () => invoke<Profile>("get_profile"),

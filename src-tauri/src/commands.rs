@@ -1121,6 +1121,11 @@ pub fn uninstall_native_host(
 }
 
 #[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
+#[tauri::command]
 pub fn native_host_status(
     app: AppHandle,
 ) -> Result<downloads::native_host::NativeHostStatus, AppError> {

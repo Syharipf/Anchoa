@@ -5,7 +5,13 @@ fn main() {
     let mut args = std::env::args_os();
     let _ = args.next();
     let first = args.next();
-    if first.as_deref() == Some(std::ffi::OsStr::new("agent")) {
+    if first.as_deref() == Some(std::ffi::OsStr::new("--version"))
+        || first.as_deref() == Some(std::ffi::OsStr::new("-v"))
+        || first.as_deref() == Some(std::ffi::OsStr::new("version"))
+    {
+        println!("anchoa {}", env!("CARGO_PKG_VERSION"));
+        std::process::exit(0);
+    } else if first.as_deref() == Some(std::ffi::OsStr::new("agent")) {
         use std::io::Write;
 
         let args = args

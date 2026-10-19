@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage, onSyncChanged, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
+import { api, errorMessage, onAppUpdated, onSyncChanged, type DbStatus, type NotifyPrefs, type SecurityStatus } from "./api";
 import { AssistantMini } from "./assistant/AssistantMini";
 import type { AssistantRequest, OpenAssistant } from "./assistant/useAssistantRequest";
 import { LockScreen } from "./security/LockScreen";
@@ -127,6 +127,25 @@ export function App() {
       unlisten?.();
     };
   }, [reloadAllData]);
+
+  // When pacman/package manager replaces the binary on disk, notify user with 1-click restart
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let active = true;
+    onAppUpdated(() => {
+      toast("Anchoa telah diperbarui ke versi baru", "info", {
+        label: "Muat Ulang",
+        run: () => void api.restartApp(),
+      });
+    }).then(
+      (stop) => (active ? (unlisten = stop) : stop()),
+      () => {},
+    );
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [toast]);
 
   // The Unduhan card shows live progress: refresh every second while it lists downloads.
   const downloading = page.name === "dashboard" && (dashboard.data?.downloads.items.length ?? 0) > 0;

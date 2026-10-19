@@ -96,6 +96,13 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
               Unduh pembaruan ›
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => void api.restartApp()}
+            className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            Muat Ulang Aplikasi
+          </button>
         </div>
 
         {/* Repository links */}

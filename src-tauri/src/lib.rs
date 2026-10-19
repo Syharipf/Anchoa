@@ -38,7 +38,7 @@ mod tasks;
 mod time;
 pub mod tray;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 fn initial_locked(lock_status: Result<bool, error::AppError>) -> bool {
     lock_status.unwrap_or(true)
@@ -84,8 +84,18 @@ pub fn run() {
     let mut builder = tauri::Builder::default();
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            tray::show_main_window(app);
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // Detect if the running binary was unlinked/replaced on disk by package manager (pacman/dnf)
+            let is_binary_deleted = std::fs::read_link("/proc/self/exe")
+                .map(|p| p.to_string_lossy().ends_with(" (deleted)"))
+                .unwrap_or(false);
+
+            if is_binary_deleted || args.iter().any(|a| a == "--restart" || a == "--replace") {
+                log::info!("Anchoa binary was updated on disk or restart requested, restarting into new version...");
+                app.restart();
+            } else {
+                tray::show_main_window(app);
+            }
         }));
     }
     builder
@@ -179,6 +189,23 @@ pub fn run() {
             sync::commands::spawn_scheduler(app.handle().clone());
             downloader::spawn_scheduler(app.handle().clone());
             notify::spawn_scheduler(app.handle().clone());
+            let disk_watch_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let mut notified = false;
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                    #[cfg(target_os = "linux")]
+                    if !notified {
+                        let is_deleted = std::fs::read_link("/proc/self/exe")
+                            .map(|p| p.to_string_lossy().ends_with(" (deleted)"))
+                            .unwrap_or(false);
+                        if is_deleted {
+                            notified = true;
+                            let _ = disk_watch_handle.emit("app-updated-on-disk", ());
+                        }
+                    }
+                }
+            });
             Ok(())
         })
         .invoke_handler(wrap_invoke_handler(tauri::generate_handler![
@@ -279,6 +306,7 @@ pub fn run() {
             commands::backup_now,
             commands::data_overview,
             commands::check_update,
+            commands::restart_app,
             commands::schedule,
             commands::get_profile,
             commands::set_profile_name,

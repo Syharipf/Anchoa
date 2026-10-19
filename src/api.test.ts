@@ -21,6 +21,7 @@ const cases: Case[] = [
   ["backupNow", () => api.backupNow(), "backup_now"],
   ["dataOverview", () => api.dataOverview(), "data_overview"],
   ["checkUpdate", () => api.checkUpdate(), "check_update"],
+  ["restartApp", () => api.restartApp(), "restart_app"],
   ["getProfile", () => api.getProfile(), "get_profile"],
   ["getNotifyPrefs", () => api.getNotifyPrefs(), "get_notify_prefs"],
   ["notifyStatus", () => api.notifyStatus(), "notify_status"],

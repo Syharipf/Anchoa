@@ -763,6 +763,20 @@ pub async fn create_dir(
 }
 
 #[tauri::command]
+pub async fn extract_archive(
+    app: AppHandle,
+    path: String,
+    dest_dir: Option<String>,
+) -> Result<String, AppError> {
+    let (_user, roots, _) = current_user_and_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        files::extract_archive(&path, dest_dir.as_deref(), &roots)
+    })
+    .await
+    .map_err(blocking_error)?
+}
+
+#[tauri::command]
 pub async fn trash_list() -> Result<Vec<files::TrashItem>, AppError> {
     tauri::async_runtime::spawn_blocking(files::trash_list)
         .await

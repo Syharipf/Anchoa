@@ -322,6 +322,7 @@ pub fn run() {
             commands::empty_trash,
             commands::rename_entry,
             commands::create_dir,
+            commands::extract_archive,
             commands::open_file,
             commands::downloads_list,
             commands::add_download,

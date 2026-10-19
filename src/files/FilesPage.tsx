@@ -27,7 +27,7 @@ import { FileTabsBar } from "./FileTabsBar";
 import { FilesToolbar } from "./FilesToolbar";
 import { FolderTools } from "./FolderTools";
 import { PlacesSidebar } from "./PlacesSidebar";
-import { PreviewPanel } from "./PreviewPanel";
+import { isArchive, PreviewPanel } from "./PreviewPanel";
 import { isRemotePath, isWithin, listFolder, useRemotes } from "./remotes";
 import { useFileTabs } from "./useFileTabs";
 import { useFilesKeyboard } from "./useFilesKeyboard";
@@ -139,6 +139,206 @@ function NewFolderDialog({
   );
 }
 
+function RenameDialog({
+  initialName,
+  onConfirm,
+  onCancel,
+}: Readonly<{
+  initialName: string;
+  onConfirm: (newName: string) => void;
+  onCancel: () => void;
+}>) {
+  const [name, setName] = useState(initialName);
+  return (
+    <Dialog title="Ganti Nama" onClose={onCancel}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim() && name.trim() !== initialName) {
+            onConfirm(name.trim());
+          } else {
+            onCancel();
+          }
+        }}
+        className="flex flex-col gap-3"
+      >
+        <input
+          autoFocus
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nama baru..."
+          className="rounded-lg border border-line bg-canvas px-3 py-2 text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
+        />
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={!name.trim() || name.trim() === initialName}
+            className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
+          >
+            Simpan
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function FileContextMenu({
+  x,
+  y,
+  entry,
+  clipboard,
+  onOpen,
+  onCopy,
+  onCut,
+  onPaste,
+  onRename,
+  onTrash,
+  onExtract,
+  onNewFolder,
+  onClose,
+}: Readonly<{
+  x: number;
+  y: number;
+  entry: FileEntry | null;
+  clipboard: FileClipboard | null;
+  onOpen: (entry: FileEntry) => void;
+  onCopy: (entry: FileEntry) => void;
+  onCut: (entry: FileEntry) => void;
+  onPaste: () => void;
+  onRename: (entry: FileEntry) => void;
+  onTrash: (entry: FileEntry) => void;
+  onExtract: (entry: FileEntry) => void;
+  onNewFolder: () => void;
+  onClose: () => void;
+}>) {
+  const menuX = Math.min(x, window.innerWidth - 200);
+  const menuY = Math.min(y, window.innerHeight - 260);
+
+  return (
+    <div
+      role="menu"
+      style={{ left: `${menuX}px`, top: `${menuY}px` }}
+      className="fixed z-50 flex w-48 flex-col rounded-xl border border-line bg-surface p-1 shadow-2xl backdrop-blur-md"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {entry ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onOpen(entry);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            Buka
+          </button>
+          {isArchive(entry.name) && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onClose();
+                onExtract(entry);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-accent transition-colors hover:bg-surface-2"
+            >
+              Ekstrak di sini
+            </button>
+          )}
+          <div className="my-1 h-px bg-line" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onCopy(entry);
+            }}
+            className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            <span>Salin</span>
+            <span className="font-mono text-[10px] text-muted">Ctrl+C</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onCut(entry);
+            }}
+            className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            <span>Potong</span>
+            <span className="font-mono text-[10px] text-muted">Ctrl+X</span>
+          </button>
+          <div className="my-1 h-px bg-line" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onRename(entry);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            Ganti Nama
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onTrash(entry);
+            }}
+            className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-danger transition-colors hover:bg-danger-row"
+          >
+            <span>Hapus</span>
+            <span className="font-mono text-[10px] text-muted">Del</span>
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onNewFolder();
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            Folder Baru
+          </button>
+          {clipboard && clipboard.paths.length > 0 && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onClose();
+                onPaste();
+              }}
+              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-accent transition-colors hover:bg-surface-2"
+            >
+              <span>Tempel {clipboard.paths.length} item</span>
+              <span className="font-mono text-[10px] text-muted">Ctrl+V</span>
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function FilesPage({
   clipboard,
   onSetClipboard,
@@ -164,6 +364,12 @@ export function FilesPage({
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [conflictCount, setConflictCount] = useState<number | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<FileEntry | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    entry: FileEntry | null;
+  } | null>(null);
   const tabs = useFileTabs(initialPath ?? "");
   const currentPath = tabs.active.path;
   const canGoUp = Boolean(listing?.parent);
@@ -185,6 +391,20 @@ export function FilesPage({
     ],
     [remotes.remotes, remotes.mounts, home, devices],
   );
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextMenu(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [contextMenu]);
 
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
 
@@ -374,12 +594,83 @@ export function FilesPage({
     }
   }, [selectedEntries, reload, toast]);
 
+  const handleExtract = useCallback(
+    async (path: string) => {
+      try {
+        await api.extractArchive(path);
+        toast("Arsip berhasil diekstrak");
+        reload();
+      } catch (e) {
+        toast(errorMessage(e), "error");
+      }
+    },
+    [reload, toast],
+  );
+
+  const handleDropIntoFolder = useCallback(
+    async (sources: string[], targetFolder: string) => {
+      try {
+        const report = await api.pasteItems({
+          sources,
+          dest: targetFolder,
+          mode: "move",
+          onConflict: "rename",
+        });
+        const { ok, error } = reportToasts(report, "dipindahkan");
+        if (ok) toast(ok);
+        if (error) toast(error, "error");
+        reload();
+      } catch (e) {
+        toast(errorMessage(e), "error");
+      }
+    },
+    [reload, toast],
+  );
+
+  const handleRenameConfirm = useCallback(
+    async (newName: string) => {
+      if (!renameTarget) return;
+      try {
+        await api.renameEntry(renameTarget.path, newName, showHidden);
+        toast("Nama berhasil diubah");
+        setRenameTarget(null);
+        reload();
+      } catch (e) {
+        toast(errorMessage(e), "error");
+      }
+    },
+    [renameTarget, showHidden, reload, toast],
+  );
+
   useFilesKeyboard({
-    isDialogOpen: confirmTrash || conflictCount !== null,
+    isDialogOpen:
+      confirmTrash ||
+      conflictCount !== null ||
+      newFolderOpen ||
+      renameTarget !== null,
     parentPath: listing?.parent,
     selectedEntry: singleEntry,
     onGoParent: tabs.go,
     onOpenEntry: handleOpen,
+    onTogglePreview: () => {
+      if (selected.length > 0) {
+        setSelected([]);
+        setAnchor(null);
+      }
+    },
+    onCopy: handleCopy,
+    onCut: handleMove,
+    onPaste: () => void paste(),
+    onDelete: () => {
+      if (selectedEntries.length > 0) setConfirmTrash(true);
+    },
+    onSelectAll: () => {
+      if (listing?.entries.length) {
+        setSelected(listing.entries.map((_, i) => i));
+      }
+    },
+    onNewTab: () => tabs.openTab(home || currentPath),
+    onCloseTab: () => tabs.closeTab(tabs.active.id),
   });
 
   return (
@@ -403,6 +694,7 @@ export function FilesPage({
         activeId={tabs.state.activeId}
         onActivate={tabs.activate}
         onClose={tabs.closeTab}
+        onNewTab={() => tabs.openTab(home || currentPath)}
       />
 
       <FilesToolbar
@@ -451,16 +743,26 @@ export function FilesPage({
               entries={listing?.entries ?? []}
               selected={selected}
               markers={markers}
+              clipboard={clipboard}
               onSelect={handleSelect}
               onOpen={handleOpen}
+              onDropIntoFolder={handleDropIntoFolder}
+              onContextMenu={(entry, e) =>
+                setContextMenu({ x: e.clientX, y: e.clientY, entry })
+              }
             />
           ) : (
             <FileList
               entries={listing?.entries ?? []}
               selected={selected}
               markers={markers}
+              clipboard={clipboard}
               onSelect={handleSelect}
               onOpen={handleOpen}
+              onDropIntoFolder={handleDropIntoFolder}
+              onContextMenu={(entry, e) =>
+                setContextMenu({ x: e.clientX, y: e.clientY, entry })
+              }
             />
           )}
 
@@ -488,6 +790,7 @@ export function FilesPage({
               setAnchor(null);
             }}
             onOpen={handleOpen}
+            onExtract={handleExtract}
           >
             {singleEntry.kind === "folder" && (
               <FolderTools
@@ -529,6 +832,40 @@ export function FilesPage({
               .catch((e) => toast(errorMessage(e), "error"));
           }}
           onCancel={() => setNewFolderOpen(false)}
+        />
+      )}
+      {renameTarget && (
+        <RenameDialog
+          initialName={renameTarget.name}
+          onConfirm={handleRenameConfirm}
+          onCancel={() => setRenameTarget(null)}
+        />
+      )}
+      {contextMenu && (
+        <FileContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          entry={contextMenu.entry}
+          clipboard={clipboard}
+          onOpen={handleOpen}
+          onCopy={(e) => {
+            onSetClipboard({ mode: "copy", paths: [e.path] });
+            toast("Disalin ke papan klip");
+          }}
+          onCut={(e) => {
+            onSetClipboard({ mode: "move", paths: [e.path] });
+            toast("Ditandai untuk dipindahkan");
+          }}
+          onPaste={() => void paste()}
+          onRename={(e) => setRenameTarget(e)}
+          onTrash={(e) => {
+            const idx = listing?.entries.findIndex((x) => x.path === e.path);
+            setSelected(idx !== undefined && idx !== -1 ? [idx] : []);
+            setConfirmTrash(true);
+          }}
+          onExtract={(e) => void handleExtract(e.path)}
+          onNewFolder={() => setNewFolderOpen(true)}
+          onClose={() => setContextMenu(null)}
         />
       )}
     </div>

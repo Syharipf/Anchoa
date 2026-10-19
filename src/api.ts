@@ -1266,6 +1266,10 @@ export const api = {
     invoke<Listing>("list_dir", { path, hidden }),
   createDir: (parent: string, name: string, hidden: boolean) =>
     invoke<Listing>("create_dir", { parent, name, hidden }),
+  extractArchive: (path: string, destDir?: string) =>
+    invoke<string>("extract_archive", { path, destDir }),
+  renameEntry: (path: string, newName: string, hidden: boolean) =>
+    invoke<Listing>("rename_entry", { path, newName, hidden }),
   fileRemotes: () => invoke<RemotePlaces>("file_remotes"),
   listRemote: (path: string, hidden: boolean) =>
     invoke<Listing>("list_remote", { path, hidden }),

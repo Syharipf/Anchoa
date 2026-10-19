@@ -134,6 +134,7 @@ const cases: Case[] = [
   ["journalExport", () => api.journalExport("/home/kamu", ["id1", "id2"]), "journal_export", { dir: "/home/kamu", ids: ["id1", "id2"] }],
   ["openFolder", () => api.openFolder("data"), "open_folder", { kind: "data" }],
   ["listDir", () => api.listDir("/home/kamu", false), "list_dir", { path: "/home/kamu", hidden: false }],
+  ["createDir", () => api.createDir("/home/kamu", "folder", false), "create_dir", { parent: "/home/kamu", name: "folder", hidden: false }],
   ["fileRemotes", () => api.fileRemotes(), "file_remotes"],
   ["listRemote", () => api.listRemote("rclone:gdrive:Docs", true), "list_remote", { path: "rclone:gdrive:Docs", hidden: true }],
   ["folderMetaList", () => api.folderMetaList(), "folder_meta_list"],

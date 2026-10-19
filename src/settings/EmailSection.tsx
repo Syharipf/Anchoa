@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage, type EmailStatus } from "../api";
 import { connectionLabel } from "../email/view";
-import { H2, PANEL, SECONDARY } from "../shell/ui";
+import { H2, PANEL } from "../shell/ui";
 
 export function EmailSection({ onChanged }: Readonly<{ onChanged: () => void }>) {
   const [status, setStatus] = useState<EmailStatus | null>(null);
@@ -42,10 +42,32 @@ export function EmailSection({ onChanged }: Readonly<{ onChanged: () => void }>)
         confirming ? <div className="flex flex-col gap-2">
           <p className="m-0 text-sm text-muted">Putuskan Gmail? App Password dan email lokal akan dihapus dari Anchoa.</p>
           <div className="flex gap-2">
-            <button type="button" disabled={busy} onClick={() => setConfirming(false)} className={SECONDARY}>Batal</button>
-            <button type="button" disabled={busy} onClick={disconnect} className={`${SECONDARY} text-danger`}>{busy ? "Memutuskan…" : "Ya, putuskan"}</button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirming(false)}
+              className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={disconnect}
+              className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-danger transition-colors hover:bg-danger-row disabled:opacity-50"
+            >
+              {busy ? "Memutuskan…" : "Ya, putuskan"}
+            </button>
           </div>
-        </div> : <button type="button" onClick={() => setConfirming(true)} className={SECONDARY}>Putuskan</button>
+        </div> : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-danger transition-colors hover:bg-danger-row"
+          >
+            Putuskan
+          </button>
+        )
       ) : <p className="m-0 text-xs text-muted">Buka menu Email untuk menyambungkan Gmail dengan App Password.</p>}
       {error && <p role="alert" className="m-0 text-sm text-danger">{error}</p>}
     </section>

@@ -68,7 +68,7 @@ export function BrowserSection({
             Integrasi Ekstensi Browser
           </h3>
           <p className="mt-0.5 text-xs text-muted">
-            Kirim unduhan dari Chrome, Chromium, Brave, dan Firefox langsung ke Anchoa.
+            Kirim unduhan dari Chrome, Chromium, Brave, Helium, dan Firefox langsung ke Anchoa.
           </p>
         </div>
         <span
@@ -90,7 +90,7 @@ export function BrowserSection({
       <div className="mt-4 flex flex-col gap-3 text-xs">
         <div>
           <label htmlFor="chrome-ext-id" className="font-medium text-ink">
-            ID Ekstensi Chrome (32 karakter a-p):
+            ID Ekstensi Chromium / Brave / Helium (32 karakter a-p):
           </label>
           <div className="mt-1 flex gap-2">
             <input
@@ -108,7 +108,7 @@ export function BrowserSection({
               disabled={loading || chromeId.trim().length !== 32}
               className="rounded-lg bg-surface-2 px-3 py-1.5 font-medium text-ink transition-colors hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Pasang Chrome
+              Pasang Chromium/Helium
             </button>
           </div>
         </div>

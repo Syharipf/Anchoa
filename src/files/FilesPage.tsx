@@ -93,6 +93,52 @@ function TrashConfirmDialog({
   );
 }
 
+function NewFolderDialog({
+  onConfirm,
+  onCancel,
+}: Readonly<{
+  onConfirm: (name: string) => void;
+  onCancel: () => void;
+}>) {
+  const [name, setName] = useState("");
+  return (
+    <Dialog title="Buat Folder Baru" onClose={onCancel}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim()) onConfirm(name.trim());
+        }}
+        className="flex flex-col gap-3"
+      >
+        <input
+          autoFocus
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nama folder..."
+          className="rounded-lg border border-line bg-canvas px-3 py-2 text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
+        />
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={!name.trim()}
+            className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
+          >
+            Buat Folder
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 export function FilesPage({
   clipboard,
   onSetClipboard,
@@ -117,7 +163,7 @@ export function FilesPage({
 
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [conflictCount, setConflictCount] = useState<number | null>(null);
-
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
   const tabs = useFileTabs(initialPath ?? "");
   const currentPath = tabs.active.path;
   const canGoUp = Boolean(listing?.parent);
@@ -342,10 +388,10 @@ export function FilesPage({
         <h1 className={H1}>Berkas</h1>
         <button
           type="button"
-          onClick={() => toast("Fitur buat folder baru akan segera hadir", "info")}
-          className="flex min-h-[38px] items-center gap-2 rounded-[10px] bg-accent px-3.5 font-display text-[13px] font-semibold text-canvas transition-transform hover:scale-105 active:scale-95"
+          onClick={() => setNewFolderOpen(true)}
+          className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
           Folder baru
@@ -468,6 +514,21 @@ export function FilesPage({
           count={selectedEntries.length}
           onConfirm={handleTrashConfirm}
           onCancel={() => setConfirmTrash(false)}
+        />
+      )}
+      {newFolderOpen && (
+        <NewFolderDialog
+          onConfirm={(name) => {
+            if (!currentPath) return;
+            api.createDir(currentPath, name, showHidden)
+              .then(() => {
+                setReloadToken((t) => t + 1);
+                setNewFolderOpen(false);
+                toast("Folder berhasil dibuat");
+              })
+              .catch((e) => toast(errorMessage(e), "error"));
+          }}
+          onCancel={() => setNewFolderOpen(false)}
         />
       )}
     </div>

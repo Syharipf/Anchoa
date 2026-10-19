@@ -5,6 +5,7 @@ import {
   type DownloadSettings,
 } from "../api";
 import { useToast } from "../shell/toast";
+import { isClipboardWatchEnabled, setClipboardWatchEnabled } from "./useClipboardCatch";
 
 const LIMIT_OPTIONS = [
   { label: "Tanpa batas", value: 0 },
@@ -25,6 +26,7 @@ export function DownloadSettingsPanel({
   const [dirInput, setDirInput] = useState(settings?.dir ?? "");
   const [saving, setSaving] = useState(false);
   const [pickingDir, setPickingDir] = useState(false);
+  const [watchClipboard, setWatchClipboard] = useState(isClipboardWatchEnabled);
   useEffect(() => {
     if (settings?.dir) {
       setDirInput(settings.dir);
@@ -233,17 +235,32 @@ export function DownloadSettingsPanel({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
-        <span id="pantau-clipboard-label" className="text-xs text-ink">
-          Pantau clipboard
-        </span>
+        <div className="flex flex-col">
+          <span id="pantau-clipboard-label" className="text-xs text-ink font-medium">
+            Pantau clipboard
+          </span>
+          <span className="text-[11px] text-muted">Deteksi tautan saat salin URL di luar</span>
+        </div>
         <button
           type="button"
           role="switch"
-          aria-checked="true"
+          aria-checked={watchClipboard}
           aria-labelledby="pantau-clipboard-label"
-          className="flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full bg-accent p-0.5"
+          onClick={() => {
+            const next = !watchClipboard;
+            setWatchClipboard(next);
+            setClipboardWatchEnabled(next);
+            toast(next ? "Pantau clipboard diaktifkan" : "Pantau clipboard dimatikan");
+          }}
+          className={`flex h-[22px] w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors ${
+            watchClipboard ? "bg-accent" : "bg-disabled"
+          }`}
         >
-          <span className="h-[18px] w-[18px] rounded-full bg-[#12151B] transition-transform translate-x-[18px]" />
+          <span
+            className={`h-[18px] w-[18px] rounded-full bg-[#12151B] transition-transform ${
+              watchClipboard ? "translate-x-[18px]" : "translate-x-0"
+            }`}
+          />
         </button>
       </div>
     </section>

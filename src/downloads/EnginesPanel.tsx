@@ -8,8 +8,10 @@ function EngineState({ version, stale = false }: Readonly<{ version?: string; st
 
 export function EnginesPanel({
   engines,
+  onOpenBrowserSetup,
 }: Readonly<{
   engines: EnginesInfo | null;
+  onOpenBrowserSetup?: () => void;
 }>) {
   return (
     <section
@@ -54,6 +56,35 @@ export function EnginesPanel({
         <span className="text-xs text-muted">Bawaan</span>
       </div>
 
+      <div className="flex items-center gap-2.5 py-1.5">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 font-mono text-xs font-semibold text-accent">
+          ar
+        </span>
+        <div className="flex flex-1 min-w-0 flex-col">
+          <span className="font-mono text-xs font-medium text-ink">aria2c &amp; Torrent</span>
+          <span className="truncate text-[11px] text-muted">Akselerator 8 koneksi &amp; magnet</span>
+        </div>
+        <span className="text-xs text-accent font-mono font-medium">Aktif</span>
+      </div>
+
+      <div className="flex items-center gap-2.5 py-1.5 border-t border-line/50 mt-1 pt-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 font-mono text-xs font-semibold text-ink">
+          🌐
+        </span>
+        <div className="flex flex-1 min-w-0 flex-col">
+          <span className="font-mono text-xs font-medium text-ink">Ekstensi Browser</span>
+          <span className="truncate text-[11px] text-muted">Chrome, Brave, Firefox</span>
+        </div>
+        {onOpenBrowserSetup && (
+          <button
+            type="button"
+            onClick={onOpenBrowserSetup}
+            className="rounded-md border border-line bg-surface-2 px-2 py-0.5 text-xs text-accent hover:border-accent transition-colors"
+          >
+            Pasang ›
+          </button>
+        )}
+      </div>
       {engines?.hint && <p className="select-text font-mono text-[11px] text-warn">{engines.hint}</p>}
 
     </section>

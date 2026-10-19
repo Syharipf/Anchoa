@@ -38,6 +38,7 @@ export function DownloadQueue({
   onOpen,
   onReveal,
   onPlay,
+  onDropUrl,
 }: Readonly<{
   items: readonly DownloadView[];
   onPause: (id: string) => void;
@@ -45,18 +46,53 @@ export function DownloadQueue({
   onRetry: (id: string) => void;
   onRemove: (id: string) => void;
   onOpen: (id: string) => void;
-  onReveal: (id: string) => void;
+  onReveal?: (id: string) => void;
   onPlay?: (row: DownloadView) => void;
+  onDropUrl?: (url: string) => void;
 }>) {
   const [tab, setTab] = useState<DownloadTab>("all");
+  const [dragOver, setDragOver] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<DownloadView | null>(null);
   const counts = tabCounts(items);
   const visible = filterDownloads(items, tab);
   return (
     <section
       aria-labelledby="antrean-judul"
-      className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-line bg-stage"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const text = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+        if (text && onDropUrl) {
+          onDropUrl(text.trim());
+          return;
+        }
+        if (e.dataTransfer.files.length > 0 && onDropUrl) {
+          const file: unknown = e.dataTransfer.files[0];
+          if (file && typeof file === "object" && "path" in file && typeof file.path === "string") {
+            onDropUrl(file.path);
+          }
+        }
+      }}
+      className={`relative flex flex-1 min-h-[360px] flex-col overflow-hidden rounded-2xl border bg-stage transition-colors ${
+        dragOver ? "border-accent ring-2 ring-accent/30" : "border-line"
+      }`}
     >
+      {dragOver && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-surface-2/95 backdrop-blur-sm p-4 text-center pointer-events-none">
+          <span className="text-3xl mb-2">📥</span>
+          <p className="font-display text-sm font-semibold text-accent">
+            Lepaskan tautan atau berkas .torrent di sini
+          </p>
+          <p className="text-xs text-muted mt-1">
+            Unduhan otomatis ditambahkan ke antrean
+          </p>
+        </div>
+      )}
       <div className="flex shrink-0 items-center gap-1 border-b border-line bg-sidebar px-2.5 py-2">
         <h2 id="antrean-judul" className="mx-2 text-sm font-semibold font-display text-ink">
           Antrean
@@ -336,7 +372,7 @@ export function DownloadQueue({
                       </button>
                       <button
                         type="button"
-                        onClick={() => onReveal(row.id)}
+                        onClick={() => onReveal?.(row.id)}
                         aria-label={`Buka folder ${row.title}`}
                         title="Buka di Berkas"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-ink hover:bg-surface-2"

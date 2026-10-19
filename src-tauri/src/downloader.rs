@@ -12,7 +12,8 @@ use std::time::{Duration, Instant};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager};
+ use tauri::{AppHandle, Manager};
+use tauri_plugin_notification::NotificationExt;
 
 use crate::db::Db;
 use crate::downloads::{self, DownloadKind, DownloadRow, DownloadSettings, DownloadStatus, YtEvent};
@@ -493,10 +494,20 @@ fn finish(app: &AppHandle, id: &str, part_dir: &Path, outcome: Outcome) {
             let _ = downloads::set_progress(conn, id, done as i64, total.map(|t| t as i64));
         }
         match outcome {
-            Outcome::Done => {
-                let _ = std::fs::remove_dir_all(part_dir);
-                downloads::set_status(conn, id, DownloadStatus::Done, None, now)
-            }
+             Outcome::Done => {
+                 let _ = std::fs::remove_dir_all(part_dir);
+                let title = downloads::get(conn, id)
+                    .map(|r| r.title)
+                    .unwrap_or_else(|_| "Berkas".to_string());
+                let res = downloads::set_status(conn, id, DownloadStatus::Done, None, now);
+                let _ = app
+                    .notification()
+                    .builder()
+                    .title("Unduhan selesai")
+                    .body(format!("{title} berhasil diunduh"))
+                    .show();
+                res
+             }
             Outcome::Failed(msg) => {
                 if msg.contains("SHA-256")
                     || msg.contains("401")

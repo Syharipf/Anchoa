@@ -14,6 +14,7 @@ import { DownloadSettingsPanel } from "./DownloadSettingsPanel";
 import { EnginesPanel } from "./EnginesPanel";
 import { formatSpeed } from "./view";
 import { MediaPlayerModal } from "./MediaPlayerModal";
+import { BrowserIntegrationModal } from "./BrowserIntegrationModal";
 import { useClipboardCatch } from "./useClipboardCatch";
 import { detect } from "./view";
 
@@ -33,6 +34,7 @@ export function DownloadsPage({
     filePath: string;
     isVideo: boolean;
   } | null>(null);
+  const [browserModalOpen, setBrowserModalOpen] = useState(false);
 
   const { detectedUrl, dismiss, clear } = useClipboardCatch();
   // An answer older than one already shown is dropped: a slow poll must not overwrite a later action.
@@ -289,14 +291,33 @@ export function DownloadsPage({
                 });
               }
             }}
-          />
+            onDropUrl={async (dropped) => {
+              const trimmed = dropped.trim();
+              if (!trimmed) return;
+              try {
+                const kind = detect(trimmed) === "media" ? "media" : "file";
+                await api.addDownload({
+                  url: trimmed,
+                  kind,
+                  options: kind === "media" ? { audioOnly: false, quality: "1080p", format: "MP4", subtitles: false } : null,
+                });
+                toast("Unduhan ditambahkan dari drag & drop");
+                void reloadList();
+              } catch (e) {
+                toast(errorMessage(e), "error");
+              }
+            }}
+           />
         </div>
 
         <aside
           aria-label="Mesin dan pengaturan unduhan"
           className="flex min-h-0 flex-col gap-3.5 overflow-y-auto"
         >
-          <EnginesPanel engines={engines} />
+          <EnginesPanel
+            engines={engines}
+            onOpenBrowserSetup={() => setBrowserModalOpen(true)}
+          />
           <DownloadSettingsPanel
             settings={settings}
             onSettingsChanged={setSettings}
@@ -310,6 +331,9 @@ export function DownloadsPage({
           isVideo={playingMedia.isVideo}
           onClose={() => setPlayingMedia(null)}
         />
+      )}
+      {browserModalOpen && (
+        <BrowserIntegrationModal onClose={() => setBrowserModalOpen(false)} />
       )}
     </>
   );

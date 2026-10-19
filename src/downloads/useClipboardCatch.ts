@@ -7,10 +7,33 @@ export function isValidDownloadUrl(text: string): boolean {
   const kind = detect(trimmed);
   return kind === "media" || kind === "file" || kind === "torrent";
 }
+const CLIPBOARD_WATCH_KEY = "anchoa.downloads.watch_clipboard";
 
-export function useClipboardCatch(enabled = true) {
+export function isClipboardWatchEnabled(): boolean {
+  try {
+    const val = localStorage.getItem(CLIPBOARD_WATCH_KEY);
+    return val === null ? true : val === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setClipboardWatchEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(CLIPBOARD_WATCH_KEY, enabled ? "true" : "false");
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function useClipboardCatch(explicitEnabled?: boolean) {
+  const [watchEnabled] = useState(() =>
+    explicitEnabled !== undefined ? explicitEnabled : isClipboardWatchEnabled()
+  );
   const [detectedUrl, setDetectedUrl] = useState<string | null>(null);
   const lastDismissed = useRef<string | null>(null);
+
+  const enabled = explicitEnabled !== undefined ? explicitEnabled : watchEnabled;
 
   async function checkClipboard() {
     if (!enabled || typeof navigator === "undefined" || !navigator.clipboard?.readText) {

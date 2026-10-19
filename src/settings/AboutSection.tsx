@@ -7,7 +7,8 @@ import { sectionStatus, THIRD_PARTY_LICENSES } from "./view";
 
 const REPO_URL = "https://github.com/Syharipf/Anchoa";
 const RELEASES_URL = "https://github.com/Syharipf/Anchoa/releases";
-const UPGRADE_COMMAND = "sudo dnf upgrade anchoa";
+const PACMAN_COMMAND = "sudo pacman -Syu anchoa";
+const DNF_COMMAND = "sudo dnf upgrade anchoa";
 
 export function AboutSection({ version: initialVersion }: Readonly<{ version?: string }>) {
   const toast = useToast();
@@ -41,9 +42,9 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
     }
   }
 
-  function handleCopyCommand() {
+  function handleCopy(command: string) {
     if (navigator?.clipboard) {
-      void navigator.clipboard.writeText(UPGRADE_COMMAND);
+      void navigator.clipboard.writeText(command);
       toast("Perintah disalin ke clipboard");
     }
   }
@@ -117,12 +118,23 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
 
         {/* CLI upgrade command */}
         <div className="flex flex-col gap-1.5 pt-1">
-          <span className="text-xs text-muted">Pembaruan paket RPM:</span>
+          <span className="text-xs text-muted">Pembaruan paket (Arch / CachyOS):</span>
           <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink">
-            <code className="select-all">{UPGRADE_COMMAND}</code>
+            <code className="select-all">{PACMAN_COMMAND}</code>
             <button
               type="button"
-              onClick={handleCopyCommand}
+              onClick={() => handleCopy(PACMAN_COMMAND)}
+              className="shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink"
+            >
+              Salin
+            </button>
+          </div>
+          <span className="mt-1 text-xs text-muted">Pembaruan paket (Fedora RPM):</span>
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink">
+            <code className="select-all">{DNF_COMMAND}</code>
+            <button
+              type="button"
+              onClick={() => handleCopy(DNF_COMMAND)}
               className="shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink"
             >
               Salin

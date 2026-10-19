@@ -4,7 +4,7 @@
 # (packaging/arch/build.sh). The pacman repo ships this as `anchoa`; the AUR
 # copy is renamed to `anchoa-bin` by .github/workflows/release.yml.
 pkgname=anchoa
-pkgver=0.33.0
+pkgver=0.34.0
 pkgrel=1
 pkgdesc="Kelola catatan, task, keuangan, jadwal, dan email di satu tempat"
 arch=('x86_64')

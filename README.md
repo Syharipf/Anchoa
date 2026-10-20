@@ -69,7 +69,7 @@ sudo dnf install anchoa
 
 Pembaruan lewat `sudo dnf upgrade`. Paket dan metadata repo ditandatangani GPG; dnf meminta konfirmasi kunci saat pertama kali.
 
-File `.rpm` juga tersedia di [GitHub Releases](https://github.com/Syharipf/Anchoa/releases/latest). Pasang file yang diunduh dengan:
+File `.rpm` juga tersedia di [GitHub Releases](https://github.com/Syharipf/Anchoa/releases/latest). Mulai versi 0.35.0 rilis baru hanya menyediakan paket Arch; RPM terakhir adalah 0.34.0. Pasang file yang diunduh dengan:
 
 ```bash
 sudo dnf install ./Anchoa-<versi>-1.x86_64.rpm

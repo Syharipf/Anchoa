@@ -12,6 +12,7 @@ import { splitBlocks } from "../notes/blocks";
 import { BlockPreview } from "../notes/markdown";
 import { useToast } from "../shell/toast";
 import { FIELD, H2, PRIMARY } from "../shell/ui";
+import { FolderPicker } from "../files/FolderPicker";
 import { AgentRequest } from "./AgentRequest";
 import {
   ACTIVITY_FILTERS,
@@ -186,6 +187,7 @@ export function ConnectAgentDialog({
   const toast = useToast();
   const [copiedId, setCopiedId] = useState(false);
   const [dir, setDir] = useState(project.agentDir ?? "");
+  const [pickingDir, setPickingDir] = useState(false);
   const [cmd, setCmd] = useState(project.agentCommand ?? "");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -278,13 +280,30 @@ export function ConnectAgentDialog({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] text-muted">Folder kerja agen</span>
-                <input
-                  type="text"
-                  value={dir}
-                  placeholder="/home/user/repo"
-                  onChange={(e) => setDir(e.target.value)}
-                  className={`${FIELD} py-1.5 text-xs`}
-                />
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={dir}
+                    placeholder="/home/user/repo"
+                    onChange={(e) => setDir(e.target.value)}
+                    className={`${FIELD} min-w-0 flex-1 py-1.5 text-xs`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPickingDir(true)}
+                    disabled={saving}
+                    className="shrink-0 whitespace-nowrap rounded-lg border border-line px-2 py-1.5 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    Pilih…
+                  </button>
+                </div>
+                {pickingDir && (
+                  <FolderPicker
+                    initialPath={dir || project.agentDir || ""}
+                    onSelect={setDir}
+                    onClose={() => setPickingDir(false)}
+                  />
+                )}
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] text-muted">Perintah agen</span>

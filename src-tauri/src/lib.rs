@@ -6,6 +6,7 @@ mod calendar;
 mod bills;
 pub mod cli;
 mod commands;
+mod convert;
 mod dashboard;
 mod db;
 pub mod downloads;
@@ -323,6 +324,10 @@ pub fn run() {
             commands::rename_entry,
             commands::create_dir,
             commands::extract_archive,
+            commands::compress_archive,
+            commands::convert_capabilities,
+            commands::convert_file,
+            commands::open_terminal_at,
             commands::open_file,
             commands::downloads_list,
             commands::add_download,

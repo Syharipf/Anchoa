@@ -1,4 +1,4 @@
-import type { FileEntry, FileKind } from "../api";
+import type { ConvertFormat, FileEntry, FileKind } from "../api";
 
 export interface SelectionState {
   readonly selected: readonly number[];
@@ -102,6 +102,76 @@ export function reportToasts(
     result.error = `Gagal: ${errs}`;
   }
   return result;
+}
+
+/** Last segment of a local path, without trailing separators. */
+export function baseName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return idx === -1 ? trimmed : trimmed.slice(idx + 1);
+}
+
+/** Parent folder of a local path; `/` stays `/`, a bare name has `.`. */
+export function parentPath(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  if (!trimmed) return "/";
+  if (/^[A-Za-z]:$/.test(trimmed)) return `${trimmed}\\`;
+  const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  if (idx === 0) return trimmed.slice(0, 1);
+  if (idx < 0) return ".";
+  const parent = trimmed.slice(0, idx);
+  // A Windows drive root keeps its separator: `C:\Users` → `C:\`.
+  return /^[A-Za-z]:$/.test(parent) ? `${parent}\\` : parent;
+}
+
+/** Appends one name to a folder path, without doubling the separator. */
+export function joinPath(dir: string, name: string): string {
+  if (/[\\/]$/.test(dir)) return `${dir}${name}`;
+  const sep = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";
+  return `${dir}${sep}${name}`;
+}
+
+/** Archive stem: `report.tar.gz` → `report`, `notes.txt` → `notes`. */
+export function archiveStem(name: string): string {
+  const lower = name.toLowerCase();
+  for (const suffix of [".tar.gz", ".tar.bz2", ".tar.xz", ".tar"]) {
+    if (lower.endsWith(suffix)) return name.slice(0, name.length - suffix.length);
+  }
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
+/** Lower-case extension without the dot: `.bashrc` and `a.tar.gz` follow the backend rule. */
+export function fileExtension(name: string): string {
+  const lower = name.toLowerCase();
+  const dot = lower.lastIndexOf(".");
+  return dot <= 0 || dot === lower.length - 1 ? "" : lower.slice(dot + 1);
+}
+
+/** Output name mirroring the backend claim loop: `foto.jpg`, then `foto (2).jpg`. */
+export function convertedName(
+  name: string,
+  target: string,
+  taken: readonly string[],
+): string {
+  const stem = archiveStem(name) || "berkas";
+  const used = new Set(taken);
+  let counter = 2;
+  let candidate = `${stem}.${target}`;
+  while (used.has(candidate)) {
+    candidate = `${stem} (${counter}).${target}`;
+    counter += 1;
+  }
+  return candidate;
+}
+
+/** Targets advertised for this file name; empty when the backend has no rule. */
+export function targetsFor(
+  name: string,
+  formats: readonly ConvertFormat[],
+): string[] {
+  const extension = fileExtension(name);
+  return [...(formats.find((format) => format.sourceExt === extension)?.targets ?? [])];
 }
 
 export const KIND_LABELS: Record<FileKind, string> = {

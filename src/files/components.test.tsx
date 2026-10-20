@@ -10,7 +10,9 @@ import { FilesToolbar } from "./FilesToolbar";
 import { FolderTools } from "./FolderTools";
 import { PlacesSidebar } from "./PlacesSidebar";
 import { PreviewPanel } from "./PreviewPanel";
-
+import { FileContextMenu } from "./FilesPage";
+import { ConvertDialog } from "./ConvertDialog";
+import { FolderPickerBody } from "./FolderPicker";
 const NO_MARKERS: ReadonlyMap<string, FolderMeta> = new Map();
 
 function folderMeta(path: string, patch: Partial<FolderMeta> = {}): FolderMeta {
@@ -461,6 +463,425 @@ describe("file manager components", () => {
       );
       expect(html).not.toContain("<img");
       expect(html).toContain("Pratinjau belum tersedia");
+    });
+  });
+
+  describe("FileContextMenu", () => {
+    const folderEntry: FileEntry = {
+      name: "Proyek",
+      path: "/home/user/Proyek",
+      kind: "folder",
+      size: 0,
+      modified: 0,
+      hidden: false,
+    };
+
+    it("renders folder actions: Buka di Tab Baru, Buka di Terminal, Tanya Asisten AI, Salin Path, Kompres ke .zip, Tambah ke Markah", () => {
+      const html = renderToStaticMarkup(
+        <FileContextMenu
+          x={100}
+          y={100}
+          entry={folderEntry}
+          isBookmarked={false}
+          clipboard={null}
+          onOpen={() => {}}
+          onOpenTab={() => {}}
+          onOpenTerminal={() => {}}
+          onAskAssistant={() => {}}
+          onCopy={() => {}}
+          onCopyPath={() => {}}
+          onToggleBookmark={() => {}}
+          onCut={() => {}}
+          onPaste={() => {}}
+          onRename={() => {}}
+          onTrash={() => {}}
+          onExtract={() => {}}
+          onExtractTo={() => {}}
+          onCompress={() => {}}
+          onCompressAs={() => {}}
+          onDuplicate={() => {}}
+          onMoveTo={() => {}}
+          onMakeProject={() => {}}
+          onNewFolder={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(html).toContain("Buka di Tab Baru");
+      expect(html).toContain("Buka di Terminal");
+      expect(html).toContain("Tanya Asisten AI");
+      expect(html).toContain("Jadikan Proyek");
+      expect(html).toContain("Salin Path");
+      expect(html).toContain("Kompres ke .zip");
+      expect(html).toContain("Kompres sebagai…");
+      expect(html).toContain("Duplikat");
+      expect(html).toContain("Pindahkan ke…");
+      expect(html).toContain("Tambah ke Markah");
+    });
+
+    it("offers both extract actions for archives and hides local-only ones on rclone paths", () => {
+      const archive: FileEntry = {
+        name: "backup.tar.gz",
+        path: "/home/user/backup.tar.gz",
+        kind: "other",
+        size: 1024,
+        modified: 0,
+        hidden: false,
+      };
+      const local = renderToStaticMarkup(
+        <FileContextMenu
+          x={100}
+          y={100}
+          entry={archive}
+          clipboard={null}
+          onOpen={() => {}}
+          onCopy={() => {}}
+          onCopyPath={() => {}}
+          onCut={() => {}}
+          onPaste={() => {}}
+          onRename={() => {}}
+          onTrash={() => {}}
+          onExtract={() => {}}
+          onExtractTo={() => {}}
+          onCompress={() => {}}
+          onNewFolder={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(local).toContain("Ekstrak di sini");
+      expect(local).toContain("Ekstrak ke folder…");
+
+      const remote = renderToStaticMarkup(
+        <FileContextMenu
+          x={100}
+          y={100}
+          entry={{ ...folderEntry, path: "rclone:gdrive:Docs" }}
+          clipboard={null}
+          onOpen={() => {}}
+          onOpenTerminal={() => {}}
+          onCopy={() => {}}
+          onCopyPath={() => {}}
+          onCut={() => {}}
+          onPaste={() => {}}
+          onRename={() => {}}
+          onTrash={() => {}}
+          onExtract={() => {}}
+          onExtractTo={() => {}}
+          onCompress={() => {}}
+          onCompressAs={() => {}}
+          onDuplicate={() => {}}
+          onMoveTo={() => {}}
+          onMakeProject={() => {}}
+          onNewFolder={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(remote).not.toContain("Buka di Terminal");
+      expect(remote).not.toContain("Jadikan Proyek");
+      expect(remote).not.toContain("Kompres ke .zip");
+      expect(remote).not.toContain("Duplikat");
+      expect(remote).not.toContain("Pindahkan ke…");
+    });
+
+    it("hides extract and compress for an archive on an rclone path", () => {
+      const html = renderToStaticMarkup(
+        <FileContextMenu
+          x={100}
+          y={100}
+          entry={{
+            name: "backup.tar.gz",
+            path: "rclone:gdrive:backup.tar.gz",
+            kind: "other",
+            size: 1024,
+            modified: 0,
+            hidden: false,
+          }}
+          clipboard={null}
+          onOpen={() => {}}
+          onCopy={() => {}}
+          onCopyPath={() => {}}
+          onCut={() => {}}
+          onPaste={() => {}}
+          onRename={() => {}}
+          onTrash={() => {}}
+          onExtract={() => {}}
+          onExtractTo={() => {}}
+          onCompress={() => {}}
+          onCompressAs={() => {}}
+          onNewFolder={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(html).not.toContain("Ekstrak di sini");
+      expect(html).not.toContain("Ekstrak ke folder…");
+      expect(html).not.toContain("Kompres ke .zip");
+      expect(html).not.toContain("Kompres sebagai…");
+    });
+
+    it("renders Hapus dari Markah if folder is already bookmarked", () => {
+      const html = renderToStaticMarkup(
+        <FileContextMenu
+          x={100}
+          y={100}
+          entry={folderEntry}
+          isBookmarked={true}
+          clipboard={null}
+          onOpen={() => {}}
+          onCopy={() => {}}
+          onCopyPath={() => {}}
+          onToggleBookmark={() => {}}
+          onCut={() => {}}
+          onPaste={() => {}}
+          onRename={() => {}}
+          onTrash={() => {}}
+          onExtract={() => {}}
+          onCompress={() => {}}
+          onNewFolder={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(html).toContain("Hapus dari Markah");
+    });
+
+    it("renders empty folder context menu with Salin Path Folder, Buka di Terminal, Tanya Asisten AI", () => {
+      const html = renderToStaticMarkup(
+        <FileContextMenu
+          x={100}
+          y={100}
+          entry={null}
+          clipboard={null}
+          onOpen={() => {}}
+          onOpenTab={() => {}}
+          onOpenTerminal={() => {}}
+          onAskAssistant={() => {}}
+          onCopy={() => {}}
+          onCopyPath={() => {}}
+          onCut={() => {}}
+          onPaste={() => {}}
+          onRename={() => {}}
+          onTrash={() => {}}
+          onExtract={() => {}}
+          onCompress={() => {}}
+          onNewFolder={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      expect(html).toContain("Folder Baru");
+      expect(html).toContain("Salin Path Folder");
+      expect(html).toContain("Buka di Terminal");
+      expect(html).toContain("Tanya Asisten AI");
+    });
+  });
+
+  describe("FolderPickerBody", () => {
+    const dummyFolders: FileEntry[] = [
+      {
+        name: "Proyek",
+        path: "/home/user/Proyek",
+        kind: "folder",
+        size: 0,
+        modified: 1000,
+        hidden: false,
+      },
+      {
+        name: "Dokumen",
+        path: "/home/user/Dokumen",
+        kind: "folder",
+        size: 0,
+        modified: 2000,
+        hidden: false,
+      },
+    ];
+
+    it("renders title, path, folder buttons, and choose button", () => {
+      const html = renderToStaticMarkup(
+        <FolderPickerBody
+          path="/home/user"
+          folders={dummyFolders}
+          onUp={() => {}}
+          onEnter={() => {}}
+          onChoose={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(html).toContain("Pilih Folder");
+      expect(html).toContain("/home/user");
+      expect(html).toContain("Proyek");
+      expect(html).toContain("Dokumen");
+      expect(html).toContain("Pilih folder ini");
+      expect(html).toContain("Batal");
+    });
+
+    it("disables Naik button when path is / (root)", () => {
+      const html = renderToStaticMarkup(
+        <FolderPickerBody
+          path="/"
+          folders={[]}
+          onUp={() => {}}
+          onEnter={() => {}}
+          onChoose={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(html).toMatch(/<button[^>]*disabled=""[^>]*>\s*Naik\s*<\/button>/);
+    });
+
+    it("renders empty state when there are no subfolders", () => {
+      const html = renderToStaticMarkup(
+        <FolderPickerBody
+          path="/home/user/Kosong"
+          folders={[]}
+          onUp={() => {}}
+          onEnter={() => {}}
+          onChoose={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(html).toContain("Tidak ada subfolder");
+    });
+
+    it("displays error with role=alert when present", () => {
+      const html = renderToStaticMarkup(
+        <FolderPickerBody
+          path="/root/rahasia"
+          folders={[]}
+          error="Akses ditolak"
+          onUp={() => {}}
+          onEnter={() => {}}
+          onChoose={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Akses ditolak");
+    });
+  });
+
+  describe("ConvertDialog", () => {
+    const png: FileEntry = {
+      name: "foto.png",
+      path: "/home/user/foto.png",
+      kind: "image",
+      size: 1024,
+      modified: 0,
+      hidden: false,
+    };
+    const imageFormats = [
+      { sourceExt: "png", kind: "image" as const, targets: ["jpg", "webp"] },
+      { sourceExt: "pdf", kind: "pdf" as const, targets: ["png", "txt"] },
+    ];
+
+    it("renders targets, output preview, and the no-overwrite note", () => {
+      const html = renderToStaticMarkup(
+        <ConvertDialog
+          entry={png}
+          formats={imageFormats}
+          takenNames={[]}
+          busy={false}
+          onConfirm={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(html).toContain("Sumber: foto.png");
+      expect(html).toContain("JPG");
+      expect(html).toContain("WEBP");
+      expect(html).toContain("/home/user/foto.jpg");
+      expect(html).toContain("Tidak menimpa berkas");
+    });
+
+    it("previews the next free name when the target exists", () => {
+      const html = renderToStaticMarkup(
+        <ConvertDialog
+          entry={png}
+          formats={imageFormats}
+          takenNames={["foto.jpg"]}
+          busy={false}
+          onConfirm={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(html).toContain("/home/user/foto (2).jpg");
+    });
+
+    it("shows the running state with disabled buttons", () => {
+      const html = renderToStaticMarkup(
+        <ConvertDialog
+          entry={png}
+          formats={imageFormats}
+          takenNames={[]}
+          busy
+          onConfirm={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(html).toContain("Mengonversi…");
+      expect(html).toContain("disabled");
+    });
+
+    it("explains when no target is available and for PDF first page", () => {
+      const empty = renderToStaticMarkup(
+        <ConvertDialog
+          entry={{ ...png, name: "catatan.docx" }}
+          formats={imageFormats}
+          takenNames={[]}
+          busy={false}
+          onConfirm={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(empty).toContain("Tidak ada format tujuan");
+
+      const pdf = renderToStaticMarkup(
+        <ConvertDialog
+          entry={{ ...png, name: "laporan.pdf", path: "/home/user/laporan.pdf" }}
+          formats={imageFormats}
+          takenNames={[]}
+          busy={false}
+          onConfirm={() => {}}
+          onCancel={() => {}}
+        />,
+      );
+      expect(pdf).toContain("Hanya halaman pertama");
+    });
+  });
+
+  describe("convert menu item", () => {
+    const png: FileEntry = {
+      name: "foto.png",
+      path: "/home/user/foto.png",
+      kind: "image",
+      size: 1024,
+      modified: 0,
+      hidden: false,
+    };
+
+    it("shows Konversi… only for a convertible local file", () => {
+      const menu = (entry: FileEntry, convertible: boolean) =>
+        renderToStaticMarkup(
+          <FileContextMenu
+            x={10}
+            y={10}
+            entry={entry}
+            clipboard={null}
+            onOpen={() => {}}
+            onCopy={() => {}}
+            onCopyPath={() => {}}
+            onCut={() => {}}
+            onPaste={() => {}}
+            onRename={() => {}}
+            onTrash={() => {}}
+            onExtract={() => {}}
+            onCompress={() => {}}
+            onConvert={() => {}}
+            convertible={convertible}
+            onNewFolder={() => {}}
+            onClose={() => {}}
+          />,
+        );
+      expect(menu(png, true)).toContain("Konversi…");
+      expect(menu(png, false)).not.toContain("Konversi…");
+      expect(menu({ ...png, path: "rclone:gdrive:foto.png" }, true)).not.toContain(
+        "Konversi…",
+      );
     });
   });
 });

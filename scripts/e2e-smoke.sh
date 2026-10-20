@@ -30,6 +30,10 @@ APPCONFIG="$WORK/config/io.github.syharipf.anchoa"
 DB="$APPDATA/anchoa.db"
 # Private data AND config dirs: the real GitHub token lives in the config dir.
 export DISPLAY XDG_DATA_HOME="$WORK/data" XDG_CONFIG_HOME="$WORK/config"
+# On a Wayland host GTK and WebKit pick Wayland even with DISPLAY set, so the
+# window never appears on Xvfb. Force the X11 backend for this run.
+unset WAYLAND_DISPLAY XDG_BACKEND EGL_PLATFORM MOZ_ENABLE_WAYLAND QT_QPA_PLATFORM
+export GDK_BACKEND=x11
 
 rm -rf "$WORK" && mkdir -p "$WORK/data" "$WORK/config"
 Xvfb "$DISPLAY" -screen 0 1280x800x24 >/dev/null 2>&1 &
@@ -39,7 +43,12 @@ export DBUS_SESSION_BUS_ADDRESS
 APP=
 SERVER=
 trap 'kill $APP $SERVER $DBUS_PID $XVFB 2>/dev/null || true; rm -f "/tmp/.anchoa-e2e-${DISPLAY#:}.lock"' EXIT
-sleep 1
+# Xvfb compiles the XKB map before it accepts clients; a fixed sleep races it,
+# the app then exits without a window, and `xdotool search --sync` waits forever.
+for _ in $(seq 1 50); do
+  xdotool getdisplaygeometry >/dev/null 2>&1 && break
+  sleep 0.2
+done
 
 fail() { echo "FAIL: $*"; exit 1; }
 shot() { import -window root "$WORK/$1.png"; }
@@ -86,7 +95,8 @@ skip_onboarding() {
 start_app() {
   "$BIN" >>"$WORK/app.log" 2>&1 &
   APP=$!
-  xdotool search --sync --name '^Anchoa$' >/dev/null
+  timeout 20 xdotool search --sync --name '^Anchoa$' >/dev/null ||
+    fail "window did not appear: $(tail -3 "$WORK/app.log")"
   # WebKit needs a few seconds to paint under software GL: wait for a non-blank screen.
   for _ in $(seq 1 30); do
     sd=$(import -window root png:- | magick - -format '%[fx:standard_deviation]' info:)
@@ -937,6 +947,68 @@ check_files() {
   stop_app
 }
 
+# Right-click menu: Jadikan Proyek, Ekstrak ke folder…, Kompres sebagai…
+# Keyboard navigation (Down/Return) also covers the menu's roving focus.
+check_files_context_menu() {
+  fresh
+  local home="$WORK/files-menu-home" agent_dir
+  rm -rf "$home" && mkdir -p "$home/Documents/Proyek" "$home/Downloads"
+  echo "isi arsip" > "$home/Downloads/isi.txt"
+  tar -cf "$home/Downloads/arsip.tar" -C "$home/Downloads" isi.txt
+  tar -cf "$home/Downloads/kedua.tar" -C "$home/Downloads" isi.txt
+  rm "$home/Downloads/isi.txt"
+  HOME="$home" start_app
+  # The sidebar shifts with the account/avatar block; the palette is stable.
+  xdotool key ctrl+k; sleep 0.4
+  xdotool type --delay 40 "Berkas"; sleep 0.4; xdotool key Return; sleep 1.2
+  shot 16-files-menu-nav
+  click 162 320                # Tempat: Dokumen
+  xdotool mousemove 390 265 click 3; sleep 0.6
+  shot 16-files-menu-folder    # expect: Buka … Jadikan Proyek, Kompres, Duplikat, Pindahkan ke…
+  xdotool key --repeat 4 --delay 80 Down; sleep 0.2; xdotool key Return
+  agent_dir=$(sql_value "SELECT p.agent_dir FROM projects p JOIN items i ON i.id = p.item_id WHERE i.title = 'Proyek'")
+  sleep 1
+  [[ "$agent_dir" = "$home/Documents/Proyek" ]] || fail "Jadikan Proyek stored agent_dir '$agent_dir'"
+
+  click 162 358                # Tempat: Unduhan
+  xdotool mousemove 390 265 click 3; sleep 0.6
+  shot 16-files-menu-archive   # expect: Ekstrak di sini, Ekstrak ke folder…, Kompres sebagai…
+  xdotool key --repeat 3 --delay 80 Down; sleep 0.2; xdotool key Return
+  xdotool key ctrl+a; xdotool type --delay 20 "$home/Documents/ekstrak"; sleep 0.2; xdotool key Return
+  sleep 1
+  [[ -f "$home/Documents/ekstrak/isi.txt" ]] || fail "Ekstrak ke folder… did not write into the chosen folder"
+
+  xdotool mousemove 543 265 click 3; sleep 0.6
+  xdotool key --repeat 5 --delay 80 Down; sleep 0.2; xdotool key Return
+  sleep 0.3; xdotool key Return
+  sleep 1
+  [[ -f "$home/Downloads/kedua.zip" ]] || fail "Kompres sebagai… did not create kedua.zip"
+  stop_app
+}
+
+# Menu Konversi…: PNG → JPG memakai target pertama dari capabilities backend.
+check_files_convert() {
+  fresh
+  local home="$WORK/files-convert-home"
+  rm -rf "$home" && mkdir -p "$home/Documents"
+  magick -size 8x8 xc:'#C6F36B' "$home/Documents/foto.png"
+  HOME="$home" start_app
+  xdotool key ctrl+k; sleep 0.4
+  xdotool type --delay 40 "Berkas"; sleep 0.4; xdotool key Return; sleep 1.2
+  click 162 320                # Tempat: Dokumen
+  xdotool mousemove 390 265 click 3; sleep 0.6
+  shot 16-files-menu-convert   # expect: Konversi… below Kompres sebagai…
+  xdotool key --repeat 4 --delay 80 Down; sleep 0.2; xdotool key Return
+  sleep 0.4
+  shot 16-files-convert-dialog # expect: format JPG, output foto.jpg
+  click 823 311                # tombol Konversi (Enter pada <select> tidak submit)
+  sleep 2
+  [[ -f "$home/Documents/foto.jpg" ]] || fail "Konversi… did not create foto.jpg"
+  [[ "$(head -c 2 "$home/Documents/foto.jpg" | od -An -tx1 | tr -d ' \n')" = "ffd8" ]] ||
+    fail "foto.jpg is not a JPEG"
+  stop_app
+}
+
 check_notes() {
   fresh
   local notes_home="$WORK/notes-home" export_dir rencana_id ide_id expected_body
@@ -1590,6 +1662,8 @@ check_habits
 check_journal
 check_journal_v2
 check_files
+check_files_context_menu
+check_files_convert
 check_downloads
 
 check_notes

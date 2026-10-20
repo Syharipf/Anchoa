@@ -1,7 +1,7 @@
 # Anchoa — Spesifikasi Desain (untuk implementasi)
 
 Dashboard pribadi dengan asisten suara (STT + TTS, pet teri **Ako**). Tema: **Studio Malam** (gelap).
-Stack: **Tauri 2 + SvelteKit (Svelte 5) + Rust** — aturan teknis ada di `CLAUDE.md`.
+Stack: **Tauri 2 + SvelteKit (Svelte 5) + Rust** — aturan teknis ada di `AGENTS.md`.
 Acuan desktop: **1280×800**.
 
 ## 0. Cara memakai paket ini

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api, type ProjectDetail, type ProjectKind } from "../api";
 import { dateInputToMs, msToDateInput } from "../format";
+import { FolderPicker } from "../files/FolderPicker";
 import { Dialog, DialogActions, Field } from "../shell/Dialog";
 import { FIELD } from "../shell/ui";
 import { Segmented } from "../finance/fields";
@@ -27,6 +28,7 @@ export function ProjectForm({
   const [description, setDescription] = useState(edit?.description ?? "");
   const [agent, setAgent] = useState(edit?.agent ?? false);
   const [agentDir, setAgentDir] = useState(edit?.agentDir ?? "");
+  const [pickingDir, setPickingDir] = useState(false);
   const [agentCommand, setAgentCommand] = useState(edit?.agentCommand ?? "");
   const { busy, run, toast } = useSave(() => {});
 
@@ -91,14 +93,31 @@ export function ProjectForm({
         {agent && (
           <>
             <Field label="Folder repo">
-              <input
-                value={agentDir}
-                onChange={(e) => setAgentDir(e.target.value)}
-                placeholder="/home/kamu/Proyek/repo"
-                aria-describedby="agent-dir-help"
-                className={FIELD}
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  value={agentDir}
+                  onChange={(e) => setAgentDir(e.target.value)}
+                  placeholder="/home/kamu/Proyek/repo"
+                  aria-describedby="agent-dir-help"
+                  className={FIELD}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPickingDir(true)}
+                  disabled={busy}
+                  className="shrink-0 whitespace-nowrap rounded-lg border border-line px-2.5 py-2 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+                >
+                  Pilih…
+                </button>
+              </div>
               <span id="agent-dir-help">Folder yang sudah ada di dalam direktori home.</span>
+              {pickingDir && (
+                <FolderPicker
+                  initialPath={agentDir}
+                  onSelect={setAgentDir}
+                  onClose={() => setPickingDir(false)}
+                />
+              )}
             </Field>
             <Field label="Perintah agen (opsional)">
               <input

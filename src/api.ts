@@ -770,6 +770,30 @@ export interface PasteRequest {
   onConflict?: OnConflict;
 }
 
+/** Formats the backend can convert to from one source extension. */
+export type ConvertKind = "image" | "audio" | "video" | "pdf";
+
+export interface ConvertToolStatus {
+  program: string;
+  available: boolean;
+}
+
+export interface ConvertFormat {
+  sourceExt: string;
+  kind: ConvertKind;
+  targets: string[];
+}
+
+export interface ConvertCapabilities {
+  tools: ConvertToolStatus[];
+  formats: ConvertFormat[];
+}
+
+export interface ConvertResult {
+  path: string;
+  bytes: number;
+}
+
 export interface FileFailure {
   path: string;
   error: string;
@@ -1268,6 +1292,13 @@ export const api = {
     invoke<Listing>("create_dir", { parent, name, hidden }),
   extractArchive: (path: string, destDir?: string) =>
     invoke<string>("extract_archive", { path, destDir }),
+  compressArchive: (paths: string[], destPath?: string) =>
+    invoke<string>("compress_archive", { paths, destPath }),
+  openTerminalAt: (path: string) =>
+    invoke<void>("open_terminal_at", { path }),
+  convertCapabilities: () => invoke<ConvertCapabilities>("convert_capabilities"),
+  convertFile: (path: string, target: string) =>
+    invoke<ConvertResult>("convert_file", { path, target }),
   renameEntry: (path: string, newName: string, hidden: boolean) =>
     invoke<Listing>("rename_entry", { path, newName, hidden }),
   fileRemotes: () => invoke<RemotePlaces>("file_remotes"),

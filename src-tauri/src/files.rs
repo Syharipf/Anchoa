@@ -485,6 +485,42 @@ pub fn unique_name(dest_dir: &Path, name: &str) -> PathBuf {
         counter += 1;
     }
 }
+fn unique_archive_path(target: &Path) -> PathBuf {
+    let parent = target.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = match target.file_name().and_then(|n| n.to_str()) {
+        Some(name) => name,
+        None => return unique_name(parent, "archive"),
+    };
+
+    let lower = file_name.to_lowercase();
+    let (stem, ext) = if lower.ends_with(".tar.gz") {
+        (&file_name[..file_name.len() - 7], ".tar.gz")
+    } else if lower.ends_with(".tar.bz2") {
+        (&file_name[..file_name.len() - 8], ".tar.bz2")
+    } else if lower.ends_with(".tar.xz") {
+        (&file_name[..file_name.len() - 7], ".tar.xz")
+    } else {
+        let p = Path::new(file_name);
+        match p.extension().and_then(|e| e.to_str()) {
+            Some(ext) if !ext.is_empty() => {
+                let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or(file_name);
+                (stem, &file_name[stem.len()..])
+            }
+            _ => (file_name, ""),
+        }
+    };
+
+    let mut counter = 2;
+    loop {
+        let candidate = format!("{stem} ({counter}){ext}");
+        let candidate_path = parent.join(&candidate);
+        if fs::symlink_metadata(&candidate_path).is_err() {
+            return candidate_path;
+        }
+        counter += 1;
+    }
+}
+
 
 fn copy_recursive(src: &Path, dst: &Path, overwrite: bool) -> io::Result<()> {
     let meta = fs::symlink_metadata(src)?;
@@ -1098,7 +1134,52 @@ pub fn extract_archive(
         .ok_or_else(|| AppError::Invalid("Nama berkas tidak valid".into()))?;
 
     let target_dir = match dest_dir {
-        Some(d) => guard(d, roots)?,
+        Some(d) => {
+            let trimmed = d.trim_end_matches('/');
+            if trimmed.is_empty() {
+                return Err(AppError::Invalid("Folder tujuan tidak valid".into()));
+            }
+            // A relative destination is relative to the archive, not the
+            // backend process working directory.
+            let resolved;
+            let p = if Path::new(trimmed).is_relative() {
+                resolved = parent.join(trimmed);
+                resolved.as_path()
+            } else {
+                Path::new(trimmed)
+            };
+            // Walk up to find the closest existing ancestor to guard within roots.
+            let mut ancestor = p;
+            while !ancestor.exists() {
+                match ancestor.parent() {
+                    Some(parent) if !parent.as_os_str().is_empty() => {
+                        ancestor = parent;
+                    }
+                    _ => break,
+                }
+            }
+            let ancestor_canonical = guard(ancestor.to_str().unwrap_or("."), roots)?;
+            let rel = p
+                .strip_prefix(ancestor)
+                .map_err(|_| AppError::Invalid("Folder tujuan tidak valid".into()))?;
+            for comp in rel.components() {
+                match comp {
+                    std::path::Component::Normal(c) if !c.is_empty() => {}
+                    _ => return Err(AppError::Invalid("Folder tujuan tidak valid".into())),
+                }
+            }
+            let target = ancestor_canonical.join(rel);
+            if let Ok(meta) = fs::symlink_metadata(&target) {
+                if !meta.is_dir() {
+                    return Err(AppError::Invalid(
+                        "Folder tujuan sudah ada dan bukan direktori".into(),
+                    ));
+                }
+            } else {
+                fs::create_dir_all(&target)?;
+            }
+            target
+        }
         None => {
             let lower = file_name.to_lowercase();
             let stem = if lower.ends_with(".tar.gz") {
@@ -1112,7 +1193,9 @@ pub fn extract_archive(
                     .unwrap_or("extracted")
             };
             let mut out = parent.join(stem);
-            if out.exists() {
+            // symlink_metadata, not exists(): a dangling symlink must count as
+            // taken so extraction never follows it outside the roots.
+            if fs::symlink_metadata(&out).is_ok() {
                 out = unique_name(&parent, stem);
             }
             fs::create_dir_all(&out)?;
@@ -1162,6 +1245,172 @@ pub fn extract_archive(
     }
 
     Ok(target_dir.to_string_lossy().to_string())
+}
+/// Compresses one or more paths into an archive (.zip or .tar.gz).
+/// Returns the created archive path.
+pub fn compress_archive(
+    paths: &[String],
+    dest_path: Option<&str>,
+    roots: &Roots,
+) -> Result<String, AppError> {
+    if paths.is_empty() {
+        return Err(AppError::Invalid("Tidak ada berkas untuk dikompres".into()));
+    }
+    let mut canonical_paths = Vec::new();
+    for p in paths {
+        canonical_paths.push(guard(p, roots)?);
+    }
+    let first = &canonical_paths[0];
+    let parent = first
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| AppError::Invalid("Folder induk tidak ditemukan".into()))?;
+
+    let target = match dest_path {
+        Some(d) => {
+            let trimmed = d.trim_end_matches('/');
+            if trimmed.is_empty() {
+                return Err(AppError::Invalid("Nama berkas arsip tidak valid".into()));
+            }
+            // A relative destination is relative to the source, not the backend
+            // process working directory.
+            let resolved;
+            let p = if Path::new(trimmed).is_relative() {
+                resolved = parent.join(trimmed);
+                resolved.as_path()
+            } else {
+                Path::new(trimmed)
+            };
+            let dest_parent = p
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            let parent_canonical = guard(dest_parent.to_str().unwrap_or("."), roots)?;
+            let file_name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or_else(|| AppError::Invalid("Nama berkas arsip tidak valid".into()))?;
+            if file_name == "." || file_name == ".." || file_name.contains('/') {
+                return Err(AppError::Invalid("Nama berkas arsip tidak valid".into()));
+            }
+            let lower = file_name.to_lowercase();
+            if !lower.ends_with(".zip") && !lower.ends_with(".tar.gz") && !lower.ends_with(".tgz") {
+                return Err(AppError::Invalid(
+                    "Format arsip tujuan harus .zip atau .tar.gz".into(),
+                ));
+            }
+            let target = parent_canonical.join(file_name);
+            if fs::symlink_metadata(&target).is_ok() {
+                unique_archive_path(&target)
+            } else {
+                target
+            }
+        }
+        None => {
+            let stem = if canonical_paths.len() == 1 {
+                first
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("archive")
+            } else {
+                "Archive"
+            };
+            let candidate = parent.join(format!("{stem}.zip"));
+            if fs::symlink_metadata(&candidate).is_ok() {
+                unique_archive_path(&candidate)
+            } else {
+                candidate
+            }
+        }
+    };
+    let target_str = target.to_string_lossy().to_string();
+    let lower = target_str.to_lowercase();
+
+    let status = if lower.ends_with(".zip") {
+        // Try `zip` first, fallback to `7z a` if `zip` binary is not found.
+        let mut cmd = std::process::Command::new("zip");
+        cmd.arg("-r").arg("-q").arg(&target);
+        for p in &canonical_paths {
+            if let Ok(rel) = p.strip_prefix(&parent) {
+                cmd.current_dir(&parent).arg(rel);
+            } else {
+                cmd.arg(p);
+            }
+        }
+        match cmd.status() {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let mut cmd_7z = std::process::Command::new("7z");
+                cmd_7z.arg("a").arg("-tzip").arg("-y").arg(&target);
+                for p in &canonical_paths {
+                    if let Ok(rel) = p.strip_prefix(&parent) {
+                        cmd_7z.current_dir(&parent).arg(rel);
+                    } else {
+                        cmd_7z.arg(p);
+                    }
+                }
+                cmd_7z
+                    .status()
+                    .map_err(|e2| AppError::Other(format!("Gagal menjalankan zip atau 7z: {e2}")))?
+            }
+            Err(e) => return Err(AppError::Other(format!("Gagal menjalankan zip: {e}"))),
+        }
+    } else if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
+        let mut cmd = std::process::Command::new("tar");
+        cmd.arg("-czf").arg(&target).arg("-C").arg(&parent);
+        for p in &canonical_paths {
+            if let Ok(rel) = p.strip_prefix(&parent) {
+                cmd.arg(rel);
+            } else {
+                cmd.arg(p);
+            }
+        }
+        cmd.status()
+            .map_err(|e| AppError::Other(format!("Gagal menjalankan tar: {e}")))?
+    } else {
+        return Err(AppError::Invalid(
+            "Format arsip tujuan harus .zip atau .tar.gz".into(),
+        ));
+    };
+
+    if !status.success() {
+        return Err(AppError::Other("Proses kompresi berkas gagal".into()));
+    }
+
+    Ok(target.to_string_lossy().to_string())
+}
+
+/// Spawns an external terminal emulator inside the specified folder path.
+pub fn open_terminal_at(path: &str, roots: &Roots) -> Result<(), AppError> {
+    let canonical = guard(path, roots)?;
+    let dir = if canonical.is_dir() {
+        canonical
+    } else {
+        canonical
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or(canonical)
+    };
+
+    let terminals = [
+        "x-terminal-emulator",
+        "kitty",
+        "ghostty",
+        "gnome-terminal",
+        "alacritty",
+        "konsole",
+        "xfce4-terminal",
+    ];
+    for term in terminals {
+        if let Ok(child) = std::process::Command::new(term)
+            .current_dir(&dir)
+            .spawn()
+        {
+            let _ = child;
+            return Ok(());
+        }
+    }
+    Err(AppError::Other("Terminal emulator tidak ditemukan".into()))
 }
 #[cfg(test)]
 mod tests {
@@ -1937,6 +2186,95 @@ XDG_MUSIC_DIR="$HOME/NonExistentMusic"
             fs::read_to_string(Path::new(&extracted_dir).join("hello.txt")).unwrap(),
             "halo dunia"
         );
+    }
+
+    #[test]
+    fn compress_archive_creates_zip_archive() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let file_txt = home.path().join("hello.txt");
+        fs::write(&file_txt, "halo kompresi").unwrap();
+
+        let out_zip = compress_archive(
+            &[file_txt.to_string_lossy().to_string()],
+            None,
+            &roots,
+        )
+        .unwrap();
+        assert!(Path::new(&out_zip).exists());
+        assert!(out_zip.ends_with(".zip"));
+    }
+
+    #[test]
+    fn extract_archive_creates_a_missing_destination_folder() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let file_txt = home.path().join("hello.txt");
+        fs::write(&file_txt, "halo dest").unwrap();
+
+        let archive = home.path().join("test.tar");
+        let status = std::process::Command::new("tar")
+            .arg("-cf")
+            .arg(&archive)
+            .arg("-C")
+            .arg(home.path())
+            .arg("hello.txt")
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let dest = home.path().join("out").join("baru");
+        let dest_str = dest.to_string_lossy().to_string();
+        let extracted_dir = extract_archive(archive.to_str().unwrap(), Some(&dest_str), &roots).unwrap();
+        assert_eq!(Path::new(&extracted_dir), dest);
+        assert!(dest.is_dir());
+        assert!(dest.join("hello.txt").exists());
+        assert_eq!(
+            fs::read_to_string(dest.join("hello.txt")).unwrap(),
+            "halo dest"
+        );
+    }
+
+    #[test]
+    fn compress_archive_never_overwrites_an_existing_archive() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let file_txt = home.path().join("hello.txt");
+        fs::write(&file_txt, "halo backup").unwrap();
+
+        let dest = home.path().join("backup.tar.gz");
+        let dest_str = dest.to_string_lossy().to_string();
+        let paths = [file_txt.to_string_lossy().to_string()];
+
+        let first = compress_archive(&paths, Some(&dest_str), &roots).unwrap();
+        let second = compress_archive(&paths, Some(&dest_str), &roots).unwrap();
+
+        assert_ne!(first, second);
+        assert!(Path::new(&first).exists());
+        assert!(Path::new(&second).exists());
+        assert!(second.ends_with("backup (2).tar.gz"));
+    }
+
+    #[test]
+    fn relative_destinations_resolve_against_the_source_folder() {
+        let home = tempdir().unwrap();
+        let roots = Roots::new(home.path().to_path_buf(), vec![]);
+        let sub = home.path().join("sub");
+        fs::create_dir(&sub).unwrap();
+        let file_txt = sub.join("hello.txt");
+        fs::write(&file_txt, "halo relatif").unwrap();
+
+        let archive = compress_archive(
+            &[file_txt.to_string_lossy().to_string()],
+            Some("backup.tar.gz"),
+            &roots,
+        )
+        .unwrap();
+        assert_eq!(Path::new(&archive), sub.join("backup.tar.gz"));
+
+        let extracted = extract_archive(&archive, Some("hasil"), &roots).unwrap();
+        assert_eq!(Path::new(&extracted), sub.join("hasil"));
+        assert!(sub.join("hasil/hello.txt").exists());
     }
 }
 

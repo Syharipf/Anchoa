@@ -32,6 +32,7 @@ Pengelola file lokal di dalam Anchoa:
 | F13 | Membuka file dengan aplikasi bawaan (dobel klik) lewat `tauri-plugin-opener` `open_path`, setelah path dicek seperti F3. Dobel klik folder membuka folder itu. | Claude |
 | F14 | Kartu "Berkas terbaru" di dashboard tetap berisi Catatan terbaru. Berkas terbaru butuh riwayat GNOME (`recently-used.xbel`), dan itu ditunda. | Claude, YAGNI |
 | F15 | E2E menjalankan app dengan `HOME` sementara berisi file contoh, sehingga tidak pernah menyentuh file asli user. | Claude, keamanan |
+| F16 | Konversi format satu berkas dari menu klik kanan: gambar (magick), audio/video (ffmpeg), PDF (pdftoppm/pdftotext). Hanya target yang tool-nya terpasang yang ditampilkan (`convert_capabilities`). Output dibuat di folder sumber dengan nama unik, tidak menimpa, dan dihapus lagi bila proses gagal. Dokumen kantor (docx/odt/xlsx) menunggu LibreOffice. | Claude, lokal |
 
 ## 3. Backend (`files.rs`)
 

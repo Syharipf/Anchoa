@@ -145,6 +145,14 @@ describe("agent project components", () => {
     expect(api.saveProject).toHaveBeenLastCalledWith(expect.objectContaining({ agent: false }));
   });
 
+  it("renders folder picker button when agent project is enabled in ProjectForm", () => {
+    harness = hookHarness(() => ProjectForm({ edit: project, onClose: () => {}, onSaved: () => {} }));
+    const pickBtn = elements(harness.render()).find(
+      (element) => element.type === "button" && element.props.children === "Pilih…",
+    );
+    expect(pickBtn).toBeDefined();
+  });
+
   it("keeps the newest log when an older polling request finishes later", async () => {
     const old = deferred<string>();
     let poll = () => {};

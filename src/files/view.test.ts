@@ -1,11 +1,18 @@
 import { describe, expect, it } from "bun:test";
 import type { FileEntry } from "../api";
 import {
+  archiveStem,
+  baseName,
+  convertedName,
+  fileExtension,
   formatSize,
+  joinPath,
   KIND_ICONS,
   KIND_LABELS,
+  parentPath,
   reportToasts,
   select,
+  targetsFor,
   totalSize,
   type SelectionState,
 } from "./view";
@@ -189,6 +196,67 @@ describe("file manager view rules", () => {
         expect(KIND_ICONS[k].length).toBeGreaterThan(0);
         expect(KIND_ICONS[k].startsWith("M")).toBe(true);
       }
+    });
+  });
+
+  describe("path helpers", () => {
+    it("takes the parent folder without trailing slashes", () => {
+      expect(parentPath("/home/user/Dokumen/")).toBe("/home/user");
+      expect(parentPath("/home/user")).toBe("/home");
+      expect(parentPath("/home")).toBe("/");
+      expect(parentPath("/")).toBe("/");
+      expect(parentPath("file.txt")).toBe(".");
+    });
+
+    it("handles Windows separators and drive roots", () => {
+      expect(parentPath("C:\\Users\\me\\Docs")).toBe("C:\\Users\\me");
+      expect(parentPath("C:\\Users")).toBe("C:\\");
+      expect(parentPath("C:\\")).toBe("C:\\");
+      expect(baseName("C:\\Users\\me")).toBe("me");
+      expect(joinPath("C:\\Users", "arsip.zip")).toBe("C:\\Users\\arsip.zip");
+    });
+
+    it("takes the last path segment as the name", () => {
+      expect(baseName("/home/user/Dokumen/")).toBe("Dokumen");
+      expect(baseName("/home/user")).toBe("user");
+      expect(baseName("/")).toBe("");
+    });
+
+    it("joins a name without doubling the separator", () => {
+      expect(joinPath("/home/user", "arsip.zip")).toBe("/home/user/arsip.zip");
+      expect(joinPath("/", "arsip.zip")).toBe("/arsip.zip");
+    });
+
+    it("strips every archive suffix, including the double ones", () => {
+      expect(archiveStem("report.tar.gz")).toBe("report");
+      expect(archiveStem("backup.TAR.XZ")).toBe("backup");
+      expect(archiveStem("notes.txt")).toBe("notes");
+      expect(archiveStem("README")).toBe("README");
+    });
+
+    it("reads the extension like the backend does", () => {
+      expect(fileExtension("FOTO.PNG")).toBe("png");
+      expect(fileExtension(".bashrc")).toBe("");
+      expect(fileExtension("a.tar.gz")).toBe("gz");
+      expect(fileExtension("file.")).toBe("");
+    });
+
+    it("names converted output without overwriting", () => {
+      expect(convertedName("foto.png", "jpg", [])).toBe("foto.jpg");
+      expect(convertedName("a.b.png", "webp", [])).toBe("a.b.webp");
+      expect(convertedName("foto.png", "jpg", ["foto.jpg"])).toBe("foto (2).jpg");
+      expect(
+        convertedName("foto.png", "jpg", ["foto.jpg", "foto (2).jpg"]),
+      ).toBe("foto (3).jpg");
+    });
+
+    it("finds targets only for a known extension", () => {
+      const formats = [
+        { sourceExt: "png", kind: "image" as const, targets: ["jpg", "webp"] },
+        { sourceExt: "pdf", kind: "pdf" as const, targets: ["png", "txt"] },
+      ];
+      expect(targetsFor("foto.PNG", formats)).toEqual(["jpg", "webp"]);
+      expect(targetsFor("catatan.docx", formats)).toEqual([]);
     });
   });
 });

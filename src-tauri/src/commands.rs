@@ -27,7 +27,7 @@ use crate::projects::{self, Board, BoardFilter, Overview as ProjectsOverview, Pr
 use crate::schedule::{self, Schedule, ScheduleRange};
 use crate::settings::{self, DataOverview, UpdateCheck};
 use crate::tasks::{self, NewTask, TaskCard, TaskDetail, TaskPatch};
-use crate::{backup, downloader, downloads, files, links, notes, search, time};
+use crate::{backup, convert, downloader, downloads, files, links, notes, search, time};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -775,6 +775,50 @@ pub async fn extract_archive(
     .await
     .map_err(blocking_error)?
 }
+#[tauri::command]
+pub async fn compress_archive(
+    app: AppHandle,
+    paths: Vec<String>,
+    dest_path: Option<String>,
+) -> Result<String, AppError> {
+    let (_user, roots, _) = current_user_and_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        files::compress_archive(&paths, dest_path.as_deref(), &roots)
+    })
+    .await
+    .map_err(blocking_error)?
+}
+#[tauri::command]
+pub async fn convert_capabilities() -> Result<convert::ConvertCapabilities, AppError> {
+    tauri::async_runtime::spawn_blocking(convert::capabilities)
+        .await
+        .map_err(blocking_error)
+}
+#[tauri::command]
+pub async fn convert_file(
+    app: AppHandle,
+    path: String,
+    target: String,
+) -> Result<convert::ConvertResult, AppError> {
+    let (_user, roots, _) = current_user_and_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || convert::convert_file(&path, &target, &roots))
+        .await
+        .map_err(blocking_error)?
+}
+#[tauri::command]
+pub async fn open_terminal_at(
+    app: AppHandle,
+    path: String,
+) -> Result<(), AppError> {
+    let (_user, roots, _) = current_user_and_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        files::open_terminal_at(&path, &roots)
+    })
+    .await
+    .map_err(blocking_error)?
+}
+
+
 
 #[tauri::command]
 pub async fn trash_list() -> Result<Vec<files::TrashItem>, AppError> {

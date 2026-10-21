@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anchoa — Library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F1115;font-family:"IBM Plex Sans",system-ui,sans-serif;color:#E7E9EE}
+:where(button,a,input,textarea,select):focus-visible{outline:2px solid #C6F36B;outline-offset:2px}
+[data-field]{transition:border-color .15s}[data-field]:focus-within{border-color:#4E6A26!important}
+[data-hover]{transition:background-color .15s,color .15s}[data-hover]:hover{background-color:#1D2129!important}
+[data-card]{transition:background-color .15s,border-color .15s,transform .15s}[data-card]:hover{background-color:#1B2027!important;border-color:#31474E!important}
+[data-press]{transition:transform .15s ease}[data-press]:hover{transform:scale(1.05)}[data-press]:active{transform:scale(.95)}
+[data-star]{transition:color .1s,transform .1s}[data-star]:hover{transform:scale(1.12)}
+@keyframes anchoa-pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes anchoa-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; display: flex; background: #0F1115; color: #E7E9EE; font-family: 'IBM Plex Sans', system-ui, sans-serif; overflow: hidden">
+
+  <nav aria-label="Main menu" style="position: relative; z-index: 40; width: 72px; height: 800px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 16px 0 14px; box-sizing: border-box; background: linear-gradient(180deg,#0B2A34 0%,#081A20 55%,#05141A 100%); border-right: 1px solid #1F3E49">
+    <span style="width: 34px; height: 34px; border-radius: 10px; background: #0F2F37; border: 1px solid #2A5562; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: #C6F36B">a</span>
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 36px">
+      <span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 10px; border: 1px solid #223E4A; background: rgba(10,36,45,.85); display: flex; align-items: center; justify-content: center; color: #CFE3EA"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"></path></svg></span>
+      <span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 10px; border: 1px solid #223E4A; background: rgba(10,36,45,.85); display: flex; align-items: center; justify-content: center; color: #CFE3EA"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2zM6 17a2 2 0 0 1 2-2h11"></path></svg></span>
+      <span aria-current="page" aria-label="Library" style="width: 34px; height: 34px; border-radius: 10px; border: 2px solid #C6F36B; background: #10303A; display: flex; align-items: center; justify-content: center; color: #C6F36B; box-shadow: 0 0 12px rgba(198,243,107,.35)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17 5l3 15"></path></svg></span>
+      <span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 10px; border: 1px solid #223E4A; background: rgba(10,36,45,.85); display: flex; align-items: center; justify-content: center; color: #CFE3EA"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"></path></svg></span>
+      <span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 10px; border: 1px solid #223E4A; background: rgba(10,36,45,.85); display: flex; align-items: center; justify-content: center; color: #CFE3EA"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"></path></svg></span>
+    </div>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px; align-items: center">
+      <span aria-hidden="true" style="width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #CFE3EA"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 0 0 4 0"></path></svg></span>
+      <span aria-hidden="true" style="width: 30px; height: 30px; border-radius: 50%; background: #2A303B; border: 1px solid #3A4150; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; color: #C6F36B">S</span>
+      <span aria-hidden="true" style="width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #9AA3B2"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 0z"></path></svg></span>
+    </div>
+  </nav>
+
+  <main style="flex-grow: 1; min-width: 0; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+    <div style="display: flex; align-items: center; gap: 16px">
+      <button data-hover onClick="{{openPalette}}" aria-label="Open command palette" style="flex-grow: 1; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 42px; background: #171A21; border: 1px solid #262B35; border-radius: 10px; color: #9AA3B2; font: inherit; font-size: 14px; text-align: left; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex-grow: 1">Search or run a command…</span><kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2; border: 1px solid #262B35; border-radius: 6px; padding: 2px 6px">Ctrl K</kbd></button>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #9AA3B2">Wed 21 Oct · 09:14</span>
+    </div>
+
+    <div style="display: flex; align-items: flex-end; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0">
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 28px; letter-spacing: -0.01em">Library</h1>
+        <span style="font-size: 13px; color: #9AA3B2">Films, series, anime, books, and manga</span>
+      </div>
+      <label data-field style="display: flex; align-items: center; gap: 8px; width: 240px; height: 38px; padding: 0 12px; box-sizing: border-box; background: #131820; border: 1px solid #262B35; border-radius: 10px; color: #9AA3B2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input aria-label="Search media" placeholder="Search media…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #E7E9EE; font: inherit; font-size: 13px">
+      </label>
+      <button data-hover onClick="{{cycleKind}}" style="display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; background: #171A21; border: 1px solid #262B35; border-radius: 10px; color: #C9CED8; font: inherit; font-size: 13px; cursor: pointer">{{kindLabel}}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button data-press onClick="{{openNew}}" style="height: 38px; padding: 0 16px; background: #C6F36B; border: 0; border-radius: 10px; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">+ Add</button>
+    </div>
+
+    <div role="group" aria-label="Filter by status" style="display: flex; align-items: center; gap: 8px">
+      <sc-for list="{{statusChips}}" as="c" hint-placeholder-count="5">
+        <button onClick="{{c.pick}}" aria-pressed="{{c.pressed}}" style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.color}}; font: inherit; font-size: 13px; cursor: pointer">{{c.label}}<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3B2">{{c.count}}</span></button>
+      </sc-for>
+      <span style="flex-grow: 1"></span>
+      <span style="font-size: 12px; color: #9AA3B2">Sorted by last activity</span>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 184px; gap: 12px; align-content: start; overflow: hidden">
+      <sc-for list="{{items}}" as="i" hint-placeholder-count="12">
+        <button data-card onClick="{{i.open}}" style="display: flex; flex-direction: column; gap: 5px; padding: 13px 14px; box-sizing: border-box; background: #171A21; border: 1px solid #262B35; border-radius: 14px; font: inherit; color: inherit; text-align: left; cursor: pointer; overflow: hidden">
+          <span style="display: flex; align-items: center; gap: 8px; flex-shrink: 0">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #9AA3B2; background: #1D2129; border-radius: 6px; padding: 2px 6px">{{i.kindLabel}}</span>
+            <span style="flex-grow: 1"></span>
+            <span aria-label="{{i.ratingLabel}}" style="font-size: 11px; letter-spacing: 1px; white-space: nowrap"><span style="color: #C6F36B">{{i.starsFull}}</span><span style="color: #3A4150">{{i.starsEmpty}}</span></span>
+          </span>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-shrink: 0">{{i.title}}</span>
+          <span style="font-size: 12px; color: #9AA3B2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0">{{i.creator}} · {{i.year}}</span>
+          <sc-if cond="{{i.hasProgress}}">
+            <span style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0">
+              <span style="height: 5px; border-radius: 999px; background: #1D2129; overflow: hidden"><span style="display: block; height: 100%; width: {{i.pct}}%; border-radius: 999px; background: {{i.barColor}}"></span></span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9AA3B2">{{i.progressLabel}}</span>
+            </span>
+          </sc-if>
+          <span style="font-size: 11.5px; color: #9AA3B2; font-style: italic; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; flex-shrink: 0">{{i.review}}</span>
+          <span style="margin-top: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0">
+            <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: {{i.chipColor}}; background: {{i.chipBg}}; border: 1px solid {{i.chipBorder}}; border-radius: 999px; padding: 2px 8px"><span aria-hidden="true" style="width: 5px; height: 5px; border-radius: 50%; background: {{i.chipColor}}"></span>{{i.statusLabel}}</span>
+            <span style="flex-grow: 1"></span>
+            <span style="font-size: 11px; color: #556C73">{{i.tags}}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+  </main>
+
+  <sc-if cond="{{editing}}">
+    <div onClick="{{close}}" style="position: absolute; inset: 0; z-index: 50; background: rgba(5,7,10,.8); animation: anchoa-fade .16s ease-out"></div>
+    <div role="dialog" aria-modal="true" aria-labelledby="lib-dialog" data-anim style="position: absolute; top: 90px; left: 50%; transform: translateX(-50%); z-index: 51; width: 480px; display: flex; flex-direction: column; gap: 14px; padding: 20px; box-sizing: border-box; background: #171A21; border: 1px solid #313B45; border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.65); animation: anchoa-pop .16s ease-out">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <h2 id="lib-dialog" style="margin: 0; flex-grow: 1; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">Edit media</h2>
+        <button data-hover onClick="{{close}}" aria-label="Close" style="width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: #9AA3B2; font: inherit; font-size: 18px; line-height: 1; cursor: pointer">×</button>
+      </div>
+
+      <label style="display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: #9AA3B2">Title
+        <input data-field value="{{draft.title}}" style="height: 38px; padding: 0 12px; box-sizing: border-box; background: #131820; border: 1px solid #262B35; border-radius: 10px; color: #E7E9EE; font: inherit; font-size: 13px; outline: none">
+      </label>
+
+      <div style="display: grid; grid-template-columns: minmax(0,1fr) 96px; gap: 10px">
+        <label style="display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: #9AA3B2">Creator
+          <input data-field value="{{draft.creator}}" style="height: 38px; padding: 0 12px; box-sizing: border-box; background: #131820; border: 1px solid #262B35; border-radius: 10px; color: #E7E9EE; font: inherit; font-size: 13px; outline: none">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: #9AA3B2">Year
+          <input data-field value="{{draft.year}}" style="height: 38px; padding: 0 12px; box-sizing: border-box; background: #131820; border: 1px solid #262B35; border-radius: 10px; color: #E7E9EE; font: inherit; font-size: 13px; outline: none">
+        </label>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 12px; color: #9AA3B2">Kind</span>
+        <div role="group" aria-label="Kind" style="display: flex; gap: 4px; padding: 3px; background: #0F1115; border: 1px solid #262B35; border-radius: 10px">
+          <sc-for list="{{kindOptions}}" as="k" hint-placeholder-count="5">
+            <button onClick="{{k.pick}}" aria-pressed="{{k.pressed}}" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 7px; background: {{k.bg}}; color: {{k.color}}; font: inherit; font-size: 12px; cursor: pointer">{{k.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 12px; color: #9AA3B2">Status</span>
+        <div role="group" aria-label="Status" style="display: flex; gap: 4px; padding: 3px; background: #0F1115; border: 1px solid #262B35; border-radius: 10px">
+          <sc-for list="{{statusOptions}}" as="s" hint-placeholder-count="4">
+            <button onClick="{{s.pick}}" aria-pressed="{{s.pressed}}" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 7px; background: {{s.bg}}; color: {{s.color}}; font: inherit; font-size: 12px; cursor: pointer">{{s.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span style="font-size: 12px; color: #9AA3B2; width: 64px">Progress</span>
+        <input data-field value="{{draft.progress}}" aria-label="Progress" style="width: 72px; height: 36px; padding: 0 10px; box-sizing: border-box; background: #131820; border: 1px solid #262B35; border-radius: 10px; color: #E7E9EE; font-family: 'JetBrains Mono', monospace; font-size: 13px; outline: none">
+        <span style="color: #556C73">/</span>
+        <input data-field value="{{draft.total}}" aria-label="Progress total" style="width: 72px; height: 36px; padding: 0 10px; box-sizing: border-box; background: #131820; border: 1px solid #262B35; border-radius: 10px; color: #E7E9EE; font-family: 'JetBrains Mono', monospace; font-size: 13px; outline: none">
+        <span style="font-size: 12px; color: #9AA3B2">{{draft.unit}}</span>
+        <span style="flex-grow: 1"></span>
+        <div role="group" aria-label="Rating" style="display: flex; gap: 2px">
+          <sc-for list="{{stars}}" as="st" hint-placeholder-count="5">
+            <button data-star onClick="{{st.pick}}" aria-label="{{st.label}}" aria-pressed="{{st.pressed}}" style="border: 0; background: transparent; padding: 0 1px; font-size: 19px; line-height: 1; color: {{st.color}}; cursor: pointer">★</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+        <span style="font-size: 12px; color: #9AA3B2; width: 64px">Tags</span>
+        <sc-for list="{{draft.tags}}" as="t" hint-placeholder-count="2">
+          <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #C9CED8; background: #1D2129; border: 1px solid #262B35; border-radius: 999px; padding: 3px 9px">{{t.label}}</span>
+        </sc-for>
+        <span style="font-size: 12px; color: #556C73">+ add tag</span>
+      </div>
+
+      <label style="display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: #9AA3B2">Your review
+        <textarea data-field rows="3" style="padding: 10px 12px; box-sizing: border-box; resize: none; background: #131820; border: 1px solid #262B35; border-radius: 10px; color: #E7E9EE; font: inherit; font-size: 13px; line-height: 1.5; outline: none">{{draft.review}}</textarea>
+      </label>
+
+      <div style="display: flex; align-items: center; gap: 8px; padding-top: 2px">
+        <button data-hover onClick="{{remove}}" style="height: 34px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent; color: #FF8A7A; font: inherit; font-size: 13px; cursor: pointer">Delete</button>
+        <span style="flex-grow: 1"></span>
+        <button data-hover onClick="{{close}}" style="height: 34px; padding: 0 14px; border: 1px solid #3A4150; border-radius: 9px; background: transparent; color: #C9CED8; font: inherit; font-size: 13px; cursor: pointer">Cancel</button>
+        <button data-press onClick="{{save}}" style="height: 34px; padding: 0 16px; border: 0; border-radius: 9px; background: #C6F36B; color: #0F1115; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Save</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <button data-press aria-label="Open assistant" style="position: absolute; right: 24px; bottom: 24px; z-index: 30; width: 60px; height: 60px; border-radius: 50%; border: 1px solid #262B35; background: #171A21; color: #C6F36B; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 16px 40px rgba(0,0,0,.45)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+  </button>
+</div>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const ITEMS = [
+      { kind: 'series', title: 'Severance', creator: 'Dan Erickson', year: 2022, status: 'active', progress: 6, total: 10, rating: 5, tags: 'sci-fi, work', review: 'Slow-burn office horror with a perfect set.' },
+      { kind: 'book', title: 'Designing Data-Intensive Applications', creator: 'Martin Kleppmann', year: 2017, status: 'active', progress: 120, total: 550, rating: 4, tags: 'engineering', review: 'Dense, but chapter 5 alone pays for the book.' },
+      { kind: 'film', title: 'Past Lives', creator: 'Celine Song', year: 2023, status: 'finished', progress: null, total: null, rating: 5, tags: 'drama', review: 'Quiet, precise, devastating in the last scene.' },
+      { kind: 'anime', title: 'Frieren: Beyond Journey’s End', creator: 'Kanehito Yamada', year: 2023, status: 'active', progress: 18, total: 28, rating: 5, tags: 'fantasy', review: 'A quiet epic about the years after the quest.' },
+      { kind: 'book', title: 'Piranesi', creator: 'Susanna Clarke', year: 2020, status: 'finished', progress: 245, total: 245, rating: 5, tags: 'fantasy', review: 'The house is the best character in years.' },
+      { kind: 'series', title: 'The Bear', creator: 'Christopher Storer', year: 2022, status: 'dropped', progress: 4, total: 10, rating: 3, tags: 'drama', review: 'Great craft, too much shouting for me.' },
+      { kind: 'film', title: 'Perfect Days', creator: 'Wim Wenders', year: 2023, status: 'want', progress: null, total: null, rating: null, tags: 'drama', review: 'Saved for a slow Sunday.' },
+      { kind: 'manga', title: 'Vinland Saga', creator: 'Makoto Yukimura', year: 2005, status: 'active', progress: 120, total: 220, rating: 4, tags: 'history', review: 'The farm arc is the best part so far.' },
+      { kind: 'anime', title: 'Mushishi', creator: 'Yuki Urushibara', year: 2005, status: 'finished', progress: 26, total: 26, rating: 5, tags: 'calm', review: 'The best thing to watch before sleep.' },
+      { kind: 'book', title: 'The Creative Act', creator: 'Rick Rubin', year: 2023, status: 'want', progress: null, total: null, rating: null, tags: 'craft', review: 'Recommended twice this month.' },
+      { kind: 'series', title: 'Dark', creator: 'Baran bo Odar', year: 2017, status: 'finished', progress: 26, total: 26, rating: 4, tags: 'sci-fi', review: 'A family tree I had to draw on paper.' },
+      { kind: 'manga', title: 'Akira', creator: 'Katsuhiro Otomo', year: 1982, status: 'want', progress: null, total: 120, rating: null, tags: 'classic', review: 'Waiting for the box set.' }
+    ];
+    const LABELS = { film: 'Film', series: 'Series', anime: 'Anime', book: 'Book', manga: 'Manga', want: 'Want', active: 'Watching', finished: 'Finished', dropped: 'Dropped' };
+    const UNITS = { series: 'eps', anime: 'eps', book: 'pages', manga: 'chapters', film: '' };
+    const statusOf = (m) => m.status === 'active' ? ((m.kind === 'book' || m.kind === 'manga') ? 'Reading' : 'Watching') : LABELS[m.status];
+    const STATUS_STYLE = {
+      want: { color: '#9AA3B2', bg: 'rgba(29,33,41,.7)', border: '#262B35' },
+      active: { color: '#C6F36B', bg: 'rgba(198,243,107,.08)', border: '#4E6A26' },
+      finished: { color: '#86B33A', bg: 'rgba(134,179,58,.08)', border: '#3C5A22' },
+      dropped: { color: '#FF8A7A', bg: 'rgba(255,138,122,.08)', border: '#5C322C' }
+    };
+    const status = st.status || 'all';
+    const kind = st.kind || 'all';
+    const counts = { all: ITEMS.length, want: 0, active: 0, finished: 0, dropped: 0 };
+    ITEMS.forEach((m) => { counts[m.status] += 1; });
+    const visible = ITEMS.filter((m) => (status === 'all' || m.status === status) && (kind === 'all' || m.kind === kind));
+    const chipStyle = (on) => on
+      ? { bg: '#1D2129', border: '#4E6A26', color: '#E7E9EE' }
+      : { bg: 'transparent', border: '#262B35', color: '#9AA3B2' };
+    const chips = [
+      { key: 'all', label: 'All', count: counts.all },
+      { key: 'want', label: 'Want', count: counts.want },
+      { key: 'active', label: 'Watching', count: counts.active },
+      { key: 'finished', label: 'Finished', count: counts.finished },
+      { key: 'dropped', label: 'Dropped', count: counts.dropped }
+    ].map((c) => Object.assign({ label: c.label, count: c.count, pressed: status === c.key ? 'true' : 'false', pick: () => this.setState({ status: c.key }) }, chipStyle(status === c.key)));
+    const KINDS = ['all', 'film', 'series', 'anime', 'book', 'manga'];
+    const nextKind = KINDS[(KINDS.indexOf(kind) + 1) % KINDS.length];
+    const idx = typeof st.editing === 'number' ? st.editing : null;
+    const sel = idx === null ? null : ITEMS[idx];
+    const blank = { kind: 'film', title: '', creator: '', year: 2026, progress: null, total: null, rating: null, tags: '', review: '', status: 'want' };
+    const base = sel || blank;
+    const draftKind = st.draftKind || base.kind;
+    const draftStatus = st.draftStatus || base.status;
+    const rating = st.rating === undefined ? (base.rating || 0) : st.rating;
+    const seg = (list, active, field) => list.map((v) => ({
+      label: LABELS[v],
+      pressed: active === v ? 'true' : 'false',
+      bg: active === v ? '#1D2129' : 'transparent',
+      color: active === v ? '#E7E9EE' : '#9AA3B2',
+      pick: () => this.setState(field === 'kind' ? { draftKind: v } : { draftStatus: v })
+    }));
+    return {
+      openPalette: () => {},
+      kindLabel: kind === 'all' ? 'All kinds' : LABELS[kind],
+      cycleKind: () => this.setState({ kind: nextKind }),
+      statusChips: chips,
+      items: visible.map((m) => {
+        const s = STATUS_STYLE[m.status];
+        const hasProgress = m.total !== null && m.progress !== null;
+        return {
+          kindLabel: LABELS[m.kind],
+          title: m.title,
+          creator: m.creator,
+          year: m.year,
+          review: m.review,
+          tags: m.tags,
+          ratingLabel: m.rating === null ? 'Not rated' : m.rating + ' of 5',
+          starsFull: '★'.repeat(m.rating || 0),
+          starsEmpty: '☆'.repeat(5 - (m.rating || 0)),
+          statusLabel: statusOf(m),
+          chipColor: s.color,
+          chipBg: s.bg,
+          chipBorder: s.border,
+          hasProgress: hasProgress,
+          pct: hasProgress ? Math.round((m.progress / m.total) * 100) : 0,
+          barColor: m.status === 'finished' ? '#4E6A26' : m.status === 'dropped' ? '#3A4150' : '#86B33A',
+          progressLabel: hasProgress ? (UNITS[m.kind] === 'pages' ? 'p. ' + m.progress + ' / ' + m.total : m.progress + ' / ' + m.total + ' ' + UNITS[m.kind]) : '',
+          open: () => this.setState({ editing: ITEMS.indexOf(m), draftKind: undefined, draftStatus: undefined, rating: undefined })
+        };
+      }),
+      editing: st.editing !== undefined && st.editing !== null,
+      draft: {
+        title: base.title,
+        creator: base.creator,
+        year: String(base.year),
+        progress: base.progress === null ? '' : String(base.progress),
+        total: base.total === null ? '' : String(base.total),
+        review: base.review,
+        unit: UNITS[draftKind] || '',
+        tags: base.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => ({ label: t }))
+      },
+      kindOptions: seg(['film', 'series', 'anime', 'book', 'manga'], draftKind, 'kind'),
+      statusOptions: seg(['want', 'active', 'finished', 'dropped'], draftStatus, 'status'),
+      stars: [1, 2, 3, 4, 5].map((n) => ({
+        label: n + ' of 5',
+        pressed: rating >= n ? 'true' : 'false',
+        color: rating >= n ? '#C6F36B' : '#3A4150',
+        pick: () => this.setState({ rating: n })
+      })),
+      openNew: () => this.setState({ editing: 'new', draftKind: 'film', draftStatus: 'want', rating: 0 }),
+      close: () => this.setState({ editing: null, draftKind: undefined, draftStatus: undefined, rating: undefined }),
+      save: () => this.setState({ editing: null }),
+      remove: () => this.setState({ editing: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

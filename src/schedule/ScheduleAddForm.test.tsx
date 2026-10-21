@@ -4,13 +4,13 @@ import { ScheduleAddForm, validateScheduleInput } from "./ScheduleAddForm";
 
 test("empty title is rejected", () => {
   expect(validateScheduleInput("   ", "2026-10-06")).toEqual({
-    error: "Judul tidak boleh kosong",
+    error: "Title cannot be empty",
   });
 });
 
 test("invalid date is rejected", () => {
-  expect(validateScheduleInput("Belanja", "bukan-tanggal")).toEqual({
-    error: "Tanggal tidak valid: bukan-tanggal",
+  expect(validateScheduleInput("Shopping", "not-a-date")).toEqual({
+    error: "Invalid date: not-a-date",
   });
 });
 
@@ -19,7 +19,7 @@ test("form renders title, date defaulting to today, and inline error slot", () =
     <ScheduleAddForm defaultDate="2026-10-06" onClose={() => {}} onSaved={() => {}} />,
   );
   expect(html).toContain('role="dialog"');
-  expect(html).toContain("Tugas baru");
+  expect(html).toContain("New task");
   expect(html).toContain('value="2026-10-06"');
   expect(html).not.toContain('role="alert"');
 });

@@ -128,18 +128,18 @@ describe("file manager view rules", () => {
 
   describe("reportToasts", () => {
     it("returns ok message when done items are present", () => {
-      const res = reportToasts({ done: ["/a", "/b"], failed: [] }, "disalin");
-      expect(res.ok).toBe("2 item disalin");
+      const res = reportToasts({ done: ["/a", "/b"], failed: [] }, "copied");
+      expect(res.ok).toBe("2 item(s) copied");
       expect(res.error).toBeUndefined();
     });
 
     it("returns error message when failed items are present", () => {
       const res = reportToasts(
         { done: [], failed: [{ path: "/a", error: "Permission denied" }] },
-        "disalin",
+        "copied",
       );
       expect(res.ok).toBeUndefined();
-      expect(res.error).toBe("Gagal: /a: Permission denied");
+      expect(res.error).toBe("Failed: /a: Permission denied");
     });
 
     it("formats multiple failures separated by comma", () => {
@@ -151,10 +151,10 @@ describe("file manager view rules", () => {
             { path: "/b", error: "Disk full" },
           ],
         },
-        "dipindahkan",
+        "moved",
       );
       expect(res.ok).toBeUndefined();
-      expect(res.error).toBe("Gagal: /a: Permission denied, /b: Disk full");
+      expect(res.error).toBe("Failed: /a: Permission denied, /b: Disk full");
     });
 
     it("returns both ok and error when both done and failed are present", () => {
@@ -163,10 +163,10 @@ describe("file manager view rules", () => {
           done: ["/ok1"],
           failed: [{ path: "/fail1", error: "Error" }],
         },
-        "dipindahkan ke Tong Sampah",
+        "moved to Trash",
       );
-      expect(res.ok).toBe("1 item dipindahkan ke Tong Sampah");
-      expect(res.error).toBe("Gagal: /fail1: Error");
+      expect(res.ok).toBe("1 item(s) moved to Trash");
+      expect(res.error).toBe("Failed: /fail1: Error");
     });
 
     it("returns empty object when done and failed are empty", () => {
@@ -177,13 +177,13 @@ describe("file manager view rules", () => {
   });
 
   describe("KIND_LABELS", () => {
-    it("provides Indonesian labels for all 6 file kinds", () => {
+    it("provides English labels for all 6 file kinds", () => {
       expect(KIND_LABELS.folder).toBe("Folder");
-      expect(KIND_LABELS.image).toBe("Gambar");
+      expect(KIND_LABELS.image).toBe("Image");
       expect(KIND_LABELS.video).toBe("Video");
       expect(KIND_LABELS.pdf).toBe("PDF");
-      expect(KIND_LABELS.text).toBe("Teks");
-      expect(KIND_LABELS.other).toBe("Berkas");
+      expect(KIND_LABELS.text).toBe("Text");
+      expect(KIND_LABELS.other).toBe("File");
     });
   });
 

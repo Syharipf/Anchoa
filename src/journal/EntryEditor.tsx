@@ -21,10 +21,10 @@ type SaveQueue = {
 };
 
 function computeSaveText(saveState: SaveState, body: string): string {
-  if (saveState === "saving") return "Menyimpan…";
-  if (saveState === "failed") return "Gagal menyimpan";
+  if (saveState === "saving") return "Saving…";
+  if (saveState === "failed") return "Failed to save";
   const words = body.trim().split(/\s+/).filter(Boolean).length;
-  return `Tersimpan · ${words} kata`;
+  return `Saved · ${words} words`;
 }
 
 export function extractWikilinks(text: string): string[] {
@@ -248,7 +248,7 @@ export function EntryEditor({
       if (target) {
         onOpenTask(target.id);
       } else {
-        toast(`"${linkTitle}" belum ditemukan`, "info");
+        toast(`"${linkTitle}" not found`, "info");
       }
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -302,7 +302,7 @@ export function EntryEditor({
       if (token !== dictationSessionRef.current) return;
       if (!status.whisper || !status.whisperModel) {
         setMicMode("idle");
-        toast("Model Whisper belum terpasang", "error", { label: "Pengaturan", run: () => onOpenSettings?.("suara") });
+        toast("Whisper model is not installed", "error", { label: "Settings", run: () => onOpenSettings?.("suara") });
         return;
       }
       await api.voiceRecordStart();
@@ -439,8 +439,8 @@ export function EntryEditor({
           <button
             type="button"
             disabled={deleting || micMode === "transcribing" || micMode === "starting"}
-            aria-label={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
-            title={micMode === "recording" ? "Hentikan rekaman dikte" : "Dikte"}
+            aria-label={micMode === "recording" ? "Stop dictation recording" : "Dictate"}
+            title={micMode === "recording" ? "Stop dictation recording" : "Dictate"}
             onClick={() => void handleToggleDictation()}
             className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 disabled:text-disabled ${
               micMode === "recording"
@@ -467,8 +467,8 @@ export function EntryEditor({
           <button
             disabled={deleting}
             aria-pressed={entry.pinned}
-            aria-label={entry.pinned ? "Lepas sematan" : "Sematkan"}
-            title={entry.pinned ? "Lepas sematan" : "Sematkan"}
+            aria-label={entry.pinned ? "Unpin" : "Pin"}
+            title={entry.pinned ? "Unpin" : "Pin"}
             onClick={() => void handleEntryPatch({ pinned: !entry.pinned })}
             className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 disabled:text-disabled ${entry.pinned ? "text-accent" : "text-muted hover:text-ink"}`}
           >
@@ -490,8 +490,8 @@ export function EntryEditor({
           <button
             type="button"
             disabled={deleting || converting}
-            aria-label="Hapus entri"
-            title="Hapus entri"
+            aria-label="Delete entry"
+            title="Delete entry"
             onClick={() => void handleDelete()}
             className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-danger disabled:text-disabled"
           >
@@ -520,8 +520,8 @@ export function EntryEditor({
         value={title}
         onChange={(e) => handleTitleChange(e.target.value)}
         onBlur={() => void flush()}
-        placeholder="Judul (boleh kosong)"
-        aria-label="Judul entri"
+        placeholder="Title (optional)"
+        aria-label="Entry title"
         className="border-0 bg-transparent p-0 font-display text-[22px] font-semibold text-ink outline-none placeholder:text-muted focus:outline-none"
       />
 
@@ -541,15 +541,15 @@ export function EntryEditor({
           onClick={updateCaretPos}
           onSelect={updateCaretPos}
           onBlur={() => void flush()}
-          placeholder="Tulis apa saja — ide yang lewat, hal yang bikin kesal, atau sekadar catatan. Tidak ada yang menilai."
-          aria-label="Isi entri"
+          placeholder="Write anything — fleeting thoughts, frustrations, or just notes. Nobody is judging."
+          aria-label="Entry content"
           className="min-h-[220px] w-full flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.7] text-ink outline-none placeholder:text-muted focus:outline-none"
         />
 
         {showSuggestions && suggestions.length > 0 && (
           <ul
             role="listbox"
-            aria-label="Saran tautan"
+            aria-label="Link suggestions"
             className="absolute bottom-2 left-0 z-20 max-h-48 w-64 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-lg"
           >
             {suggestions.map((item, idx) => (
@@ -589,17 +589,17 @@ export function EntryEditor({
       {/* Tautan Terkait */}
       {links.length > 0 && (
         <section
-          aria-label="Tautan terkait"
+          aria-label="Related links"
           className="flex flex-col gap-1.5 rounded-lg border border-line bg-surface-2/30 p-2.5"
         >
-          <span className="text-xs font-semibold text-muted">Tautan Terkait</span>
+          <span className="text-xs font-semibold text-muted">Related Links</span>
           <div className="flex flex-wrap gap-1.5">
             {links.map((linkTitle) => (
               <button
                 key={linkTitle}
                 type="button"
                 onClick={() => void handleOpenLink(linkTitle)}
-                aria-label={`Buka tautan ${linkTitle}`}
+                aria-label={`Open link ${linkTitle}`}
                 className="flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink transition-colors hover:border-accent hover:text-accent"
               >
                 <span className="font-mono text-xs text-accent">[[</span>
@@ -628,7 +628,7 @@ export function EntryEditor({
               onClick={() => onOpenTask(entry.taskId!)}
               className="flex h-8 items-center rounded-lg border border-[#4E6A26] bg-transparent px-3 text-xs text-accent transition-colors hover:bg-surface-2"
             >
-              Buka tugas
+              Open task
             </button>
           ) : (
             <button
@@ -637,7 +637,7 @@ export function EntryEditor({
               onClick={() => void handleConvertToTask()}
               className="flex h-8 items-center rounded-lg border border-line bg-transparent px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
             >
-              Jadikan tugas
+              Convert to task
             </button>
           )
         )}
@@ -648,15 +648,15 @@ export function EntryEditor({
           onClick={() => onOpenAssistant({ kind: "speak", text: [title, body].filter((text) => text.trim()).join(". ") })}
           className="flex h-8 items-center rounded-lg border border-line bg-transparent px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
         >
-          Bacakan
+          Read aloud
         </button>
 
         <button
           type="button"
-          onClick={() => onOpenAssistant({ kind: "compose", text: `Berikan tanggapan yang suportif untuk entri jurnal ini:\n\n${title || "Tanpa judul"}\n${body}` })}
+          onClick={() => onOpenAssistant({ kind: "compose", text: `Provide a supportive response to this journal entry:\n\n${title || "Untitled"}\n${body}` })}
           className="flex h-8 items-center rounded-lg border border-[#4E6A26] bg-transparent px-3 text-xs text-accent transition-colors hover:bg-surface-2"
         >
-          Minta tanggapan
+          Get feedback
         </button>
       </div>
     </article>

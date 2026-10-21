@@ -42,16 +42,15 @@ const buttons = () => tree().filter((el) => el.type === "button");
 
 it("shows an active OS bridge without a permission button", async () => {
   await mount();
-  expect(texts()).toContain("Notifikasi sistem: aktif");
+  expect(texts()).toContain("System notifications: active");
   expect(buttons()).toHaveLength(0);
-  expect(texts()).toContain("Belum ada pengingat yang dikirim ke sistem.");
-  expect(texts().some((t) => t.includes("selama Anchoa berjalan"))).toBe(true);
+  expect(texts()).toContain("No reminders sent to the system yet.");
+  expect(texts().some((t) => t.includes("while Anchoa is running"))).toBe(true);
 });
-
 it("explains a denied permission and offers no prompt", async () => {
   current = { permission: "denied", reason: "Izin notifikasi ditolak di pengaturan sistem.", recent: [] };
   await mount();
-  expect(texts()).toContain("Notifikasi sistem: ditolak");
+  expect(texts()).toContain("System notifications: denied");
   expect(texts()).toContain("Izin notifikasi ditolak di pengaturan sistem.");
   expect(buttons()).toHaveLength(0);
 });
@@ -61,16 +60,16 @@ it("asks for permission while the OS is still prompting", async () => {
   const answer = deferred<NotifyStatus>();
   const request = spy(spyOn(api, "notifyRequestPermission").mockReturnValue(answer.promise));
   await mount();
-  expect(texts()).toContain("Notifikasi sistem: belum diizinkan");
+  expect(texts()).toContain("System notifications: not allowed yet");
   const pending = (buttons()[0].props.onClick as () => void)();
   harness.render();
-  expect(textOf(buttons()[0])).toBe("Meminta izin…");
+  expect(textOf(buttons()[0])).toBe("Requesting permission…");
   expect(buttons()[0].props.disabled).toBe(true);
   answer.resolve(GRANTED);
   await pending;
   await harness.settle();
   expect(request).toHaveBeenCalledTimes(1);
-  expect(texts()).toContain("Notifikasi sistem: aktif");
+  expect(texts()).toContain("System notifications: active");
   expect(buttons()).toHaveLength(0);
 });
 
@@ -97,9 +96,9 @@ it("lists the latest deliveries, capped, and refreshes after a batch", async () 
   const items = tree().filter((el) => el.type === "li");
   expect(items).toHaveLength(5);
   expect(texts()).toContain("Kirim laporan");
-  expect(texts()).toContain("Terkirim · 1 menit lalu");
+  expect(texts()).toContain("Delivered · 1 minute ago");
   expect(texts()).toContain("bill:b1");
-  expect(texts()).toContain("Dilewati, kategori mati · 1 menit lalu");
+  expect(texts()).toContain("Skipped, category disabled · 1 minute ago");
 
   current = { ...GRANTED, recent: [{ at, id: "task:t2", title: "Bayar sewa", state: "shown", reason: null }] };
   delivered?.();
@@ -111,6 +110,6 @@ it("lists the latest deliveries, capped, and refreshes after a batch", async () 
 it("surfaces a status error", async () => {
   spy(spyOn(api, "notifyStatus").mockRejectedValue({ code: "db_unavailable", message: "Database tidak tersedia" }));
   await mount();
-  expect(texts()).toContain("Notifikasi sistem: memuat…");
+  expect(texts()).toContain("System notifications: loading…");
   expect(tree().filter((el) => el.props.role === "alert").map(textOf)).toContain("Database tidak tersedia");
 });

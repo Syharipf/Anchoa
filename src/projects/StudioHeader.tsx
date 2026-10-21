@@ -67,7 +67,7 @@ export function StudioHeader({
               />
             </span>
             <span className="font-medium text-ink">omp</span>
-            <span className="text-muted">{running ? "sedang berjalan" : "idle"}</span>
+            <span className="text-muted">{running ? "running" : "idle"}</span>
           </div>
         )}
 
@@ -89,7 +89,7 @@ export function StudioHeader({
               >
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              Draft Sasaran AI
+              Draft AI targets
             </button>
           )}
 
@@ -110,7 +110,7 @@ export function StudioHeader({
               >
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
-              Jalankan App
+              Run App
             </button>
           )}
 
@@ -119,7 +119,7 @@ export function StudioHeader({
               type="button"
               onClick={onEditProject}
               className={`${HEADER_SECONDARY} text-xs`}
-              title="Pengaturan Proyek"
+              title="Project settings"
             >
               ⚙
             </button>
@@ -128,7 +128,7 @@ export function StudioHeader({
       </div>
 
       {/* Tabs */}
-      <nav aria-label="Sub-menu Studio" className="flex border-b border-line gap-1">
+      <nav aria-label="Studio sub-menu" className="flex border-b border-line gap-1">
         <button
           type="button"
           onClick={() => onTabChange("kanban")}
@@ -139,7 +139,7 @@ export function StudioHeader({
               : "border-transparent text-muted hover:text-ink"
           }`}
         >
-          Papan Kanban
+          Kanban board
         </button>
 
         <button
@@ -152,7 +152,7 @@ export function StudioHeader({
               : "border-transparent text-muted hover:text-ink"
           }`}
         >
-          PRD &amp; Alur Bisnis
+          PRD &amp; Business Flow
         </button>
 
         <button
@@ -165,7 +165,7 @@ export function StudioHeader({
               : "border-transparent text-muted hover:text-ink"
           }`}
         >
-          Perubahan &amp; Diff
+          Changes &amp; Diff
         </button>
 
         {project.agent && (
@@ -179,7 +179,7 @@ export function StudioHeader({
                 : "border-transparent text-muted hover:text-ink"
             }`}
           >
-            Aktivitas Agen
+            Agent activity
           </button>
         )}
       </nav>

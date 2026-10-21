@@ -57,7 +57,7 @@ export function AgentRequest({
   return (
     <section aria-labelledby="agent-request-title" className="flex shrink-0 flex-col gap-3 rounded-[14px] border border-line bg-surface p-4">
       <div className="flex items-center gap-3">
-        <h2 id="agent-request-title" className={`${H2} whitespace-nowrap`}>Kirim ke agen</h2>
+        <h2 id="agent-request-title" className={`${H2} whitespace-nowrap`}>Send to agent</h2>
         {project.agentDir && (
           <span className="font-mono text-xs text-muted truncate max-w-[200px]" title={project.agentDir}>
             {project.agentDir}
@@ -65,17 +65,17 @@ export function AgentRequest({
         )}
         <span role="status" aria-live="polite" className="ml-auto flex items-center gap-1.5 text-xs text-muted">
           {running && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />}
-          {running ? "Agen berjalan…" : ""}
+          {running ? "Agent running…" : ""}
         </span>
       </div>
       <form onSubmit={send} className="flex flex-col gap-2.5">
         <textarea
-          aria-label="Permintaan ke agen"
+          aria-label="Request to agent"
           value={text}
           onChange={(event) => setText(event.target.value)}
           disabled={busy}
           rows={2}
-          placeholder="Misalnya: perbaiki tes yang gagal, lalu jalankan ulang tesnya."
+          placeholder="For example: fix failing tests, then rerun the test suite."
           className={`${FIELD} min-w-0 resize-y`}
         />
         <div className="flex flex-wrap gap-1.5">
@@ -94,19 +94,19 @@ export function AgentRequest({
         <div className="flex items-center gap-2 pt-1">
           <div className="flex-1 min-w-0">
             {project.agentCommand ? (
-              <p className="m-0 text-xs text-muted truncate" title={`Perintah: ${project.agentCommand}`}>
-                Perintah: <code className="font-mono text-[11px] text-ink">{project.agentCommand}</code>
+              <p className="m-0 text-xs text-muted truncate" title={`Command: ${project.agentCommand}`}>
+                Command: <code className="font-mono text-[11px] text-ink">{project.agentCommand}</code>
                 {project.agentDir ? ` · ${project.agentDir}` : ""}
               </p>
             ) : (
               <p className="m-0 text-xs text-muted">
-                Tanpa perintah agen, permintaan menunggu di Rencana sampai agen mengambilnya lewat <code className="font-mono text-[11px]">anchoa agent inbox</code>.
+                Without an agent command, requests wait in Plan until an agent picks them up via <code className="font-mono text-[11px]">anchoa agent inbox</code>.
               </p>
             )}
           </div>
-          <button type="submit" disabled={busy || running || !text.trim()} className={PRIMARY}>Kirim</button>
+          <button type="submit" disabled={busy || running || !text.trim()} className={PRIMARY}>Send</button>
           <button type="button" onClick={stop} disabled={busy || !running}
-            className={`${SECONDARY} text-danger disabled:text-disabled disabled:hover:bg-transparent`}>Hentikan</button>
+            className={`${SECONDARY} text-danger disabled:text-disabled disabled:hover:bg-transparent`}>Stop</button>
         </div>
       </form>
     </section>

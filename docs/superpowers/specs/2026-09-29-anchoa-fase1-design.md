@@ -301,6 +301,8 @@ Dijalankan di baris pertama `main()`, sebelum thread atau webview apa pun dibuat
 
 Diperbarui 2026-09-30 dengan modul dari paket desain `anchoa-final` (`docs/design/`). Nama artboard ditulis tanpa folder `docs/design/artboards/`.
 
+**Keputusan platform 2026-10-21:** fokus Arch Linux/CachyOS (x86_64). Fedora/RPM dan mobile (Android) ditunda: `android-release.yml` hanya manual, repo RPM tidak lagi dipublikasikan, dan `tauri.conf.json` memakai target `deb` untuk paket Arch. Artboard dan spec HP tetap disimpan sebagai referensi.
+
 | Fase | Isi |
 |---|---|
 | 0 ✓ | Uji Live2D di Tauri |

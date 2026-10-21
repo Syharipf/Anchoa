@@ -8,18 +8,18 @@ import { DownloadQueue } from "./DownloadQueue";
 import { DownloadSettingsPanel } from "./DownloadSettingsPanel";
 import { EnginesPanel } from "./EnginesPanel";
 
-describe("Unduhan components", () => {
+describe("Downloads components", () => {
   describe("AddDownload", () => {
     it("renders input, detection badge, examples, and download button", () => {
       const html = renderToStaticMarkup(<AddDownload onAdded={() => {}} />);
-      expect(html).toContain("Tempel tautan video, audio, atau file…");
-      expect(html).toContain("Menunggu tautan");
-      expect(html).toContain("Contoh:");
+      expect(html).toContain("Paste video, audio, or file link…");
+      expect(html).toContain("Waiting for link");
+      expect(html).toContain("Examples:");
       expect(html).toContain("Video");
       expect(html).toContain("Audio");
       expect(html).toContain("File");
       expect(html).toContain("Magnet");
-      expect(html).toContain("Unduh");
+      expect(html).toContain("Download");
     });
   });
 
@@ -71,18 +71,18 @@ describe("Unduhan components", () => {
           onReveal={() => {}}
         />,
       );
-      expect(html).toContain("Antrean");
-      expect(html).toContain("Semua");
-      expect(html).toContain("Aktif");
-      expect(html).toContain("Selesai");
-      expect(html).toContain("Gagal");
+      expect(html).toContain("Queue");
+      expect(html).toContain("All");
+      expect(html).toContain("Active");
+      expect(html).toContain("Done");
+      expect(html).toContain("Failed");
       expect(html).toContain("Tutorial Live2D");
       expect(html).toContain("Berkas arsip");
-      expect(html).toContain("Mengunduh");
-      expect(html).toContain("Selesai");
-      expect(html).toContain("Buka di Berkas");
-      expect(html).toContain("Hapus dari daftar");
-      expect(html).toContain("Kemajuan unduhan Tutorial Live2D");
+      expect(html).toContain("Downloading");
+      expect(html).toContain("Done");
+      expect(html).toContain("Show in Files");
+      expect(html).toContain("Remove from list");
+      expect(html).toContain("Download progress for Tutorial Live2D");
       expect(html).toContain("anchoa-fish-school");
     });
 
@@ -120,9 +120,9 @@ describe("Unduhan components", () => {
         />,
       );
       expect(html).toContain("Large Dataset");
-      expect(html).toContain("Terputus");
-      expect(html).toContain("Lanjutkan sekarang");
-      expect(html).toContain("Kemajuan unduhan Large Dataset");
+      expect(html).toContain("Interrupted");
+      expect(html).toContain("Resume now");
+      expect(html).toContain("Download progress for Large Dataset");
     });
     it("renders empty message when no items", () => {
       const html = renderToStaticMarkup(
@@ -136,17 +136,17 @@ describe("Unduhan components", () => {
           onReveal={() => {}}
         />,
       );
-      expect(html).toContain("Tidak ada unduhan di tab ini.");
+      expect(html).toContain("No downloads in this tab.");
     });
   });
 
   describe("EnginesPanel", () => {
-    it("shows the install command when an engine is missing", () => {
+    it("shows the install hint when an engine is missing", () => {
       const html = renderToStaticMarkup(
-        <EnginesPanel engines={{ ytdlp: null, ffmpeg: null, hint: "sudo dnf install yt-dlp ffmpeg" }} />,
+        <EnginesPanel engines={{ ytdlp: null, ffmpeg: null, hint: "Install yt-dlp and ffmpeg using your package manager" }} />,
       );
-      expect(html).toContain("Belum terpasang");
-      expect(html).toContain("sudo dnf install yt-dlp ffmpeg");
+      expect(html).toContain("Not installed");
+      expect(html).toContain("Install yt-dlp and ffmpeg using your package manager");
     });
 
     it("renders the available engines without a torrent placeholder", () => {
@@ -156,27 +156,27 @@ describe("Unduhan components", () => {
         hint: null,
       };
       const html = renderToStaticMarkup(<EnginesPanel engines={engines} />);
-      expect(html).toContain("Mesin unduhan");
+      expect(html).toContain("Download engines");
       expect(html).toContain("yt-dlp");
       expect(html).toContain("2026.09.01");
       expect(html).toContain("ffmpeg");
       expect(html).toContain(">7.0.2<");
-      expect(html).not.toContain("Belum terpasang");
-      expect(html).toContain("File langsung");
-      expect(html).toContain("Bawaan");
+      expect(html).not.toContain("Not installed");
+      expect(html).toContain("Direct download");
+      expect(html).toContain("Built-in");
       expect(html).toContain("aria2c &amp; Torrent");
-      expect(html).toContain("Ekstensi Browser");
+      expect(html).toContain("Browser Extension");
     });
 
     it("renders uninstalled engines and stale yt-dlp notice", () => {
       const staleEngines: EnginesInfo = {
         ytdlp: { version: "2026.01.01", stale: true },
         ffmpeg: null,
-        hint: "Perbarui: sudo dnf upgrade yt-dlp",
+        hint: "Update: please upgrade yt-dlp",
       };
       const html = renderToStaticMarkup(<EnginesPanel engines={staleEngines} />);
-      expect(html).toContain("Perbarui");
-      expect(html).toContain("Belum terpasang");
+      expect(html).toContain("Update: please upgrade yt-dlp");
+      expect(html).toContain("Not installed");
     });
   });
 
@@ -190,14 +190,14 @@ describe("Unduhan components", () => {
       const html = renderToStaticMarkup(
         <DownloadSettingsPanel settings={settings} onSettingsChanged={() => {}} />,
       );
-      expect(html).toContain("Pengaturan");
-      expect(html).toContain("Simpan ke");
+      expect(html).toContain("Settings");
+      expect(html).toContain("Save to");
       expect(html).toContain("/home/user/Unduhan");
-      expect(html).toContain("Ubah");
-      expect(html).toContain("Unduhan bersamaan");
+      expect(html).toContain("Change");
+      expect(html).toContain("Concurrent downloads");
       expect(html).toContain("3");
-      expect(html).toContain("Batas kecepatan");
-      expect(html).toContain("Tanpa batas");
+      expect(html).toContain("Speed limit");
+      expect(html).toContain("Unlimited");
       expect(html).toContain("1 MB/s");
       expect(html).toContain("5 MB/s");
       expect(html).toContain("10 MB/s");
@@ -232,7 +232,7 @@ describe("Unduhan components", () => {
 
       function pathInput() {
         const found = elements(harness!.render()).find(
-          (el) => el.type === "input" && el.props["aria-label"] === "Path folder unduhan",
+          (el) => el.type === "input" && el.props["aria-label"] === "Download folder path",
         );
         expect(found).toBeDefined();
         return found!;
@@ -240,7 +240,7 @@ describe("Unduhan components", () => {
 
       async function openEditor() {
         await (elements(harness!.render()).find(
-          (el) => el.type === "button" && el.props.children === "Ubah",
+          (el) => el.type === "button" && el.props.children === "Change",
         )!.props.onClick as () => Promise<void>)();
         harness!.render();
       }
@@ -250,7 +250,7 @@ describe("Unduhan components", () => {
         spies.push(pick);
         start();
         await openEditor();
-        await (button("Pilih folder unduhan").props.onClick as () => Promise<void>)();
+        await (button("Select download folder").props.onClick as () => Promise<void>)();
         await harness!.settle();
         expect(pathInput().props.value).toBe("/mnt/Media/Unduhan");
         expect(pick).toHaveBeenCalledTimes(1);
@@ -263,7 +263,7 @@ describe("Unduhan components", () => {
         start();
         await openEditor();
         const before = pathInput().props.value;
-        await (button("Pilih folder unduhan").props.onClick as () => Promise<void>)();
+        await (button("Select download folder").props.onClick as () => Promise<void>)();
         await harness!.settle();
         expect(pathInput().props.value).toBe(before);
         expect(pathInput().props.value).toBe("/home/user/Unduhan");
@@ -279,10 +279,10 @@ describe("Unduhan components", () => {
         spies.push(save);
         start();
         await openEditor();
-        await (button("Pilih folder unduhan").props.onClick as () => Promise<void>)();
+        await (button("Select download folder").props.onClick as () => Promise<void>)();
         await harness!.settle();
         await (elements(harness!.render()).find(
-          (el) => el.type === "button" && el.props.children === "Simpan",
+          (el) => el.type === "button" && el.props.children === "Save",
         )!.props.onClick as () => Promise<void>)();
         await harness!.settle();
         expect(save).toHaveBeenCalledWith({ ...settings, dir: "/mnt/Media/Unduhan" });

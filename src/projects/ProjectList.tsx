@@ -26,17 +26,17 @@ export function ProjectList({
         id="daftar-judul"
         className="m-0 text-[11px] font-medium uppercase tracking-[0.08em] text-muted"
       >
-        Daftar proyek
+        Projects
       </h2>
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line p-4 text-center">
-          <p className="m-0 text-xs text-muted">Belum ada proyek. Buat proyek untuk mengelompokkan tugas.</p>
+          <p className="m-0 text-xs text-muted">No projects yet. Create a project to group tasks.</p>
           <button
             type="button"
             onClick={onCreateProject}
             className="rounded-full border border-line px-3 py-1 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Buat proyek
+            Create project
           </button>
         </div>
       ) : (
@@ -119,8 +119,8 @@ export function ProjectList({
         }`}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-ink">Tugas lepas</span>
-          <span className="text-[11px] text-muted">{looseCount.total} tugas</span>
+          <span className="text-sm font-semibold text-ink">Loose tasks</span>
+          <span className="text-[11px] text-muted">{looseCount.total} tasks</span>
         </div>
         {looseCount.total > 0 && (
           <div className="flex items-center gap-2.5">

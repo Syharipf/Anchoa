@@ -12,7 +12,7 @@ import {
 function formatMonthLabel(mStr: string): string {
   const [y, m] = mStr.split("-").map(Number);
   const dt = new Date(y, m - 1, 1);
-  return dt.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  return dt.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
 function StatBox({
@@ -86,9 +86,9 @@ export function HabitDetail({
         className="flex min-h-0 w-full flex-col items-center justify-center rounded-[14px] border border-line bg-surface p-6 text-center text-muted"
       >
         <h2 id="h-detail" className="sr-only">
-          Detail habit
+          Habit details
         </h2>
-        <p className="m-0 text-sm">Pilih habit untuk melihat detail.</p>
+        <p className="m-0 text-sm">Select a habit to view details.</p>
       </aside>
     );
   }
@@ -109,13 +109,13 @@ export function HabitDetail({
   const mSched =
     history?.cells.filter((c) => c.state === "done" || c.state === "miss").length ?? 0;
   const monthName = formatMonthLabel(month);
-  const heatLabel = `${habit.name}, ${monthName}: ${mDone} dari ${mSched} hari terjadwal selesai`;
+  const heatLabel = `${habit.name}, ${monthName}: ${mDone} of ${mSched} scheduled days completed`;
 
   const hasTime = Boolean(habit.remindAt && habit.remindAt.trim());
-  const timeDisplay = habit.remindAt ? habit.remindAt.replace(":", ".") : "–";
+  const timeDisplay = habit.remindAt ? habit.remindAt.replace(".", ":") : "–";
   const remNote = habit.remindOn
-    ? "Masuk ke panel notifikasi"
-    : "Mati — tidak ada pengingat";
+    ? "Shows in notification panel"
+    : "Off — no reminder";
 
   const [ty, tm, td] = today.split("-").map(Number);
   const yestDt = new Date(ty, tm - 1, td - 1);
@@ -146,7 +146,7 @@ export function HabitDetail({
             )}
             {habit.archived && (
               <span className="rounded-md border border-warn/40 bg-warn/15 px-2 py-0.5 text-[10px] font-medium text-warn shrink-0">
-                Diarsipkan
+                Archived
               </span>
             )}
           </div>
@@ -156,14 +156,14 @@ export function HabitDetail({
               onClick={() => onEdit(habit)}
               className="rounded-full border border-line px-3 py-1 text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Ubah
+              Edit
             </button>
             <button
               type="button"
               onClick={() => onDelete(habit.id)}
               className="rounded-full border border-danger/40 px-3 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger-row"
             >
-              Hapus
+              Delete
             </button>
           </div>
         </div>
@@ -172,7 +172,7 @@ export function HabitDetail({
       {habit.targetDays && habit.targetDays > 0 && (
         <div className="flex flex-col gap-1.5 rounded-[10px] bg-stage p-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-medium text-ink">Target {habit.targetDays} Hari</span>
+            <span className="font-medium text-ink">Target {habit.targetDays} Days</span>
             <span className="font-mono text-accent">
               {habit.streak} / {habit.targetDays} ({Math.min(100, Math.round((habit.streak / habit.targetDays) * 100))}%)
             </span>
@@ -189,47 +189,47 @@ export function HabitDetail({
       {/* Yesterday Check Tolerance */}
       {missedYesterday && onCheckDate && (
         <div className="flex items-center justify-between gap-2 rounded-[10px] border border-warn/30 bg-warn/10 p-2.5 text-xs">
-          <span className="text-warn font-medium">Lupa centang kemarin?</span>
+          <span className="text-warn font-medium">Forgot to check yesterday?</span>
           <button
             type="button"
             onClick={() => onCheckDate(habit.id, yesterdayStr, true)}
             className="rounded-md bg-accent px-2 py-1 text-[11px] font-semibold text-canvas hover:bg-accent-hover transition-colors"
           >
-            ✓ Centang Kemarin
+            ✓ Check Yesterday
           </button>
         </div>
       )}
       {doneYesterday && onCheckDate && (
         <div className="flex items-center justify-between gap-2 rounded-[10px] border border-line bg-stage p-2 text-xs">
-          <span className="text-muted text-[11px]">Kemarin tercentang ✓</span>
+          <span className="text-muted text-[11px]">Checked yesterday ✓</span>
           <button
             type="button"
             onClick={() => onCheckDate(habit.id, yesterdayStr, false)}
             className="text-[11px] text-muted hover:text-danger underline"
           >
-            Batalkan kemarin
+            Undo yesterday
           </button>
         </div>
       )}
 
       <div className="grid grid-cols-3 gap-2">
-        <StatBox value={habit.streak} label="streak sekarang" />
-        <StatBox value={habit.best} label="terpanjang" />
+        <StatBox value={habit.streak} label="current streak" />
+        <StatBox value={habit.best} label="longest" />
         <StatBox
           value={`${habit.rate30}%`}
-          label="konsistensi 30 hari"
-          note="30 hari terjadwal"
+          label="30-day consistency"
+          note="30 scheduled days"
         />
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="flex-1 text-[13px] font-medium text-ink">Riwayat</span>
+          <span className="flex-1 text-[13px] font-medium text-ink">History</span>
           <button
             type="button"
             onClick={() => changeMonth(-1)}
             disabled={!canPrev}
-            aria-label="Bulan sebelumnya"
+            aria-label="Previous month"
             className="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-muted transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-disabled"
           >
             ‹
@@ -241,7 +241,7 @@ export function HabitDetail({
             type="button"
             onClick={() => changeMonth(1)}
             disabled={!canNext}
-            aria-label="Bulan berikutnya"
+            aria-label="Next month"
             className="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-muted transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-disabled"
           >
             ›
@@ -285,15 +285,15 @@ export function HabitDetail({
         >
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded bg-accent" />
-            Selesai
+            Done
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded bg-line" />
-            Terlewat
+            Missed
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded border border-dashed border-disabled" />
-            Libur
+            Off
           </span>
         </div>
       </div>
@@ -302,7 +302,7 @@ export function HabitDetail({
         <div className="flex items-center gap-2.5">
           <div className="flex flex-1 flex-col">
             <span id="h-rem" className="text-[13px] font-medium text-ink">
-              Pengingat
+              Reminder
             </span>
             <span className="text-[11px] text-muted">{remNote}</span>
           </div>
@@ -319,7 +319,7 @@ export function HabitDetail({
             aria-checked={habit.remindOn}
             aria-labelledby="h-rem"
             disabled={!hasTime}
-            title={hasTime ? undefined : "Isi jam pengingat dulu"}
+            title={hasTime ? undefined : "Set reminder time first"}
             onClick={() => {
               if (!hasTime) return;
               onUpdate({
@@ -343,10 +343,10 @@ export function HabitDetail({
         </div>
 
         <fieldset className="m-0 grid grid-cols-7 gap-1 border-0 p-0">
-          <legend className="sr-only">Hari terjadwal</legend>
+          <legend className="sr-only">Scheduled days</legend>
           {DAY_INITIALS.map((init, i) => {
             const active = (habit.days & (1 << i)) !== 0;
-            const fullLabel = `${DAY_NAMES[i]}${active ? ", terjadwal" : ", libur"}`;
+            const fullLabel = `${DAY_NAMES[i]}${active ? ", scheduled" : ", off"}`;
             return (
               <button
                 key={i}

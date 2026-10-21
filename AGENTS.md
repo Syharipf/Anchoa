@@ -34,7 +34,7 @@ Status: PIN lock built (spec `2026-10-02-anchoa-pin-design.md`, Argon2id, enforc
 - `cd src-tauri && cargo test`: backend tests. Run one test with `cargo test gpu::tests::disables_dmabuf_on_nvidia_only_machines`.
 - `cd src-tauri && cargo clippy --all-targets -- -D warnings`: lint (CI fails on any warning).
 - `bun tauri build --debug --no-bundle && scripts/e2e-smoke.sh src-tauri/target/debug/anchoa`: end-to-end check on Xvfb. Screenshots go to `~/.cache/anchoa-e2e/`.
-- `bun tauri build`: release RPM in `src-tauri/target/release/bundle/rpm/`.
+- `bun tauri build`: release bundle in `src-tauri/target/release/bundle/deb/` (the Arch package is built from that tree).
 
 ## Stack
 
@@ -42,7 +42,7 @@ Status: PIN lock built (spec `2026-10-02-anchoa-pin-design.md`, Argon2id, enforc
 - Frontend: React + TypeScript + Vite + Tailwind, under `src/`.
 - Database: SQLite via `rusqlite`.
 - JS tooling: bun. On the dev machine `node` is a shim for bun.
-- Targets: Fedora and Arch Linux/CachyOS now; Windows and Android in Fase 9.
+- Target: Arch Linux / CachyOS x86_64. Fedora/RPM and mobile (Android) are parked; do not add platform-specific paths for them.
 
 ## Architecture rules
 
@@ -79,7 +79,7 @@ On the dev laptop, NVIDIA is the X `PrimaryGPU`, and Intel is also present.
 4. Before opening a PR, run the full check suite and the Xvfb UI check. Put the evidence (test output, screenshots) in the PR body, together with `Closes #N`.
 5. Run the review (see below), verify each finding, and fix the real ones. Then hand the PR to the user.
 6. Merge once every check is green (tests, clippy, E2E, review, CI, SonarCloud); the user approved this on 2026-10-01. Use `gh pr merge --squash --delete-branch`, or the GitHub merge API when the branch is checked out in another worktree.
-7. Releases are automatic and Arch-only for now. A PR to `main` that bumps the version in `src-tauri/tauri.conf.json` triggers `.github/workflows/release.yml` once merged: it builds the Arch package (Arch container), creates the GitHub Release `v<version>` with it attached, then dispatches `dnf-repo.yml` to publish the signed pacman repo (`https://syharipf.github.io/Anchoa/arch/$arch`, repo name `anchoa`) and the landing page from `landing/` (Astro; a push to `main` that changes `landing/**` also redeploys) on GitHub Pages. RPM and Android builds are paused; `dnf-repo.yml` still signs the RPMs of the last 5 releases but no new RPM is built. It also pushes `anchoa-bin` to the AUR, but only if the `AUR_SSH_PRIVATE_KEY` secret exists.
+7. Releases are automatic and Arch-only. A PR to `main` that bumps the version in `src-tauri/tauri.conf.json` triggers `.github/workflows/release.yml` once merged: it builds the Arch package (Arch container), creates the GitHub Release `v<version>` with it attached, then dispatches `dnf-repo.yml` to publish the signed pacman repo (`https://syharipf.github.io/Anchoa/arch/$arch`, repo name `anchoa`) and the landing page from `landing/` (Astro; a push to `main` that changes `landing/**` also redeploys) on GitHub Pages. Fedora/RPM and mobile builds are parked: `android-release.yml` is manual-only and no RPM is built or signed. It also pushes `anchoa-bin` to the AUR, but only if the `AUR_SSH_PRIVATE_KEY` secret exists.
 
 Do not start implementing a phase until the user approves moving from planning to code.
 

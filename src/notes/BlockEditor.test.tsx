@@ -29,7 +29,7 @@ describe("BlockEditor", () => {
   it("renders placeholder on empty body", () => {
     const html = renderEditor("");
 
-    expect(html).toContain("Ketik / untuk jenis blok, [[ untuk menautkan");
+    expect(html).toContain("Type / for block type, [[ to link");
     expect(html).toContain('<button type="button"');
   });
 

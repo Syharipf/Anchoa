@@ -40,13 +40,13 @@ describe("module assistant actions", () => {
   }
 
   it.each([
-    { name: "finance", label: "Catat lewat suara", states: { 1: finance, 2: [], 3: [] },
+    { name: "finance", label: "Record with voice", states: { 1: finance, 2: [], 3: [] },
       render: (onOpenAssistant: OpenAssistant) => FinancePage({ newTransaction: false, onChanged: () => {}, onOpenAssistant }) },
-    { name: "projects", label: "Tambah lewat suara", states: { 0: projects },
+    { name: "projects", label: "Add via voice", states: { 0: projects },
       render: (onOpenAssistant: OpenAssistant) => ProjectsPage({ onOpenItem: () => {}, onChanged: () => {}, onOpenAssistant }) },
-    { name: "habits", label: "Catat lewat suara", states: { 0: habits },
+    { name: "habits", label: "Record with voice", states: { 0: habits },
       render: (onOpenAssistant: OpenAssistant) => HabitsPage({ onOpenAssistant }) },
-    { name: "journal", label: "Catat lewat suara", states: {},
+    { name: "journal", label: "Record with voice", states: {},
       render: (onOpenAssistant: OpenAssistant) => JournalPage({ onOpenItem: () => {}, onOpenAssistant }) },
   ])("opens the existing voice assistant from $name", ({ label, states, render }) => {
     const onOpenAssistant = mock<OpenAssistant>(() => {});
@@ -63,7 +63,7 @@ describe("module assistant actions", () => {
     const header = elements(harness.render(false)).find((element) => element.type === ScheduleHeader)!;
     const control = elements(ScheduleHeader(header.props as Parameters<typeof ScheduleHeader>[0]))
       .find((element) => element.type === "button" && element.props.children instanceof Array &&
-        renderToStaticMarkup(element).includes("Tambah tugas lewat suara"))!;
+        renderToStaticMarkup(element).includes("Add task with voice"))!;
     expect(control.props.disabled).not.toBe(true);
     (control.props.onClick as () => void)();
     expect(onOpenAssistant).toHaveBeenCalledWith({ kind: "voice" });
@@ -74,20 +74,20 @@ describe("module assistant actions", () => {
     harness = hookHarness(() => EntryEditor({ entry, onEntryChanged: () => {}, onOpenTask: () => {}, onOpenAssistant,
       onDelete: async () => {}, onTagClick: () => {} }));
     const input = (label: string) => elements(harness.render(false)).find((element) => element.props["aria-label"] === label)!;
-    (input("Judul entri").props.onChange as (event: unknown) => void)({ target: { value: "Judul baru" } });
-    (input("Isi entri").props.onChange as (event: unknown) => void)({ target: { value: "Isi belum tersimpan" } });
-    (button("Bacakan").props.onClick as () => void)();
+    (input("Entry title").props.onChange as (event: unknown) => void)({ target: { value: "Judul baru" } });
+    (input("Entry content").props.onChange as (event: unknown) => void)({ target: { value: "Isi belum tersimpan" } });
+    (button("Read aloud").props.onClick as () => void)();
     expect(onOpenAssistant).toHaveBeenLastCalledWith({ kind: "speak", text: "Judul baru. Isi belum tersimpan" });
-    (button("Minta tanggapan").props.onClick as () => void)();
+    (button("Get feedback").props.onClick as () => void)();
     expect(onOpenAssistant).toHaveBeenLastCalledWith({
-      kind: "compose", text: "Berikan tanggapan yang suportif untuk entri jurnal ini:\n\nJudul baru\nIsi belum tersimpan",
+      kind: "compose", text: "Provide a supportive response to this journal entry:\n\nJudul baru\nIsi belum tersimpan",
     });
   });
 
   it("keeps read-aloud disabled for an empty journal draft", () => {
     harness = hookHarness(() => EntryEditor({ entry: { ...entry, title: "", body: " " }, onEntryChanged: () => {},
       onOpenTask: () => {}, onOpenAssistant: () => {}, onDelete: async () => {}, onTagClick: () => {} }));
-    expect(button("Bacakan").props.disabled).toBe(true);
+    expect(button("Read aloud").props.disabled).toBe(true);
   });
 
   it("opens file questions with the selected file's metadata", () => {
@@ -96,11 +96,11 @@ describe("module assistant actions", () => {
       entry: { name: "pantai.jpg", path: "/foto/pantai.jpg", kind: "image", size: 1024, modified: 0, hidden: false },
       onOpen: () => {}, onClose: () => {}, onOpenAssistant,
     }));
-    const control = button("Tanya asisten");
+    const control = button("Ask assistant");
     expect(control.props.disabled).not.toBe(true);
     (control.props.onClick as () => void)();
-    expect(onOpenAssistant).toHaveBeenCalledWith({ kind: "compose", text: expect.stringContaining("Lokasi: /foto/pantai.jpg") });
-    expect(onOpenAssistant.mock.calls[0][0]).toEqual({ kind: "compose", text: expect.stringContaining("berdasarkan metadata") });
+    expect(onOpenAssistant).toHaveBeenCalledWith({ kind: "compose", text: expect.stringContaining("Location: /foto/pantai.jpg") });
+    expect(onOpenAssistant.mock.calls[0][0]).toEqual({ kind: "compose", text: expect.stringContaining("Help explain this file") });
   });
 
   it("opens the real email page and reads the loaded recap without completed task names", () => {
@@ -108,7 +108,7 @@ describe("module assistant actions", () => {
     const onSelect = mock(() => {});
     let data: DashboardData | null = null;
     harness = hookHarness(() => Dashboard({ data, onOpen: () => {}, onToggle: () => {}, onSelect, onOpenAssistant }));
-    expect(button("Dengarkan rekap").props.disabled).toBe(true);
+    expect(button("Listen to recap").props.disabled).toBe(true);
     data = {
       today: [
         { id: "open", title: "Beli teri", dueAt: 1, completedAt: null, overdue: false },
@@ -119,10 +119,9 @@ describe("module assistant actions", () => {
       downloads: { items: [], speed: 0 },
       journalReminder: false,
     };
-    expect(button("Dengarkan rekap").props.disabled).toBe(false);
-    (button("Dengarkan rekap").props.onClick as () => void)();
-    expect(onOpenAssistant).toHaveBeenCalledWith({ kind: "speak", text: "1 tugas hari ini · Jurnal kosong. Beli teri" });
-    (button("Buka kotak masuk").props.onClick as () => void)();
-    expect(onSelect).toHaveBeenCalledWith("email");
+    expect(button("Listen to recap").props.disabled).toBe(false);
+    (button("Listen to recap").props.onClick as () => void)();
+    expect(onOpenAssistant).toHaveBeenCalledWith({ kind: "speak", text: "1 task today · Journal is empty. Beli teri" });
+    (button("Open inbox").props.onClick as () => void)();
   });
 });

@@ -510,8 +510,8 @@ fn detect_with(
             remotes: Vec::new(),
             mounts,
             hint: Some(
-                "rclone tidak ditemukan. Pasang rclone (mis. `sudo dnf install rclone`) untuk \
-                 mengakses Google Drive, FTP, SFTP, S3, WebDAV, dan lainnya."
+                "rclone not found. Install rclone using your system package manager to \
+                 access Google Drive, FTP, SFTP, S3, WebDAV, and more."
                     .to_string(),
             ),
         });
@@ -780,7 +780,7 @@ u@host:/x /mnt/ssh fuse.sshfs rw 0 0
         assert!(!info.available);
         assert!(info.remotes.is_empty());
         assert!(info.version.is_none());
-        assert!(info.hint.unwrap().contains("rclone tidak ditemukan"));
+        assert!(info.hint.unwrap().contains("rclone not found"));
     }
 
     #[test]

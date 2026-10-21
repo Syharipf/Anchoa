@@ -46,7 +46,7 @@ export function TerminalDrawer({
     setBusy(true);
     try {
       await api.agentRequest(projectId, text);
-      toast("Instruksi dikirim ke harness omp");
+      toast("Instructions sent to omp harness");
       setPrompt("");
       setExpanded(true);
       onPromptSent?.();
@@ -67,7 +67,7 @@ export function TerminalDrawer({
 
   return (
     <section
-      aria-label="Terminal Harness"
+      aria-label="Harness Terminal"
       className="flex shrink-0 flex-col overflow-hidden rounded-[12px] border border-line bg-[#081013]"
     >
       {/* Header bar */}
@@ -86,10 +86,10 @@ export function TerminalDrawer({
             <line x1="12" y1="19" x2="20" y2="19" />
           </svg>
           <span className="font-display text-xs font-semibold text-ink">
-            Terminal Harness (omp)
+            Harness Terminal (omp)
           </span>
           <span className="font-mono text-[11px] text-muted">
-            {running ? "● aktif di direktori proyek" : "○ idle"}
+            {running ? "● active in project directory" : "○ idle"}
           </span>
         </div>
 
@@ -97,17 +97,17 @@ export function TerminalDrawer({
           <button
             type="button"
             onClick={handleOpenExternal}
-            title="Buka terminal emulator sistem"
+            title="Open system terminal emulator"
             className="flex items-center gap-1 rounded border border-line px-2 py-0.5 font-mono text-[11px] text-muted hover:text-ink"
           >
-            Terminal Luar ↗
+            External Terminal ↗
           </button>
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
             className="rounded border border-line px-2 py-0.5 text-xs text-muted hover:text-ink"
           >
-            {expanded ? "▼ Perkecil" : "▲ Buka Terminal"}
+            {expanded ? "▼ Collapse" : "▲ Open Terminal"}
           </button>
         </div>
       </div>
@@ -121,7 +121,7 @@ export function TerminalDrawer({
             <div className="flex h-full flex-col justify-end text-muted">
               <p>$ anchoa agent --status idle</p>
               <p className="text-[11px] text-accent">
-                Siap menerima instruksi prompt untuk harness omp.
+                Ready to receive prompt instructions for omp harness.
               </p>
             </div>
           )}
@@ -139,7 +139,7 @@ export function TerminalDrawer({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           disabled={busy || running}
-          placeholder="Kirim instruksi prompt langsung ke omp (Enter)..."
+          placeholder="Send prompt instructions directly to omp (Enter)..."
           className="flex-1 bg-transparent border-0 text-xs text-ink outline-none"
         />
         <button
@@ -147,7 +147,7 @@ export function TerminalDrawer({
           disabled={busy || running || !prompt.trim()}
           className={`${PRIMARY} py-1 px-2.5 text-xs`}
         >
-          {busy ? "Mengirim…" : "Kirim"}
+          {busy ? "Sending…" : "Send"}
         </button>
       </form>
     </section>

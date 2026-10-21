@@ -4,23 +4,23 @@ import type { Backlink } from "../api";
 function formatItemType(type: string): string {
   switch (type) {
     case "page":
-      return "Catatan halaman";
+      return "Page note";
     case "note":
-      return "Jurnal";
+      return "Journal";
     case "task":
-      return "Tugas";
+      return "Task";
     case "project":
-      return "Proyek";
+      return "Project";
     case "habit":
-      return "Kebiasaan";
+      return "Habit";
     case "account":
-      return "Akun";
+      return "Account";
     case "transaction":
-      return "Transaksi";
+      return "Transaction";
     case "bill":
-      return "Tagihan";
+      return "Bill";
     case "download":
-      return "Unduhan";
+      return "Download";
     default:
       return "Item";
   }
@@ -35,16 +35,16 @@ export function Backlinks({
 }>): JSX.Element {
   return (
     <aside
-      aria-label="Panel tautan balik"
+      aria-label="Backlinks panel"
       className="flex min-h-0 flex-col rounded-[14px] border border-line bg-surface p-4"
     >
       <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
-        Disebut di
+        Mentioned in
       </h2>
 
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-muted">
-          Belum ada yang menautkan halaman ini.
+          No pages link to this page yet.
         </p>
       ) : (
         <ul className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">

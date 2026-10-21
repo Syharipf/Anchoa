@@ -100,17 +100,17 @@ describe("JournalPage actions and filters", () => {
     expect(api.deleteEntry).toHaveBeenCalledWith("A");
     expect(list().groups).toEqual([]);
     expect(elements(harness.render()).some((element) => element.type === EntryEditor)).toBe(false);
-    expect(elements(harness.render()).some((element) =>
-      Array.isArray(element.props.children) && element.props.children.includes("Entri dihapus"))).toBe(true);
-    expect(button(harness.render(), "Urungkan")).toBeDefined();
+    expect(elements(harness.render()).some((element) => element.type === "div" &&
+      Array.isArray(element.props.children) && element.props.children.includes("Entry deleted"))).toBe(true);
+    expect(button(harness.render(), "Undo")).toBeDefined();
     expect(changed).toHaveBeenCalledTimes(1);
   });
 
-  it("restores the entry and reloads the list when Urungkan is clicked", async () => {
+  it("restores the entry and reloads the list when Undo is clicked", async () => {
     await editor().onDelete("A");
     await harness.settle();
     const beforeUndo = spyOn(api, "journalList").mock.calls.length;
-    click(harness.render(), "Urungkan");
+    click(harness.render(), "Undo");
     await harness.settle();
     expect(api.restoreEntry).toHaveBeenCalledWith("A");
     expect(api.journalList).toHaveBeenCalledTimes(beforeUndo + 1);
@@ -125,7 +125,7 @@ describe("JournalPage actions and filters", () => {
     await harness.settle();
     oldEditor.onTagClick("kerja");
     await harness.settle();
-    click(harness.render(), "Urungkan");
+    click(harness.render(), "Undo");
     await harness.settle();
     expect(api.journalList).toHaveBeenLastCalledWith({ tag: "kerja" });
   });
@@ -135,7 +135,7 @@ describe("JournalPage actions and filters", () => {
     await harness.settle();
     list().onFilterChange({ mood: 1 });
     await harness.settle();
-    click(harness.render(), "Urungkan");
+    click(harness.render(), "Undo");
     await harness.settle();
     expect(api.restoreEntry).toHaveBeenCalledWith("A");
     expect(list().groups).toEqual([]);
@@ -162,7 +162,7 @@ describe("JournalPage actions and filters", () => {
     }));
     list().onFilterChange({ query: "Entri", kind: "note", mood: 4, tag: "kerja" });
     await harness.settle();
-    click(harness.render(), "Tulis");
+    click(harness.render(), "Write");
     await harness.settle();
     expect(api.createEntry).toHaveBeenCalledWith("note", "");
     expect(list().filter).toEqual({ kind: "note" });
@@ -189,30 +189,30 @@ describe("JournalPage actions and filters", () => {
     expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Refleksi harian<"))).toBe(false);
 
     // Open dropdown menu
-    click(harness.render(), "Entri baru ▾");
+    click(harness.render(), "New entry ▾");
     await harness.settle();
 
     // Dropdown contains all 4 templates and Entri kosong
-    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Refleksi harian<"))).toBe(true);
-    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">3 hal yang disyukuri<"))).toBe(true);
-    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Review mingguan<"))).toBe(true);
-    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Curhat terarah<"))).toBe(true);
-    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Entri kosong<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Daily reflection<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">3 things to be grateful for<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Weekly review<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Guided vent<"))).toBe(true);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Blank entry<"))).toBe(true);
 
     // Select "Refleksi harian" template
-    click(harness.render(), "Refleksi harian");
+    click(harness.render(), "Daily reflection");
     await harness.settle();
 
-    expect(api.createEntry).toHaveBeenCalledWith("note", "Refleksi harian");
+    expect(api.createEntry).toHaveBeenCalledWith("note", "Daily reflection");
     expect(api.updateItem).toHaveBeenCalledWith("T1", {
       body: JOURNAL_TEMPLATES[0].body,
     });
     expect(editor().entry.id).toBe("T1");
-    expect(editor().entry.title).toBe("Refleksi harian");
+    expect(editor().entry.title).toBe("Daily reflection");
     expect(editor().entry.body).toBe(JOURNAL_TEMPLATES[0].body);
 
     // Dropdown is closed after selecting template
-    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Refleksi harian<"))).toBe(false);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Daily reflection<"))).toBe(false);
   });
 
   it("creates a vent entry when Curhat terarah template is chosen", async () => {
@@ -229,14 +229,14 @@ describe("JournalPage actions and filters", () => {
       return makeItem(entry ?? makeEntry(id));
     }));
 
-    click(harness.render(), "Entri baru ▾");
+    click(harness.render(), "New entry ▾");
     await harness.settle();
 
-    click(harness.render(), "Curhat terarah");
+    click(harness.render(), "Guided vent");
     await harness.settle();
 
     const ventTemplate = JOURNAL_TEMPLATES.find((t) => t.id === "guided-vent")!;
-    expect(api.createEntry).toHaveBeenCalledWith("vent", "Curhat terarah");
+    expect(api.createEntry).toHaveBeenCalledWith("vent", "Guided vent");
     expect(api.updateItem).toHaveBeenCalledWith("V1", { body: ventTemplate.body });
     expect(editor().entry.id).toBe("V1");
     expect(editor().entry.kind).toBe("vent");
@@ -250,19 +250,19 @@ describe("JournalPage actions and filters", () => {
       return created;
     }));
 
-    click(harness.render(), "Entri baru ▾");
+    click(harness.render(), "New entry ▾");
     await harness.settle();
 
-    click(harness.render(), "Entri kosong");
+    click(harness.render(), "Blank entry");
     await harness.settle();
 
     expect(api.createEntry).toHaveBeenCalledWith("note", "");
     expect(editor().entry.id).toBe("B2");
-    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Entri kosong<"))).toBe(false);
+    expect(elements(harness.render()).some((el) => el.type === "button" && renderToStaticMarkup(el).includes(">Blank entry<"))).toBe(false);
   });
 
   it("toggles and closes dropdown menu via Escape key", async () => {
-    click(harness.render(), "Entri baru ▾");
+    click(harness.render(), "New entry ▾");
     await harness.settle();
 
     const menuEl = elements(harness.render()).find((el) => el.props.role === "menu");
@@ -290,7 +290,7 @@ describe("JournalPage actions and filters", () => {
     expect(editor().entry.id).toBe("A");
     expect(elements(harness.render()).some((element) =>
       Array.isArray(element.props.children) && element.props.children.includes("Hapus gagal"))).toBe(true);
-    expect(elements(harness.render()).some((element) => element.props.children === "Urungkan")).toBe(false);
+    expect(elements(harness.render()).some((element) => element.props.children === "Undo")).toBe(false);
 
     // Retrying deletion succeeds
     const retried = await editor().onDelete("A");
@@ -298,14 +298,14 @@ describe("JournalPage actions and filters", () => {
     expect(retried).toBe(true);
     expect(api.deleteEntry).toHaveBeenCalledTimes(2);
     expect(elements(harness.render()).some((element) => element.type === EntryEditor)).toBe(false);
-    expect(button(harness.render(), "Urungkan")).toBeDefined();
+    expect(button(harness.render(), "Undo")).toBeDefined();
   });
 
   it("shows restore errors without reopening a deleted entry", async () => {
     await editor().onDelete("A");
     await harness.settle();
     spyOn(api, "restoreEntry").mockRejectedValueOnce(new Error("Pulihkan gagal"));
-    click(harness.render(), "Urungkan");
+    click(harness.render(), "Undo");
     await harness.settle();
     expect(elements(harness.render()).some((element) => element.type === EntryEditor)).toBe(false);
     expect(elements(harness.render()).some((element) =>
@@ -384,7 +384,7 @@ describe("JournalPage actions and filters", () => {
     await harness.settle();
     expect(elements(harness.render()).some((element) => element.type === EntryEditor)).toBe(false);
     expect(list().groups.flatMap((group) => group.entries)).toEqual([]);
-    click(harness.render(), "Urungkan");
+    click(harness.render(), "Undo");
     await harness.settle();
     expect(editor().entry.id).toBe("A");
   });
@@ -450,12 +450,12 @@ describe("EntryEditor pinning and safe deletion", () => {
   const onDelete = mock(async (id: string): Promise<boolean | void> => { calls.push(`delete:${id}`); });
 
   function edit(value: string) {
-    const textarea = elements(harness.render()).find((element) => element.props["aria-label"] === "Isi entri")!;
+    const textarea = elements(harness.render()).find((element) => element.props["aria-label"] === "Entry content")!;
     (textarea.props.onChange as (event: unknown) => void)({ target: { value } });
   }
 
   function blur() {
-    const textarea = elements(harness.render()).find((element) => element.props["aria-label"] === "Isi entri")!;
+    const textarea = elements(harness.render()).find((element) => element.props["aria-label"] === "Entry content")!;
     (textarea.props.onBlur as () => void)();
   }
 
@@ -487,19 +487,19 @@ describe("EntryEditor pinning and safe deletion", () => {
   });
 
   it("pins and unpins with the correct label and pressed state", async () => {
-    expect(button(harness.render(), "Sematkan").props["aria-pressed"]).toBe(false);
-    click(harness.render(), "Sematkan");
+    expect(button(harness.render(), "Pin").props["aria-pressed"]).toBe(false);
+    click(harness.render(), "Pin");
     await harness.settle();
     expect(api.updateEntry).toHaveBeenCalledWith("A", { pinned: true });
-    expect(button(harness.render(), "Lepas sematan").props["aria-pressed"]).toBe(true);
-    click(harness.render(), "Lepas sematan");
+    expect(button(harness.render(), "Unpin").props["aria-pressed"]).toBe(true);
+    click(harness.render(), "Unpin");
     await harness.settle();
     expect(api.updateEntry).toHaveBeenLastCalledWith("A", { pinned: false });
   });
 
   it("flushes pending edits before Hapus entri and never saves after deletion", async () => {
     edit("Sebelum hapus");
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(calls).toEqual(["save:A:Sebelum hapus", "delete:A"]);
     harness.runTimers();
@@ -515,11 +515,11 @@ describe("EntryEditor pinning and safe deletion", () => {
     edit("Pertama");
     blur();
     edit("Terbaru");
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(api.updateItem).toHaveBeenCalledTimes(1);
     expect(onDelete).not.toHaveBeenCalled();
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(true);
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(true);
     saving.resolve(makeItem(entry));
     await harness.settle();
     expect(api.updateItem).toHaveBeenLastCalledWith("A", { body: "Terbaru" });
@@ -529,11 +529,11 @@ describe("EntryEditor pinning and safe deletion", () => {
   it("keeps unsaved text and allows retry when saving before deletion fails", async () => {
     spyOn(api, "updateItem").mockRejectedValueOnce(new Error("Simpan gagal"));
     edit("Jangan hilang");
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(onDelete).not.toHaveBeenCalled();
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(false);
-    click(harness.render(), "Hapus entri");
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(false);
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(api.updateItem).toHaveBeenLastCalledWith("A", { body: "Jangan hilang" });
     expect(onDelete).toHaveBeenCalledWith("A");
@@ -542,9 +542,9 @@ describe("EntryEditor pinning and safe deletion", () => {
   it("blocks duplicate deletes and late edits while deletion is pending", async () => {
     const deleting = deferred<void>();
     onDelete.mockImplementationOnce(() => deleting.promise);
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     edit("Terlambat");
     harness.runTimers();
     await harness.settle();
@@ -556,32 +556,32 @@ describe("EntryEditor pinning and safe deletion", () => {
 
   it("re-enables controls and allows retry when onDelete returns false or rejects", async () => {
     onDelete.mockResolvedValueOnce(false);
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(onDelete).toHaveBeenCalledTimes(1);
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(false);
-    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(false);
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(false);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Entry content")!.props.disabled).toBe(false);
 
     onDelete.mockRejectedValueOnce(new Error("Gagal"));
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(onDelete).toHaveBeenCalledTimes(2);
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(false);
-    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(false);
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(false);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Entry content")!.props.disabled).toBe(false);
 
     // Retrying delete succeeds and keeps controls disabled
     onDelete.mockResolvedValueOnce(true);
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(true);
-    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(true);
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(true);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Entry content")!.props.disabled).toBe(true);
   });
 
   it("keeps deleting disabled until unmount when deletion succeeds", async () => {
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(onDelete).toHaveBeenCalledWith("A");
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(true);
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(true);
     edit("Jangan disimpan setelah terhapus");
     harness.runTimers();
     expect(api.updateItem).not.toHaveBeenCalled();
@@ -597,17 +597,17 @@ describe("EntryEditor pinning and safe deletion", () => {
         return false;
       }
     });
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(api.deleteEntry).toHaveBeenCalledTimes(1);
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(false);
-    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Isi entri")!.props.disabled).toBe(false);
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(false);
+    expect(elements(harness.render()).find((el) => el.props["aria-label"] === "Entry content")!.props.disabled).toBe(false);
 
     // Retrying delete succeeds
-    click(harness.render(), "Hapus entri");
+    click(harness.render(), "Delete entry");
     await harness.settle();
     expect(api.deleteEntry).toHaveBeenCalledTimes(2);
-    expect(button(harness.render(), "Hapus entri").props.disabled).toBe(true);
+    expect(button(harness.render(), "Delete entry").props.disabled).toBe(true);
   });
 });
 
@@ -626,17 +626,17 @@ describe("EntryList chips and tag buttons", () => {
     );
     expect(html).toContain("Disematkan");
     expect(html).toContain("#kerja");
-    expect(html).toContain("Suasana 4");
-    expect(html).toContain("Tanggal: 2026-10-01");
+    expect(html).toContain("Mood 4");
+    expect(html).toContain("Date: 2026-10-01");
     expect(html).toContain("×");
     harness = hookHarness(() => EntryList({
       groups: [], selectedId: null, onSelect: () => {}, filter: { tag: "kerja", mood: 4, date: "2026-10-01" }, onFilterChange,
     }));
-    click(harness.render(), "Hapus saringan tag kerja");
+    click(harness.render(), "Remove tag filter kerja");
     expect(onFilterChange).toHaveBeenLastCalledWith({ tag: undefined });
-    click(harness.render(), "Hapus saringan suasana hati");
+    click(harness.render(), "Remove mood filter");
     expect(onFilterChange).toHaveBeenLastCalledWith({ mood: undefined });
-    click(harness.render(), "Hapus saringan tanggal 2026-10-01");
+    click(harness.render(), "Remove date filter 2026-10-01");
     expect(onFilterChange).toHaveBeenLastCalledWith({ date: undefined });
   });
 
@@ -646,12 +646,12 @@ describe("EntryList chips and tag buttons", () => {
       groups: [], selectedId: null, onSelect: () => {}, filter: { mood: 4 }, onFilterChange,
     }));
     const fieldset = elements(harness.render()).find((element) => element.type === "fieldset" &&
-      renderToStaticMarkup(element).includes("Saring suasana hati"))!;
+      renderToStaticMarkup(element).includes("Filter mood"))!;
     expect(elements(fieldset).filter((element) => element.type === "button")).toHaveLength(5);
-    expect(button(fieldset, "Baik").props["aria-pressed"]).toBe(true);
-    click(fieldset, "Senang");
+    expect(button(fieldset, "Good").props["aria-pressed"]).toBe(true);
+    click(fieldset, "Great");
     expect(onFilterChange).toHaveBeenLastCalledWith({ mood: 5 });
-    click(fieldset, "Baik");
+    click(fieldset, "Good");
     expect(onFilterChange).toHaveBeenLastCalledWith({ mood: undefined });
   });
 
@@ -659,7 +659,7 @@ describe("EntryList chips and tag buttons", () => {
     for (const filter of [{ query: "cari" }, { kind: "idea" as const }, { tag: "kerja" }, { mood: 4 }, { date: "2026-10-01" }]) {
       const html = renderToStaticMarkup(<ToastProvider><EntryList groups={[]} selectedId={null}
         onSelect={() => {}} filter={filter} onFilterChange={() => {}} /></ToastProvider>);
-      expect(html).toContain("Tidak ada entri yang cocok dengan saringan.");
+      expect(html).toContain("No entries match the filter.");
     }
   });
 
@@ -670,7 +670,7 @@ describe("EntryList chips and tag buttons", () => {
     click(harness.render(), "#kerja");
     expect(onTagClick).toHaveBeenCalledWith("kerja");
     expect(onChange).not.toHaveBeenCalled();
-    click(harness.render(), "Hapus tag kerja");
+    click(harness.render(), "Remove tag kerja");
     expect(onChange).toHaveBeenCalledWith([]);
     expect(onTagClick).toHaveBeenCalledTimes(1);
   });

@@ -178,7 +178,7 @@ check_palette() {
   xdotool key ctrl+k
   sleep 0.3
   shot 4-palette        # expect: Aksi cepat "Catat transaksi", Buka halaman (12 pages), no Terbaru yet
-  xdotool type --delay 20 'keu'
+  xdotool type --delay 20 'fin'
   sleep 1
   xdotool key Return
   sleep 0.7
@@ -266,7 +266,7 @@ check_notifications() {
 palette_new_transaction() {
   xdotool key ctrl+k
   sleep 0.3
-  xdotool type --delay 20 'catat'
+  xdotool type --delay 20 'Record'
   sleep 1
   xdotool key Return
   sleep 1
@@ -960,7 +960,7 @@ check_files_context_menu() {
   HOME="$home" start_app
   # The sidebar shifts with the account/avatar block; the palette is stable.
   xdotool key ctrl+k; sleep 0.4
-  xdotool type --delay 40 "Berkas"; sleep 0.4; xdotool key Return; sleep 1.2
+  xdotool type --delay 40 "Files"; sleep 0.4; xdotool key Return; sleep 1.2
   shot 16-files-menu-nav
   click 162 320                # Tempat: Dokumen
   xdotool mousemove 390 265 click 3; sleep 0.6
@@ -994,7 +994,7 @@ check_files_convert() {
   magick -size 8x8 xc:'#C6F36B' "$home/Documents/foto.png"
   HOME="$home" start_app
   xdotool key ctrl+k; sleep 0.4
-  xdotool type --delay 40 "Berkas"; sleep 0.4; xdotool key Return; sleep 1.2
+  xdotool type --delay 40 "Files"; sleep 0.4; xdotool key Return; sleep 1.2
   click 162 320                # Tempat: Dokumen
   xdotool mousemove 390 265 click 3; sleep 0.6
   shot 16-files-menu-convert   # expect: Konversi… below Kompres sebagai…

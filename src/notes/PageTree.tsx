@@ -125,7 +125,7 @@ export function PageTree({
           {hasChildren ? (
             <button
               type="button"
-              aria-label={isExpanded ? "Tutup subhalaman" : "Buka subhalaman"}
+              aria-label={isExpanded ? "Collapse subpages" : "Expand subpages"}
               onClick={() => toggleExpand(node.id)}
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted hover:text-ink"
             >
@@ -154,7 +154,7 @@ export function PageTree({
               type="text"
               autoFocus
               defaultValue={node.title}
-              aria-label="Nama halaman"
+              aria-label="Page name"
               onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -224,7 +224,7 @@ export function PageTree({
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M12 5v14M5 12h14" />
                   </svg>
-                  Subhalaman baru
+                  New subpage
                 </button>
                 <button
                   type="button"
@@ -238,7 +238,7 @@ export function PageTree({
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
                   </svg>
-                  Ganti nama
+                  Rename
                 </button>
                 <button
                   type="button"
@@ -252,7 +252,7 @@ export function PageTree({
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
-                  Pindahkan ke…
+                  Move to…
                 </button>
                 <button
                   type="button"
@@ -266,7 +266,7 @@ export function PageTree({
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                   </svg>
-                  Hapus
+                  Delete
                 </button>
               </div>
             )}

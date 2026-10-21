@@ -43,7 +43,7 @@ export function Settings({
   const loadAi = useCallback(() => {
     const id = ++aiLoadId.current;
     api.aiStatus().then((status) => { if (id === aiLoadId.current) setAiStatus(status); }, () => {
-      if (id === aiLoadId.current) setAiStatus({ available: false, models: [], error: "Gagal terhubung" });
+      if (id === aiLoadId.current) setAiStatus({ available: false, models: [], error: "Connection failed" });
     });
     api.aiRoles().then((roles) => { if (id === aiLoadId.current) setAiRoles(roles); }, () => { if (id === aiLoadId.current) setAiRoles(null); });
   }, []);
@@ -80,9 +80,9 @@ export function Settings({
   return (
     <div className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className={H1}>Pengaturan</h1>
+        <h1 className={H1}>Settings</h1>
         <span className="text-xs text-muted">
-          Perangkat ini: Laptop Fedora · disimpan secara lokal
+          This device: Fedora Laptop · stored locally
         </span>
       </div>
 

@@ -4,11 +4,11 @@ export const id = {
   'nav.eng': 'Rekayasa',
   'nav.download': 'Unduh',
   'nav.cta': 'Unduh',
-  'hero.eyebrow': 'v0.33.0 · tersedia di Fedora & Arch · Windows/Android direncanakan',
+  'hero.eyebrow': 'v0.33.0 · tersedia di Arch Linux & CachyOS',
   'hero.title': 'Satu kawanan untuk <em>semua urusan harianmu.</em>',
   'hero.lead':
     'Anchoa menyatukan tugas, jadwal, keuangan, jurnal, catatan, habit, email, berkas, dan unduhan di laptop. Dashboard dan asisten suara membantu urusan harianmu.',
-  'hero.cta1': 'Unduh untuk Fedora & Arch',
+  'hero.cta1': 'Unduh untuk Arch & CachyOS',
   'hero.cta2': 'Lihat kode',
   'hero.hint':
     'gerakkan kursor untuk membubarkan kawanan, klik untuk memberi makan, gulir untuk menyelam',
@@ -56,7 +56,7 @@ export const id = {
   'how.title': 'Data aplikasi lokal, asisten di laptop.',
   'how.lead':
     'Data modul tersimpan di SQLite pada laptop. Ollama menjalankan asisten secara lokal; email dan unduhan menghubungi sumbernya. Sinkron antarperangkat masih direncanakan.',
-  'how.n1tag': 'desktop · Fedora · Arch',
+  'how.n1tag': 'desktop · Arch Linux · CachyOS',
   'how.n1a': 'Tauri 2 + React + Rust',
   'how.n1b': 'Data modul dibaca dari database lokal',
   'how.n1c': 'Panel asisten, email, dan unduhan',
@@ -72,7 +72,7 @@ export const id = {
   'how.n3b': 'Suara lokal: Whisper dan Piper',
   'how.n3c': 'Ollama di localhost (opsional)',
   'how.note':
-    'Email memakai server Gmail dan unduhan memakai situs sumber. Sinkron perangkat serta Windows/Android masih direncanakan.',
+    'Email memakai server Gmail dan unduhan memakai situs sumber. Sinkron antarperangkat masih direncanakan.',
   'eng.title': 'Dibangun dengan pengujian alur dan batas akses.',
   'eng.lead':
     'Frontend React dan backend Rust memakai database yang sama. Pengujian mencakup PIN, kredensial email, usulan asisten, dan operasi berkas lokal.',
@@ -88,31 +88,22 @@ export const id = {
   'e4.t': 'Usulan asisten menunggu persetujuan',
   'e4.d':
     'Setujui atau Tolak sebelum asisten mengubah data. Agen kode memakai perintah lokal pilihanmu; izin perintah mengikuti program agen itu sendiri.',
-  'dl.title': 'Saat ini tersedia di Fedora dan Arch Linux.',
+  'dl.title': 'Saat ini tersedia di Arch Linux dan CachyOS.',
   'dl.lead':
-    'Paket .rpm dan .pkg.tar.zst tersedia di GitHub Releases. Repo DNF (Fedora) dan repo pacman (Arch Linux, CachyOS) Anchoa juga tersedia untuk pemasangan dan pembaruan. Windows dan Android masih direncanakan.',
+    'Paket .pkg.tar.zst tersedia di GitHub Releases. Repo pacman resmi Anchoa tersedia untuk pemasangan dan pembaruan berkala.',
   'dl.ready': 'tersedia',
-  'dl.rpmT': 'Fedora · paket .rpm',
-  'dl.rpmD':
-    'Unduh berkas .rpm terbaru dari halaman rilis, lalu pasang dengan dnf supaya dependensinya ikut terpasang.',
-  'dl.rpmBtn': 'Buka GitHub Releases',
-  copy: 'Salin',
-  'dl.soon': 'direncanakan',
-  'dl.dnfT': 'Repo DNF Anchoa',
-  'dl.dnfD':
-    'Tambahkan repo Anchoa sekali, pasang paket, lalu perbarui lewat dnf upgrade.',
   'dl.archT': 'Arch Linux / CachyOS · repo pacman',
   'dl.archD':
-    'Impor kunci GPG Anchoa, tambahkan repo [anchoa] ke pacman.conf, lalu pasang. Pembaruan ikut sudo pacman -Syu atau paru. Paket AUR anchoa-bin menyusul setelah terbit di AUR.',
-  'dl.flatD':
-    'Paket Flatpak belum tersedia. Dukungan distro Linux lain masih direncanakan.',
+    'Impor kunci GPG Anchoa, tambahkan repo [anchoa] ke pacman.conf, lalu pasang paket anchoa. Pembaruan otomatis ikut pacman -Syu.',
+  'dl.archBtn': 'Buka GitHub Releases',
+  'dl.soon': 'direncanakan',
+  'dl.aurT': 'AUR · anchoa-bin',
+  'dl.aurD':
+    'Paket AUR anchoa-bin dapat dipasang melalui AUR helper seperti paru atau yay.',
+  copy: 'Salin',
   'rm.title': 'Rute platform',
   'rm.note': 'urutan bisa berubah',
-  'rm.s1': '.rpm · repo DNF · repo pacman · tersedia',
-  'rm.l2': 'Linux lain',
-  'rm.s2': 'paket belum tersedia',
-  'rm.s3': 'direncanakan',
-  'rm.s4': 'belum tersedia',
+  'rm.s1': 'repo pacman · paket rilis · tersedia',
   'zone.meso': 'batas mesopelagik',
   'faq.title': 'Pertanyaan yang sering muncul',
   q1: 'Apakah Anchoa gratis?',
@@ -123,8 +114,8 @@ export const id = {
   a3: 'Modul lokal dan Ollama dapat dipakai offline setelah model terpasang. Email, unduhan, pengambilan kontribusi GitHub, cek rilis, serta pemasangan model memerlukan koneksi.',
   q4: 'Kenapa namanya Anchoa?',
   a4: 'Anchoa adalah kata Spanyol untuk ikan teri. Kawanan teri menjadi gambaran urusan harian yang saling terhubung dalam satu aplikasi.',
-  q6: 'Bisa dipakai di Windows, macOS, atau Ubuntu?',
-  a6: 'Belum. Versi 0.33.0 tersedia untuk Fedora Linux (.rpm dan repo DNF) serta Arch Linux dan CachyOS (repo pacman). Windows dan Android masih direncanakan; platform lain belum tersedia.',
+  q6: 'Bisa dipakai di distro Linux lain atau OS non-Linux?',
+  a6: 'Saat ini fokus di Arch Linux dan CachyOS (repo pacman dan paket rilis). Platform lain belum tersedia.',
   q5: 'Avatar-nya bisa diganti?',
   a5: 'Belum. Avatar saat ini memakai kawanan teri statis. Bagian Avatar Live2D di Pengaturan masih berupa keterangan; impor model Live2D belum tersedia.',
   'g.title': 'Yang berenang di halaman ini',
@@ -154,7 +145,7 @@ export const id = {
   // Landing-only additions (mobile section + sound toggle).
   'mob.title': 'Di HP, kawanan yang sama.',
   'mob.lead':
-    'Rancangan aplikasi HP Anchoa dari desain yang sama: beranda, asisten Ako, jurnal, keuangan, dan jadwal. Versi HP belum tersedia; Android masih direncanakan.',
+    'Rancangan tampilan layar ringkas dari konsep desain Anchoa: beranda, asisten Ako, jurnal, keuangan, dan jadwal. Versi perangkat seluler belum tersedia.',
   'mob.caption': 'Rancangan · data contoh · versi HP belum tersedia',
   'snd.on': 'Nyalakan suara',
   'snd.off': 'Matikan suara',
@@ -169,11 +160,11 @@ export const en: Record<TranslationKey, string> = {
   'nav.eng': 'Engineering',
   'nav.download': 'Download',
   'nav.cta': 'Download',
-  'hero.eyebrow': 'v0.33.0 · available on Fedora & Arch · Windows/Android planned',
+  'hero.eyebrow': 'v0.33.0 · available on Arch Linux & CachyOS',
   'hero.title': 'One school for <em>everything in your day.</em>',
   'hero.lead':
     'Anchoa brings tasks, schedules, money, journal, notes, habits, email, files and downloads together on your laptop. A dashboard and voice assistant help with your day.',
-  'hero.cta1': 'Download for Fedora & Arch',
+  'hero.cta1': 'Download for Arch & CachyOS',
   'hero.cta2': 'View the code',
   'hero.hint':
     'move your cursor to scatter the school, click to feed it, scroll to dive',
@@ -222,7 +213,7 @@ export const en: Record<TranslationKey, string> = {
   'how.title': 'Local app data, an assistant on your laptop.',
   'how.lead':
     'Module data stays in SQLite on your laptop. Ollama runs the assistant locally; email and downloads contact their sources. Sync between devices is still planned.',
-  'how.n1tag': 'desktop · Fedora · Arch',
+  'how.n1tag': 'desktop · Arch Linux · CachyOS',
   'how.n1a': 'Tauri 2 + React + Rust',
   'how.n1b': 'Module data read from the local database',
   'how.n1c': 'Assistant, email and download panels',
@@ -238,7 +229,7 @@ export const en: Record<TranslationKey, string> = {
   'how.n3b': 'Local voice: Whisper and Piper',
   'how.n3c': 'Ollama on localhost (optional)',
   'how.note':
-    'Email uses Gmail servers and downloads use source sites. Device sync and Windows/Android are still planned.',
+    'Email uses Gmail servers and downloads use source sites. Device sync is still planned.',
   'eng.title': 'Built with tests for flows and access boundaries.',
   'eng.lead':
     'The React frontend and Rust backend share one database. Tests cover PIN locking, email credentials, assistant proposals and local file operations.',
@@ -254,30 +245,21 @@ export const en: Record<TranslationKey, string> = {
   'e4.t': 'Assistant proposals wait for approval',
   'e4.d':
     'Approve or reject before the assistant changes data. Coding agents use your chosen local command; command permissions follow that agent program.',
-  'dl.title': 'Available on Fedora and Arch Linux.',
+  'dl.title': 'Available on Arch Linux and CachyOS.',
   'dl.lead':
-    'The .rpm and .pkg.tar.zst packages are available on GitHub Releases. The Anchoa DNF repo (Fedora) and pacman repo (Arch Linux, CachyOS) are also available for installation and updates. Windows and Android are still planned.',
+    'The .pkg.tar.zst packages are available on GitHub Releases. The official Anchoa pacman repository is available for installation and updates.',
   'dl.ready': 'available',
-  'dl.rpmT': 'Fedora · .rpm package',
-  'dl.rpmD':
-    'Download the latest .rpm from the releases page, then install it with dnf so its dependencies come along.',
-  'dl.rpmBtn': 'Open GitHub Releases',
-  'dl.soon': 'planned',
-  'dl.dnfT': 'Anchoa DNF repository',
-  'dl.dnfD':
-    'Add the Anchoa repo once, install the package, then update through dnf upgrade.',
   'dl.archT': 'Arch Linux / CachyOS · pacman repository',
   'dl.archD':
-    'Import the Anchoa GPG key, add the [anchoa] repo to pacman.conf, then install. Updates come with sudo pacman -Syu or paru. The AUR package anchoa-bin follows once it is published to the AUR.',
-  'dl.flatD':
-    'A Flatpak package is not available yet. Support for other Linux distributions is still planned.',
+    'Import the Anchoa GPG key, add the [anchoa] repo to pacman.conf, then install the anchoa package. Updates come with pacman -Syu.',
+  'dl.archBtn': 'Open GitHub Releases',
+  'dl.soon': 'planned',
+  'dl.aurT': 'AUR · anchoa-bin',
+  'dl.aurD':
+    'The AUR package anchoa-bin can be installed via an AUR helper such as paru or yay.',
   'rm.title': 'Platform route',
   'rm.note': 'order may change',
-  'rm.s1': '.rpm · DNF repo · pacman repo · available',
-  'rm.l2': 'Other Linux',
-  'rm.s2': 'packages not available yet',
-  'rm.s3': 'planned',
-  'rm.s4': 'not available yet',
+  'rm.s1': 'pacman repo · release packages · available',
   copy: 'Copy',
   'faq.title': 'Frequently asked questions',
   q1: 'Is Anchoa free?',
@@ -288,8 +270,8 @@ export const en: Record<TranslationKey, string> = {
   a3: 'Local modules and Ollama work offline once models are installed. Email, downloads, GitHub contribution refreshes, release checks and model installation need a connection.',
   q4: 'Why is it called Anchoa?',
   a4: 'Anchoa is Spanish for anchovy. A school of anchovies represents daily tasks connected within one application.',
-  q6: 'Can I use it on Windows, macOS or Ubuntu?',
-  a6: 'Not yet. Version 0.33.0 is available for Fedora Linux (.rpm and DNF repo) and for Arch Linux and CachyOS (pacman repo). Windows and Android are planned; other platforms are not available yet.',
+  q6: 'Can I use it on other Linux distributions or non-Linux systems?',
+  a6: 'Currently focused on Arch Linux and CachyOS (pacman repo and release packages). Other platforms are not available yet.',
   q5: 'Can I change the avatar?',
   a5: 'Not yet. The current avatar is a static school of anchovies. The Avatar Live2D settings section is informational; Live2D model import is not available.',
   'au.eyebrow': 'behind Anchoa',
@@ -320,7 +302,7 @@ export const en: Record<TranslationKey, string> = {
 
   'mob.title': 'The same school, on your phone.',
   'mob.lead':
-    'Anchoa phone designs from the same design work: home, the Ako assistant, journal, finance and schedule. The phone app is not available yet; Android is planned.',
+    'Compact display screen concepts from the same Anchoa design work: home, the Ako assistant, journal, finance and schedule. Mobile device versions are not available yet.',
   'mob.caption': 'Concept · sample data · the phone app is not available',
   'snd.on': 'Turn on sound',
   'snd.off': 'Turn off sound',

@@ -1,6 +1,6 @@
 # Panduan pengguna Anchoa
 
-Untuk Anchoa 0.18.0 di Fedora Linux. [Landing page](https://syharipf.github.io/Anchoa/) · [README](../README.md)
+Untuk Anchoa 0.35.0 di Arch Linux / CachyOS. [Landing page](https://syharipf.github.io/Anchoa/) · [README](../README.md)
 
 ## Daftar isi
 
@@ -11,10 +11,12 @@ Untuk Anchoa 0.18.0 di Fedora Linux. [Landing page](https://syharipf.github.io/A
 - [Email](#email)
 - [Jadwal](#jadwal)
 - [Habit](#habit)
+- [Health](#health)
 - [Keuangan](#keuangan)
 - [Proyek](#proyek)
 - [Berkas](#berkas)
 - [Unduhan](#unduhan)
+- [Library](#library)
 - [Profil](#profil)
 - [Pengaturan](#pengaturan)
 - [Asisten](#asisten)
@@ -27,11 +29,14 @@ Untuk Anchoa 0.18.0 di Fedora Linux. [Landing page](https://syharipf.github.io/A
 
 ## Mulai
 
-1. Tambahkan repo dan pasang aplikasi:
+1. Tambahkan repo pacman dan pasang aplikasi:
 
    ```bash
-   sudo dnf config-manager addrepo --from-repofile=https://syharipf.github.io/Anchoa/anchoa.repo
-   sudo dnf install anchoa
+   curl -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg
+   sudo pacman-key --add anchoa.gpg
+   sudo pacman-key --lsign-key "$(gpg --show-keys --with-colons anchoa.gpg | awk -F: '/^fpr/ {print $10; exit}')"
+   printf '\n[anchoa]\nSigLevel = Required DatabaseRequired\nServer = https://syharipf.github.io/Anchoa/arch/$arch\n' | sudo tee -a /etc/pacman.conf
+   sudo pacman -Syu anchoa
    ```
 
 2. Buka Anchoa dari menu aplikasi atau jalankan `anchoa`. Saat pertama dibuka, database lokal dibuat dan Dashboard tampil. Tidak perlu membuat akun Anchoa.
@@ -39,7 +44,9 @@ Untuk Anchoa 0.18.0 di Fedora Linux. [Landing page](https://syharipf.github.io/A
 4. Pilih modul dari sidebar. Tombol **Cari atau jalankan perintah…** atau Ctrl+K membuka command palette untuk berpindah halaman, mencari item, dan mencatat cepat.
 5. Kebutuhan fitur tambahan ada di [Program tambahan](../README.md#program-tambahan-opsional).
 
-Saat ini Fedora Linux saja. Windows dan Android masih direncanakan.
+Saat ini Arch Linux dan CachyOS (x86_64) saja. Fedora/RPM dan mobile ditunda.
+
+Pembaruan datang lewat `sudo pacman -Syu` atau `paru`.
 
 Untuk mencatat cepat, buka Ctrl+K dan ketik `Ide baru`. Pilih **Simpan ke Jurnal: “Ide baru”** atau **Buat tugas: “Ide baru”** dengan panah dan Enter. **Catat transaksi** membuka formulir transaksi baru.
 
@@ -118,6 +125,17 @@ Untuk kebiasaan terjadwal, centang hari ini, streak, dan konsistensi.
 
 **Batas:** centang hanya untuk hari ini yang terjadwal, bukan mengisi hari lampau. Hari libur tidak memutus streak. Pengingat tampil di panel Notifikasi; belum ada notifikasi desktop. **Catat lewat suara** di header masih nonaktif; gunakan Asisten untuk usulan centang.
 
+## Health
+
+Untuk mencatat metrik harian: berat, tidur, langkah, dan detak jantung istirahat.
+
+1. Buka **Health**. Di kartu **Today**, isi **Weight** (`68.4`), **Sleep** (`7:30`), **Steps** (`8,420`), dan **Resting HR** (`62`). Nilai tersimpan saat kolom ditinggalkan atau Enter ditekan.
+2. Kosongkan kolom lalu tinggalkan untuk menghapus metrik hari itu. Isian yang tidak valid ditolak dengan pesan, bukan dihapus.
+3. **Weight trend · 90 days** dan **Sleep & steps · 30 days** menggambar garis dari data; hari tanpa data memutus garis. **Last 14 days** menampilkan riwayat, dengan `—` untuk hari kosong.
+4. Angka disimpan sebagai integer: gram, menit, langkah, dan bpm. Layar menampilkan `kg` dan `jam:menit`.
+
+**Batas:** tidak ada impor wearable/CSV, kalori, atau saran medis. Data health tidak dikirim ke penyedia AI eksternal.
+
 ## Keuangan
 
 Untuk pencatatan uang secara manual: akun, transaksi, tagihan, dan batas bulanan.
@@ -184,7 +202,19 @@ Untuk file HTTP/HTTPS langsung serta video/audio melalui yt-dlp.
 5. Saat selesai, klik **Buka berkas** atau **Buka di Berkas**. **Hapus dari daftar** menghapus catatan antrean, bukan file hasil.
 6. Di panel **Pengaturan**, klik **Ubah** pada **Simpan ke**, isi path folder yang sudah ada, lalu **Simpan**. Atur unduhan bersamaan (1–5) dan batas kecepatan.
 
-**Batas:** torrent/magnet belum didukung. yt-dlp dan ffmpeg harus ada di PATH untuk media; file langsung tidak memerlukannya. Playlist tidak diikuti, kualitas/subtitle bergantung sumber. Folder tujuan harus di dalam home. Setelah aplikasi dibuka kembali, unduhan yang belum selesai berstatus Dijeda; klik **Lanjutkan**. Jika server file tidak mendukung kelanjutan, unduhan dimulai ulang. Batas kecepatan dibagi menurut jumlah unduhan bersamaan yang diatur.
+**Batas:** torrent/magnet belum didukung. yt-dlp dan ffmpeg harus ada di PATH untuk media; file langsung tidak memerlukannya. Playlist tidak diikuti, kualitas/subtitle bergantung sumber. Folder tujuan harus di dalam home. Setelah aplikasi dibuka kembali, unduhan yang belum selesai berstatus Dijeda; klik **Lanjutkan**. Jika server tidak mendukung kelanjutan, unduhan dimulai ulang. Batas kecepatan dibagi menurut jumlah unduhan bersamaan yang diatur.
+
+## Library
+
+Untuk koleksi film, serial, anime, buku, dan manga: status, progres, rating, dan ulasan.
+
+1. Buka **Library** lalu klik **+ Add**. Isi **Title**, **Creator**, dan **Year**; pilih **Kind** dan **Status**, lalu **Save**.
+2. Untuk serial/anime isi **Progress** dalam episode; untuk buku/manga dalam halaman atau chapter. Film tidak punya progres.
+3. Klik kartu untuk mengubah detail, memberi rating 1–5 bintang, menambah tag, dan menulis ulasan. Ulasan ikut muncul di pencarian command palette.
+4. Filter dengan chip status (**All**, **Want**, **Watching/Reading**, **Finished**, **Dropped**), kolom cari, atau tombol **All kinds**.
+5. **Delete** menghapus dengan toast **Undo**; data tidak langsung hilang.
+
+**Batas:** tanpa sampul, tanpa ambil metadata dari TMDB/AniList/Goodreads, dan tanpa pelacakan per episode.
 
 ## Profil
 
@@ -206,7 +236,7 @@ Untuk mengatur layanan dan data perangkat ini.
 2. Pilih **Suara** untuk memasang model/binary, menguji mikrofon, memilih atau mengimpor suara, dan mengatur kecepatan, ekspresi, serta variasi.
 3. Pilih **Sinkron & data**. Bagian atas berisi kartu **Sinkron antarperangkat**: masuk dengan Google atau GitHub, buat atau buka kunci frasa sandi sync, lalu **Sinkronkan sekarang**. Bagian bawah berisi ukuran database, ringkasan item, daftar backup, **Backup sekarang**, **Buka folder backup**, dan **Buka folder data**.
 4. Pilih **Integrasi** untuk Gmail dan GitHub. Untuk kalender kontribusi GitHub, isi **Token GitHub** lalu **Sambungkan**. **Muat ulang data** mengambil ulang kalender; **Putuskan** menghapus token dan cache kontribusi.
-5. Pilih **Tentang** untuk melihat versi, memeriksa pembaruan, membuka **Repositori GitHub**/**Catatan Rilis**, dan melihat lisensi. Pembaruan RPM dipasang melalui `sudo dnf upgrade anchoa`.
+5. Pilih **Tentang** untuk melihat versi, memeriksa pembaruan, membuka **Repositori GitHub**/**Catatan Rilis**, dan melihat lisensi. Pembaruan dipasang melalui `sudo pacman -Syu anchoa` atau `paru`.
 
 **Batas:** **Avatar Live2D** masih menampilkan avatar statis. SFTP dari HP belum aktif. OpenRouter, OpenAI, dan Anthropic belum tersedia sebagai penyedia langsung; endpoint kompatibel OpenAI dapat dipakai lewat **Kustom**. Belum ada pemasangan pembaruan aplikasi otomatis dari panel Tentang. Sync memerlukan Supabase yang dikonfigurasi saat build.
 
@@ -219,7 +249,7 @@ Asisten penuh ada di Dashboard. Pada halaman lain, buka tombol Asisten di kanan 
 1. Untuk Ollama lokal, pasang dan siapkan model bawaan:
 
    ```bash
-   sudo dnf install ollama
+   sudo pacman -S ollama
    sudo systemctl start ollama
    ollama pull qwen2.5:3b
    ```
@@ -242,7 +272,7 @@ Mengubah URL menghapus key lama dan mereset sesi chat. Mengganti atau menghapus 
 1. Pasang program sistem jika belum ada:
 
    ```bash
-   sudo dnf install whisper-cpp pipewire-utils
+   sudo pacman -S whisper-cpp pipewire-utils
    ```
 
 2. Di Pengaturan > **Suara**, klik **Pasang** untuk **Model Whisper Base (ggml-base.bin)**, **Piper TTS**, dan suara **Indonesia · News**. Unduhan ini memerlukan internet.
@@ -363,7 +393,7 @@ Pasang `whisper-cpp` dan `pipewire-utils`. Buka Pengaturan > **Suara** dan perik
 
 ### Lupa PIN
 
-Tutup Anchoa. Pasang utilitas bila perlu dengan `sudo dnf install sqlite`, lalu jalankan perintah persis dari **Lupa PIN?** di layar kunci:
+Tutup Anchoa. Pasang utilitas bila perlu dengan `sudo pacman -S sqlite`, lalu jalankan perintah persis dari **Lupa PIN?** di layar kunci:
 
 ```bash
 sqlite3 ~/.local/share/io.github.syharipf.anchoa/anchoa.db "DELETE FROM settings WHERE key = 'security.pin_hash';"
@@ -377,7 +407,7 @@ Tutup aplikasi sebelum menyalin database. Pastikan nama backup benar dan simpan 
 
 ### Unduhan media gagal
 
-Periksa yt-dlp dan ffmpeg di panel mesin Unduhan. Petunjuk aplikasi: `sudo dnf install yt-dlp ffmpeg`; paket ffmpeg bergantung repo yang aktif. Perbarui yt-dlp dengan `sudo dnf upgrade yt-dlp`, lalu **Coba lagi**. Kualitas/subtitle bergantung sumber; torrent/magnet ditolak.
+Periksa yt-dlp dan ffmpeg di panel mesin Unduhan. Petunjuk aplikasi: `sudo pacman -S yt-dlp ffmpeg`. Perbarui yt-dlp dengan `sudo pacman -Syu yt-dlp`, lalu **Coba lagi**. Kualitas/subtitle bergantung sumber; torrent/magnet ditolak.
 
 ### Gmail tidak tersambung
 

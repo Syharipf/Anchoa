@@ -50,7 +50,7 @@ export function GitDiffTab({
       <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3.5 py-2">
         <div className="flex items-center gap-2">
           <span className="font-display text-xs font-semibold text-ink">
-            Status Perubahan Git
+            Git Changes Status
           </span>
           {diff?.branch && (
             <span className="font-mono text-xs text-accent">({diff.branch})</span>
@@ -62,13 +62,13 @@ export function GitDiffTab({
           disabled={loading}
           className={`${SECONDARY} py-1 text-xs`}
         >
-          {loading ? "Memuat…" : "Segarkan"}
+          {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <p className="text-xs text-muted">Memeriksa status git lokal…</p>
+          <p className="text-xs text-muted">Checking local git status…</p>
         ) : !diff || diff.files.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center text-muted">
             <svg
@@ -82,8 +82,8 @@ export function GitDiffTab({
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <p className="text-xs font-medium text-ink">Working tree bersih</p>
-            <p className="mt-1 text-[11px]">Tidak ada perubahan file yang belum di-commit.</p>
+            <p className="text-xs font-medium text-ink">Working tree clean</p>
+            <p className="mt-1 text-[11px]">No uncommitted file changes.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-1.5 font-mono text-xs">

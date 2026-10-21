@@ -1,9 +1,12 @@
-import type { Dashboard as DashboardData, DayTask } from "../api";
+import { useEffect, useState } from "react";
+import { api, type Dashboard as DashboardData, type DayTask, type HealthToday, type LibraryOverview } from "../api";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { greeting } from "../format";
 import type { PageId } from "../shell/nav";
 import { FinanceCard } from "./FinanceCard";
 import { DownloadsCard } from "./DownloadsCard";
+import { HealthCard } from "./HealthCard";
+import { LibraryCard } from "./LibraryCard";
 import { ProjectsCard } from "./ProjectsCard";
 import { RecentPanel } from "./RecentPanel";
 import { summaryLine } from "./summary";
@@ -26,6 +29,13 @@ export function Dashboard({
   onSelect: (page: PageId) => void;
   onOpenAssistant: OpenAssistant;
 }>) {
+  const [libraryOverview, setLibraryOverview] = useState<LibraryOverview | undefined>(undefined);
+
+  const [healthToday, setHealthToday] = useState<HealthToday | undefined>(undefined);
+  useEffect(() => {
+    api.libraryOverview().then(setLibraryOverview).catch(() => {});
+    api.healthToday().then(setHealthToday).catch(() => {});
+  }, [data]);
   const now = new Date();
   const recap = data
     ? summaryLine(data.today, data.inboxCount, data.finance.dueBills.filter((bill) => bill.status === "overdue").length)
@@ -43,7 +53,7 @@ export function Dashboard({
         <button
           type="button"
           disabled={!data}
-          onClick={() => onOpenAssistant({ kind: "speak", text: `${recap}. ${data?.today.filter((task) => task.completedAt === null).map((task) => task.title || "Tanpa judul").join(". ") ?? ""}` })}
+          onClick={() => onOpenAssistant({ kind: "speak", text: `${recap}. ${data?.today.filter((task) => task.completedAt === null).map((task) => task.title || "Untitled").join(". ") ?? ""}` })}
           className="flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-disabled disabled:hover:bg-surface"
         >
           <svg
@@ -61,22 +71,22 @@ export function Dashboard({
             <path d="M4 9v6h4l5 4V5L8 9z" />
             <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" />
           </svg>
-          Dengarkan rekap
+          Listen to recap
         </button>
       </div>
 
-      <div role="group" aria-label="Pintasan" className="flex flex-wrap items-center gap-2">
+      <div role="group" aria-label="Shortcuts" className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => onSelect("jadwal")} className={QUICK_PILL}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="text-accent" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
-        Tugas
+        Tasks
         </button>
         <button type="button" onClick={() => onSelect("keuangan")} className={QUICK_PILL}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="text-accent" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
-        Transaksi
+        Transactions
         </button>
         <button type="button" onClick={() => onOpenAssistant({ kind: "voice" })} className={QUICK_PILL}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent" aria-hidden="true">
@@ -84,20 +94,20 @@ export function Dashboard({
             <path d="M5 11a7 7 0 0 0 14 0" />
             <path d="M12 18v3" />
           </svg>
-          Catatan suara
+          Voice note
         </button>
         <button type="button" onClick={() => onSelect("unduhan")} className={QUICK_PILL}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent" aria-hidden="true">
             <path d="M12 4v11M7 10l5 5 5-5" />
             <path d="M5 20h14" />
           </svg>
-          Unduh dari clipboard
+          Download from clipboard
         </button>
         <button type="button" onClick={() => onSelect("email")} className={QUICK_PILL}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent" aria-hidden="true">
             <path d="M4 20h4L19 9l-4-4L4 16z" />
           </svg>
-          Tulis email
+          Compose email
         </button>
       </div>
 
@@ -129,17 +139,19 @@ export function Dashboard({
             <span id="c-email" className="font-display text-sm font-semibold text-ink">Email</span>
             {data && data.inboxCount > 0 ? (
               <span className="rounded-full bg-accent px-1.5 font-mono text-[11px] font-medium text-canvas">
-                {data.inboxCount} baru
+                {data.inboxCount} new
               </span>
             ) : null}
             <span className="ml-auto text-xs text-accent">›</span>
           </div>
           <span className="text-xs leading-relaxed text-muted">
-            {data && data.inboxCount > 0 ? `${data.inboxCount} pesan belum dibaca` : "Buka kotak masuk"}
+            {data && data.inboxCount > 0 ? `${data.inboxCount} unread ${data.inboxCount === 1 ? "message" : "messages"}` : "Open inbox"}
           </span>
         </button>
         <ProjectsCard projects={data?.projects} onSelect={onSelect} />
         <DownloadsCard downloads={data?.downloads} onSelect={onSelect} />
+        <LibraryCard overview={libraryOverview} onSelect={onSelect} />
+        <HealthCard today={healthToday} onSelect={onSelect} />
         <RecentPanel items={data?.recent} onOpen={onOpen} onSelect={onSelect} />
       </div>
     </>

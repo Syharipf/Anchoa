@@ -49,7 +49,7 @@ export function TagInput({
           {!disabled && (
             <button
               type="button"
-              aria-label={`Hapus tag ${tag}`}
+              aria-label={`Remove tag ${tag}`}
               onClick={() => handleRemove(tag)}
               className="ml-0.5 cursor-pointer text-xs text-muted hover:text-ink"
             >
@@ -63,8 +63,8 @@ export function TagInput({
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="#tambah-tag…"
-          aria-label="Tambah tag"
+          placeholder="#add-tag…"
+          aria-label="Add tag"
           className="min-w-[90px] flex-1 border-0 bg-transparent font-mono text-xs text-ink outline-none placeholder:text-muted focus:outline-none"
         />
       )}

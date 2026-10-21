@@ -5,17 +5,17 @@ import { FIELD, H2, PANEL, SECONDARY } from "../shell/ui";
 export interface AiSectionProps { readonly onChanged?: () => void; }
 
 const ROLES = [
-  { id: "chat", label: "Percakapan & aksi", description: "Percakapan umum dan usulan aksi" },
-  { id: "journal", label: "Tanggapan jurnal", description: "Refleksi jurnal — wajib lokal" },
-  { id: "recap", label: "Rekap harian", description: "Belum tersedia — rekap harian belum memiliki pemrosesan AI" },
-  { id: "email", label: "Asisten email", description: "Ringkasan, balasan, dan usulan email — wajib lokal" },
+  { id: "chat", label: "Chat & actions", description: "General conversation and action proposals" },
+  { id: "journal", label: "Journal reflections", description: "Journal reflections — local only" },
+  { id: "recap", label: "Daily recap", description: "Not available — daily recap does not have AI processing yet" },
+  { id: "email", label: "Email assistant", description: "Email summary, replies, and proposals — local only" },
 ] as const;
 const PROVIDERS = [
-  { id: "ollama", name: "Ollama", kind: "Lokal", active: true },
-  { id: "openrouter", name: "OpenRouter", kind: "Belum tersedia", active: false },
-  { id: "openai", name: "OpenAI", kind: "Belum tersedia", active: false },
-  { id: "anthropic", name: "Anthropic", kind: "Belum tersedia", active: false },
-  { id: "custom", name: "Kustom", kind: "Komp. OpenAI", active: true },
+  { id: "ollama", name: "Ollama", kind: "Local", active: true },
+  { id: "openrouter", name: "OpenRouter", kind: "Not available", active: false },
+  { id: "openai", name: "OpenAI", kind: "Not available", active: false },
+  { id: "anthropic", name: "Anthropic", kind: "Not available", active: false },
+  { id: "custom", name: "Custom", kind: "OpenAI-compatible", active: true },
 ] as const;
 
 export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
@@ -66,7 +66,7 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
     const result = await checkProvider(selected);
     if (generation !== statusGeneration.current) return;
     setStatuses((prev) => ({ ...prev, [selected]: result }));
-    setFeedback(result.available ? `Koneksi berhasil: ${result.models.length} model ditemukan` : `Gagal: ${result.error ?? "Penyedia tidak tersedia"}`);
+    setFeedback(result.available ? `Connection successful: ${result.models.length} models found` : `Failed: ${result.error ?? "Provider unavailable"}`);
     setTesting(false); onChanged?.();
   };
 
@@ -84,10 +84,10 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
       if (operation !== "metadata") setKey("");
       setStatuses((prev) => ({ ...prev, custom: undefined }));
       invalidateModels();
-      setFeedback("Konfigurasi tersimpan. Muat model untuk melihat daftar model.");
+      setFeedback("Configuration saved. Load models to see the model list.");
       onChanged?.();
       window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED, { detail: { reset: operation !== "metadata" || result.baseUrl !== config?.baseUrl } }));
-    } catch (e) { setFeedback(`Gagal: ${errorMessage(e)}`); }
+    } catch (e) { setFeedback(`Failed: ${errorMessage(e)}`); }
     finally { setBusy(false); }
   };
 
@@ -99,7 +99,7 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
       const models = await api.aiCustomModels(baseUrl.trim(), key.trim());
       if (generation !== modelsGeneration.current) return;
       setDraftModels(models);
-      setFeedback(models.length ? `${models.length} model ditemukan. Pilih model di "Model per tugas".` : "Penyedia tidak mengembalikan model apa pun.");
+      setFeedback(models.length ? `${models.length} models found. Choose a model in "Model assignments".` : "Provider did not return any models.");
     } catch (e) {
       if (generation !== modelsGeneration.current) return;
       setDraftModels(null); setModelError(errorMessage(e));
@@ -116,7 +116,7 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
       setDrafts((prev) => { const next = { ...prev }; delete next[role]; return next; });
       onChanged?.();
       window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED, { detail: { reset: role === "chat" } }));
-    } catch (e) { setFeedback(`Gagal menyimpan model: ${errorMessage(e)}`); }
+    } catch (e) { setFeedback(`Failed to save model: ${errorMessage(e)}`); }
     finally { setSavingRole(null); }
   };
 
@@ -124,17 +124,17 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
   const metadataDirty = name !== config?.name || baseUrl !== config?.baseUrl;
   const localModels = statuses.ollama?.models ?? [];
   const customModels = draftModels ?? statuses.custom?.models ?? [];
-  const modelSource = selected === "ollama" ? "Sumber: Ollama di perangkat" : "Sumber: penyedia Kustom";
+  const modelSource = selected === "ollama" ? "Source: Ollama on device" : "Source: Custom provider";
   const lockedField = busy || testing || loadingModels;
 
   return <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_288px]">
     <div className="flex min-w-0 flex-col gap-3.5">
       <section aria-labelledby="ai-providers-heading" className={PANEL}>
         <div className="flex flex-wrap items-center gap-3">
-          <h2 id="ai-providers-heading" className={H2}>Penyedia AI</h2>
-          <span className="text-xs text-muted">Dipakai untuk perintah suara, ringkasan, dan tanggapan jurnal</span>
+          <h2 id="ai-providers-heading" className={H2}>AI Providers</h2>
+          <span className="text-xs text-muted">Used for voice commands, summaries, and journal reflections</span>
         </div>
-        <div role="group" aria-label="Pilih penyedia" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        <div role="group" aria-label="Select provider" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {PROVIDERS.map((p) => <button key={p.id} type="button" disabled={!p.active || lockedField} aria-pressed={selected === p.id}
             onClick={() => { if (p.id === "ollama" || p.id === "custom") { setSelected(p.id); setFeedback(null); setKey(""); } }}
             className={`flex min-h-[64px] flex-col items-start justify-center gap-1 rounded-[10px] px-2.5 py-2 text-left ${SECONDARY} disabled:opacity-50`}>
@@ -144,59 +144,59 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
         </div>
 
         {selected === "ollama" ? <div className="mt-4 flex flex-col gap-2 text-xs text-muted">
-          <p>Ollama berjalan lokal di <code className="font-mono">http://127.0.0.1:11434</code> dan tidak memakai API key.</p>
-          {status?.available === false && <p>Jalankan service Ollama: <code className="font-mono">sudo systemctl start ollama</code></p>}
+          <p>Ollama runs locally at <code className="font-mono">http://127.0.0.1:11434</code> and does not use an API key.</p>
+          {status?.available === false && <p>Start Ollama service: <code className="font-mono">sudo systemctl start ollama</code></p>}
         </div> : <div className="mt-4 flex flex-col gap-3 text-xs">
-          <label className="flex flex-col gap-1">Nama penyedia<input aria-label="Nama penyedia" className={FIELD} value={name} disabled={!config || lockedField} onChange={(e) => setName(e.target.value)} /></label>
-          <label className="flex flex-col gap-1">Base URL<input aria-label="Base URL Kustom" className={FIELD} value={baseUrl} disabled={!config || lockedField}
+          <label className="flex flex-col gap-1">Provider name<input aria-label="Provider name" className={FIELD} value={name} disabled={!config || lockedField} onChange={(e) => setName(e.target.value)} /></label>
+          <label className="flex flex-col gap-1">Base URL<input aria-label="Custom Base URL" className={FIELD} value={baseUrl} disabled={!config || lockedField}
             onChange={(e) => { setBaseUrl(e.target.value); invalidateModels(); }} placeholder="http://127.0.0.1:20128/v1" /></label>
-          <p className="text-muted">HTTPS, atau HTTP hanya untuk localhost, 127.0.0.1, atau ::1. Mengubah URL menghapus key lama dan mereset sesi chat.</p>
+          <p className="text-muted">HTTPS, or HTTP only for localhost, 127.0.0.1, or ::1. Changing URL deletes old key and resets chat session.</p>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={SECONDARY} disabled={!config || lockedField || !name.trim() || !baseUrl.trim()} onClick={() => handleConfig("metadata")}>Simpan metadata</button>
-            <span className="text-muted">{config?.hasKey ? "Key tersedia" : "Key tidak tersedia"}</span>
+            <button type="button" className={SECONDARY} disabled={!config || lockedField || !name.trim() || !baseUrl.trim()} onClick={() => handleConfig("metadata")}>Save metadata</button>
+            <span className="text-muted">{config?.hasKey ? "Key available" : "Key unavailable"}</span>
           </div>
-          <label className="flex flex-col gap-1">API key opsional<input aria-label="API key opsional" type="password" autoComplete="new-password" className={FIELD} value={key}
+          <label className="flex flex-col gap-1">Optional API key<input aria-label="Optional API key" type="password" autoComplete="new-password" className={FIELD} value={key}
             disabled={!config || lockedField} onChange={(e) => { setKey(e.target.value); invalidateModels(); }} /></label>
           <div className="flex flex-wrap items-center gap-2">
-            <select aria-label="Model dari penyedia" className="flex min-w-[200px] flex-1 rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" disabled={lockedField || !baseUrl.trim() || !key.trim()} value=""
+            <select aria-label="Models from provider" className="flex min-w-[200px] flex-1 rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" disabled={lockedField || !baseUrl.trim() || !key.trim()} value=""
               onChange={(e) => {
                 if (!e.target.value) return;
                 void saveRole("chat", { provider: "custom", model: e.target.value });
               }}>
-              <option value="">{draftModels?.length ? `${draftModels.length} model tersedia` : "Muat model dari penyedia"}</option>
+              <option value="">{draftModels?.length ? `${draftModels.length} models available` : "Load models from provider"}</option>
               {customModels.map((model) => <option key={model} value={model}>{model}</option>)}
             </select>
             <button type="button" className={SECONDARY} disabled={!config || lockedField || !baseUrl.trim() || !key.trim()} onClick={handleLoadModels}>
-              {loadingModels ? "Memuat…" : "Muat model"}
+              {loadingModels ? "Loading…" : "Load models"}
             </button>
             <button type="button" className={SECONDARY} onClick={handleTest} disabled={testing || busy || loadingModels || !config || metadataDirty}>
-              {testing ? "Menguji…" : "Tes koneksi"}
+              {testing ? "Testing…" : "Test connection"}
             </button>
-            <button type="button" className={SECONDARY} disabled={!config || lockedField || metadataDirty || !key.trim()} onClick={() => handleConfig("key")}>Ganti key</button>
-            <button type="button" className={SECONDARY} disabled={!config?.hasKey || lockedField || metadataDirty} onClick={() => handleConfig("delete")}>Hapus key</button>
+            <button type="button" className={SECONDARY} disabled={!config || lockedField || metadataDirty || !key.trim()} onClick={() => handleConfig("key")}>Change key</button>
+            <button type="button" className={SECONDARY} disabled={!config?.hasKey || lockedField || metadataDirty} onClick={() => handleConfig("delete")}>Delete key</button>
           </div>
-          {loadingModels && <span role="status" className="text-muted">Mengambil daftar model dari penyedia…</span>}
-          {modelError && <p role="alert" className="text-danger">Gagal memuat model: {modelError}</p>}
+          {loadingModels && <span role="status" className="text-muted">Fetching model list from provider…</span>}
+          {modelError && <p role="alert" className="text-danger">Failed to load models: {modelError}</p>}
           {feedback && <p role="status" className="rounded-[10px] border border-line bg-surface-2 px-3 py-2">{feedback}</p>}
-          <p className="text-muted">Key disimpan di keyring OS, tidak ditampilkan kembali, dan tidak ikut ke log. Server lokal boleh tanpa key. "Muat model" hanya membaca {draftModels ? "server" : "alamat"} — URL dan key tetap perlu disimpan lewat "Simpan metadata" dan "Ganti key". Perubahan key mereset sesi chat.</p>
-          {busy && <span role="status">Menyimpan…</span>}
+          <p className="text-muted">Key is stored in OS keyring, never redisplayed, and omitted from logs. Local servers can omit keys. "Load models" only reads the server — URL and key still need to be saved via "Save metadata" and "Change key". Key changes reset chat session.</p>
+          {busy && <span role="status">Saving…</span>}
         </div>}
 
         {selected === "ollama" && <div className="mt-4 flex flex-col gap-2">
           <button type="button" className={`${SECONDARY} self-start`} onClick={handleTest} disabled={testing || busy || loadingModels}>
-            {testing ? "Menguji…" : "Tes koneksi"}
+            {testing ? "Testing…" : "Test connection"}
           </button>
-          <p role="status" className="text-xs text-muted">{status?.available ? `Terhubung · ${status.models.length} model terdeteksi` : status?.error ?? "Belum diuji"}</p>
+          <p role="status" className="text-xs text-muted">{status?.available ? `Connected · ${status.models.length} models detected` : status?.error ?? "Not tested"}</p>
           {feedback && <p role="status" className="rounded-[10px] border border-line bg-surface-2 px-3 py-2 text-xs">{feedback}</p>}
         </div>}
       </section>
 
       <section aria-labelledby="ai-roles-heading" className={PANEL}>
         <div className="flex flex-wrap items-center gap-3">
-          <h2 id="ai-roles-heading" className={H2}>Model per tugas</h2>
+          <h2 id="ai-roles-heading" className={H2}>Model assignments</h2>
           <span className="text-xs text-muted">{modelSource}</span>
         </div>
-        {!roles && <p role="status" className="mt-3 text-xs text-muted">Konfigurasi role belum dimuat.</p>}
+        {!roles && <p role="status" className="mt-3 text-xs text-muted">Role configuration not loaded yet.</p>}
         <div className="mt-2 flex flex-col divide-y divide-line">{ROLES.map((r) => {
           const locked = r.id === "journal" || r.id === "email";
           const choice: RoleConfig = drafts[r.id] ?? roles?.[r.id] ?? { provider: "ollama", model: "qwen2.5:3b" };
@@ -210,36 +210,36 @@ export function AiSection({ onChanged }: Readonly<AiSectionProps>) {
               <span className="text-[11px] text-muted">{r.description}</span>
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <select aria-label={`Penyedia untuk ${r.label}`} className="rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 text-sm" value={provider} disabled={locked || disabled}
+              <select aria-label={`Provider for ${r.label}`} className="rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 text-sm" value={provider} disabled={locked || disabled}
                 onChange={(e) => {
                   const next = e.target.value as AiProvider;
                   const options = next === "custom" ? customModels : localModels;
                   setDrafts((prev) => ({ ...prev, [r.id]: { provider: next, model: roles?.[r.id].provider === next ? roles[r.id].model : options[0] ?? "" } }));
-                }}><option value="ollama">Ollama</option>{!locked && <option value="custom">Kustom</option>}</select>
-              <select aria-label={`Model untuk ${r.label}`} className="rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 text-sm min-w-[180px]" value={choice.model} disabled={disabled || (provider === "custom" && !customModels.length)}
+                }}><option value="ollama">Ollama</option>{!locked && <option value="custom">Custom</option>}</select>
+              <select aria-label={`Model for ${r.label}`} className="rounded-[6px] border border-line bg-surface p-2 transition-colors hover:bg-surface-2 text-sm min-w-[180px]" value={choice.model} disabled={disabled || (provider === "custom" && !customModels.length)}
                 onChange={(e) => {
                   const updated = { provider, model: e.target.value };
                   if (provider === "ollama" && !drafts[r.id]) void saveRole(r.id, updated);
                   else setDrafts((prev) => ({ ...prev, [r.id]: updated }));
-                }}>{!choice.model && <option value="">Pilih model</option>}{models.map((model) => <option key={model} value={model}>{model}</option>)}</select>
+                }}>{!choice.model && <option value="">Choose model</option>}{models.map((model) => <option key={model} value={model}>{model}</option>)}</select>
               {(provider === "custom" || drafts[r.id]) && <button type="button" className={SECONDARY} disabled={disabled || !choice.model.trim()}
-                onClick={() => saveRole(r.id, { provider, model: choice.model.trim() })}>{`Simpan model ${r.label}`}</button>}
+                onClick={() => saveRole(r.id, { provider, model: choice.model.trim() })}>{`Save model for ${r.label}`}</button>}
             </div>
           </div>;
         })}</div>
-        {selected === "custom" && !customModels.length && <p className="mt-3 text-xs text-muted">Belum ada model dari penyedia Kustom. Masukkan URL + key di "Penyedia AI", lalu klik "Muat model".</p>}
+        {selected === "custom" && !customModels.length && <p className="mt-3 text-xs text-muted">No models from Custom provider yet. Enter URL + key in "AI Providers", then click "Load models".</p>}
       </section>
     </div>
 
     <div className="flex min-w-0 flex-col gap-3.5">
       <section aria-labelledby="ai-usage-heading" className={PANEL}>
-        <h2 id="ai-usage-heading" className={H2}>Pemakaian bulan ini</h2>
-        <p className="mt-2 text-xs text-muted">Belum tersedia — permintaan AI belum dicatat di perangkat ini. Batas kuota tetap dipegang penyedia yang kamu pakai.</p>
+        <h2 id="ai-usage-heading" className={H2}>Usage this month</h2>
+        <p className="mt-2 text-xs text-muted">Not available — AI requests are not logged on this device. Quota limits are managed by your provider.</p>
       </section>
       <section aria-labelledby="ai-privacy-heading" className={PANEL}>
-        <h2 id="ai-privacy-heading" className={H2}>Privasi AI</h2>
-        <p className="mt-2 text-xs text-muted">Jurnal dan email hanya ke model lokal Ollama — terkunci. Kustom menerima pesan dan riwayat sesi, nama profil, konteks tugas/tagihan/habit/akun, serta hasil tools yang diizinkan. Data sensitif yang kamu ketik sendiri juga dikirim ke endpoint Kustom, termasuk server remote. Jurnal, email, dan tugas turunan jurnal tidak disertakan otomatis.</p>
-        <p className="mt-2 text-xs text-muted">Mengganti provider/model chat mereset riwayat dan usulan pending; tidak ada fallback provider otomatis.</p>
+        <h2 id="ai-privacy-heading" className={H2}>AI Privacy</h2>
+        <p className="mt-2 text-xs text-muted">Journal and email only go to local Ollama models — locked. Custom receives messages, session history, profile name, task/bill/habit/account context, and permitted tool outputs. Sensitive data you type is sent to the Custom endpoint, including remote servers. Journal, email, and journal-derived tasks are not automatically included.</p>
+        <p className="mt-2 text-xs text-muted">Switching chat provider/model resets chat history and pending proposals; there is no automatic provider fallback.</p>
       </section>
     </div>
   </div>;

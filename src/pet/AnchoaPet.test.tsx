@@ -6,26 +6,25 @@ import { LautAko } from "./LautAko";
 describe("AnchoaPet", () => {
   it("renders idle pet image with label", () => {
     const html = renderToStaticMarkup(<AnchoaPet status="idle" />);
-    expect(html).toContain('aria-label="Ako: Diam"');
+    expect(html).toContain('aria-label="Ako: Idle"');
     expect(html).toContain("ako");
     expect(html).toContain("role=\"img\"");
   });
 
   it("renders listening and speaking statuses", () => {
     const listeningHtml = renderToStaticMarkup(<AnchoaPet status="listening" />);
-    expect(listeningHtml).toContain('aria-label="Ako: Mendengarkan"');
+    expect(listeningHtml).toContain('aria-label="Ako: Listening"');
 
     const speakingHtml = renderToStaticMarkup(<AnchoaPet status="speaking" level={0.8} />);
-    expect(speakingHtml).toContain('aria-label="Ako: Berbicara"');
+    expect(speakingHtml).toContain('aria-label="Ako: Speaking"');
     expect(speakingHtml).toContain("lipsync");
   });
 
   it("renders button when onPoke is provided", () => {
     const html = renderToStaticMarkup(<AnchoaPet status="idle" onPoke={() => {}} />);
     expect(html).toContain("<button");
-    expect(html).toContain('aria-label="Ako: Diam"');
+    expect(html).toContain('aria-label="Ako: Idle"');
   });
-
   it("renders crop=head with head class", () => {
     const html = renderToStaticMarkup(<AnchoaPet crop="head" size={44} />);
     expect(html).toContain("head");

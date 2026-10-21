@@ -17,7 +17,7 @@ function ReminderCard({ reminder, onOpen, onDismiss }: Readonly<{ reminder: Remi
           <button
             type="button"
             onClick={onDismiss}
-            aria-label={`Tutup ${text.title}`}
+            aria-label={`Close ${text.title}`}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted hover:text-ink"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -29,10 +29,10 @@ function ReminderCard({ reminder, onOpen, onDismiss }: Readonly<{ reminder: Remi
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Buka ${text.title}`}
+        aria-label={`Open ${text.title}`}
         className="self-end text-xs text-accent hover:text-accent-hover"
       >
-        Buka ›
+        Open ›
       </button>
     </div>
   );
@@ -113,7 +113,7 @@ export function NotifPanel({
         }
       }}
     >
-      <button aria-label="Tutup panel notifikasi" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#05070a]/60" />
+      <button aria-label="Close notification panel" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#05070a]/60" />
       <aside
         ref={panel}
         tabIndex={-1}
@@ -127,14 +127,14 @@ export function NotifPanel({
         <div className="flex shrink-0 items-center justify-between border-b border-line px-[18px] py-4">
           <div className="flex items-center gap-2.5">
             <h2 id="notif-title" className="m-0 font-display text-xl font-semibold">
-              Notifikasi
+              Notifications
             </h2>
             <span className={`rounded-full px-2 py-px font-mono text-[11px] text-canvas ${count > 0 ? "bg-accent" : "bg-disabled"}`}>{count}</span>
           </div>
           <button
             ref={closeButton}
             onClick={onClose}
-            aria-label="Tutup"
+            aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -146,7 +146,7 @@ export function NotifPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pt-1 pb-3">
           {count === 0 ? (
-            <p className="m-0 px-4 py-12 text-center text-[13px] text-muted">Tidak ada pengingat.</p>
+            <p className="m-0 px-4 py-12 text-center text-[13px] text-muted">No reminders.</p>
           ) : (
             groups.map((g) => (
               <section key={g.title} aria-label={g.title} className="flex flex-col gap-1">
@@ -165,7 +165,7 @@ export function NotifPanel({
         </div>
 
         <div className="flex shrink-0 items-center justify-between border-t border-line px-[18px] py-3 text-xs text-muted">
-          <span>Pengingat dari tugas, tagihan, habit, dan jurnal.</span>
+          <span>Reminders from tasks, bills, habits, and journal.</span>
           <a
             href="#profil"
             onClick={(e) => {
@@ -175,7 +175,7 @@ export function NotifPanel({
             }}
             className="text-xs text-accent hover:underline"
           >
-            Atur notifikasi ›
+            Notification settings ›
           </a>
         </div>
       </aside>

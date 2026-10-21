@@ -23,10 +23,10 @@ test("CalendarEventForm renders title, dates, and buttons", () => {
     <CalendarEventForm item={dummyEvent} onClose={() => {}} onSaved={() => {}} />,
   );
   expect(html).toContain('role="dialog"');
-  expect(html).toContain("Edit acara Google Kalender");
+  expect(html).toContain("Edit Google Calendar event");
   expect(html).toContain('value="Rapat Tahunan"');
   expect(html).toContain('value="2026-10-15"');
   expect(html).toContain('value="2026-10-16"');
-  expect(html).toContain("Hapus");
-  expect(html).toContain("Simpan");
+  expect(html).toContain("Delete");
+  expect(html).toContain("Save");
 });

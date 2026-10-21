@@ -23,7 +23,7 @@ export function PinDialog({
   const [busy, setBusy] = useState(false);
 
   const title =
-    mode === "create" ? "Buat PIN" : mode === "change" ? "Ganti PIN" : "Matikan PIN";
+    mode === "create" ? "Create PIN" : mode === "change" ? "Change PIN" : "Disable PIN";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,22 +31,22 @@ export function PinDialog({
 
     if (mode === "create" || mode === "change") {
       if (!isValidPin(newPin)) {
-        setError("PIN harus 4–8 digit angka");
+        setError("PIN must be 4–8 digits");
         return;
       }
       if (newPin !== confirmPin) {
-        setError("Konfirmasi PIN tidak cocok");
+        setError("PIN confirmation does not match");
         return;
       }
     }
 
     if (mode === "change" && !currentPin) {
-      setError("PIN saat ini harus diisi");
+      setError("Current PIN is required");
       return;
     }
 
     if (mode === "disable" && !currentPin) {
-      setError("PIN saat ini harus diisi");
+      setError("Current PIN is required");
       return;
     }
 

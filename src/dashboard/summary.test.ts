@@ -11,19 +11,19 @@ const task = (overdue: boolean, completedAt: number | null = null): DayTask => (
 });
 
 describe("summaryLine", () => {
-  test("counts open tasks, late ones and Jurnal entries", () => {
+  test("counts open tasks, late ones and Journal entries", () => {
     expect(summaryLine([task(true), task(false), task(false), task(false, 9)], 2, 0)).toBe(
-      "3 tugas hari ini · 1 terlambat · 2 entri di Jurnal",
+      "3 tasks today · 1 overdue · 2 entries in Journal",
     );
   });
 
   test("quiet day", () => {
-    expect(summaryLine([task(false, 9)], 0, 0)).toBe("Tidak ada tugas tersisa hari ini · Jurnal kosong");
+    expect(summaryLine([task(false, 9)], 0, 0)).toBe("No tasks left today · Journal is empty");
   });
 
   test("late bills sit after late tasks", () => {
     expect(summaryLine([task(true), task(false)], 2, 1)).toBe(
-      "2 tugas hari ini · 1 terlambat · 1 tagihan terlambat · 2 entri di Jurnal",
+      "2 tasks today · 1 overdue · 1 overdue bill · 2 entries in Journal",
     );
   });
 });

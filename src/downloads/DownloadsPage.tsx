@@ -176,7 +176,7 @@ export function DownloadsPage({
   return (
     <>
       <div className="flex items-center gap-3.5">
-        <h1 className={H1}>Unduhan</h1>
+        <h1 className={H1}>Downloads</h1>
         <div
           aria-live="polite"
           className="flex items-center gap-2 font-mono text-xs"
@@ -197,7 +197,7 @@ export function DownloadsPage({
             </svg>
             {formatSpeed(speed)}
           </span>
-          <span className="text-muted">{activeCount} aktif</span>
+          <span className="text-muted">{activeCount} active</span>
         </div>
 
         <button
@@ -218,7 +218,7 @@ export function DownloadsPage({
                 <rect x="6" y="5" width="4" height="14" rx="1" />
                 <rect x="14" y="5" width="4" height="14" rx="1" />
               </svg>
-              Jeda semua
+              Pause all
             </>
           ) : (
             <>
@@ -231,7 +231,7 @@ export function DownloadsPage({
               >
                 <path d="M8 5v14l11-7z" />
               </svg>
-              Lanjutkan semua
+              Resume all
             </>
           )}
         </button>
@@ -245,7 +245,7 @@ export function DownloadsPage({
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/20 text-accent font-bold text-[10px]">
                   📋
                 </span>
-                <span className="text-muted shrink-0">Tautan di clipboard:</span>
+                <span className="text-muted shrink-0">Link in clipboard:</span>
                 <span className="truncate font-mono font-medium text-ink" title={detectedUrl}>
                   {detectedUrl}
                 </span>
@@ -262,7 +262,7 @@ export function DownloadsPage({
                         kind: detect(url) === "media" ? "media" : "file",
                         options: detect(url) === "media" ? { audioOnly: false, quality: "1080p", format: "MP4", subtitles: false } : null,
                       });
-                      toast("Tautan dari clipboard berhasil ditambahkan");
+                      toast("Link from clipboard added");
                       void reloadList();
                     } catch (e) {
                       toast(errorMessage(e), "error");
@@ -270,14 +270,14 @@ export function DownloadsPage({
                   }}
                   className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-canvas hover:bg-accent-hover transition-colors"
                 >
-                  Unduh Sekarang
+                  Download Now
                 </button>
                 <button
                   type="button"
                   onClick={dismiss}
                   className="rounded-md border border-line px-2 py-1 text-xs text-muted hover:text-ink transition-colors"
                 >
-                  Abaikan
+                  Dismiss
                 </button>
               </div>
             </div>
@@ -311,7 +311,7 @@ export function DownloadsPage({
                   kind,
                   options: kind === "media" ? { audioOnly: false, quality: "1080p", format: "MP4", subtitles: false } : null,
                 });
-                toast("Unduhan ditambahkan dari drag & drop");
+                toast("Download added from drag & drop");
                 void reloadList();
               } catch (e) {
                 toast(errorMessage(e), "error");
@@ -321,7 +321,7 @@ export function DownloadsPage({
         </div>
 
         <aside
-          aria-label="Mesin dan pengaturan unduhan"
+          aria-label="Download engines and settings"
           className="flex min-h-0 flex-col gap-3.5 overflow-y-auto"
         >
           <EnginesPanel

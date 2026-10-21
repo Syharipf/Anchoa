@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type CalendarDay, type CalendarView } from "../api";
 
-const WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 export function moodDotColor(mood: number | null): string {
   if (mood === null) {
@@ -110,7 +110,7 @@ export function JournalCalendar({
   const leadingEmpty = (new Date(yNum, mNum - 1, 1).getDay() + 6) % 7;
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const monthLabel = new Date(yNum, mNum - 1, 1).toLocaleDateString("id-ID", {
+  const monthLabel = new Date(yNum, mNum - 1, 1).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
   });
@@ -124,13 +124,13 @@ export function JournalCalendar({
     >
       <div className="flex items-center justify-between">
         <h2 id="j-cal-heading" className="m-0 font-display text-[15px] font-semibold text-ink">
-          Kalender
+          Calendar
         </h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setInternalMonth((m) => changeMonth(m, -1))}
-            aria-label="Bulan sebelumnya"
+            aria-label="Previous month"
             className="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             ‹
@@ -141,7 +141,7 @@ export function JournalCalendar({
           <button
             type="button"
             onClick={() => setInternalMonth((m) => changeMonth(m, 1))}
-            aria-label="Bulan berikutnya"
+            aria-label="Next month"
             className="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             ›
@@ -153,16 +153,16 @@ export function JournalCalendar({
         <div className="flex flex-col gap-0.5 rounded-[10px] bg-stage p-2">
           <span className="font-mono text-base font-semibold text-ink">
             {currentStreak}
-            <span className="ml-1 text-xs font-normal text-muted">hari</span>
+            <span className="ml-1 text-xs font-normal text-muted">days</span>
           </span>
-          <span className="text-[11px] text-muted">Streak saat ini</span>
+          <span className="text-[11px] text-muted">Current streak</span>
         </div>
         <div className="flex flex-col gap-0.5 rounded-[10px] bg-stage p-2">
           <span className="font-mono text-base font-semibold text-ink">
             {bestStreak}
-            <span className="ml-1 text-xs font-normal text-muted">hari</span>
+            <span className="ml-1 text-xs font-normal text-muted">days</span>
           </span>
-          <span className="text-[11px] text-muted">Terpanjang</span>
+          <span className="text-[11px] text-muted">Best streak</span>
         </div>
       </div>
 
@@ -188,8 +188,8 @@ export function JournalCalendar({
             : isToday
               ? "border-line text-accent font-semibold"
               : "border-transparent text-[#C9CED8] hover:bg-surface-2 hover:text-ink";
-          const ariaLabel = `${day.date}${day.count > 0 ? `, ${day.count} entri` : ""}${
-            day.mood !== null ? `, suasana hati ${day.mood}` : ""
+          const ariaLabel = `${day.date}${day.count > 0 ? `, ${day.count} entries` : ""}${
+            day.mood !== null ? `, mood ${day.mood}` : ""
           }`;
 
           return (

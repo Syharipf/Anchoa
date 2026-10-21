@@ -48,7 +48,7 @@ export function TraySection({
     >
       <div className="flex items-center justify-between">
         <h2 id="tray-integration-heading" className={H2}>
-          Baki sistem (Tray)
+          System tray
         </h2>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -57,7 +57,7 @@ export function TraySection({
               : "bg-surface-2 text-muted"
           }`}
         >
-          {trayAvailable ? "Tersedia" : "Tidak terdeteksi"}
+          {trayAvailable ? "Available" : "Not detected"}
         </span>
       </div>
 
@@ -68,11 +68,11 @@ export function TraySection({
               id="lbl-close-to-tray"
               className="text-sm font-medium text-ink"
             >
-              Tetap berjalan di tray saat jendela ditutup
+              Keep running in tray when window is closed
             </span>
             <span className="text-muted">
-              Saat jendela ditutup, aplikasi diminimalkan ke baki sistem dan
-              tetap menjalankan pengingat, sinkronisasi, serta unduhan.
+              When the window is closed, the app minimizes to the system tray and
+              continues running reminders, sync, and downloads.
             </span>
           </div>
 
@@ -99,18 +99,17 @@ export function TraySection({
 
         {!trayAvailable && (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-amber-200">
-            Baki sistem tidak aktif di sesi desktop ini. Aplikasi akan langsung
-            keluar saat jendela ditutup agar tidak meninggalkan proses yang
-            tidak dapat diakses.
+            System tray is not active in this desktop session. The app will exit directly
+            when window is closed to avoid leaving an inaccessible background process.
           </div>
         )}
 
         <p className="m-0 leading-relaxed text-muted">
-          Catatan GNOME: Baki sistem memerlukan ekstensi AppIndicator
-          (AppIndicator and KStatusNotifierItem Support). Jika baki sistem tidak
-          tersedia di lingkungan desktop, Anchoa otomatis beralih ke mode keluar
-          saat jendela ditutup. Untuk keluar sepenuhnya saat baki sistem aktif,
-          gunakan opsi Keluar di menu baki sistem.
+          GNOME Note: System tray requires the AppIndicator extension
+          (AppIndicator and KStatusNotifierItem Support). If system tray is not
+          available in your desktop environment, Anchoa automatically switches to exit
+          when the window is closed. To fully quit when system tray is active,
+          use the Quit option in the system tray menu.
         </p>
       </div>
     </section>

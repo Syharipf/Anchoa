@@ -51,7 +51,7 @@ export function AssistantStage({
 
   return (
     <section
-      aria-label="Asisten suara"
+      aria-label="Voice assistant"
       className="flex min-h-0 flex-1 flex-col gap-3 px-5 pt-4 pb-[18px]"
     >
       {/* ponytail: fixed 120px reserve for the caption card; streaming captions taller than that can graze Ako's feet — measure the card and set a CSS var if it matters. */}
@@ -84,7 +84,7 @@ export function AssistantStage({
           <span aria-live="polite">{status.text}</span>
         </div>
         <span className="absolute top-4 right-3.5 z-20 text-[11px] text-muted">
-          Avatar statis
+          Static avatar
         </span>
 
         <div className="absolute right-3 bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-[14px] border border-line bg-sidebar/90 px-3.5 py-3">
@@ -101,7 +101,7 @@ export function AssistantStage({
         <AssistantMicButton assistant={assistant} visible={visible} />
         <button
           type="button"
-          aria-label="Riwayat obrolan"
+          aria-label="Chat history"
           aria-pressed={showHistory}
           onClick={() => setShowHistory((h) => !h)}
           className={`flex h-12 w-12 items-center justify-center rounded-full border border-line cursor-pointer transition-colors ${

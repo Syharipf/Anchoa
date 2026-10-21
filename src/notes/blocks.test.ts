@@ -409,8 +409,8 @@ describe("blocks model", () => {
   describe("slashQuery and filterSlashOptions", () => {
     it.each([
       ["/", ""],
-      ["/jud", "jud"],
-      ["/judul 1", "judul 1"],
+      ["/head", "head"],
+      ["/heading 1", "heading 1"],
       ["bukan/slash", null],
       ["/baris1\nbaris2", null],
       ["", null],
@@ -420,11 +420,11 @@ describe("blocks model", () => {
 
     it("filters slash options by query case-insensitively", () => {
       expect(filterSlashOptions("")).toHaveLength(9);
-      const judul = filterSlashOptions("jud");
-      expect(judul.map((o) => o.label)).toEqual(["Judul 1", "Judul 2", "Judul 3"]);
-      const tugas = filterSlashOptions("tug");
-      expect(tugas.map((o) => o.label)).toEqual(["Tugas"]);
-      expect(filterSlashOptions("tidak-ada")).toEqual([]);
+      const heading = filterSlashOptions("head");
+      expect(heading.map((o) => o.label)).toEqual(["Heading 1", "Heading 2", "Heading 3"]);
+      const task = filterSlashOptions("task");
+      expect(task.map((o) => o.label)).toEqual(["Task"]);
+      expect(filterSlashOptions("not-found")).toEqual([]);
     });
   });
 

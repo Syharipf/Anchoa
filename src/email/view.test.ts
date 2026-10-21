@@ -4,9 +4,9 @@ import { connectionLabel, FOLDERS, parseRecipients, replySubject, textParts } fr
 describe("email display rules", () => {
   it("offers only backend-supported folders", () => {
     expect(FOLDERS).toEqual([
-      { id: "inbox", label: "Kotak masuk" },
-      { id: "starred", label: "Berbintang" },
-      { id: "sent", label: "Terkirim" },
+      { id: "inbox", label: "Inbox" },
+      { id: "starred", label: "Starred" },
+      { id: "sent", label: "Sent" },
     ]);
   });
 
@@ -39,8 +39,8 @@ describe("email display rules", () => {
   });
 
   it("labels connection states without inventing an address", () => {
-    expect(connectionLabel(null)).toBe("Memuat…");
-    expect(connectionLabel({ connected: false, address: null })).toBe("Belum terhubung");
-    expect(connectionLabel({ connected: true, address: "anchoa@gmail.com" })).toBe("Terhubung sebagai anchoa@gmail.com");
+    expect(connectionLabel(null)).toBe("Loading…");
+    expect(connectionLabel({ connected: false, address: null })).toBe("Not connected");
+    expect(connectionLabel({ connected: true, address: "anchoa@gmail.com" })).toBe("Connected as anchoa@gmail.com");
   });
 });

@@ -55,9 +55,9 @@ describe("agent project components", () => {
     const html = renderToStaticMarkup(<AgentThread task={task} activities={[activity, older]}
       onChanged={() => {}} onClose={() => {}} onOpenItem={() => {}} />);
     expect(html.indexOf("Permintaan awal")).toBeLessThan(html.indexOf("<strong"));
-    expect(html).toContain("Implementasi");
+    expect(html).toContain("Implementation");
     expect(html).toContain(">CC</span>");
-    expect(html).toContain("baru saja");
+    expect(html).toContain("just now");
     expect(html).toContain("<strong");
     expect(html).toContain("let a = 1;\n\nlet b = 2;");
   });
@@ -72,7 +72,7 @@ describe("agent project components", () => {
     expect(control("textarea").value).toBe("  Balasan **tebal**  ");
     await (control("form").onSubmit as (event: FormEvent) => Promise<void>)(event);
     await harness.settle();
-    expect(api.addActivity).toHaveBeenLastCalledWith({ taskId: "task", projectId: "project", actor: "Kamu",
+    expect(api.addActivity).toHaveBeenLastCalledWith({ taskId: "task", projectId: "project", actor: "You",
       role: "note", kind: "message", title: "Balasan **tebal**", body: "Balasan **tebal**" });
     expect(control("textarea").value).toBe("");
     expect(changed).toHaveBeenCalledTimes(1);
@@ -82,7 +82,7 @@ describe("agent project components", () => {
     spies.push(spyOn(api, "updateTask").mockResolvedValue({ ...task, startAt: null, parentId: null, parentTitle: null, subtasks: [] }));
     const changed = mock(() => {});
     harness = hookHarness(() => AgentThread({ task, activities: [], onChanged: changed, onClose: () => {}, onOpenItem: () => {} }));
-    await (control("button", (props) => props.children === "Tes").onClick as () => Promise<void>)();
+    await (control("button", (props) => props.children === "Test").onClick as () => Promise<void>)();
     await harness.settle();
     expect(api.updateTask).toHaveBeenCalledWith(task.id, { status: "test" });
     expect(changed).toHaveBeenCalledTimes(1);
@@ -104,8 +104,8 @@ describe("agent project components", () => {
     expect(requested).toHaveBeenCalledWith(task);
     running = true;
     harness.render();
-    expect(control("button", (props) => props.children === "Kirim").disabled).toBe(true);
-    await (control("button", (props) => props.children === "Hentikan").onClick as () => Promise<void>)();
+    expect(control("button", (props) => props.children === "Send").disabled).toBe(true);
+    await (control("button", (props) => props.children === "Stop").onClick as () => Promise<void>)();
     await harness.settle();
     expect(api.agentStop).toHaveBeenCalledWith(project.id);
     expect(refreshed).toHaveBeenCalledTimes(2);
@@ -148,7 +148,7 @@ describe("agent project components", () => {
   it("renders folder picker button when agent project is enabled in ProjectForm", () => {
     harness = hookHarness(() => ProjectForm({ edit: project, onClose: () => {}, onSaved: () => {} }));
     const pickBtn = elements(harness.render()).find(
-      (element) => element.type === "button" && element.props.children === "Pilih…",
+      (element) => element.type === "button" && element.props.children === "Choose…",
     );
     expect(pickBtn).toBeDefined();
   });
@@ -218,12 +218,12 @@ describe("agent project components", () => {
     }));
     harness.render();
     await harness.settle();
-    expect(control("span", (props) => props.role === "status").children).toContain("Agen tidak berjalan");
+    expect(control("span", (props) => props.role === "status").children).toContain("Agent idle");
 
     running = true;
     harness.render();
-    expect(control("span", (props) => props.role === "status").children).toContain("Agen sedang bekerja");
-    await (control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Hentikan"))).onClick as () => Promise<void>)();
+    expect(control("span", (props) => props.role === "status").children).toContain("Agent working");
+    await (control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Stop"))).onClick as () => Promise<void>)();
     await harness.settle();
     expect(api.agentStop).toHaveBeenCalledWith(project.id);
     expect(refreshed).toHaveBeenCalled();
@@ -257,13 +257,13 @@ describe("agent project components", () => {
     expect(elements(harness.render()).filter((e) => e.props?.activity).map((e) => (e.props as any).activity.id)).toEqual(["a1", "a2"]);
 
     // Filter to Tes: only act2 rendered
-    const testFilterBtn = control("button", (props) => props.children === "Tes");
+    const testFilterBtn = control("button", (props) => props.children === "Tests");
     (testFilterBtn.onClick as () => void)();
     harness.render();
     expect(elements(harness.render()).filter((e) => e.props?.activity).map((e) => (e.props as any).activity.id)).toEqual(["a2"]);
 
-    // Filter to Rencana & tugas: only act1 rendered
-    const taskFilterBtn = control("button", (props) => props.children === "Rencana & tugas");
+    // Filter to Plans & tasks: only act1 rendered
+    const taskFilterBtn = control("button", (props) => props.children === "Plans & tasks");
     (taskFilterBtn.onClick as () => void)();
     harness.render();
     expect(elements(harness.render()).filter((e) => e.props?.activity).map((e) => (e.props as any).activity.id)).toEqual(["a1"]);
@@ -301,14 +301,14 @@ describe("agent project components", () => {
 
     // Linked agent row reuses running/idle status without a terminal.
     expect(control("span", (props) => props.role === "status").children).toBeDefined();
-    const unlinkBtn = control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Lepas agen")));
+    const unlinkBtn = control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Unlink agent")));
     (unlinkBtn.onClick as () => void)();
     harness.render();
 
     // First click only asks for confirmation inline; nothing is stopped or saved yet.
     expect(stopSpy).not.toHaveBeenCalled();
     expect(saveSpy).not.toHaveBeenCalled();
-    const confirmBtn = control("button", (props) => props.children === "Ya, lepas");
+    const confirmBtn = control("button", (props) => props.children === "Yes, unlink");
     await (confirmBtn.onClick as () => Promise<void>)();
     await harness.settle();
     expect(stopSpy).toHaveBeenCalledWith(project.id);
@@ -340,10 +340,10 @@ describe("agent project components", () => {
     }));
     harness.render();
     await harness.settle();
-    expect(control("p", (props) => typeof props.children === "string" && (props.children as string).includes("Belum ada agen"))).toBeDefined();
+    expect(control("p", (props) => typeof props.children === "string" && (props.children as string).includes("No connected agent"))).toBeDefined();
 
     // Open Hubungkan agen dialog
-    const hubungkanBtn = control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Hubungkan agen")));
+    const hubungkanBtn = control("button", (props) => Boolean(props.children && Array.isArray(props.children) && props.children.includes("Connect agent")));
     (hubungkanBtn.onClick as () => void)();
     harness.render();
     const dialog = elements(harness.render()).find((e) => e.type === ConnectAgentDialog);
@@ -370,7 +370,7 @@ describe("agent project components", () => {
       }),
     );
     harness.render();
-    const saveBtn = control("button", (props) => props.children === "Simpan");
+    const saveBtn = control("button", (props) => props.children === "Save");
     (saveBtn.onClick as () => void)();
     await harness.settle();
     expect(saveSpy).toHaveBeenCalledWith(

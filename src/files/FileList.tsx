@@ -6,7 +6,7 @@ function formatModDate(ms: number): string {
   if (!ms) return "-";
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const dateStr = d.toLocaleDateString("id-ID", {
+  const dateStr = d.toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
   });
@@ -36,7 +36,7 @@ export function FileList({
   if (entries.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted">
-        Folder kosong
+        Empty folder
       </div>
     );
   }
@@ -53,10 +53,10 @@ export function FileList({
         aria-hidden="true"
         className="sticky top-0 grid grid-cols-[minmax(0,1fr)_90px_120px_150px] gap-3 border-b border-line bg-sidebar px-3.5 py-2 text-[11px] uppercase tracking-[0.08em] text-muted"
       >
-        <span>Nama</span>
-        <span className="text-right">Ukuran</span>
-        <span>Jenis</span>
-        <span>Diubah</span>
+        <span>Name</span>
+        <span className="text-right">Size</span>
+        <span>Kind</span>
+        <span>Modified</span>
       </div>
 
       {entries.map((entry, index) => {

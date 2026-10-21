@@ -143,8 +143,8 @@ export function ProjectsPage({
       await api.deleteTask(card.id);
       setVersion((v) => v + 1);
       onChanged();
-      toast(`Tugas "${card.title || "Tanpa judul"}" dihapus.`, "info", {
-        label: "Urungkan",
+      toast(`Task "${card.title || "Untitled"}" deleted.`, "info", {
+        label: "Undo",
         run: () => {
           void api.restoreTask(card.id).then(() => {
             setVersion((v) => v + 1);
@@ -163,7 +163,7 @@ export function ProjectsPage({
       await api.agentLaunchTask(board.project.id, taskId);
       setVersion((v) => v + 1);
       onChanged();
-      toast("Agen mulai menjalankan tugas.");
+      toast("Agent started running task.");
     } catch (e) {
       toast(errorMessage(e), "error");
     }
@@ -181,23 +181,23 @@ export function ProjectsPage({
 
   function taskMenu(card: TaskCard): readonly MenuEntry[] {
     const entries: MenuEntry[] = [
-      { label: "Buka", onSelect: () => handleOpenCard(card.id) },
-      { label: "Pindah status", onSelect: () => void handleMoveCard(card) },
+      { label: "Open", onSelect: () => handleOpenCard(card.id) },
+      { label: "Move status", onSelect: () => void handleMoveCard(card) },
       "separator",
-      { label: "Prioritas: Tanpa prioritas", checked: card.priority === null, onSelect: () => void handleSetPriority(card, null) },
-      { label: "Prioritas: Tinggi", checked: card.priority === 1, onSelect: () => void handleSetPriority(card, 1) },
-      { label: "Prioritas: Sedang", checked: card.priority === 2, onSelect: () => void handleSetPriority(card, 2) },
-      { label: "Prioritas: Rendah", checked: card.priority === 3, onSelect: () => void handleSetPriority(card, 3) },
+      { label: "Priority: No priority", checked: card.priority === null, onSelect: () => void handleSetPriority(card, null) },
+      { label: "Priority: High", checked: card.priority === 1, onSelect: () => void handleSetPriority(card, 1) },
+      { label: "Priority: Medium", checked: card.priority === 2, onSelect: () => void handleSetPriority(card, 2) },
+      { label: "Priority: Low", checked: card.priority === 3, onSelect: () => void handleSetPriority(card, 3) },
     ];
     if (board?.project?.agent) {
       entries.push(
         "separator",
-        { label: "Jalankan dengan agen", onSelect: () => void handleLaunchTask(card.id) },
+        { label: "Run with agent", onSelect: () => void handleLaunchTask(card.id) },
       );
     }
     entries.push(
       "separator",
-      { label: "Hapus", danger: true, onSelect: () => void handleDeleteTask(card) },
+      { label: "Delete", danger: true, onSelect: () => void handleDeleteTask(card) },
     );
     return entries;
   }
@@ -205,7 +205,7 @@ export function ProjectsPage({
   function projectMenu(project: ProjectSummary): readonly MenuEntry[] {
     return [
       {
-        label: "Ubah",
+        label: "Edit",
         onSelect: async () => {
           try {
             const b = await api.projectBoard(project.id);
@@ -216,7 +216,7 @@ export function ProjectsPage({
         },
       },
       {
-        label: "Hapus",
+        label: "Delete",
         danger: true,
         onSelect: () => setDeleteConfirm({ id: project.id, name: project.name }),
       },
@@ -298,7 +298,7 @@ export function ProjectsPage({
                 onClick={() => setSelectedId(null)}
                 className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-3 transition-colors"
               >
-                ← Semua Proyek
+                ← All Projects
               </button>
               <span className="text-muted">/</span>
               <span className="font-display text-sm font-semibold text-ink">
@@ -323,7 +323,7 @@ export function ProjectsPage({
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
-                  Panduan Agen CLI
+                  CLI Agent Guide
                 </button>
               )}
               <button
@@ -331,7 +331,7 @@ export function ProjectsPage({
                 onClick={() => setReviewOpen(true)}
                 className={`${HEADER_PRIMARY} text-xs`}
               >
-                Draft Sasaran AI
+                Draft AI Goals
               </button>
             </div>
           </div>
@@ -460,9 +460,9 @@ export function ProjectsPage({
         /* FULL-WIDTH PROJECT HUB / LIST PAGE */
         <div className="flex w-full flex-col gap-6 pb-20">
           <div className="flex items-center gap-3.5">
-            <h1 className={H1}>Semua Proyek</h1>
+            <h1 className={H1}>All Projects</h1>
             <span className="rounded-full border border-line px-2.5 py-0.5 font-mono text-xs text-muted">
-              {overview.activeCount} aktif
+              {overview.activeCount} active
             </span>
             <div className="ml-auto flex items-center gap-2">
               <button
@@ -486,7 +486,7 @@ export function ProjectsPage({
                   <path d="M5 11a7 7 0 0 0 14 0" />
                   <path d="M12 18v3" />
                 </svg>
-                Tambah lewat suara
+                Add via voice
               </button>
               <button
                 type="button"
@@ -505,7 +505,7 @@ export function ProjectsPage({
                 >
                   <path d="M12 5v14M5 12h14" />
                 </svg>
-                Proyek
+                Project
               </button>
             </div>
           </div>
@@ -539,10 +539,10 @@ export function ProjectsPage({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div role="dialog" aria-labelledby="hapus-proyek-judul" className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-line bg-surface p-5 shadow-2xl">
             <h2 id="hapus-proyek-judul" className="m-0 text-base font-semibold text-ink">
-              Hapus proyek?
+              Delete project?
             </h2>
             <p className="m-0 text-xs text-muted">
-              Hapus proyek &ldquo;{deleteConfirm.name}&rdquo;? Tugasnya pindah ke Tugas lepas.
+              Delete project &ldquo;{deleteConfirm.name}&rdquo;? Tasks will move to Loose tasks.
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -550,14 +550,14 @@ export function ProjectsPage({
                 onClick={() => setDeleteConfirm(null)}
                 className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:bg-surface-2 transition-colors"
               >
-                Batal
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={() => void confirmDeleteProject()}
                 className="rounded-lg bg-danger px-3 py-1.5 text-xs text-white hover:bg-danger/80 transition-colors"
               >
-                Hapus
+                Delete
               </button>
             </div>
           </div>

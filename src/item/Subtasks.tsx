@@ -62,7 +62,7 @@ export function Subtasks({
   return (
     <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-surface/30 p-3.5">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
-        <span>Sub-tugas</span>
+        <span>Subtasks</span>
         {subtasks.length > 0 && (
           <span className="font-mono text-[11px] font-normal lowercase tracking-normal">
             ({doneCount}/{subtasks.length})
@@ -81,7 +81,7 @@ export function Subtasks({
                 type="checkbox"
                 checked={sub.status === "done"}
                 onChange={() => void handleToggle(sub)}
-                aria-label={`Tandai ${sub.status === "done" ? "belum selesai" : "selesai"}: ${sub.title}`}
+                aria-label={`Mark ${sub.status === "done" ? "incomplete" : "complete"}: ${sub.title}`}
                 className="h-4 w-4 rounded border-line accent-accent cursor-pointer"
               />
               <button
@@ -100,12 +100,12 @@ export function Subtasks({
 
       <input
         type="text"
-        placeholder="Tambah sub-tugas…"
+        placeholder="Add subtask…"
         value={newTitle}
         disabled={adding}
         onChange={(e) => setNewTitle(e.target.value)}
         onKeyDown={handleKeyDown}
-        aria-label="Tambah sub-tugas"
+        aria-label="Add subtask"
         className={`${FIELD} py-1.5 px-3 text-sm`}
       />
     </div>

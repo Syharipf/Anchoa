@@ -266,7 +266,7 @@ export function NotesPage({
   async function handleRenameActivePage(newTitle: string) {
     if (!activePageId) return;
     const trimmed = newTitle.trim();
-    const finalTitle = trimmed || "Tanpa judul";
+    const finalTitle = trimmed || "Untitled";
     if (loadedPage && finalTitle === loadedPage.title) return;
     await renamePage(activePageId, finalTitle);
   }
@@ -275,7 +275,7 @@ export function NotesPage({
   async function handleRenameNode(id: string, newTitle: string) {
     setRenamingNodeId(null);
     const trimmed = newTitle.trim();
-    const finalTitle = trimmed || "Tanpa judul";
+    const finalTitle = trimmed || "Untitled";
     await renamePage(id, finalTitle);
   }
 
@@ -375,7 +375,7 @@ export function NotesPage({
       await loadTree();
       await loadTrash();
       await handleSelectPage(restored.id);
-      toast("Halaman dipulihkan", "info");
+      toast("Page restored", "info");
       onChanged?.();
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -388,11 +388,11 @@ export function NotesPage({
       if (!(await flush())) return;
       const exportPath = await api.exportPages();
       toast(
-        `Diekspor ke ${exportPath}`,
+        `Exported to ${exportPath}`,
         "info",
         onReveal
           ? {
-              label: "Buka di Berkas",
+              label: "Open in Files",
               run: () => onReveal(exportPath),
             }
           : undefined,
@@ -448,14 +448,14 @@ export function NotesPage({
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_280px] gap-4">
         {/* Kolom Kiri (260px) */}
         <section
-          aria-label="Daftar catatan"
+          aria-label="Notes list"
           className="flex min-h-0 flex-col rounded-[14px] border border-line bg-surface p-3"
         >
           {/* Kotak cari */}
           <div className="relative mb-2.5">
             <input
               type="search"
-              placeholder="Cari halaman…"
+              placeholder="Search pages…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-[10px] border border-line bg-surface-2/60 px-3 py-1.5 text-xs text-ink outline-none placeholder:text-muted focus:border-field-focus"
@@ -480,7 +480,7 @@ export function NotesPage({
             >
               <path d="M12 5v14M5 12h14" />
             </svg>
-            + Halaman baru
+            + New page
           </button>
 
           {/* Pohon atau Hasil Pencarian */}
@@ -488,10 +488,10 @@ export function NotesPage({
             {searchQuery.trim() ? (
               <div className="flex flex-col gap-1">
                 {isSearching ? (
-                  <div className="p-2 text-xs text-muted">Mencari…</div>
+                  <div className="p-2 text-xs text-muted">Searching…</div>
                 ) : searchResults.length === 0 ? (
                   <div className="p-2 text-xs text-muted">
-                    Tidak ada halaman yang cocok.
+                    No matching pages.
                   </div>
                 ) : (
                   searchResults.map((hit) => {
@@ -567,7 +567,7 @@ export function NotesPage({
               >
                 <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
-              Sampah ({trashEntries.length})
+              Trash ({trashEntries.length})
             </button>
 
             <button
@@ -590,14 +590,14 @@ export function NotesPage({
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Ekspor Markdown
+              Export Markdown
             </button>
           </div>
         </section>
 
         {/* Tengah */}
         <section
-          aria-label="Editor catatan"
+          aria-label="Note editor"
           className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[14px] border border-line bg-surface p-6"
         >
           {activePageId ? (
@@ -650,15 +650,15 @@ export function NotesPage({
                         });
                       }
                     }}
-                    placeholder="Tanpa judul"
-                    aria-label="Judul halaman"
+                    placeholder="Untitled"
+                    aria-label="Page title"
                     className="w-full border-0 bg-transparent p-0 font-display text-[28px] font-semibold text-ink outline-none placeholder:text-muted focus:outline-none"
                   />
                 </h1>
 
                 {/* Waktu Diperbarui */}
                 <div className="text-xs text-muted">
-                  Diperbarui {relativeTime(loadedPage.updatedAt, Date.now())}
+                  Updated {relativeTime(loadedPage.updatedAt, Date.now())}
                 </div>
 
                 {/* Editor Blok */}
@@ -678,7 +678,7 @@ export function NotesPage({
               </div>
             ) : isBodyLoading ? (
               <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted">
-                Memuat catatan…
+                Loading note…
               </div>
             ) : null
           ) : (
@@ -686,23 +686,23 @@ export function NotesPage({
             nodes.length === 0 ? (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">
                 <h2 className="m-0 font-display text-lg font-semibold text-ink">
-                  Belum ada halaman
+                  No pages yet
                 </h2>
                 <p className="mt-1 text-sm text-muted">
-                  Buat catatan baru untuk mulai menulis dan mengorganisasi ide.
+                  Create a new note to start writing and organizing ideas.
                 </p>
                 <button
                   type="button"
                   onClick={() => void handleCreatePage(null)}
                   className={`${PRIMARY} mt-4`}
                 >
-                  Buat halaman pertama
+                  Create first page
                 </button>
               </div>
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
                 <h2 className="m-0 font-display text-base font-semibold text-ink">
-                  Halaman terbaru
+                  Recent pages
                 </h2>
                 <div className="mt-4 flex flex-col gap-2">
                   {recentPages.map((page) => (
@@ -714,7 +714,7 @@ export function NotesPage({
                     >
                       <span className="font-medium text-ink">{page.title}</span>
                       <span className="text-xs text-muted">
-                        Diperbarui {relativeTime(page.updatedAt, Date.now())}
+                        Updated {relativeTime(page.updatedAt, Date.now())}
                       </span>
                     </button>
                   ))}
@@ -752,14 +752,13 @@ export function NotesPage({
         <Dialog
           title={
             descendantIds(nodes, deletingPage.id).size > 0
-              ? `Hapus "${deletingPage.title}" dan ${descendantIds(nodes, deletingPage.id).size} subhalaman?`
-              : `Hapus "${deletingPage.title}"?`
+              ? `Delete "${deletingPage.title}" and ${descendantIds(nodes, deletingPage.id).size} subpages?`
+              : `Delete "${deletingPage.title}"?`
           }
           onClose={() => setDeletingPage(null)}
         >
           <p className="m-0 text-sm text-muted">
-            Halaman dan seluruh subhalamannya akan dipindahkan ke Sampah dan
-            dapat dipulihkan kapan saja.
+            The page and all its subpages will be moved to Trash and can be restored at any time.
           </p>
           <div className="mt-2 flex items-center justify-end gap-2">
             <button
@@ -767,7 +766,7 @@ export function NotesPage({
               onClick={() => setDeletingPage(null)}
               className={SECONDARY}
             >
-              Batal
+              Cancel
             </button>
             <button
               type="button"
@@ -775,7 +774,7 @@ export function NotesPage({
               onClick={() => void handleConfirmDelete()}
               className="min-h-10 rounded-full border border-danger px-4 text-[13px] font-semibold text-danger transition-colors hover:bg-danger-row"
             >
-              {isDeleting ? "Menghapus…" : "Hapus"}
+              {isDeleting ? "Deleting…" : "Delete"}
             </button>
           </div>
         </Dialog>

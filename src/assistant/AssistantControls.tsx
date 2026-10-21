@@ -55,8 +55,8 @@ export function AssistantComposer({ assistant, composer, compact = false }: Read
   return (
     <div className={`${FIELD} flex items-center gap-2 py-1.5 pr-1.5 focus-within:border-field-focus`}>
       <input
-        aria-label="Ketik pesan ke asisten"
-        placeholder="Ketik pesan…"
+        aria-label="Type message to assistant"
+        placeholder="Type message…"
         value={composer.text}
         onChange={(e) => composer.setText(e.target.value)}
         onKeyDown={composer.onKeyDown}
@@ -66,14 +66,14 @@ export function AssistantComposer({ assistant, composer, compact = false }: Read
       {assistant.mode === "thinking" ? (
         <button
           type="button"
-          aria-label="Hentikan"
+          aria-label="Stop"
           onClick={assistant.stop}
           className={`flex ${size} items-center justify-center rounded-lg bg-danger/15 px-2.5 text-xs font-semibold text-danger hover:bg-danger/25 cursor-pointer`}
-        >Hentikan</button>
+        >Stop</button>
       ) : (
         <button
           type="button"
-          aria-label="Kirim"
+          aria-label="Send"
           onClick={composer.onSend}
           disabled={composer.disabled || !composer.text.trim()}
           className={`flex ${size} ${compact ? "w-8" : "w-9"} items-center justify-center rounded-lg bg-accent text-canvas disabled:bg-surface-2 disabled:text-disabled cursor-pointer transition-transform hover:scale-105 active:scale-95`}
@@ -94,7 +94,7 @@ export function AssistantTypingButton({ composer, compact = false }: Readonly<{
   return (
     <button
       type="button"
-      aria-label="Ketik pesan"
+      aria-label="Type message"
       aria-pressed={composer.typing}
       onClick={() => composer.setTyping((typing) => !typing)}
       className={`${ROUND} ${compact ? "h-9 w-9" : "h-12 w-12"} border border-line ${composer.typing ? "bg-surface-2 text-accent" : "text-muted"}`}
@@ -125,7 +125,7 @@ export function AssistantMicButton({ assistant, compact = false, visible = true,
       <button
         ref={ref}
         type="button"
-        aria-label={listening ? "Berhenti mendengarkan" : speaking ? "Hentikan suara" : "Ketuk untuk bicara"}
+        aria-label={listening ? "Stop listening" : speaking ? "Stop voice" : "Tap to speak"}
         aria-pressed={listening || speaking}
         disabled={assistant.mode === "thinking"}
         onClick={speaking ? assistant.stop : assistant.toggleMic}

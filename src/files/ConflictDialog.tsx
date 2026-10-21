@@ -9,18 +9,18 @@ const CHOICES: readonly {
 }[] = [
   {
     choice: "replace",
-    label: "Ganti",
-    desc: "Timpa berkas yang ada di folder tujuan",
+    label: "Replace",
+    desc: "Overwrite files in destination folder",
   },
   {
     choice: "skip",
-    label: "Lewati",
-    desc: "Jangan salin berkas yang namanya bentrok",
+    label: "Skip",
+    desc: "Do not copy conflicting files",
   },
   {
     choice: "rename",
-    label: "Simpan dengan nama baru",
-    desc: "Beri akhiran nomor otomatis (mis. nama (2).ext)",
+    label: "Save with new name",
+    desc: "Auto-append number suffix (e.g. name (2).ext)",
   },
 ];
 
@@ -35,11 +35,11 @@ export function ConflictDialog({
 }>) {
   return (
     <Dialog
-      title={`${conflictCount} nama sudah ada di folder ini`}
+      title={`${conflictCount} name(s) already exist in this folder`}
       onClose={onCancel}
     >
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="sr-only">Pilihan resolusi konflik</legend>
+        <legend className="sr-only">Conflict resolution choice</legend>
         {CHOICES.map((c) => (
           <button
             key={c.choice}
@@ -54,7 +54,7 @@ export function ConflictDialog({
       </fieldset>
       <div className="mt-2 flex justify-end">
         <button type="button" onClick={onCancel} className={SECONDARY}>
-          Batal
+          Cancel
         </button>
       </div>
     </Dialog>

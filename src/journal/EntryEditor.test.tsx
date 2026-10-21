@@ -75,20 +75,20 @@ describe("EntryEditor dictation", () => {
     spies.forEach((spy) => spy.mockRestore());
   });
 
-  it("shows toast error when whisper not installed and offers Pengaturan", async () => {
+  it("shows toast error when whisper not installed and offers Settings", async () => {
     const status = { ...baseVoiceStatus, whisper: null, whisperModel: false };
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(status));
     spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
     mount();
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
     expect(api.voiceStatus).toHaveBeenCalledTimes(1);
     expect(api.voiceRecordStart).not.toHaveBeenCalled();
     expect(toastCalls.length).toBeGreaterThanOrEqual(1);
-    const t = toastCalls.find((c) => c.text === "Model Whisper belum terpasang");
+    const t = toastCalls.find((c) => c.text === "Whisper model is not installed");
     expect(t).toBeDefined();
     expect(t!.kind).toBe("error");
-    expect(t!.action?.label).toBe("Pengaturan");
+    expect(t!.action?.label).toBe("Settings");
     t!.action!.run();
     expect(onOpenSettings).toHaveBeenCalledWith("suara");
   });
@@ -97,11 +97,11 @@ describe("EntryEditor dictation", () => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
     spies.push(spyOn(api, "voiceRecordStart").mockResolvedValue(undefined));
     mount();
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
     expect(api.voiceRecordStart).toHaveBeenCalledTimes(1);
-    // Button aria-label changes to "Hentikan rekaman dikte"
-    const btn = button(harness.render(), "Hentikan rekaman dikte");
+    // Button aria-label changes to "Stop dictation recording"
+    const btn = button(harness.render(), "Stop dictation recording");
     expect(btn).toBeDefined();
   });
 
@@ -111,13 +111,13 @@ describe("EntryEditor dictation", () => {
     spies.push(spyOn(api, "voiceRecordStop").mockResolvedValue("teks baru"));
     mount();
     // Start
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
     // Stop
-    click(harness.render(), "Hentikan rekaman dikte");
+    click(harness.render(), "Stop dictation recording");
     await harness.settle();
     // Body should contain the transcript appended
-    const textarea = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textarea = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect(textarea).toBeDefined();
     expect((textarea!.props.value as string)).toContain("teks baru");
   });
@@ -129,10 +129,9 @@ describe("EntryEditor dictation", () => {
     entry.body = "Awal Akhir";
     mount();
 
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
-
-    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect(textareaEl).toBeDefined();
     if (textareaEl && "ref" in textareaEl.props) {
       const ref = textareaEl.props.ref;
@@ -141,10 +140,9 @@ describe("EntryEditor dictation", () => {
       }
     }
 
-    click(harness.render(), "Hentikan rekaman dikte");
+    click(harness.render(), "Stop dictation recording");
     await harness.settle();
-
-    const textarea = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textarea = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect((textarea!.props.value as string)).toBe("Awal disisipkan Akhir");
   });
   it("cleans up recording on unmount", async () => {
@@ -153,7 +151,7 @@ describe("EntryEditor dictation", () => {
     const stop = spyOn(api, "voiceRecordStop").mockResolvedValue("");
     spies.push(stop);
     mount();
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
     expect(api.voiceRecordStart).toHaveBeenCalledTimes(1);
     harness.dispose();
@@ -169,13 +167,13 @@ describe("EntryEditor dictation", () => {
     mount();
 
     // Start & stop recording
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
-    click(harness.render(), "Hentikan rekaman dikte");
+    click(harness.render(), "Stop dictation recording");
     await harness.settle();
 
     // While transcribing is pending, user types in textarea
-    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect(textareaEl).toBeDefined();
     (textareaEl!.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: "Awal diedit" } });
     await harness.settle();
@@ -184,7 +182,7 @@ describe("EntryEditor dictation", () => {
     resolveStop("suara baru");
     await harness.settle();
 
-    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect((textareaAfter!.props.value as string)).toBe("Awal diedit suara baru");
   });
 
@@ -198,9 +196,9 @@ describe("EntryEditor dictation", () => {
     entry.body = "Isi entri 1";
     mount();
 
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
-    click(harness.render(), "Hentikan rekaman dikte");
+    click(harness.render(), "Stop dictation recording");
     await harness.settle();
 
     // Switch to another entry
@@ -212,7 +210,7 @@ describe("EntryEditor dictation", () => {
     resolveStop("suara entri 1");
     await harness.settle();
 
-    const textarea = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textarea = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect((textarea!.props.value as string)).toBe("Isi entri 2");
     // updateItem should not have been called with the discarded transcript
     expect(updateItemSpy).not.toHaveBeenCalledWith("entry-2", expect.objectContaining({ body: expect.stringContaining("suara entri 1") }));
@@ -227,9 +225,9 @@ describe("EntryEditor dictation", () => {
     spies.push(spyOn(api, "voiceRecordStop").mockReturnValue(delayedStop));
     mount();
 
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
-    click(harness.render(), "Hentikan rekaman dikte");
+    click(harness.render(), "Stop dictation recording");
     await harness.settle();
 
     // Unmount before transcript arrives
@@ -251,7 +249,7 @@ describe("EntryEditor dictation", () => {
     spies.push(spyOn(api, "voiceRecordStart").mockReturnValue(startPromise));
     mount();
 
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
 
     // Unmount while starting
@@ -272,7 +270,7 @@ describe("EntryEditor dictation", () => {
     spies.push(spyOn(api, "voiceStatus").mockReturnValue(statusPromise));
     mount();
 
-    click(harness.render(), "Dikte");
+    click(harness.render(), "Dictate");
     await harness.settle();
 
     // Unmount while checking status
@@ -329,11 +327,11 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     mount();
     await harness.settle();
 
-    const panel = elements(harness.render()).find((e) => e.props["aria-label"] === "Tautan terkait");
+    const panel = elements(harness.render()).find((e) => e.props["aria-label"] === "Related links");
     expect(panel).toBeDefined();
 
-    const linkBtn1 = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Catatan Penting");
-    const linkBtn2 = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Tugas Utama");
+    const linkBtn1 = elements(harness.render()).find((e) => e.props["aria-label"] === "Open link Catatan Penting");
+    const linkBtn2 = elements(harness.render()).find((e) => e.props["aria-label"] === "Open link Tugas Utama");
     expect(linkBtn1).toBeDefined();
     expect(linkBtn2).toBeDefined();
   });
@@ -343,7 +341,7 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     mount();
     await harness.settle();
 
-    const panel = elements(harness.render()).find((e) => e.props["aria-label"] === "Tautan terkait");
+    const panel = elements(harness.render()).find((e) => e.props["aria-label"] === "Related links");
     expect(panel).toBeUndefined();
   });
 
@@ -359,7 +357,7 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     mount();
     await harness.settle();
 
-    const linkBtn = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Rencana");
+    const linkBtn = elements(harness.render()).find((e) => e.props["aria-label"] === "Open link Rencana");
     expect(linkBtn).toBeDefined();
     (linkBtn!.props.onClick as () => void)();
     await harness.settle();
@@ -374,7 +372,7 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     mount();
     await harness.settle();
 
-    const linkBtn = elements(harness.render()).find((e) => e.props["aria-label"] === "Buka tautan Halaman Ghaib");
+    const linkBtn = elements(harness.render()).find((e) => e.props["aria-label"] === "Open link Halaman Ghaib");
     expect(linkBtn).toBeDefined();
     (linkBtn!.props.onClick as () => void)();
     await harness.settle();
@@ -388,7 +386,7 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     mount();
     await harness.settle();
 
-    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect(textareaEl).toBeDefined();
 
     // Ketik "[["
@@ -411,7 +409,7 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     await harness.settle();
 
     // Body harus menjadi "Halo [[Rencana Proyek]]"
-    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect(textareaAfter!.props.value as string).toBe("Halo [[Rencana Proyek]]");
   });
 
@@ -421,7 +419,7 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     mount();
     await harness.settle();
 
-    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textareaEl = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
 
     // Ketik "[["
     (textareaEl!.props.onChange as (e: { target: { value: string; selectionStart: number } }) => void)({
@@ -443,7 +441,7 @@ describe("EntryEditor wikilinks & tautan terkait", () => {
     await harness.settle();
 
     // Pilihan B terpilih
-    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Isi entri");
+    const textareaAfter = elements(harness.render()).find((e) => e.props["aria-label"] === "Entry content");
     expect(textareaAfter!.props.value as string).toBe("Lihat [[Pilihan B]]");
   });
 });

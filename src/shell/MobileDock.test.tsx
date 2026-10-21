@@ -26,9 +26,9 @@ describe("MobileDock", () => {
     );
 
     const rendered = harness.render();
-    const searchBtn = btn(rendered, "Cari item dan menu");
-    const menuBtn = btn(rendered, "Menu utama");
-    const micBtn = btn(rendered, "Buka asisten AI");
+    const searchBtn = btn(rendered, "Search items and menu");
+    const menuBtn = btn(rendered, "Main menu");
+    const micBtn = btn(rendered, "Open AI assistant");
 
     expect(searchBtn).toBeDefined();
     expect(menuBtn).toBeDefined();
@@ -58,11 +58,11 @@ describe("MobileDock", () => {
     );
 
     const rendered = harness.render();
-    const menuBtn = btn(rendered, "Menu utama");
+    const menuBtn = btn(rendered, "Main menu");
     (menuBtn!.props.onClick as () => void)();
 
     const opened = harness.render();
-    const closeBtn = btn(opened, "Tutup menu");
+    const closeBtn = btn(opened, "Close menu");
     expect(closeBtn).toBeDefined();
 
     const jurnalBtn = treeOf(opened).find((el) => {
@@ -71,7 +71,7 @@ describe("MobileDock", () => {
         Array.isArray(textChild) &&
         textChild.some((c: unknown) => {
           const item = c as ReactElement<{ children?: string }> | null;
-          return item?.props?.children === "Jurnal";
+          return item?.props?.children === "Journal";
         })
       );
     });

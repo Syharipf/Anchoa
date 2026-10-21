@@ -40,7 +40,7 @@ export function EmailSection({ onChanged }: Readonly<{ onChanged: () => void }>)
       <p className="m-0 break-all text-sm">{connectionLabel(status)}</p>
       {status?.connected ? (
         confirming ? <div className="flex flex-col gap-2">
-          <p className="m-0 text-sm text-muted">Putuskan Gmail? App Password dan email lokal akan dihapus dari Anchoa.</p>
+          <p className="m-0 text-sm text-muted">Disconnect Gmail? App Password and local emails will be removed from Anchoa.</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -48,7 +48,7 @@ export function EmailSection({ onChanged }: Readonly<{ onChanged: () => void }>)
               onClick={() => setConfirming(false)}
               className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Batal
+              Cancel
             </button>
             <button
               type="button"
@@ -56,7 +56,7 @@ export function EmailSection({ onChanged }: Readonly<{ onChanged: () => void }>)
               onClick={disconnect}
               className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-danger transition-colors hover:bg-danger-row disabled:opacity-50"
             >
-              {busy ? "Memutuskan…" : "Ya, putuskan"}
+              {busy ? "Disconnecting…" : "Yes, disconnect"}
             </button>
           </div>
         </div> : (
@@ -65,10 +65,10 @@ export function EmailSection({ onChanged }: Readonly<{ onChanged: () => void }>)
             onClick={() => setConfirming(true)}
             className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-danger transition-colors hover:bg-danger-row"
           >
-            Putuskan
+            Disconnect
           </button>
         )
-      ) : <p className="m-0 text-xs text-muted">Buka menu Email untuk menyambungkan Gmail dengan App Password.</p>}
+      ) : <p className="m-0 text-xs text-muted">Open Email menu to connect Gmail with an App Password.</p>}
       {error && <p role="alert" className="m-0 text-sm text-danger">{error}</p>}
     </section>
   );

@@ -35,16 +35,16 @@ export function MoveDialog({
   }
 
   return (
-    <Dialog title={`Pindahkan "${page.title}"`} onClose={onClose}>
+    <Dialog title={`Move "${page.title}"`} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-xs text-muted">
-          Pilih halaman tujuan
+          Select destination page
           <select
             value={selectedTarget ?? ""}
             onChange={(e) => setSelectedTarget(e.target.value === "" ? null : e.target.value)}
             className="rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-field-focus"
           >
-            <option value="">Akar (tanpa induk)</option>
+            <option value="">Root (no parent)</option>
             {validTargets.map((target) => (
               <option key={target.id} value={target.id}>
                 {target.title}
@@ -55,10 +55,10 @@ export function MoveDialog({
 
         <div className="mt-2 flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className={SECONDARY}>
-            Batal
+            Cancel
           </button>
           <button type="submit" disabled={busy} className={PRIMARY}>
-            {busy ? "Memindahkan…" : "Pindahkan"}
+            {busy ? "Moving…" : "Move"}
           </button>
         </div>
       </form>

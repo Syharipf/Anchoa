@@ -14,12 +14,12 @@ describe("settings sections metadata", () => {
 
     const labels = SETTINGS_SECTIONS.map((s) => s.label);
     expect(labels).toEqual([
-      "Asisten & AI",
-      "Avatar Live2D",
-      "Suara",
-      "Sinkron & data",
-      "Integrasi",
-      "Tentang",
+      "Assistant & AI",
+      "Live2D Avatar",
+      "Voice",
+      "Sync & data",
+      "Integrations",
+      "About",
     ]);
   });
 
@@ -31,13 +31,13 @@ describe("settings sections metadata", () => {
 });
 
 describe("sectionStatus", () => {
-  it("returns 'Ollama · <model>' or 'Ollama mati' for ai", () => {
-    expect(sectionStatus("ai")).toBe("Ollama mati");
+  it("returns 'Ollama · <model>' or 'Ollama offline' for ai", () => {
+    expect(sectionStatus("ai")).toBe("Ollama offline");
     expect(
       sectionStatus("ai", {
-        aiStatus: { available: false, models: [], error: "Koneksi ditolak" },
+        aiStatus: { available: false, models: [], error: "Connection refused" },
       }),
-    ).toBe("Ollama mati");
+    ).toBe("Ollama offline");
     expect(
       sectionStatus("ai", {
         aiStatus: { available: true, models: ["llama3.1:8b"], error: null },
@@ -51,15 +51,15 @@ describe("sectionStatus", () => {
     ).toBe("Ollama · qwen2.5:3b");
   });
   it("labels custom chat availability and selected model without Ollama", () => {
-    expect(sectionStatus("ai", { aiStatus: { provider: "custom", name: "9router", available: false, models: [], error: "offline" } })).toBe("9router tidak tersedia");
+    expect(sectionStatus("ai", { aiStatus: { provider: "custom", name: "9router", available: false, models: [], error: "offline" } })).toBe("9router unavailable");
     expect(sectionStatus("ai", { aiStatus: { provider: "custom", name: "9router", available: true, models: ["remote"], error: null }, aiChatModel: "manual" })).toBe("9router · manual");
   });
 
-  it("returns 'Statis' for avatar and 'Belum dipasang' / active voice for suara", () => {
-    expect(sectionStatus("avatar")).toBe("Statis");
+  it("returns 'Static' for avatar and 'Not installed' / active voice for suara", () => {
+    expect(sectionStatus("avatar")).toBe("Static");
     expect(sectionStatus("avatar", { avatarStatus: "Live2D" })).toBe("Live2D");
-    expect(sectionStatus("suara")).toBe("Belum dipasang");
-    expect(sectionStatus("suara", { voiceStatus: null })).toBe("Belum dipasang");
+    expect(sectionStatus("suara")).toBe("Not installed");
+    expect(sectionStatus("suara", { voiceStatus: null })).toBe("Not installed");
 
     const installedVoiceStatus = {
       pwRecord: true,
@@ -91,13 +91,13 @@ describe("sectionStatus", () => {
       ...installedVoiceStatus,
       whisperModel: false,
     };
-    expect(sectionStatus("suara", { voiceStatus: missingModelVoiceStatus })).toBe("Belum dipasang");
-    expect(sectionStatus("suara", { voiceStatus: { ...installedVoiceStatus, pwPlay: false } })).toBe("Belum dipasang");
+    expect(sectionStatus("suara", { voiceStatus: missingModelVoiceStatus })).toBe("Not installed");
+    expect(sectionStatus("suara", { voiceStatus: { ...installedVoiceStatus, pwPlay: false } })).toBe("Not installed");
   });
 
-  it("returns 'Lokal' for data when sync is not connected", () => {
-    expect(sectionStatus("data")).toBe("Lokal");
-    expect(sectionStatus("data", { syncStatus: null })).toBe("Lokal");
+  it("returns 'Local' for data when sync is not connected", () => {
+    expect(sectionStatus("data")).toBe("Local");
+    expect(sectionStatus("data", { syncStatus: null })).toBe("Local");
     expect(
       sectionStatus("data", {
         syncStatus: {
@@ -112,7 +112,7 @@ describe("sectionStatus", () => {
           vaultExists: null,
         },
       }),
-    ).toBe("Lokal");
+    ).toBe("Local");
   });
 
   it("reflects connected or locked sync state for data", () => {
@@ -130,7 +130,7 @@ describe("sectionStatus", () => {
           vaultExists: true,
         },
       }),
-    ).toBe("Terhubung");
+    ).toBe("Connected");
     expect(
       sectionStatus("data", {
         syncStatus: {
@@ -145,13 +145,13 @@ describe("sectionStatus", () => {
           vaultExists: true,
         },
       }),
-    ).toBe("Perlu kunci");
+    ).toBe("Key required");
   });
 
   it("reflects GitHub connection state for integrasi", () => {
-    expect(sectionStatus("integrations", { githubConnected: true })).toBe("Terhubung");
-    expect(sectionStatus("integrations", { githubConnected: false })).toBe("Belum terhubung");
-    expect(sectionStatus("integrations", {})).toBe("Belum terhubung");
+    expect(sectionStatus("integrations", { githubConnected: true })).toBe("Connected");
+    expect(sectionStatus("integrations", { githubConnected: false })).toBe("Not connected");
+    expect(sectionStatus("integrations", {})).toBe("Not connected");
   });
 
   it("formats version with 'v' prefix for tentang", () => {
@@ -191,12 +191,12 @@ describe("normalizeSection", () => {
 });
 
 describe("formatKind", () => {
-  it("maps known kind keys to Indonesian labels", () => {
-    expect(formatKind("task")).toBe("Tugas");
-    expect(formatKind("note")).toBe("Catatan");
-    expect(formatKind("page")).toBe("Halaman");
-    expect(formatKind("entry")).toBe("Jurnal");
-    expect(formatKind("transaction")).toBe("Transaksi");
+  it("maps known kind keys to English labels", () => {
+    expect(formatKind("task")).toBe("Task");
+    expect(formatKind("note")).toBe("Note");
+    expect(formatKind("page")).toBe("Page");
+    expect(formatKind("entry")).toBe("Journal");
+    expect(formatKind("transaction")).toBe("Transaction");
     expect(formatKind("custom")).toBe("Custom");
   });
 });

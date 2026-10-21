@@ -9,9 +9,9 @@ import { TaskFields } from "./TaskFields";
 type SaveState = "idle" | "saving" | "saved" | "failed";
 const SAVE_LABEL: Record<SaveState, string> = {
   idle: "",
-  saving: "Menyimpan…",
-  saved: "Tersimpan",
-  failed: "Gagal menyimpan",
+  saving: "Saving…",
+  saved: "Saved",
+  failed: "Failed to save",
 };
 const AUTOSAVE_MS = 500;
 
@@ -102,8 +102,8 @@ export function ItemPage({
       if (item?.type === "task") {
         await api.deleteTask(id);
         const title = item.title;
-        toast(`Tugas "${title || "Tanpa judul"}" dihapus.`, "info", {
-          label: "Urungkan",
+        toast(`Task "${title || "Untitled"}" deleted.`, "info", {
+          label: "Undo",
           run: () => {
             void api.restoreTask(id).catch((e) => toast(errorMessage(e), "error"));
           },
@@ -122,7 +122,7 @@ export function ItemPage({
       <div className="flex max-w-3xl flex-col items-start gap-4">
         <p>{loadError}</p>
         <button onClick={onBack} className="text-sm text-accent hover:text-accent-hover">
-          ← Kembali
+          ← Back
         </button>
       </div>
     );
@@ -135,7 +135,7 @@ export function ItemPage({
     <div className="flex max-w-3xl flex-col gap-4">
       <div className="flex items-center gap-3 text-sm">
         <button onClick={onBack} className="text-accent hover:text-accent-hover">
-          ← Kembali
+          ← Back
         </button>
         {isTask && task?.parentId && (
           <button
@@ -152,7 +152,7 @@ export function ItemPage({
             onClick={() => void handleConvertToTask()}
             className="rounded-lg border border-line px-2.5 py-1 text-xs text-ink hover:bg-surface-2"
           >
-            Jadikan tugas
+            Convert to task
           </button>
         )}
         <span aria-live="polite" className={`ml-auto ${save === "failed" ? "text-danger" : "text-muted"}`}>
@@ -160,15 +160,15 @@ export function ItemPage({
         </span>
         {confirmDelete ? (
           <>
-            <span>Hapus item ini?</span>
+            <span>Delete this item?</span>
             <button onClick={() => void remove()} className="rounded-lg bg-danger px-2.5 py-1 font-semibold text-canvas">
-              Ya, hapus
+              Yes, delete
             </button>
-            <button onClick={() => setConfirmDelete(false)}>Batal</button>
+            <button onClick={() => setConfirmDelete(false)}>Cancel</button>
           </>
         ) : (
           <button onClick={() => setConfirmDelete(true)} className="text-danger">
-            Hapus
+            Delete
           </button>
         )}
       </div>
@@ -177,8 +177,8 @@ export function ItemPage({
         value={item.title}
         onChange={(e) => change({ title: e.target.value })}
         onBlur={() => void flush()}
-        placeholder="Tanpa judul"
-        aria-label="Judul"
+        placeholder="Untitled"
+        aria-label="Title"
         className="bg-transparent font-display text-[28px] font-semibold tracking-[-0.01em] outline-none placeholder:text-muted"
       />
 
@@ -207,8 +207,8 @@ export function ItemPage({
         value={item.body}
         onChange={(e) => change({ body: e.target.value })}
         onBlur={() => void flush()}
-        placeholder="Tulis dalam Markdown…"
-        aria-label="Isi"
+        placeholder="Write in Markdown…"
+        aria-label="Body"
         className={`${FIELD} min-h-[50vh] resize-none p-4 font-mono placeholder:text-muted`}
       />
     </div>

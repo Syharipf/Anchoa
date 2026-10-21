@@ -51,10 +51,10 @@ describe("Kanban", () => {
     expect(articles.length).toBe(1);
 
     const spans = elements(articles[0]).filter((e) => e.type === "span");
-    expect(spans.some((s) => s.props.children === "Tinggi")).toBe(true);
+    expect(spans.some((s) => s.props.children === "High")).toBe(true);
 
     const sections = elements(rendered).filter((e) => e.type === "section");
-    const doingSection = sections.find((s) => s.props["aria-label"] === "Dikerjakan");
+    const doingSection = sections.find((s) => s.props["aria-label"] === "In Progress");
     expect(doingSection).toBeDefined();
 
     const dataTransfer = {
@@ -77,7 +77,7 @@ describe("Kanban", () => {
   });
 
   it("shows filtered empty message and provides context menu", () => {
-    const cardMenu = mock(() => [{ label: "Hapus tugas", onSelect: () => {}, danger: true }]);
+    const cardMenu = mock(() => [{ label: "Delete task", onSelect: () => {}, danger: true }]);
     harness = hookHarness(() =>
       Kanban({
         columns: EMPTY_COLUMNS,
@@ -90,7 +90,7 @@ describe("Kanban", () => {
     );
 
     const divs = elements(harness.render()).filter((e) => e.type === "div");
-    expect(divs.some((d) => d.props.children === "Tidak ada yang cocok")).toBe(true);
+    expect(divs.some((d) => d.props.children === "No matching tasks")).toBe(true);
   });
   it("shows the latest merged commit for a linked repo and a placeholder while loading", async () => {
     const merged: Activity = {

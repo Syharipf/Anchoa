@@ -8,35 +8,35 @@ export interface Quote {
 
 export const HABIT_QUOTES: Quote[] = [
   {
-    text: "Kamu tidak naik ke tingkat sasaranmu. Kamu jatuh ke tingkat sistem yang kamu miliki.",
+    text: "You do not rise to the level of your goals. You fall to the level of your systems.",
     author: "James Clear",
     source: "Atomic Habits",
   },
   {
-    text: "Disiplin hari ini adalah kebebasan di masa depan.",
+    text: "Discipline today is freedom tomorrow.",
     author: "Seneca",
     source: "Letters from a Stoic",
   },
   {
-    text: "Kita adalah apa yang kita lakukan berulang-ulang. Keunggulan adalah sebuah kebiasaan.",
+    text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.",
     author: "Will Durant",
   },
   {
-    text: "Fokus pada konsistensi kecil daripada intensitas sesaat yang cepat memudar.",
+    text: "Focus on small consistency rather than fleeting intensity that fades quickly.",
     author: "Marcus Aurelius",
     source: "Meditations",
   },
   {
-    text: "Perjalanan seribu mil dimulai dengan satu langkah kecil yang disiplin.",
+    text: "A journey of a thousand miles begins with a single disciplined step.",
     author: "Lao Tzu",
   },
   {
-    text: "Kemajuan 1% setiap hari akan membuatmu 37 kali lebih baik dalam setahun.",
+    text: "Getting 1% better every day counts for a lot in the long run.",
     author: "James Clear",
     source: "Atomic Habits",
   },
   {
-    text: "Kebiasaan baik membuat waktu menjadi sekutumu, kebiasaan buruk membuat waktu menjadi musuhmu.",
+    text: "Good habits make time your ally; bad habits make time your enemy.",
     author: "Epictetus",
   },
 ];
@@ -79,8 +79,8 @@ export function DailyQuote({
       <button
         type="button"
         onClick={nextQuote}
-        title="Ganti kutipan"
-        aria-label="Kutipan lain"
+        title="Change quote"
+        aria-label="Another quote"
         className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-muted hover:border-accent hover:text-accent transition-colors"
       >
         <span>↻</span>

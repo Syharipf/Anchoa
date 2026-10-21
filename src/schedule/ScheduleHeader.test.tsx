@@ -26,12 +26,12 @@ function header(counts: Record<ItemKind, number> = COUNTS, off: ReadonlySet<Item
 
 test("header offers both the manual add and the voice add", () => {
   const html = header();
-  expect(html).toContain("Tambah tugas lewat suara");
-  expect(html).toContain("<span>Tambah</span>");
+  expect(html).toContain("Add task with voice");
+  expect(html).toContain("<span>Add</span>");
 });
 
-test("the Google Kalender filter appears only with events or while hidden", () => {
-  expect(header()).not.toContain("Google Kalender");
-  expect(header({ ...COUNTS, calendar: 2 })).toContain("Google Kalender");
-  expect(header(COUNTS, new Set<ItemKind>(["calendar"]))).toContain("Google Kalender");
+test("the Google Calendar filter appears only with events or while hidden", () => {
+  expect(header()).not.toContain("Google Calendar");
+  expect(header({ ...COUNTS, calendar: 2 })).toContain("Google Calendar");
+  expect(header(COUNTS, new Set<ItemKind>(["calendar"]))).toContain("Google Calendar");
 });

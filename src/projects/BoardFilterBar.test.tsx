@@ -74,7 +74,7 @@ describe("BoardFilterBar", () => {
 
     const rendered = harness.render();
     const removeTagBtn = elements(rendered).find(
-      (e) => e.type === "button" && e.props["aria-label"] === "Hapus saringan tag frontend",
+      (e) => e.type === "button" && e.props["aria-label"] === "Remove tag filter frontend",
     );
     expect(removeTagBtn).toBeDefined();
 
@@ -92,7 +92,7 @@ describe("BoardFilterBar", () => {
 
     const rendered = harness.render();
     const tagButton = elements(rendered).find(
-      (e) => e.type === "button" && e.props["aria-label"] === "Saring tag",
+      (e) => e.type === "button" && e.props["aria-label"] === "Filter tag",
     );
     expect(tagButton).toBeDefined();
 
@@ -100,7 +100,7 @@ describe("BoardFilterBar", () => {
     (tagButton!.props.onClick as () => void)();
     const opened = harness.render();
     const emptyNotice = elements(opened).find(
-      (e) => e.type === "p" && e.props.children === "Belum ada tag di proyek ini",
+      (e) => e.type === "p" && e.props.children === "No tags in this project yet",
     );
     expect(emptyNotice).toBeDefined();
   });

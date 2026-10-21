@@ -33,9 +33,9 @@ describe("consistency metrics in UI", () => {
         habits={[habit]}
       />,
     );
-    expect(html).toContain("4/19 hari");
+    expect(html).toContain("4/19 days");
     expect(html).toContain("21");
-    expect(html).toContain("Konsistensi 30 hari");
+    expect(html).toContain("30-day consistency");
   });
 
   it("renders 30-day consistency rate in HabitDetail", () => {
@@ -43,6 +43,6 @@ describe("consistency metrics in UI", () => {
       <HabitDetail habit={habit} today="2026-09-29" onEdit={() => {}} onDelete={() => {}} onUpdate={() => {}} />,
     );
     expect(html).toContain("21%");
-    expect(html).toContain("konsistensi 30 hari");
+    expect(html).toContain("30-day consistency");
   });
 });

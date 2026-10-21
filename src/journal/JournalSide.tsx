@@ -61,7 +61,7 @@ function IdeaButton({
       className="flex w-full items-center gap-2 rounded-lg p-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate">{idea.title || "Tanpa judul"}</span>
+      <span className="min-w-0 flex-1 truncate">{idea.title || "Untitled"}</span>
       <span className="shrink-0 font-mono text-[11px] text-muted">{idea.time}</span>
     </button>
   );
@@ -110,7 +110,7 @@ export function JournalSide({
     try {
       const summary = await api.journalWeeklySummary();
       onSummaryCreated?.(summary);
-      toast("Ringkasan mingguan dibuat", "info");
+      toast("Weekly summary created", "info");
     } catch (e) {
       toast(errorMessage(e), "error");
     } finally {
@@ -119,7 +119,7 @@ export function JournalSide({
   }
 
   return (
-    <aside aria-label="Informasi jurnal" className="flex min-h-0 flex-col gap-3.5 overflow-y-auto">
+    <aside aria-label="Journal info" className="flex min-h-0 flex-col gap-3.5 overflow-y-auto">
       <JournalCalendar
         selectedDate={selectedDate}
         onSelectDate={onSelectDate ?? (() => {})}
@@ -132,9 +132,9 @@ export function JournalSide({
         >
           <div className="flex items-baseline justify-between gap-2">
             <h2 id="j-memories-heading" className="m-0 font-display text-[15px] font-semibold text-ink">
-              Hari ini di masa lalu
+              On this day
             </h2>
-            <span className="text-[11px] text-muted">Kenangan</span>
+            <span className="text-[11px] text-muted">Memories</span>
           </div>
           <div className="flex flex-col gap-2">
             {memories.map((m) => (
@@ -146,7 +146,7 @@ export function JournalSide({
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-xs font-semibold text-ink group-hover:text-accent">
-                    {m.title || "Tanpa judul"}
+                    {m.title || "Untitled"}
                   </span>
                   <span className="shrink-0 font-mono text-[10px] text-muted">
                     {m.time}
@@ -169,14 +169,14 @@ export function JournalSide({
       >
         <div className="flex items-baseline justify-between gap-2">
           <h2 id="j-trend-heading" className="m-0 font-display text-[15px] font-semibold text-ink">
-            Suasana 30 hari
+            30-day mood
           </h2>
-          <span className="text-[11px] text-muted">{writeDays} hari menulis</span>
+          <span className="text-[11px] text-muted">{writeDays} days written</span>
         </div>
 
         <div
           role="img"
-          aria-label={`Suasana hati 30 hari terakhir: menulis ${writeDays} hari`}
+          aria-label={`Last 30 days mood: written ${writeDays} days`}
           className="flex h-14 items-end gap-0.5 border-b border-line pb-0.5"
         >
           {trend.map((t, idx) => {
@@ -197,11 +197,11 @@ export function JournalSide({
           className="flex justify-between font-mono text-[10px] text-muted"
         >
           <span>{startDateLabel}</span>
-          <span>Hari ini</span>
+          <span>Today</span>
         </div>
 
         <p className="m-0 text-xs text-muted">
-          Tinggi batang = suasana hati (1 berat – 5 senang). Titik = tidak menulis.
+          Bar height = mood (1 heavy – 5 great). Dot = did not write.
         </p>
       </section>
 
@@ -211,7 +211,7 @@ export function JournalSide({
         className="flex flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-3.5"
       >
         <h2 id="j-prompt-heading" className="m-0 font-display text-[15px] font-semibold text-ink">
-          Pemantik
+          Prompt
         </h2>
         <p className="m-0 text-sm leading-relaxed text-[#DADDE3]">“{promptText}”</p>
         <div className="flex gap-2">
@@ -220,14 +220,14 @@ export function JournalSide({
             onClick={() => handlePrompt(promptText)}
             className="min-h-8 rounded-lg border border-[#4E6A26] bg-transparent px-3 text-xs text-accent transition-colors hover:bg-surface-2"
           >
-            Tulis dari sini
+            Write from here
           </button>
           <button
             type="button"
             onClick={() => setPromptIdx((prev) => nextPrompt(prev))}
             className="min-h-8 rounded-lg border border-line bg-transparent px-3 text-xs text-[#C9CED8] transition-colors hover:bg-surface-2"
           >
-            Ganti
+            Shuffle
           </button>
         </div>
       </section>
@@ -239,11 +239,11 @@ export function JournalSide({
       >
         <div className="flex items-baseline justify-between gap-2">
           <h2 id="j-summary-heading" className="m-0 font-display text-[15px] font-semibold text-ink">
-            Ringkasan mingguan
+            Weekly summary
           </h2>
         </div>
         <p className="m-0 text-xs leading-relaxed text-muted">
-          Asisten lokal merangkum tema dan suasana hati dari entri 7 hari terakhir.
+          Local assistant summarizes themes and mood from entries over the last 7 days.
         </p>
         <div>
           <button
@@ -252,7 +252,7 @@ export function JournalSide({
             onClick={handleWeeklySummary}
             className="flex items-center justify-center gap-2 rounded-lg border border-[#4E6A26] bg-[#151C12] px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {summarizing ? "Meringkas…" : "Ringkas minggu ini"}
+            {summarizing ? "Summarizing…" : "Summarize this week"}
           </button>
         </div>
       </section>
@@ -263,11 +263,11 @@ export function JournalSide({
         className="flex min-h-0 flex-1 flex-col gap-1.5 rounded-[14px] border border-line bg-surface p-3.5"
       >
         <h2 id="j-ideas-heading" className="m-0 mb-1 font-display text-[15px] font-semibold text-ink">
-          Ide belum ditindaklanjuti
+          Ideas not yet acted on
         </h2>
 
         {ideas.length === 0 ? (
-          <p className="m-0 text-xs text-muted">Belum ada ide yang terbuka.</p>
+          <p className="m-0 text-xs text-muted">No open ideas yet.</p>
         ) : (
           <div className="flex flex-col gap-1 overflow-y-auto">
             {ideas.map((idea) => (
@@ -292,7 +292,7 @@ export function JournalSide({
             <rect x="5" y="11" width="14" height="10" rx="2" />
             <path d="M8 11V8a4 4 0 0 1 8 0v3" />
           </svg>
-          <span>Asisten hanya membaca entri 7 hari terakhir saat kamu meminta ringkasan, atau entri yang kamu minta tanggapannya.</span>
+          <span>The assistant only reads the last 7 days of entries when you request a summary, or entries you ask for feedback on.</span>
         </div>
       </section>
     </aside>

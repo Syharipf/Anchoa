@@ -18,7 +18,7 @@ export function LoginScreen({
       await api.syncSignIn(provider);
       onSignedIn();
     } catch (err) {
-      setError("Masuk gagal. Coba lagi atau pakai opsi lain.");
+      setError("Sign-in failed. Try again or choose another option.");
     } finally {
       setBusy(false);
     }
@@ -36,10 +36,10 @@ export function LoginScreen({
         <div className="flex flex-col items-center gap-4 text-center">
           <span className="font-display text-[34px] font-semibold tracking-[-0.02em]">Anchoa</span>
           <p className="m-0 max-w-[340px] text-sm text-muted leading-relaxed">
-            Dashboard pribadi dengan asisten suara. Tugas, jadwal, keuangan, jurnal, dan file laptopmu di satu tempat.
+            Personal dashboard with voice assistant. Tasks, schedule, finance, journal, and your laptop files in one place.
           </p>
           <p className="m-0 text-xs text-muted">
-            Data tersimpan di Supabase (Singapura) · file tetap di laptopmu
+            Data stored in Supabase (Singapore) · files stay on your laptop
           </p>
         </div>
 
@@ -59,7 +59,7 @@ export function LoginScreen({
             onClick={() => signIn("google")}
             className="flex h-9 w-full items-center justify-center gap-2 rounded-[9px] bg-accent px-4 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            {busy ? "Memproses…" : "Lanjutkan dengan Google"}
+            {busy ? "Processing…" : "Continue with Google"}
           </button>
 
           <button
@@ -68,7 +68,7 @@ export function LoginScreen({
             onClick={() => signIn("github")}
             className="flex h-9 w-full items-center justify-center gap-2 rounded-[9px] border border-line bg-surface px-4 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
-            Masuk dengan GitHub
+            Sign in with GitHub
           </button>
 
           <div
@@ -76,7 +76,7 @@ export function LoginScreen({
             aria-hidden="true"
           >
             <span className="flex-1 h-px bg-line" />
-            <span>atau</span>
+            <span>or</span>
             <span className="flex-1 h-px bg-line" />
           </div>
 
@@ -90,11 +90,11 @@ export function LoginScreen({
               <line x1="8" y1="21" x2="16" y2="21" />
               <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
-            <span>Lewati — pakai lokal saja</span>
+            <span>Skip — use local only</span>
           </button>
 
           <p className="m-0 text-center text-xs text-muted leading-relaxed">
-            Pendaftaran akun baru ditutup — Anchoa hanya untuk akunmu. Sesi disimpan di keyring perangkat, bukan di file biasa.
+            New account registration is closed — Anchoa is only for your account. Sessions are stored in the device keyring, not plain files.
           </p>
         </div>
       </div>

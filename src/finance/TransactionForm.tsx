@@ -10,8 +10,8 @@ import { useSave } from "./useSave";
 type Kind = "expense" | "income" | "transfer";
 
 const KINDS = [
-  { value: "expense", label: "Pengeluaran" },
-  { value: "income", label: "Pemasukan" },
+  { value: "expense", label: "Expense" },
+  { value: "income", label: "Income" },
   { value: "transfer", label: "Transfer" },
 ] as const;
 
@@ -56,11 +56,11 @@ export function TransactionForm({
     const value = parseRupiah(amount);
     const occurredAt = dateInputToMs(date);
     if (value === null || value <= 0) {
-      toast("Jumlah harus angka bulat lebih dari 0", "error");
+      toast("Amount must be a whole number greater than 0", "error");
       return;
     }
     if (occurredAt === null) {
-      toast("Tanggal wajib diisi", "error");
+      toast("Date is required", "error");
       return;
     }
     lastAccountId = account;
@@ -74,19 +74,19 @@ export function TransactionForm({
   const remove = edit ? () => void run(() => api.deleteTransaction(edit.id)) : undefined;
 
   return (
-    <Dialog title={edit ? "Ubah transaksi" : "Transaksi baru"} onClose={onClose}>
+    <Dialog title={edit ? "Edit transaction" : "New transaction"} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <Segmented label="Jenis transaksi" options={KINDS} value={kind} onChange={setKind} disabled={locked} />
-        <MoneyField label="Jumlah" value={amount} onChange={setAmount} />
+        <Segmented label="Transaction type" options={KINDS} value={kind} onChange={setKind} disabled={locked} />
+        <MoneyField label="Amount" value={amount} onChange={setAmount} />
         {kind === "transfer" ? (
           <div className="grid grid-cols-2 gap-3">
-            <AccountSelect label="Dari" accounts={accounts} value={account} onChange={setAccount} />
-            <AccountSelect label="Ke" accounts={accounts} value={to} onChange={setTo} />
+            <AccountSelect label="From" accounts={accounts} value={account} onChange={setAccount} />
+            <AccountSelect label="To" accounts={accounts} value={to} onChange={setTo} />
           </div>
         ) : (
           <>
-            <AccountSelect label="Akun" accounts={accounts} value={account} onChange={setAccount} />
-            <Field label="Kategori">
+            <AccountSelect label="Account" accounts={accounts} value={account} onChange={setAccount} />
+            <Field label="Category">
               <input list="finance-categories" value={category} onChange={(e) => setCategory(e.target.value)} className={FIELD} />
               <datalist id="finance-categories">
                 {suggestions?.map((c) => (
@@ -96,19 +96,19 @@ export function TransactionForm({
             </Field>
           </>
         )}
-        <Field label="Keterangan">
+        <Field label="Description">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={kind === "transfer" ? "Transfer" : "Tanpa keterangan"}
+            placeholder={kind === "transfer" ? "Transfer" : "No description"}
             className={FIELD}
           />
         </Field>
-        <Field label="Tanggal">
+        <Field label="Date">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={FIELD} />
         </Field>
         {kind !== "transfer" && (
-          <Field label="Catatan">
+          <Field label="Notes">
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} className={`${FIELD} resize-none`} />
           </Field>
         )}

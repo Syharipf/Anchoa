@@ -14,10 +14,10 @@ export function UpcomingList({
       className="flex flex-col gap-1 rounded-[14px] border border-line bg-surface p-[14px_16px]"
     >
       <h2 id="tenggat-judul" className="m-0 mb-1.5 font-display text-[15px] font-semibold">
-        Tenggat terdekat
+        Upcoming deadlines
       </h2>
       {tasks.length === 0 ? (
-        <p className="m-0 py-2 text-xs text-muted">Tidak ada tenggat terdekat</p>
+        <p className="m-0 py-2 text-xs text-muted">No upcoming deadlines</p>
       ) : (
         tasks.map((t) => (
           <button
@@ -32,9 +32,9 @@ export function UpcomingList({
               }`}
             />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[13px] text-ink">{t.title || "Tanpa judul"}</span>
+              <span className="truncate text-[13px] text-ink">{t.title || "Untitled"}</span>
               <span className="truncate text-[11px] text-muted">
-                {t.projectName ?? "Tugas lepas"}
+                {t.projectName ?? "Loose tasks"}
               </span>
             </span>
             {t.dueAt !== null && (

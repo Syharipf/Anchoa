@@ -43,7 +43,7 @@ describe("PinDialog and PinFields", () => {
     const createInputs = elements(createHarness.render()).filter((el) => el.type === "input");
     expect(createInputs).toHaveLength(2);
     expect(createInputs[0].props["aria-label"]).toBe("PIN");
-    expect(createInputs[1].props["aria-label"]).toBe("Konfirmasi PIN");
+    expect(createInputs[1].props["aria-label"]).toBe("Confirm PIN");
     createHarness.dispose();
 
     // change mode: current, new, and confirm inputs
@@ -60,9 +60,9 @@ describe("PinDialog and PinFields", () => {
     );
     const changeInputs = elements(changeHarness.render()).filter((el) => el.type === "input");
     expect(changeInputs).toHaveLength(3);
-    expect(changeInputs[0].props["aria-label"]).toBe("PIN saat ini");
-    expect(changeInputs[1].props["aria-label"]).toBe("PIN baru");
-    expect(changeInputs[2].props["aria-label"]).toBe("Konfirmasi PIN");
+    expect(changeInputs[0].props["aria-label"]).toBe("Current PIN");
+    expect(changeInputs[1].props["aria-label"]).toBe("New PIN");
+    expect(changeInputs[2].props["aria-label"]).toBe("Confirm PIN");
     changeHarness.dispose();
 
     // disable mode: only current input
@@ -79,7 +79,7 @@ describe("PinDialog and PinFields", () => {
     );
     const disableInputs = elements(disableHarness.render()).filter((el) => el.type === "input");
     expect(disableInputs).toHaveLength(1);
-    expect(disableInputs[0].props["aria-label"]).toBe("PIN saat ini");
+    expect(disableInputs[0].props["aria-label"]).toBe("Current PIN");
     disableHarness.dispose();
   });
 
@@ -103,7 +103,7 @@ describe("PinDialog and PinFields", () => {
     const render = () => harness.render();
     const dialog = elements(render()).find((el) => el.type === Dialog)!;
     expect(dialog).toBeDefined();
-    expect(dialog.props.title).toBe("Buat PIN");
+    expect(dialog.props.title).toBe("Create PIN");
 
     const fields = () => elements(render()).find((el) => el.type === PinFields)!;
     const form = () => elements(render()).find((el) => el.type === "form")!;
@@ -116,7 +116,7 @@ describe("PinDialog and PinFields", () => {
     await harness.settle();
 
     let alert = elements(render()).find((el) => el.props.role === "alert");
-    expect(alert?.props.children).toBe("Konfirmasi PIN tidak cocok");
+    expect(alert?.props.children).toBe("PIN confirmation does not match");
     expect(setPinSpy).not.toHaveBeenCalled();
 
     // Test invalid length
@@ -127,7 +127,7 @@ describe("PinDialog and PinFields", () => {
     await harness.settle();
 
     alert = elements(render()).find((el) => el.props.role === "alert");
-    expect(alert?.props.children).toBe("PIN harus 4–8 digit angka");
+    expect(alert?.props.children).toBe("PIN must be 4–8 digits");
     expect(setPinSpy).not.toHaveBeenCalled();
 
     // Test successful submission
@@ -167,7 +167,7 @@ describe("PinDialog and PinFields", () => {
 
     const render = () => harness.render();
     const dialog = elements(render()).find((el) => el.type === Dialog)!;
-    expect(dialog.props.title).toBe("Ganti PIN");
+    expect(dialog.props.title).toBe("Change PIN");
 
     const fields = () => elements(render()).find((el) => el.type === PinFields)!;
     const form = () => elements(render()).find((el) => el.type === "form")!;
@@ -180,7 +180,7 @@ describe("PinDialog and PinFields", () => {
     await harness.settle();
 
     let alert = elements(render()).find((el) => el.props.role === "alert");
-    expect(alert?.props.children).toBe("PIN saat ini harus diisi");
+    expect(alert?.props.children).toBe("Current PIN is required");
 
     // Enter wrong current PIN -> backend rejects
     (fields().props.onCurrentPinChange as (val: string) => void)("0000");
@@ -235,7 +235,7 @@ describe("PinDialog and PinFields", () => {
 
     const render = () => harness.render();
     const dialog = elements(render()).find((el) => el.type === Dialog)!;
-    expect(dialog.props.title).toBe("Matikan PIN");
+    expect(dialog.props.title).toBe("Disable PIN");
 
     const fields = () => elements(render()).find((el) => el.type === PinFields)!;
     const form = () => elements(render()).find((el) => el.type === "form")!;
@@ -245,7 +245,7 @@ describe("PinDialog and PinFields", () => {
     await harness.settle();
 
     let alert = elements(render()).find((el) => el.props.role === "alert");
-    expect(alert?.props.children).toBe("PIN saat ini harus diisi");
+    expect(alert?.props.children).toBe("Current PIN is required");
 
     // Wrong current PIN
     (fields().props.onCurrentPinChange as (val: string) => void)("9999");

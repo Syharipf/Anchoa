@@ -34,7 +34,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["rpm"],
+    "targets": ["deb"],
     "category": "Productivity",
     "shortDescription": "Kelola catatan, task, dan keuangan di satu tempat",
     "resources": [

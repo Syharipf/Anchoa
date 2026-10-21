@@ -9,7 +9,7 @@ export function FolderPickerBody({
   folders,
   busy,
   error,
-  title = "Pilih Folder",
+  title = "Select Folder",
   onUp,
   onEnter,
   onChoose,
@@ -43,7 +43,7 @@ export function FolderPickerBody({
             disabled={busy || isRoot}
             className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
-            Naik
+            Up
           </button>
         </div>
 
@@ -56,11 +56,11 @@ export function FolderPickerBody({
         <div className="flex max-h-60 min-h-[140px] flex-col overflow-y-auto rounded-lg border border-line bg-canvas p-1">
           {busy && folders.length === 0 ? (
             <div className="flex flex-1 items-center justify-center p-4 text-xs text-muted">
-              Memuat…
+              Loading…
             </div>
           ) : folders.length === 0 ? (
             <div className="flex flex-1 items-center justify-center p-4 text-xs text-muted">
-              Tidak ada subfolder
+              No subfolders
             </div>
           ) : (
             folders.map((entry) => (
@@ -96,7 +96,7 @@ export function FolderPickerBody({
             onClick={onCancel}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="button"
@@ -104,7 +104,7 @@ export function FolderPickerBody({
             disabled={!path || busy}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            Pilih folder ini
+            Select this folder
           </button>
         </div>
       </div>

@@ -69,10 +69,9 @@ describe("LockScreen", () => {
     unlockSpy = spyOn(api, "unlock").mockResolvedValue(undefined);
     harness = mount(() => { unlocked = true; });
 
-    (buttonWith(harness.render(), "Kata sandi")!.props.onClick as () => void)();
+    (buttonWith(harness.render(), "Password")!.props.onClick as () => void)();
 
-    const input = secretInput(harness.render(), "Kata sandi")!;
-    expect(input).toBeDefined();
+    const input = secretInput(harness.render(), "Password")!;
     expect(input.props.inputMode).toBe("text");
 
     (input.props.onChange as (e: unknown) => void)({ target: { value: "rahasia123" } });
@@ -92,7 +91,7 @@ describe("LockScreen", () => {
     );
     const rendered = harness.render();
 
-    expect(buttonWith(rendered, "Kata sandi")).toBeUndefined();
+    expect(buttonWith(rendered, "Password")).toBeUndefined();
     expect(secretInput(rendered, "PIN")).toBeDefined();
   });
 
@@ -105,8 +104,8 @@ describe("LockScreen", () => {
     const html = JSON.stringify(rendered);
     expect(html).toContain("laut-card");
     expect(html).toContain("bg-stage");
-    expect(text).toContain("Anchoa terkunci");
-    expect(text).toContain("Masukkan PIN Anda");
+    expect(text).toContain("Anchoa is locked");
+    expect(text).toContain("Enter your PIN");
   });
 
   it("displays wrong PIN error when unlock fails", async () => {
@@ -170,15 +169,15 @@ describe("LockScreen", () => {
   it("handles cooldown message, counts down remaining seconds, and clears on expiry", async () => {
     unlockPwSpy = spyOn(api, "unlockPassword").mockRejectedValue({
       code: "invalid",
-      message: "Kata sandi salah. Terlalu banyak percobaan, coba lagi dalam 2 detik.",
+      message: "Wrong password. Too many attempts, try again in 2 seconds.",
     });
     unlockSpy = spyOn(api, "unlock").mockResolvedValue(undefined);
     harness = mount();
 
     const render = () => harness.render();
-    (buttonWith(render(), "Kata sandi")!.props.onClick as () => void)();
+    (buttonWith(render(), "Password")!.props.onClick as () => void)();
 
-    const input = () => secretInput(render(), "Kata sandi")!;
+    const input = () => secretInput(render(), "Password")!;
     const form = () => elements(render()).find((el) => el.type === "form")!;
     const button = () => elements(render()).find((el) => el.type === "button" && el.props.type === "submit")!;
 
@@ -189,27 +188,27 @@ describe("LockScreen", () => {
 
     let alert = elements(render()).find((el) => el.props.role === "alert");
     expect(alert).toBeDefined();
-    expect(String(alert!.props.children)).toContain("2 detik");
+    expect(String(alert!.props.children)).toContain("2 seconds");
     expect(button().props.disabled).toBe(true);
 
     harness.runTimers();
     await harness.settle();
     alert = elements(render()).find((el) => el.props.role === "alert");
-    expect(String(alert!.props.children)).toContain("1 detik");
+    expect(String(alert!.props.children)).toContain("1 seconds");
 
     harness.runTimers();
     await harness.settle();
     alert = elements(render()).find((el) => el.props.role === "alert");
     expect(alert).toBeUndefined();
-    expect(secretInput(render(), "Kata sandi")!.props.value).toBe("");
+    expect(secretInput(render(), "Password")!.props.value).toBe("");
   });
 
-  it("renders 'Lupa PIN?' disclosure explaining terminal reset", () => {
+  it("renders 'Forgot PIN?' disclosure explaining terminal reset", () => {
     harness = mount();
     const all = allText(harness.render());
 
-    expect(all).toContain("Lupa PIN?");
-    expect(all).toContain("Tutup aplikasi Anchoa");
+    expect(all).toContain("Forgot PIN?");
+    expect(all).toContain("Close the Anchoa application");
     expect(all).toContain("sqlite3");
     expect(all).toContain("io.github.syharipf.anchoa");
     expect(all).toContain("anchoa.db");

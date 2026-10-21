@@ -65,7 +65,7 @@ describe("finance recap export", () => {
     await harness!.settle();
     expect(pick).toHaveBeenCalledWith({ multiple: false, directory: true });
     expect(invoke).toHaveBeenCalledWith("finance_recap_pdf", { dir: "/home/kamu", kind: "monthly", period: "2026-10" });
-    expect(toast).toHaveBeenCalledWith("Rekap Oktober 2026 disimpan ke /home/kamu/rekap-bulanan-2026-10.pdf", "info");
+    expect(toast).toHaveBeenCalledWith("Recap October 2026 saved to /home/kamu/rekap-bulanan-2026-10.pdf", "info");
     expect(close).toHaveBeenCalledTimes(1);
   });
 
@@ -74,8 +74,8 @@ describe("finance recap export", () => {
     const pick = spyOn(dialog, "open").mockResolvedValue("/home/kamu");
     spies.push(invoke, pick);
     mount(() => ExportPdfDialog({ month: "2026-10", onClose: close }));
-    props(Segmented, "Jenis rekap").onChange("yearly");
-    value("Tahun", "2025");
+    props(Segmented, "Recap type").onChange("yearly");
+    value("Year", "2025");
     submit();
     await harness!.settle();
     expect(invoke).toHaveBeenCalledWith("finance_recap_pdf", { dir: "/home/kamu", kind: "yearly", period: "2025" });
@@ -87,16 +87,16 @@ describe("finance recap export", () => {
     spies.push(invoke);
     mount(() => ExportPdfDialog({ month: "2026-10", onClose: close }));
 
-    props(Segmented, "Jenis rekap").onChange("yearly");
-    value("Tahun", "20x5");
+    props(Segmented, "Recap type").onChange("yearly");
+    value("Year", "20x5");
     submit();
     await harness!.settle();
     expect(invoke).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenCalledWith("Tahun harus 4 angka", "error");
+    expect(toast).toHaveBeenCalledWith("Year must be 4 digits", "error");
 
     const pick = spyOn(dialog, "open").mockResolvedValue(null);
     spies.push(pick);
-    value("Tahun", "2025");
+    value("Year", "2025");
     submit();
     await harness!.settle();
     expect(pick).toHaveBeenCalled();

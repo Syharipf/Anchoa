@@ -31,21 +31,21 @@ export function PipelineTracker({
 
   return (
     <section
-      aria-label="Alur Pipeline Proyek"
+      aria-label="Project Pipeline"
       className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5 shadow-sm"
     >
       <div className="flex items-center justify-between px-1">
         <span className="font-display text-xs font-semibold uppercase tracking-wider text-muted">
-          Pipeline Siklus Pengerjaan AI
+          AI Work Cycle Pipeline
         </span>
         <span className="font-mono text-xs font-medium text-accent">
-          Tahap {currentStage}/6:{" "}
-          {currentStage === 1 && "Penyusunan PRD"}
-          {currentStage === 2 && "Validasi Arsitektur"}
-          {currentStage === 3 && "Antrean Rencana"}
-          {currentStage === 4 && "Coding AI (Harness Aktif)"}
-          {currentStage === 5 && "Pengujian & Review"}
-          {currentStage === 6 && "Selesai / Siap Rilis"}
+          Stage {currentStage}/6:{" "}
+          {currentStage === 1 && "PRD Drafting"}
+          {currentStage === 2 && "Architecture Validation"}
+          {currentStage === 3 && "Plan Queue"}
+          {currentStage === 4 && "AI Coding (Harness Active)"}
+          {currentStage === 5 && "Testing & Review"}
+          {currentStage === 6 && "Complete / Ready to Release"}
         </span>
       </div>
 
@@ -104,9 +104,18 @@ export function PipelineTracker({
 
           {/* Node 1: PRD & Bisnis */}
           <g
+            role="button"
+            tabIndex={0}
+            aria-label="1. PRD & Scope"
             transform="translate(10, 6)"
-            className="cursor-pointer"
+            className="cursor-pointer outline-none focus:opacity-80"
             onClick={() => onSelectStage?.(1)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectStage?.(1);
+              }
+            }}
           >
             <rect
               width="160"
@@ -135,7 +144,7 @@ export function PipelineTracker({
               fontSize="12.5"
               fontWeight="600"
             >
-              1. PRD &amp; Bisnis
+              1. PRD &amp; Business
             </text>
             <text
               x="42"
@@ -144,15 +153,24 @@ export function PipelineTracker({
               fontFamily="monospace"
               fontSize="10.5"
             >
-              {status.hasPrd ? "Tersedia ✓" : "Belum Ada"}
+              {status.hasPrd ? "Available ✓" : "None"}
             </text>
           </g>
 
           {/* Node 2: Arsitektur / Flow */}
           <g
+            role="button"
+            tabIndex={0}
+            aria-label="2. Architecture"
             transform="translate(250, 6)"
-            className="cursor-pointer"
+            className="cursor-pointer outline-none focus:opacity-80"
             onClick={() => onSelectStage?.(2)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectStage?.(2);
+              }
+            }}
           >
             <rect
               width="160"
@@ -181,7 +199,7 @@ export function PipelineTracker({
               fontSize="12.5"
               fontWeight="600"
             >
-              2. Arsitektur
+              2. Architecture
             </text>
             <text
               x="42"
@@ -190,15 +208,24 @@ export function PipelineTracker({
               fontFamily="monospace"
               fontSize="10.5"
             >
-              {status.hasFlow ? "Graf Valid ✓" : "Draf Kosong"}
+              {status.hasFlow ? "Valid Graph ✓" : "Empty Draft"}
             </text>
           </g>
 
           {/* Node 3: Rencana Kanban */}
           <g
+            role="button"
+            tabIndex={0}
+            aria-label="3. Plan"
             transform="translate(490, 6)"
-            className="cursor-pointer"
+            className="cursor-pointer outline-none focus:opacity-80"
             onClick={() => onSelectStage?.(3)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectStage?.(3);
+              }
+            }}
           >
             <rect
               width="160"
@@ -227,7 +254,7 @@ export function PipelineTracker({
               fontSize="12.5"
               fontWeight="600"
             >
-              3. Rencana
+              3. Plan
             </text>
             <text
               x="42"
@@ -236,15 +263,24 @@ export function PipelineTracker({
               fontFamily="monospace"
               fontSize="10.5"
             >
-              {status.planCount} Task Antre
+              {status.planCount} Tasks Queued
             </text>
           </g>
 
           {/* Node 4: Coding AI / Harness */}
           <g
+            role="button"
+            tabIndex={0}
+            aria-label="4. Coding"
             transform="translate(730, 6)"
-            className="cursor-pointer"
+            className="cursor-pointer outline-none focus:opacity-80"
             onClick={() => onSelectStage?.(4)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectStage?.(4);
+              }
+            }}
           >
             <rect
               width="160"
@@ -276,15 +312,24 @@ export function PipelineTracker({
               fontFamily="monospace"
               fontSize="10.5"
             >
-              {status.doingCount > 0 ? `${status.doingCount} Aktif di Repo` : "Idle"}
+              {status.doingCount > 0 ? `${status.doingCount} Active in Repo` : "Idle"}
             </text>
           </g>
 
           {/* Node 5: Tes & Review */}
           <g
+            role="button"
+            tabIndex={0}
+            aria-label="5. Test & Review"
             transform="translate(970, 6)"
-            className="cursor-pointer"
+            className="cursor-pointer outline-none focus:opacity-80"
             onClick={() => onSelectStage?.(5)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectStage?.(5);
+              }
+            }}
           >
             <rect
               width="160"
@@ -312,7 +357,7 @@ export function PipelineTracker({
               fontSize="12.5"
               fontWeight={currentStage === 5 ? "600" : "500"}
             >
-              5. Tes &amp; Review
+              5. Test &amp; Review
             </text>
             <text
               x="42"
@@ -321,7 +366,7 @@ export function PipelineTracker({
               fontFamily="monospace"
               fontSize="10.5"
             >
-              {status.testReviewCount} Task
+              {status.testReviewCount} Tasks
             </text>
           </g>
         </svg>

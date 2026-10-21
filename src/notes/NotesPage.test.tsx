@@ -32,7 +32,7 @@ describe("NotesPage editing", () => {
   );
   const exportPage = () => {
     const element = elements(harness.render()).find((element) => element.type === "button" &&
-      Array.isArray(element.props.children) && element.props.children.includes("Ekspor Markdown"));
+      Array.isArray(element.props.children) && element.props.children.includes("Export Markdown"));
     (element!.props.onClick as () => void)();
   };
 
@@ -150,7 +150,7 @@ describe("NotesPage editing", () => {
     spyOn(api, "savePageBody").mockRejectedValue(new Error("Save failed"));
     editor().onChange("Keep this text");
     tree().onStartDelete(nodes[0]);
-    (button("Hapus")!.props.onClick as () => void)();
+    (button("Delete")!.props.onClick as () => void)();
     await harness.settle();
     expect(api.deletePage).not.toHaveBeenCalled();
     exportPage();
@@ -164,7 +164,7 @@ describe("NotesPage editing", () => {
     spyOn(api, "savePageBody").mockImplementationOnce(() => save.promise);
     editor().onChange("Before trash");
     tree().onStartDelete(nodes[0]);
-    (button("Hapus")!.props.onClick as () => void)();
+    (button("Delete")!.props.onClick as () => void)();
     await harness.settle();
     expect(api.savePageBody).toHaveBeenCalledWith("A", "Before trash");
     expect(api.deletePage).not.toHaveBeenCalled();
@@ -202,7 +202,7 @@ describe("NotesPage editing", () => {
 
   it("flushes before renaming from the title header", async () => {
     editor().onChange("Before title rename");
-    const titleInput = () => elements(harness.render()).find((element) => element.props["aria-label"] === "Judul halaman")!;
+    const titleInput = () => elements(harness.render()).find((element) => element.props["aria-label"] === "Page title")!;
     (titleInput().props.onChange as (event: unknown) => void)({ target: { value: "Renamed A" } });
     (titleInput().props.onBlur as () => void)();
     await harness.settle();
@@ -216,8 +216,8 @@ describe("NotesPage editing", () => {
     harness.blur();
     await harness.settle();
     const timestamp = elements(harness.render()).find((element) => element.type === "div" &&
-      Array.isArray(element.props.children) && element.props.children[0] === "Diperbarui ");
-    expect(timestamp!.props.children).toEqual(["Diperbarui ", relativeTime(items[0].updatedAt, Date.now())]);
+      Array.isArray(element.props.children) && element.props.children[0] === "Updated ");
+    expect(timestamp!.props.children).toEqual(["Updated ", relativeTime(items[0].updatedAt, Date.now())]);
     expect(tree().tree.find((node) => node.id === "A")!.updatedAt).toBe(items[0].updatedAt);
     expect(elements(harness.render()).find((element) => element.type === BlockEditor)!.key).toBe(oldKey);
     expect(changed).toHaveBeenCalledTimes(1);
@@ -255,10 +255,10 @@ describe("Backlinks", () => {
     const html = renderToStaticMarkup(
       <Backlinks items={[]} onOpenItem={() => {}} />,
     );
-    expect(html).toContain("Belum ada yang menautkan halaman ini.");
+    expect(html).toContain("No pages link to this page yet.");
   });
 
-  it("renders backlink titles, Indonesian types, and linking-line excerpts", () => {
+  it("renders backlink titles, English types, and linking-line excerpts", () => {
     const items: Backlink[] = [
       {
         id: "p1",
@@ -281,21 +281,21 @@ describe("Backlinks", () => {
       <Backlinks items={items} onOpenItem={() => {}} />,
     );
     expect(html).toContain("Halaman Penting");
-    expect(html).toContain("Catatan halaman");
+    expect(html).toContain("Page note");
     expect(html).toContain("Catatan Harian");
-    expect(html).toContain("Jurnal");
+    expect(html).toContain("Journal");
     expect(html).toContain(items[0].excerpt);
     expect(html).toContain(items[1].excerpt);
   });
 
   it.each([
-    ["task", "Tugas"],
-    ["project", "Proyek"],
-    ["habit", "Kebiasaan"],
-    ["account", "Akun"],
-    ["transaction", "Transaksi"],
-    ["bill", "Tagihan"],
-    ["download", "Unduhan"],
+    ["task", "Task"],
+    ["project", "Project"],
+    ["habit", "Habit"],
+    ["account", "Account"],
+    ["transaction", "Transaction"],
+    ["bill", "Bill"],
+    ["download", "Download"],
     ["unknown", "Item"],
   ])("labels %s backlinks as %s", (type, label) => {
     const html = renderToStaticMarkup(
@@ -343,8 +343,8 @@ describe("MoveDialog", () => {
       />,
     );
 
-    expect(html).toContain("Pindahkan &quot;Halaman Saya&quot;");
-    expect(html).toContain("Akar (tanpa induk)");
+    expect(html).toContain("Move &quot;Halaman Saya&quot;");
+    expect(html).toContain("Root (no parent)");
     expect(html).toContain("Akar Utama");
     expect(html).toContain("Halaman Lain");
     // self and child must be excluded from options
@@ -358,7 +358,7 @@ describe("TrashDialog", () => {
     const html = renderToStaticMarkup(
       <TrashDialog entries={[]} onClose={() => {}} onRestore={async () => {}} />,
     );
-    expect(html).toContain("Sampah kosong.");
+    expect(html).toContain("Trash is empty.");
   });
 
   it("renders trash entries with subpage counts and restore button", () => {
@@ -380,7 +380,7 @@ describe("TrashDialog", () => {
     );
 
     expect(html).toContain("Catatan Lama");
-    expect(html).toContain("2 subhalaman");
-    expect(html).toContain("Pulihkan");
+    expect(html).toContain("2 subpages");
+    expect(html).toContain("Restore");
   });
 });

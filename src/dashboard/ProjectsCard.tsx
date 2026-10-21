@@ -33,11 +33,11 @@ export function ProjectsCard({
           <rect x="3" y="3" width="18" height="18" rx="2" />
           <path d="M8 7v7M12 7v4M16 7v10" />
         </svg>
-        <span id="c-proyek" className="font-display text-sm font-semibold text-ink">Proyek</span>
+        <span id="c-proyek" className="font-display text-sm font-semibold text-ink">Projects</span>
         <span className="ml-auto text-xs text-accent">›</span>
       </div>
       {list.length === 0 ? (
-        <span className="text-xs text-muted">Belum ada proyek</span>
+        <span className="text-xs text-muted">No projects yet</span>
       ) : (
         list.map((p) => {
           const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;

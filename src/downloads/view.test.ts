@@ -120,34 +120,34 @@ describe("downloads view rules", () => {
 
   describe("formatEta", () => {
     it("formats seconds below 1 minute", () => {
-      expect(formatEta(0)).toBe("0 dtk");
-      expect(formatEta(-5)).toBe("0 dtk");
-      expect(formatEta(19)).toBe("19 dtk");
-      expect(formatEta(59)).toBe("59 dtk");
+      expect(formatEta(0)).toBe("0s");
+      expect(formatEta(-5)).toBe("0s");
+      expect(formatEta(19)).toBe("19s");
+      expect(formatEta(59)).toBe("59s");
     });
 
     it("formats minutes below 1 hour", () => {
-      expect(formatEta(60)).toBe("1 mnt");
-      expect(formatEta(120)).toBe("2 mnt");
-      expect(formatEta(190)).toBe("3 mnt");
+      expect(formatEta(60)).toBe("1m");
+      expect(formatEta(120)).toBe("2m");
+      expect(formatEta(190)).toBe("3m");
     });
 
     it("formats hours and remaining minutes", () => {
-      expect(formatEta(3600)).toBe("1 jam");
-      expect(formatEta(5400)).toBe("1 jam 30 mnt");
-      expect(formatEta(7200)).toBe("2 jam");
+      expect(formatEta(3600)).toBe("1h");
+      expect(formatEta(5400)).toBe("1h 30m");
+      expect(formatEta(7200)).toBe("2h");
     });
   });
 
   describe("STATUS_LABELS", () => {
-    it("has exact Indonesian labels for all download statuses", () => {
-      expect(STATUS_LABELS.queued).toBe("Menunggu");
-      expect(STATUS_LABELS.running).toBe("Mengunduh");
-      expect(STATUS_LABELS.paused).toBe("Dijeda");
-      expect(STATUS_LABELS.processing).toBe("Memproses");
-      expect(STATUS_LABELS.done).toBe("Selesai");
-      expect(STATUS_LABELS.failed).toBe("Gagal");
-      expect(STATUS_LABELS.interrupted).toBe("Terputus");
+    it("has exact labels for all download statuses", () => {
+      expect(STATUS_LABELS.queued).toBe("Queued");
+      expect(STATUS_LABELS.running).toBe("Downloading");
+      expect(STATUS_LABELS.paused).toBe("Paused");
+      expect(STATUS_LABELS.processing).toBe("Processing");
+      expect(STATUS_LABELS.done).toBe("Done");
+      expect(STATUS_LABELS.failed).toBe("Failed");
+      expect(STATUS_LABELS.interrupted).toBe("Interrupted");
     });
   });
 
@@ -240,7 +240,7 @@ describe("downloads view rules", () => {
 
     it("formats running row with percentage, speed, and eta", () => {
       const row = makeRow({});
-      expect(progressText(row)).toBe("63% · 8,2 MB/s · 19 dtk lagi");
+      expect(progressText(row)).toBe("63% · 8,2 MB/s · 19s left");
     });
 
     it("formats running row without eta", () => {
@@ -260,12 +260,12 @@ describe("downloads view rules", () => {
         speed: 1024 * 1024,
         eta: 10,
       });
-      expect(progressText(row)).toBe("4,0 MB · 1,0 MB/s · 10 dtk lagi");
+      expect(progressText(row)).toBe("4,0 MB · 1,0 MB/s · 10s left");
     });
 
     it("formats queued row", () => {
       const row = makeRow({ status: "queued" });
-      expect(progressText(row)).toBe("Menunggu giliran antrean");
+      expect(progressText(row)).toBe("Waiting in queue");
     });
 
     it("formats paused row with percentage", () => {
@@ -274,7 +274,7 @@ describe("downloads view rules", () => {
         doneBytes: 22 * 1024 * 1024,
         totalBytes: 100 * 1024 * 1024,
       });
-      expect(progressText(row)).toBe("22% · dijeda");
+      expect(progressText(row)).toBe("22% · paused");
     });
 
     it("formats paused row with unknown total bytes", () => {
@@ -283,7 +283,7 @@ describe("downloads view rules", () => {
         totalBytes: null,
         doneBytes: 4 * 1024 * 1024,
       });
-      expect(progressText(row)).toBe("4,0 MB · dijeda");
+      expect(progressText(row)).toBe("4,0 MB · paused");
     });
 
     it("formats processing row with audio or video format", () => {
@@ -296,7 +296,7 @@ describe("downloads view rules", () => {
           subtitles: false,
         },
       });
-      expect(progressText(rowAudio)).toBe("Mengonversi ke MP3 (ffmpeg)…");
+      expect(progressText(rowAudio)).toBe("Converting to MP3 (ffmpeg)…");
 
       const rowVideo = makeRow({
         status: "processing",
@@ -307,13 +307,13 @@ describe("downloads view rules", () => {
           subtitles: false,
         },
       });
-      expect(progressText(rowVideo)).toBe("Mengonversi ke MKV (ffmpeg)…");
+      expect(progressText(rowVideo)).toBe("Converting to MKV (ffmpeg)…");
 
       const rowNoOptions = makeRow({
         status: "processing",
         options: null,
       });
-      expect(progressText(rowNoOptions)).toBe("Memproses (ffmpeg)…");
+      expect(progressText(rowNoOptions)).toBe("Processing (ffmpeg)…");
     });
 
     it("formats done row with file path", () => {
@@ -321,13 +321,13 @@ describe("downloads view rules", () => {
         status: "done",
         filePath: "~/Unduhan/video.mp4",
       });
-      expect(progressText(row)).toBe("Tersimpan di ~/Unduhan/video.mp4");
+      expect(progressText(row)).toBe("Saved to ~/Unduhan/video.mp4");
 
       const rowNoPath = makeRow({
         status: "done",
         filePath: null,
       });
-      expect(progressText(rowNoPath)).toBe("Tersimpan");
+      expect(progressText(rowNoPath)).toBe("Saved");
     });
 
     it("formats failed row with error message", () => {
@@ -341,7 +341,7 @@ describe("downloads view rules", () => {
         status: "failed",
         error: null,
       });
-      expect(progressText(rowNoErr)).toBe("Gagal");
+      expect(progressText(rowNoErr)).toBe("Failed");
     });
 
     it("formats interrupted row with countdown when nextRetryAt is in future", () => {
@@ -350,7 +350,7 @@ describe("downloads view rules", () => {
         status: "interrupted",
         nextRetryAt: future,
       });
-      expect(progressText(row)).toMatch(/Terputus · lanjut otomatis dalam \d+ dtk/);
+      expect(progressText(row)).toMatch(/Interrupted · retrying in \d+s/);
     });
 
     it("formats interrupted row without countdown when nextRetryAt is past or null", () => {
@@ -358,7 +358,7 @@ describe("downloads view rules", () => {
         status: "interrupted",
         nextRetryAt: null,
       });
-      expect(progressText(row)).toBe("Terputus · koneksi terputus");
+      expect(progressText(row)).toBe("Interrupted · connection lost");
     });
   });
 
@@ -371,7 +371,7 @@ describe("downloads view rules", () => {
           format: "MP4",
           subtitles: false,
         }),
-      ).toBe("Unduh 1080p MP4");
+      ).toBe("Download 1080p MP4");
 
       expect(
         addLabel("media", {
@@ -380,7 +380,7 @@ describe("downloads view rules", () => {
           format: "MKV",
           subtitles: true,
         }),
-      ).toBe("Unduh 2160p MKV");
+      ).toBe("Download 2160p MKV");
     });
 
     it("returns download label for audio media", () => {
@@ -391,7 +391,7 @@ describe("downloads view rules", () => {
           format: "MP3",
           subtitles: false,
         }),
-      ).toBe("Unduh audio MP3");
+      ).toBe("Download audio MP3");
 
       expect(
         addLabel("media", {
@@ -400,22 +400,22 @@ describe("downloads view rules", () => {
           format: "M4A",
           subtitles: false,
         }),
-      ).toBe("Unduh audio M4A");
+      ).toBe("Download audio M4A");
     });
 
     it("uses default video settings when options are omitted", () => {
-      expect(addLabel("media")).toBe("Unduh 1080p MP4");
-      expect(addLabel("media", null)).toBe("Unduh 1080p MP4");
+      expect(addLabel("media")).toBe("Download 1080p MP4");
+      expect(addLabel("media", null)).toBe("Download 1080p MP4");
     });
 
     it("returns torrent label for torrents", () => {
-      expect(addLabel("torrent")).toBe("Tambah torrent");
+      expect(addLabel("torrent")).toBe("Add torrent");
     });
 
-    it("returns standard Unduh label for files and other kinds", () => {
-      expect(addLabel("file")).toBe("Unduh");
-      expect(addLabel("none")).toBe("Unduh");
-      expect(addLabel("invalid")).toBe("Unduh");
+    it("returns standard Download label for files and other kinds", () => {
+      expect(addLabel("file")).toBe("Download");
+      expect(addLabel("none")).toBe("Download");
+      expect(addLabel("invalid")).toBe("Download");
     });
   });
 
@@ -579,12 +579,12 @@ describe("downloads view rules", () => {
 
   describe("detectionInfo", () => {
     it("returns proper labels and descriptions per kind", () => {
-      expect(detectionInfo("none").label).toBe("Menunggu tautan");
+      expect(detectionInfo("none").label).toBe("Waiting for link");
       expect(detectionInfo("media", "youtube.com").label).toBe("Video/audio · yt-dlp");
       expect(detectionInfo("media", "youtube.com").hint).toContain("youtube.com");
-      expect(detectionInfo("file").label).toBe("File langsung");
+      expect(detectionInfo("file").label).toBe("Direct download");
       expect(detectionInfo("torrent").label).toBe("Torrent · magnet");
-      expect(detectionInfo("invalid").label).toBe("Tautan tidak dikenali");
+      expect(detectionInfo("invalid").label).toBe("Unrecognized link");
     });
   });
 });

@@ -26,7 +26,7 @@ export function FileGrid({
   if (entries.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted">
-        Folder kosong
+        Empty folder
       </div>
     );
   }

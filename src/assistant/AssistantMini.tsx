@@ -84,8 +84,8 @@ export function AssistantMini({
         ref={trigger}
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Buka asisten"
-        title="Asisten"
+        aria-label="Open assistant"
+        title="Assistant"
         className={`${ROUND} fixed right-6 bottom-6 z-30 h-[60px] w-[60px] border border-line bg-surface-2 text-muted shadow-[0_16px_40px] shadow-canvas/45`}
       >
         <AnchoaPet
@@ -110,7 +110,7 @@ export function AssistantMini({
 
   return (
     <section
-      aria-label="Asisten"
+      aria-label="Assistant"
       onKeyDown={(e) => {
         if (e.key === "Escape") collapse();
       }}
@@ -146,8 +146,8 @@ export function AssistantMini({
         <button
           type="button"
           onClick={onOpenFull}
-          aria-label="Buka asisten penuh"
-          title="Buka asisten penuh"
+          aria-label="Open full assistant"
+          title="Open full assistant"
           className={ICON_BUTTON}
         >
           <Icon size={16}>
@@ -157,8 +157,8 @@ export function AssistantMini({
         <button
           type="button"
           onClick={collapse}
-          aria-label="Kecilkan asisten"
-          title="Kecilkan"
+          aria-label="Collapse assistant"
+          title="Collapse"
           className={ICON_BUTTON}
         >
           <Icon size={16}>

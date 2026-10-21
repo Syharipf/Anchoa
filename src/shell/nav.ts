@@ -7,10 +7,12 @@ export type PageId =
   | "email"
   | "jadwal"
   | "habit"
+  | "health"
   | "keuangan"
   | "proyek"
   | "berkas"
   | "unduhan"
+  | "library"
   | "profil"
   | "settings";
 
@@ -23,27 +25,29 @@ export interface NavPage {
 
 export const PAGES: readonly NavPage[] = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "jurnal", label: "Jurnal" },
-  { id: "catatan", label: "Catatan" },
+  { id: "jurnal", label: "Journal" },
+  { id: "catatan", label: "Notes" },
   {
     id: "email",
     label: "Email",
   },
   {
     id: "jadwal",
-    label: "Jadwal",
+    label: "Schedule",
   },
-  { id: "habit", label: "Habit" },
-  { id: "keuangan", label: "Keuangan" },
-  { id: "proyek", label: "Proyek" },
-  { id: "berkas", label: "Berkas" },
-  { id: "unduhan", label: "Unduhan" },
+  { id: "habit", label: "Habits" },
+  { id: "health", label: "Health" },
+  { id: "keuangan", label: "Finance" },
+  { id: "proyek", label: "Projects" },
+  { id: "berkas", label: "Files" },
+  { id: "unduhan", label: "Downloads" },
+  { id: "library", label: "Library" },
   {
     id: "profil",
-    label: "Profil",
+    label: "Profile",
     bottom: true,
   },
-  { id: "settings", label: "Pengaturan", bottom: true },
+  { id: "settings", label: "Settings", bottom: true },
 ];
 
 const BY_ID = Object.fromEntries(PAGES.map((p) => [p.id, p])) as Record<PageId, NavPage>;
@@ -55,6 +59,6 @@ export function pageInfo(id: PageId): NavPage {
 /** One line for the mini assistant on each page. */
 export function assistantHint(page: NavPage | null): string {
   return page
-    ? `Ada yang ingin dibantu di ${page.label}? Ketik pesan atau ketuk mikrofon.`
-    : "Ketik pesan atau ketuk mikrofon untuk bicara dengan asisten.";
+    ? `Need help with ${page.label}? Type a message or tap the microphone.`
+    : "Type a message or tap the microphone to talk with the assistant.";
 }

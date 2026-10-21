@@ -166,7 +166,7 @@ export function JournalPage({
     setExporting(true);
     try {
       const res = await api.journalExport(dir);
-      toast(`Diekspor ${res.count} entri ke ${res.dir}`, "info");
+      toast(`Exported ${res.count} entries to ${res.dir}`, "info");
     } catch (e) {
       toast(errorMessage(e), "error");
     } finally {
@@ -197,13 +197,13 @@ export function JournalPage({
       const habits = habitsOverview?.habits.map((h) => ({ name: h.name, doneToday: h.doneToday })) ?? [];
       const expense = dash?.finance?.expense;
       const body = formatDailyRecap({ tasks, habits, expense });
-      const todayStr = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-      const title = `Rekap Harian · ${todayStr}`;
+      const todayStr = new Date().toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+      const title = `Daily Recap · ${todayStr}`;
       const created = await api.createEntry("note", title);
       await api.updateItem(created.id, { body });
       created.body = body;
       await openCreated(created);
-      toast("Rekap harian dibuat", "info");
+      toast("Daily recap created", "info");
     } catch (e) {
       toast(errorMessage(e), "error");
     }
@@ -247,8 +247,8 @@ export function JournalPage({
         ...group, entries: group.entries.filter((entry) => entry.id !== id),
       })).filter((group) => group.entries.length > 0));
       onChanged?.();
-      toast("Entri dihapus", "info", {
-        label: "Urungkan",
+      toast("Entry deleted", "info", {
+        label: "Undo",
         run: () => {
           void handleRestore(id);
         },
@@ -282,14 +282,14 @@ export function JournalPage({
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3">
         <h1 className={H1}>
-          Jurnal
+          Journal
         </h1>
         <span className="text-[13px] text-muted">
-          Ide, keluh kesah, dan catatan — tanpa dinilai
+          Ideas, reflections, and notes — without judgment
         </span>
 
         <span
-          title="Isi jurnal disimpan secara lokal di perangkat"
+          title="Journal contents are stored locally on device"
           className="flex items-center gap-1.5 rounded-full border border-field-focus px-2.5 py-1 text-xs text-accent"
         >
           <svg
@@ -306,7 +306,7 @@ export function JournalPage({
             <rect x="5" y="11" width="14" height="10" rx="2" />
             <path d="M8 11V8a4 4 0 0 1 8 0v3" />
           </svg>
-          Privat · di perangkat
+          Private · on device
         </span>
 
         <div className="ml-auto flex items-center gap-2">
@@ -331,7 +331,7 @@ export function JournalPage({
               <path d="M5 11a7 7 0 0 0 14 0" />
               <path d="M12 18v3" />
             </svg>
-            Catat lewat suara
+            Record with voice
           </button>
           <button
             type="button"
@@ -353,7 +353,7 @@ export function JournalPage({
               <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
               <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
             </svg>
-            Ekspor
+            Export
           </button>
 
           <div className="relative inline-flex items-center">
@@ -374,18 +374,18 @@ export function JournalPage({
               >
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              Tulis
+              Write
             </button>
             <button
               ref={menuButtonRef}
               type="button"
-              aria-label="Entri baru ▾"
+              aria-label="New entry ▾"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
               className="flex h-8 items-center justify-center rounded-l-none rounded-r-[9px] border-l border-canvas/30 bg-accent px-2 text-canvas transition-colors hover:brightness-105"
             >
-              <span className="sr-only">Entri baru</span>
+              <span className="sr-only">New entry</span>
               <svg
                 width="13"
                 height="13"
@@ -422,8 +422,8 @@ export function JournalPage({
                   }}
                   className="flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-2"
                 >
-                  <span className="text-xs font-semibold text-ink">Entri kosong</span>
-                  <span className="text-[11px] text-muted">Mulai menulis dari halaman kosong</span>
+                  <span className="text-xs font-semibold text-ink">Blank entry</span>
+                  <span className="text-[11px] text-muted">Start writing from a blank page</span>
                 </button>
 
                 <button
@@ -433,8 +433,8 @@ export function JournalPage({
                   className="flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-2"
                 >
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-xs font-semibold text-accent">Rekap Harian Otomatis</span>
-                    <span className="truncate text-[11px] text-muted">Ringkas tugas, habit & keuangan hari ini</span>
+                    <span className="truncate text-xs font-semibold text-accent">Automatic Daily Recap</span>
+                    <span className="truncate text-[11px] text-muted">Summarize tasks, habits & finances today</span>
                   </div>
                   <span className="shrink-0 rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
                     Auto
@@ -490,7 +490,7 @@ export function JournalPage({
           />
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-surface p-6 text-center text-sm text-muted">
-            Belum ada entri. Mulai dari pemantik di kanan, atau tekan Tulis.
+            No entries yet. Start with a prompt on the right, or press Write.
           </div>
         )}
 

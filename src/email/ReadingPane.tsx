@@ -75,7 +75,7 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
       if (approve) onChanged?.();
       if (generation.current !== token) return;
       setAssistance((current) => current ? { ...current, action: null } : current);
-      setActionStatus(approve ? "Usulan disetujui." : "Usulan ditolak.");
+      setActionStatus(approve ? "Proposal approved." : "Proposal rejected.");
     } catch (e) {
       if (generation.current === token) setAssistError(errorMessage(e));
       throw e;
@@ -95,7 +95,7 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
     <article aria-labelledby="email-reading-subject" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-surface">
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-5 py-[18px]">
         <div className="flex items-start gap-2">
-          <h2 id="email-reading-subject" className="m-0 min-w-0 flex-1 break-words font-display text-[19px] font-semibold">{message.subject || "(Tanpa subjek)"}</h2>
+          <h2 id="email-reading-subject" className="m-0 min-w-0 flex-1 break-words font-display text-[19px] font-semibold">{message.subject || "(No subject)"}</h2>
           <StarButton message={message} busy={busy || sending.busy} onStar={onStar} />
           <button
             type="button"
@@ -103,7 +103,7 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
             onClick={() => onArchive(message)}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
-            Arsipkan
+            Archive
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -116,18 +116,18 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
         </div>
         <section aria-labelledby="email-assistant-heading" aria-busy={assisting} className="flex flex-col gap-2 rounded-xl border border-line bg-stage px-3.5 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 id="email-assistant-heading" className="m-0 text-xs font-semibold tracking-wider text-accent uppercase">Ringkasan asisten</h3>
+            <h3 id="email-assistant-heading" className="m-0 text-xs font-semibold tracking-wider text-accent uppercase">Assistant Summary</h3>
             <button
               type="button"
-              aria-label="Ringkas email"
+              aria-label="Summarize email"
               disabled={busy || assisting || !!assistance?.action}
               onClick={assist}
               className="flex h-7 items-center rounded-md border border-line bg-surface-2 px-2.5 text-xs text-ink transition-colors hover:bg-surface disabled:opacity-50"
             >
-              {assistance ? "Ringkas lagi" : "Ringkas email"}
+              {assistance ? "Summarize again" : "Summarize email"}
             </button>
           </div>
-          {assisting && <p role="status" className="m-0 text-xs text-muted">Asisten sedang merangkum…</p>}
+          {assisting && <p role="status" className="m-0 text-xs text-muted">Assistant is summarizing…</p>}
           {assistance && <ul className="m-0 flex list-disc flex-col gap-1 pl-[18px] text-[13px] leading-relaxed text-ink">
             {assistance.summary.map((point) => <li key={point}>{point}</li>)}
           </ul>}
@@ -137,28 +137,28 @@ export function ReadingPane({ message, busy, onStar, onArchive, onSent, onChange
         </section>
         <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink">
           {textParts(message.body).map((part) => part.url ? (
-            <button key={part.offset} type="button" aria-label={`Buka ${part.url}`} className="inline text-left text-accent underline hover:text-accent-hover"
+            <button key={part.offset} type="button" aria-label={`Open ${part.url}`} className="inline text-left text-accent underline hover:text-accent-hover"
               onClick={() => { setLinkError(null); void api.openLink(part.url!).catch((e) => setLinkError(errorMessage(e))); }}>{part.text}</button>
           ) : <span key={part.offset}>{part.text}</span>)}
         </div>
         {linkError && <p role="alert" className="m-0 text-sm text-danger">{linkError}</p>}
       </div>
       <form onSubmit={submit} className="flex shrink-0 flex-col gap-2 border-t border-line bg-stage py-3 pr-[88px] pl-5">
-        {assistance && <div role="group" aria-label="Saran balasan" className="flex flex-wrap gap-1.5">
+        {assistance && <div role="group" aria-label="Suggested replies" className="flex flex-wrap gap-1.5">
           {assistance.replies.map((suggestion) => <button key={suggestion} type="button" disabled={busy || sending.busy}
             onClick={() => setReply(suggestion)} className="min-h-7 rounded-full border border-disabled px-2.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-50">{suggestion}</button>)}
         </div>}
-        <label htmlFor="email-reply" className="text-xs text-muted">Balas ke {recipients.join(", ")}</label>
+        <label htmlFor="email-reply" className="text-xs text-muted">Reply to {recipients.join(", ")}</label>
         <div className="flex items-end gap-2">
           <textarea id="email-reply" rows={2} required disabled={busy || sending.busy} value={reply}
-            onChange={(e) => setReply(e.target.value)} placeholder="Tulis balasan, atau tekan mikrofon untuk mendikte…" className={`${FIELD} min-w-0 flex-1 resize-y`} />
+            onChange={(e) => setReply(e.target.value)} placeholder="Write a reply, or press the microphone to dictate…" className={`${FIELD} min-w-0 flex-1 resize-y`} />
           <button
             type="submit"
-            aria-label="Kirim balasan"
+            aria-label="Send reply"
             disabled={busy || sending.busy || !reply.trim()}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            {sending.busy ? "Mengirim…" : "Kirim"}
+            {sending.busy ? "Sending…" : "Send"}
           </button>
         </div>
         {sending.error && <p role="alert" className="m-0 text-sm text-danger">{sending.error}</p>}

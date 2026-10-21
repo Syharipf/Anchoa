@@ -28,7 +28,7 @@ export function ConvertDialog({
   const submit = busy || !target;
 
   return (
-    <Dialog title="Konversi Berkas" onClose={busy ? () => {} : onCancel}>
+    <Dialog title="Convert File" onClose={busy ? () => {} : onCancel}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -36,14 +36,14 @@ export function ConvertDialog({
         }}
         className="flex flex-col gap-3"
       >
-        <span className="truncate text-xs text-muted">Sumber: {entry.name}</span>
+        <span className="truncate text-xs text-muted">Source: {entry.name}</span>
         <div className="flex items-center gap-2">
           <label htmlFor="convert-target" className="text-xs text-muted">
-            Format tujuan
+            Target format
           </label>
           <select
             id="convert-target"
-            aria-label="Format tujuan konversi"
+            aria-label="Target convert format"
             value={target}
             disabled={busy || targets.length === 0}
             onChange={(e) => setTarget(e.target.value)}
@@ -58,19 +58,19 @@ export function ConvertDialog({
         </div>
         {targets.length === 0 ? (
           <span role="alert" className="text-xs text-danger">
-            Tidak ada format tujuan untuk berkas ini.
+            No target format available for this file.
           </span>
         ) : (
           <>
             <span className="truncate font-mono text-[11px] text-muted">{output}</span>
             <span className="text-[11px] text-muted">
-              Tidak menimpa berkas yang sudah ada; nama baru memakai akhiran (2).
+              Does not overwrite existing files; new files use suffix (2).
             </span>
             {sourceExt === "pdf" && (
-              <span className="text-[11px] text-muted">Hanya halaman pertama.</span>
+              <span className="text-[11px] text-muted">First page only.</span>
             )}
             {(sourceExt === "gif" || sourceExt === "webp") && (
-              <span className="text-[11px] text-muted">GIF animasi: hanya bingkai pertama.</span>
+              <span className="text-[11px] text-muted">Animated GIF: first frame only.</span>
             )}
           </>
         )}
@@ -81,14 +81,14 @@ export function ConvertDialog({
             disabled={busy}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="submit"
             disabled={submit}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            {busy ? "Mengonversi…" : "Konversi"}
+            {busy ? "Converting…" : "Convert"}
           </button>
         </div>
       </form>

@@ -116,7 +116,7 @@ export function AddDownload({
         });
         successCount++;
       }
-      toast(`${successCount} tautan berhasil ditambahkan ke antrean`);
+      toast(`${successCount} links successfully queued`);
       setBatchText("");
       setIsBatch(false);
       onAdded?.();
@@ -133,14 +133,14 @@ export function AddDownload({
     >
       <div className="flex items-center justify-between">
         <h2 id="tambah-unduhan-judul" className="sr-only">
-          Tambah unduhan
+          Add download
         </h2>
         <button
           type="button"
           onClick={() => setIsBatch(!isBatch)}
           className="ml-auto flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink hover:border-accent hover:text-accent transition-colors"
         >
-          {isBatch ? "← Input Tunggal" : "Mode Batch (Banyak Tautan)"}
+          {isBatch ? "← Single input" : "Batch mode (multiple links)"}
         </button>
       </div>
 
@@ -151,12 +151,12 @@ export function AddDownload({
             onChange={(e) => setBatchText(e.target.value)}
             disabled={adding}
             rows={4}
-            placeholder={"Tempel banyak tautan sekaligus (satu tautan per baris):\nhttps://www.youtube.com/watch?v=...\nhttps://threads.net/@user/post/...\nhttps://example.com/file.zip\nmagnet:?xt=urn:btih:..."}
+            placeholder={"Paste multiple links (one link per line):\nhttps://www.youtube.com/watch?v=...\nhttps://threads.net/@user/post/...\nhttps://example.com/file.zip\nmagnet:?xt=urn:btih:..."}
             className="w-full rounded-lg border border-line bg-canvas p-3 font-mono text-xs text-ink outline-none focus:border-field-focus leading-relaxed resize-y"
           />
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted">
-              {batchText.split("\n").filter((l) => l.trim().length > 0).length} tautan terdeteksi
+              {batchText.split("\n").filter((l) => l.trim().length > 0).length} links detected
             </span>
             <button
               type="button"
@@ -164,7 +164,7 @@ export function AddDownload({
               disabled={adding || !batchText.trim()}
               className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-xs font-semibold text-canvas hover:scale-105 active:scale-95 disabled:bg-disabled disabled:text-muted disabled:hover:scale-100 transition-transform"
             >
-              {adding ? "Menambahkan…" : "Unduh Semua Tautan"}
+              {adding ? "Adding…" : "Download all links"}
             </button>
           </div>
         </div>
@@ -195,8 +195,8 @@ export function AddDownload({
             }}
             onKeyDown={handleKeyDown}
             readOnly={adding}
-            placeholder="Tempel tautan video, audio, atau file…"
-            aria-label="Tautan unduhan"
+            placeholder="Paste video, audio, or file link…"
+            aria-label="Download link"
             className="flex-1 min-w-0 border-0 bg-transparent font-mono text-sm text-ink outline-none placeholder:text-muted"
           />
           <button
@@ -208,8 +208,8 @@ export function AddDownload({
             title={
               detected === "file"
                 ? forcedMedia
-                  ? "Paksa Media aktif (klik untuk batal)"
-                  : "Klik untuk paksa Media (yt-dlp)"
+                  ? "Forced Media active (click to cancel)"
+                  : "Click to force Media (yt-dlp)"
                 : undefined
             }
             className={`flex shrink-0 items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium ${info.color} ${
@@ -227,7 +227,7 @@ export function AddDownload({
                     : "bg-muted"
               }`}
             />
-            {forcedMedia ? "Media (dipaksa)" : info.label}
+            {forcedMedia ? "Media (forced)" : info.label}
           </button>
         </div>
         <button
@@ -240,10 +240,10 @@ export function AddDownload({
                 setForcedMedia(false);
               }
             } catch {
-              toast("Gagal membaca clipboard", "error");
+              toast("Failed to read clipboard", "error");
             }
           }}
-          title="Tempel tautan dari clipboard"
+          title="Paste link from clipboard"
           className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 text-xs font-semibold text-ink hover:border-accent hover:text-accent transition-colors"
         >
           <svg
@@ -260,7 +260,7 @@ export function AddDownload({
             <rect x="8" y="2" width="8" height="4" rx="1" />
             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
           </svg>
-          Tempel
+          Paste
         </button>
         <button
           type="button"
@@ -282,21 +282,21 @@ export function AddDownload({
             <path d="M12 4v11M7 10l5 5 5-5" />
             <path d="M5 20h14" />
           </svg>
-          {adding ? "Menambahkan…" : buttonLabel}
+          {adding ? "Adding…" : buttonLabel}
         </button>
       </div>
 
       {!isMedia && (
         <div className="flex items-center gap-2 px-1 text-xs">
           <label htmlFor="sha256-input" className="text-muted shrink-0">
-            SHA-256 dari sumber (opsional):
+            Source SHA-256 (optional):
           </label>
           <input
             id="sha256-input"
             type="text"
             value={expectedSha256}
             onChange={(e) => setExpectedSha256(e.target.value)}
-            placeholder="64 karakter heksadesimal"
+            placeholder="64 hexadecimal characters"
             maxLength={64}
             className="flex-1 rounded border border-line bg-canvas px-2 py-1 font-mono text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
           />
@@ -306,7 +306,7 @@ export function AddDownload({
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <div
             role="group"
-            aria-label="Jenis unduhan"
+            aria-label="Download kind"
             className="flex gap-0.5 rounded-lg border border-line bg-canvas p-0.5"
           >
             <button
@@ -327,10 +327,10 @@ export function AddDownload({
                 !isVideo ? "bg-surface-2 font-medium text-ink" : "text-muted hover:text-ink"
               }`}
             >
-              Audio saja
+              Audio only
             </button>
           </div>
-          <div role="group" aria-label="Kualitas" className="flex gap-1">
+          <div role="group" aria-label="Quality" className="flex gap-1">
             {(isVideo ? VIDEO_QUALITIES : AUDIO_QUALITIES).map((q) => {
               const active = (isVideo ? vq : aq) === q;
               return (
@@ -379,7 +379,7 @@ export function AddDownload({
                 onChange={(e) => setSubtitles(e.target.checked)}
                 className="h-4 w-4 rounded accent-accent"
               />
-              Subtitle
+              Subtitles
             </label>
           )}
         </div>
@@ -387,7 +387,7 @@ export function AddDownload({
 
       <div className="flex items-center gap-2 text-xs text-muted">
         <span className="flex-1 min-w-0 truncate">{info.hint}</span>
-        <span className="shrink-0">Contoh:</span>
+        <span className="shrink-0">Examples:</span>
         <div className="flex shrink-0 items-center gap-1.5">
           {DOWNLOAD_EXAMPLES.map((ex) => (
             <button

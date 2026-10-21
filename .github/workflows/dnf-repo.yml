@@ -1,10 +1,9 @@
-name: dnf repo
+name: Pages
 
-# Publishes GitHub Pages: the landing page (landing/) at https://syharipf.github.io/Anchoa/,
-# the RPMs of the latest releases as a signed dnf repository at
-# https://syharipf.github.io/Anchoa/anchoa.repo, and their Arch packages as a
-# signed pacman repository at https://syharipf.github.io/Anchoa/arch/x86_64.
-# Each Pages deploy replaces the whole site, so all three are always built together.
+# Publishes GitHub Pages: the landing page (landing/) at https://syharipf.github.io/Anchoa/
+# and the Arch packages of the latest releases as a signed pacman repository at
+# https://syharipf.github.io/Anchoa/arch/x86_64.
+# RPM/DNF packaging is paused. Each Pages deploy replaces the whole site.
 on:
   release:
     types: [published]
@@ -33,7 +32,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
-        # Same 5 releases as the dnf repo; releases made before Arch support have no package.
+        # Same 5 releases; releases made before Arch support have no package.
         run: |
           # "published" can fire before the package is attached: wait for it (up to 10 minutes).
           if [[ -n "$TAG" ]]; then
@@ -84,10 +83,7 @@ jobs:
   build:
     needs: arch-repo
     runs-on: ubuntu-24.04
-    container: fedora:44
     steps:
-      - name: Install tools
-        run: dnf install -y --setopt=install_weak_deps=False git tar gawk gh gnupg2 rpm-sign createrepo_c unzip
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - name: Build the landing page
@@ -96,45 +92,12 @@ jobs:
           ASTRO_TELEMETRY_DISABLED: 1
           SITE_URL: https://syharipf.github.io
           BASE_PATH: /Anchoa/
-        # --bun: run Astro on the Bun runtime, so the container needs no Node.js.
+        # --bun: run Astro on the Bun runtime, so the runner needs no Node.js.
         run: |
           bun install --frozen-lockfile --ignore-scripts
           bun --bun run build
           mkdir -p ../site
           cp -r dist/. ../site/
-      - name: Download the RPMs of the latest releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-        # ponytail: the last 5 releases only; raise the limit if older versions must stay installable.
-        run: |
-          # "published" can fire before the RPM is attached: wait for it (up to 10 minutes).
-          if [[ -n "$TAG" ]]; then
-            for _ in $(seq 1 30); do
-              gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -q '\.rpm$' && break
-              sleep 20
-            done
-          fi
-          mkdir -p site/rpm/x86_64
-          gh release list --repo "$GITHUB_REPOSITORY" --limit 5 --json tagName --jq '.[].tagName' |
-            while read -r tag; do
-              gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*.rpm' --dir site/rpm/x86_64
-            done
-          ls site/rpm/x86_64
-        shell: bash
-      - name: Sign the packages and the repository metadata
-        env:
-          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
-        run: |
-          [[ -n "$RPM_GPG_PRIVATE_KEY" ]] || { echo "Secret RPM_GPG_PRIVATE_KEY is missing"; exit 1; }
-          printf '%s\n' "$RPM_GPG_PRIVATE_KEY" | gpg --batch --import
-          fpr=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')
-          rpmsign --define "_gpg_name $fpr" --addsign site/rpm/x86_64/*.rpm
-          createrepo_c site/rpm/x86_64
-          gpg --batch --yes --local-user "$fpr" --detach-sign --armor site/rpm/x86_64/repodata/repomd.xml
-          gpg --armor --export "$fpr" > site/RPM-GPG-KEY-anchoa
-          cp packaging/anchoa.repo site/
-        shell: bash
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: arch-repo

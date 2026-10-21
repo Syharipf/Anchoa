@@ -53,6 +53,8 @@ Semua angka, nama, dan isi (saldo, email, tugas, unduhan) adalah **data contoh**
 
 ## 2. Halaman
 
+> Label UI di aplikasi kini Bahasa Inggris (keputusan 2026-10-21). Section lama di bawah masih memakai label lama; modul baru (`Library`, `Health`) ditulis dengan label Inggris dan menjadi acuan istilah untuk halaman lain saat disesuaikan.
+
 ### Loading (saat app dibuka)
 Latar `--sidebar`. Logo resmi 280px di tengah: animasi **intro** (2,2 dtk), lalu **loading** (loop) sampai siap, lalu diam. Nama "Anchoa", bar progres 240×3 (scaleX), teks tahap: data lokal → model suara → Ako → sinkron jadwal & email → "Siap.". Setelah siap: animasi berhenti. **Target < 2 detik**: tampilkan Dashboard secepatnya, muat model suara di latar belakang.
 
@@ -87,6 +89,14 @@ Kebiasaan **centang harian**. Header: *Catat lewat suara* + **+ Habit**.
 - Streak dihitung atas **hari terjadwal** saja (hari libur tidak memutus streak).
 - "Tulis jurnal" tercentang otomatis bila ada entri Jurnal hari itu.
 - Pengingat muncul di panel notifikasi (dan dibacakan bila belum dicentang). Suara: "Anchoa, aku sudah baca" → habit tercentang + konfirmasi streak.
+
+### Health (`Health`)
+Metrik harian tanpa baris `items` (spec `2026-10-21-anchoa-health-design.md`). Header: `Health` + tanggal hari ini.
+- **Today** (kiri atas): empat input angka — `Weight` (kg, 1 desimal), `Sleep` (`7:30`), `Steps` (`8,420`), `Resting HR` (bpm). Tiap field menampilkan delta terhadap rata-rata 7 hari sebelumnya; simpan saat blur/Enter.
+- **Weight trend · 90 days** dan **Sleep & steps · 30 days**: SVG garis tipis 2px, tanpa grid penuh; footer min · avg · max (mono 11px). Hari tanpa data memutus garis, bukan menyambungnya.
+- **Last 14 days** (kanan): tabel Date/Weight/Sleep/Steps/RHR, baris hari ini disorot `--surface-2`, sel kosong `—`.
+- State kosong: `No data yet` di kartu grafik dan tabel; kartu Dashboard disembunyikan bila belum ada data.
+- Artboard: `Health.dc.html`.
 
 ### Keuangan
 Header bulan + Catat lewat suara + Transaksi. 4 kartu (Saldo, Pemasukan, Pengeluaran, Arus bersih). Grafik arus kas 6 bulan (batang masuk/keluar, klik pilih bulan). Transaksi terbaru (filter Semua/Masuk/Keluar, dikelompokkan per bulan). Akun (bar porsi saldo). Tagihan (tombol Tandai lunas).
@@ -141,6 +151,14 @@ Kotak tautan dengan deteksi jenis: media (yt-dlp) · file langsung (aria2) · ma
   - Hanya `transform` yang beranimasi; satu pola dipakai ulang; hentikan saat halaman/jendela tidak terlihat. `prefers-reduced-motion` → pola tetap tampil tapi diam.
   - Aksesibilitas: kontainer `role="progressbar"` + `aria-valuenow/min/max` + `aria-valuetext` ("63 %, 19 detik lagi"); teks persen tetap tampil di bawah bar.
 
+### Library (`Library`)
+Koleksi film, serial, anime, buku, dan manga (spec `2026-10-21-anchoa-library-design.md`). Header: `Library` + input cari + dropdown `All kinds` + tombol `+ Add`.
+- Chip status dengan angka: `All` · `Want` · `Watching` (film/series/anime) atau `Reading` (book/manga) · `Finished` · `Dropped`. Angka dihitung di Rust, bukan frontend.
+- Grid kartu 4 kolom: badge jenis (mono uppercase), judul, pembuat · tahun, bar progres (`6 / 10 eps`, `p. 120 / 550`) — disembunyikan untuk film, rating 1–5 bintang, chip status, satu baris ulasan terpotong. Tanpa cover art dan tanpa scraping.
+- Modal `Edit media` 480px: judul, pembuat, tahun, segmented jenis & status, progres, rating bintang interaktif, tag, textarea `Your review` (masuk `items.body` dan FTS), footer Delete / Cancel / Save.
+- Hapus = soft delete + toast `Undo`; state kosong menampilkan tautan `Clear filters` dan `Add media`.
+- Artboard: `Library.dc.html`.
+
 ### Pengaturan (4 artboard: `Pengaturan`, `PengaturanAvatar`, `PengaturanSinkron`, `PengaturanMenu`)
 - **Menu & navigasi** (`PengaturanMenu`): daftar 12 menu dengan nomor urut, tombol naik/turun, dan sakelar tampil (Dashboard terkunci, minimal 3 menu tampil). Pratinjau roda mini + catatan "N menu lain masuk dari atas/bawah". Opsi: *Menu terlihat sekaligus* 3/5/7, *Menu saat app dibuka*, *Kawanan ikut berputar*, *Buka di menu terakhir*, tombol *Atur ulang*. Perubahan langsung terlihat di roda kiri. Simpan di pengaturan lokal + sinkron akun (`nav_order`, `nav_hidden`, `nav_visible`, `nav_start`, `nav_fish`, `nav_resume_last`).
 Sub-nav kiri 212px (6 bagian, tiap item punya status kecil): Asisten & AI · Avatar · Suara · Sinkron & data · Laptop (SFTP) · Tentang. Ketiga artboard adalah file yang sama dengan bagian awal berbeda.
@@ -156,6 +174,9 @@ Sub-nav kiri 212px (6 bagian, tiap item punya status kecil): Asisten & AI · Ava
 - **Penyiapan pertama** (5 langkah, kolom langkah kiri 300px, tombol Kembali/Lewati/Lanjut di bawah): 1 Asisten AI (penyedia + kunci + Tes, atau Ollama lokal, atau Nanti), 2 Suara & mikrofon (izin, uji "Hai Anchoa", pilih suara), 3 Avatar (pilih model + *Uji performa* → memilih avatar 3D penuh atau gambar diam), 4 Laptop opsional (langkah Tailscale + SFTP, *Hubungkan*), 5 Ringkasan → *Buka Dashboard*.
 
 ### Versi HP (390×844, 19 artboard di dua halaman canvas: *HP · Utama* dan *HP · Modul*)
+
+> Ditunda 2026-10-21: fokus rilis ada di Arch Linux/CachyOS desktop. Artboard HP disimpan sebagai referensi, bukan target implementasi saat ini.
+
 Semua menu desktop ada di HP. Daftar: `HpMasuk`, `HpBeranda`, `HpBerandaRoda`, `HpAsisten`, `HpCari`, `HpNotif`, `HpJurnal`, `HpHabit`, `HpJadwal`, `HpKeuangan`, `HpProyek`, `HpAgen`, `HpEmail`, `HpEmailBaca`, `HpBerkas`, `HpUnduhan`, `HpPengaturan`, `HpPengaturanAI`, `HpProfil`.
 
 **Dok + roda menu (pengganti nav bawah)** — dipakai di 11 layar utama; layar detail (`HpAsisten`, `HpEmailBaca`, `HpPengaturanAI`, `HpProfil`, `HpNotif`, `HpCari`, `HpMasuk`) memakai tombol kembali dan tanpa dok. Artboard `HpBerandaRoda` = keadaan roda terbuka.

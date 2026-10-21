@@ -7,9 +7,9 @@ import { FIELD } from "../shell/ui";
 const AUTOSAVE_MS = 500;
 
 const STATUS_OPTIONS: readonly { value: TaskStatus; label: string }[] = [
-  { value: "plan", label: "Rencana" },
-  { value: "doing", label: "Dikerjakan" },
-  { value: "done", label: "Selesai" },
+  { value: "plan", label: "Plan" },
+  { value: "doing", label: "In Progress" },
+  { value: "done", label: "Done" },
 ];
 
 export function TaskFields({
@@ -115,7 +115,7 @@ export function TaskFields({
         <div className="flex items-center gap-2">
           <span className="text-xs uppercase tracking-wider text-muted">Status</span>
           <Segmented
-            label="Status tugas"
+            label="Task status"
             options={STATUS_OPTIONS}
             value={task.status}
             onChange={(s) => void handleStatusChange(s)}
@@ -123,7 +123,7 @@ export function TaskFields({
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted">
-          <label htmlFor="task-project">Proyek</label>
+          <label htmlFor="task-project">Project</label>
           <select
             id="task-project"
             value={task.projectId ?? ""}
@@ -131,7 +131,7 @@ export function TaskFields({
             onChange={(e) => void handleProjectChange(e.target.value)}
             className={`${FIELD} py-1 px-2.5 text-xs disabled:opacity-50`}
           >
-            <option value="">Tugas lepas</option>
+            <option value="">Loose tasks</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -144,7 +144,7 @@ export function TaskFields({
       <div className="flex flex-wrap items-center gap-4 text-xs">
         <div className="flex items-center gap-2">
           <label htmlFor="task-start" className="text-muted">
-            Mulai
+            Start
           </label>
           <input
             id="task-start"
@@ -159,14 +159,14 @@ export function TaskFields({
               onClick={() => void handleStartAtChange(null)}
               className="text-muted hover:text-ink"
             >
-              Hapus
+              Clear
             </button>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           <label htmlFor="task-due" className="text-muted">
-            Tenggat
+            Due
           </label>
           <input
             id="task-due"
@@ -181,7 +181,7 @@ export function TaskFields({
               onClick={() => void handleDueAtChange(null)}
               className="text-muted hover:text-ink"
             >
-              Hapus
+              Clear
             </button>
           )}
         </div>
@@ -203,7 +203,7 @@ export function TaskFields({
 
         <div className="flex items-center gap-2">
           <label htmlFor="task-priority" className="text-muted">
-            Prioritas
+            Priority
           </label>
           <select
             id="task-priority"
@@ -211,10 +211,10 @@ export function TaskFields({
             onChange={(e) => void handlePriorityChange(e.target.value ? (Number(e.target.value) as Priority) : null)}
             className={`${FIELD} py-1 px-2.5 text-xs`}
           >
-            <option value="">Tanpa prioritas</option>
-            <option value="1">Tinggi</option>
-            <option value="2">Sedang</option>
-            <option value="3">Rendah</option>
+            <option value="">No priority</option>
+            <option value="1">High</option>
+            <option value="2">Medium</option>
+            <option value="3">Low</option>
           </select>
         </div>
       </div>

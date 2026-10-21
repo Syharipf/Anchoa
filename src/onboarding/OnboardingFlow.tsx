@@ -8,31 +8,31 @@ type StepId = "mic" | "voice" | "perf" | "laptop";
 const STEPS: ReadonlyArray<{ id: StepId; label: string; sub: string; title: string; lead: string }> = [
   {
     id: "mic",
-    label: "Mikrofon",
-    sub: "Izin dan uji suara",
-    title: "Biar asisten bisa mendengar",
-    lead: "Anchoa dibuat untuk suara. Izinkan mikrofon; dipakai hanya saat kamu menekan tombol mikrofon atau mengucapkan kata pemanggil.",
+    label: "Microphone",
+    sub: "Permission and test",
+    title: "Let the assistant listen",
+    lead: "Anchoa is built for voice. Allow microphone access; used only when you press the mic button or say the wake word.",
   },
   {
     id: "voice",
-    label: "Suara asisten",
-    sub: "Pilih suara",
-    title: "Pilih suara asisten",
-    lead: "Pilih suara yang enak didengar. Bisa diubah kapan saja di Pengaturan › Suara.",
+    label: "Assistant voice",
+    sub: "Choose voice",
+    title: "Choose assistant voice",
+    lead: "Pick a voice that sounds right. You can change it anytime in Settings › Voice.",
   },
   {
     id: "perf",
-    label: "Uji performa",
-    sub: "Gerak Ako",
-    title: "Kenalan dengan Ako",
-    lead: "Ako, teri pendamping, tampil di Dashboard. Uji sebentar untuk memilih mode gerak yang pas di perangkat ini.",
+    label: "Performance test",
+    sub: "Ako motion",
+    title: "Meet Ako",
+    lead: "Ako, your pet companion, lives on the Dashboard. Run a quick test to choose the right motion mode for this device.",
   },
   {
     id: "laptop",
-    label: "Hubungkan HP",
-    sub: "Opsional · akses file",
-    title: "Hubungkan laptop (opsional)",
-    lead: "File tetap di laptop. HP membukanya lewat jaringan pribadi Tailscale dan SFTP, tanpa diunggah ke cloud.",
+    label: "Connect phone",
+    sub: "Optional · file access",
+    title: "Connect laptop (optional)",
+    lead: "Files stay on your laptop. Your phone accesses them over your private Tailscale network and SFTP, without cloud uploads.",
   },
 ];
 
@@ -58,11 +58,11 @@ export function OnboardingFlow({ onComplete }: Readonly<{ onComplete: () => void
   return (
     <div className="flex h-full w-full bg-canvas text-ink">
       <aside
-        aria-label="Langkah penyiapan"
+        aria-label="Setup steps"
         className="flex w-[300px] shrink-0 flex-col gap-1.5 border-r border-line bg-sidebar px-6 py-8"
       >
         <div className="mb-5 flex items-center gap-2.5">
-          <span className="font-display text-lg font-semibold">Selamat datang</span>
+          <span className="font-display text-lg font-semibold">Welcome</span>
         </div>
         <ol className="m-0 flex list-none flex-col gap-1 p-0">
           {STEPS.map((s, i) => {
@@ -106,13 +106,13 @@ export function OnboardingFlow({ onComplete }: Readonly<{ onComplete: () => void
           disabled={busy}
           className="mt-auto border-0 bg-transparent p-0 text-left text-[13px] text-muted hover:text-ink"
         >
-          Lewati semua, atur nanti di Pengaturan
+          Skip all, configure later in Settings
         </button>
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col px-14 pb-8 pt-10">
         <span className="font-mono text-xs text-muted">
-          Langkah {index + 1} dari {STEPS.length}
+          Step {index + 1} of {STEPS.length}
         </span>
         <h1 className="mb-1 mt-1.5 font-display text-[28px] font-semibold tracking-[-0.01em]">
           {step.title}
@@ -138,12 +138,12 @@ export function OnboardingFlow({ onComplete }: Readonly<{ onComplete: () => void
         <div className="flex items-center gap-2.5 border-t border-line pt-4">
           {index > 0 && (
             <button type="button" onClick={() => setIndex(index - 1)} className={SECONDARY}>
-              Kembali
+              Back
             </button>
           )}
           {index === 0 && (
             <button type="button" onClick={() => setIndex(1)} className="text-sm text-muted hover:text-ink">
-              Atur nanti
+              Set up later
             </button>
           )}
           {!last ? (
@@ -152,7 +152,7 @@ export function OnboardingFlow({ onComplete }: Readonly<{ onComplete: () => void
               onClick={() => setIndex(index + 1)}
               className={`${PRIMARY} ml-auto`}
             >
-              Lanjut
+              Next
             </button>
           ) : (
             <button
@@ -161,7 +161,7 @@ export function OnboardingFlow({ onComplete }: Readonly<{ onComplete: () => void
               disabled={busy}
               className={`${PRIMARY} ml-auto`}
             >
-              {busy ? "Menyimpan…" : "Selesai"}
+              {busy ? "Saving…" : "Finish"}
             </button>
           )}
         </div>
@@ -186,25 +186,25 @@ function MicStep() {
 
   return (
     <section className={`${PANEL} flex max-w-[420px] flex-col gap-3`}>
-      <h2 className="m-0 font-display text-[15px] font-semibold">Mikrofon</h2>
+      <h2 className="m-0 font-display text-[15px] font-semibold">Microphone</h2>
       {state === "ok" ? (
         <span className="flex items-center gap-2 text-[13px] text-accent">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12.5l4.5 4.5L19 7.5" />
           </svg>
-          Mikrofon diizinkan
+          Microphone allowed
         </span>
       ) : (
         <>
           <p className="m-0 text-[13px] leading-relaxed text-muted">
-            Dipakai hanya saat kamu menekan tombol mikrofon atau mengucapkan kata pemanggil.
+            Used only when you press the mic button or speak the wake word.
           </p>
           <button type="button" onClick={allow} disabled={state === "asking"} className={`${PRIMARY} self-start`}>
-            {state === "asking" ? "Meminta izin…" : "Izinkan mikrofon"}
+            {state === "asking" ? "Requesting permission…" : "Allow microphone"}
           </button>
           {state === "denied" && (
             <span className="text-xs text-danger">
-              Izin ditolak. Kamu bisa mengizinkan nanti di pengaturan sistem.
+              Permission denied. You can allow it later in system settings.
             </span>
           )}
         </>
@@ -234,13 +234,13 @@ function VoiceStep() {
 
   return (
     <section className={`${PANEL} flex max-w-[420px] flex-col gap-3`}>
-      <h2 className="m-0 font-display text-[15px] font-semibold">Suara asisten</h2>
+      <h2 className="m-0 font-display text-[15px] font-semibold">Assistant voice</h2>
       {voices.length === 0 ? (
         <p className="m-0 text-[13px] leading-relaxed text-muted">
-          Belum ada suara terpasang. Pasang suara Piper di Pengaturan › Suara kapan saja.
+          No voices installed yet. Install a Piper voice in Settings › Voice anytime.
         </p>
       ) : (
-        <div role="group" aria-label="Suara asisten" className="flex flex-wrap gap-1.5">
+        <div role="group" aria-label="Assistant voice" className="flex flex-wrap gap-1.5">
           {voices.map((v) => (
             <button
               key={v.id}
@@ -256,7 +256,7 @@ function VoiceStep() {
           ))}
         </div>
       )}
-      <span className="text-xs leading-relaxed text-muted">Bahasa: Indonesia. Kecepatan bisa diubah nanti.</span>
+      <span className="text-xs leading-relaxed text-muted">Language: Indonesian. Speed can be adjusted later.</span>
     </section>
   );
 }
@@ -291,19 +291,19 @@ function PerfStep() {
         <AnchoaPet status="idle" size={200} motion="penuh" />
       </div>
       <section className={`${PANEL} flex flex-col gap-3`}>
-        <h2 className="m-0 font-display text-[15px] font-semibold">Uji performa</h2>
+        <h2 className="m-0 font-display text-[15px] font-semibold">Performance test</h2>
         <p className="m-0 text-xs leading-relaxed text-muted">
-          Menjalankan Ako beberapa detik untuk memilih mode gerak yang pas di perangkat ini.
+          Runs Ako for a few seconds to choose the best motion mode for this device.
         </p>
         <button type="button" onClick={measure} disabled={running} className={`${PRIMARY} self-start`}>
-          {running ? "Mengukur…" : fps === null ? "Mulai uji" : "Ukur ulang"}
+          {running ? "Measuring…" : fps === null ? "Start test" : "Measure again"}
         </button>
         <div className="flex flex-col gap-1 rounded-[10px] bg-canvas p-2.5">
           <span className={`font-mono text-base ${fps !== null ? "text-accent" : "text-muted"}`}>
             {fps === null ? "– fps" : `${fps} fps`}
           </span>
           <span className="text-xs text-muted">
-            {fps === null ? "Belum diukur" : "Mode penuh dipakai; animasi berhenti saat Ako tidur."}
+            {fps === null ? "Not measured yet" : "Full mode in use; animations pause when Ako sleeps."}
           </span>
         </div>
       </section>
@@ -313,15 +313,15 @@ function PerfStep() {
 
 function LaptopStep() {
   const steps = [
-    ["Pasang Tailscale di laptop dan HP", "Masuk dengan akun yang sama. Gratis untuk pemakaian pribadi."],
-    ["Jalankan skrip penyiapan di laptop", "Membuat pengguna anchoa-sftp, folder /srv/anchoa, dan mengunci sshd ke tailscale0."],
-    ["Salin kunci publik HP ke laptop", "Login hanya dengan kunci, tanpa kata sandi."],
-    ["Tes koneksi", "Memastikan HP bisa membaca folder di laptop."],
+    ["Install Tailscale on laptop and phone", "Sign in with the same account. Free for personal use."],
+    ["Run setup script on laptop", "Creates the anchoa-sftp user, /srv/anchoa folder, and locks sshd to tailscale0."],
+    ["Copy phone public key to laptop", "Key-based login only, no passwords."],
+    ["Test connection", "Verifies the phone can read folders on your laptop."],
   ];
   return (
     <div className="grid max-w-[820px] grid-cols-[minmax(0,1fr)_300px] gap-4">
       <section className={`${PANEL} flex flex-col`}>
-        <h2 className="m-0 mb-2 font-display text-[15px] font-semibold">Supaya HP bisa membuka file di laptop</h2>
+        <h2 className="m-0 mb-2 font-display text-[15px] font-semibold">Let your phone access laptop files</h2>
         {steps.map(([label, sub], i) => (
           <div key={label} className={`flex items-start gap-3 py-2 ${i > 0 ? "border-t border-line" : ""}`}>
             <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-surface-2 font-mono text-[11px] text-muted">
@@ -335,9 +335,9 @@ function LaptopStep() {
         ))}
       </section>
       <section className={`${PANEL} flex flex-col gap-3`}>
-        <h2 className="m-0 font-display text-[15px] font-semibold">Hubungkan</h2>
+        <h2 className="m-0 font-display text-[15px] font-semibold">Connect</h2>
         <span className="text-xs text-muted">
-          Laptop harus menyala dan sudah masuk Tailscale. Bisa diatur nanti di Pengaturan.
+          Laptop must be online and connected to Tailscale. Can be configured later in Settings.
         </span>
       </section>
     </div>

@@ -87,7 +87,7 @@ Jika Chromium sudah terpasang, gunakan `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/to/
 
 ## Hosting
 
-Halaman ini tayang di https://syharipf.github.io/Anchoa/, satu situs GitHub Pages dengan repo dnf (`anchoa.repo`, `rpm/`). Setiap deploy Pages mengganti seluruh situs, jadi `.github/workflows/dnf-repo.yml` di root repo selalu membangun keduanya. Workflow berjalan saat push ke `main` yang mengubah `landing/**`, saat rilis dipublikasikan, atau manual.
+Halaman ini tayang di https://syharipf.github.io/Anchoa/, satu situs GitHub Pages dengan repo pacman Arch Linux (`arch/`). Setiap deploy Pages mengganti seluruh situs, jadi workflow CI di root repo selalu membangun keduanya. Workflow berjalan saat push ke `main` yang mengubah `landing/**`, saat rilis dipublikasikan, atau manual.
 
 Untuk build lokal dengan path yang sama:
 
@@ -98,4 +98,4 @@ BASE_PATH=/Anchoa/
 
 Untuk root domain, gunakan `BASE_PATH=/`. `SITE_URL` dipakai canonical URL, Open Graph, robots.txt, dan sitemap.
 
-Konten produk mengikuti visi `Anchoa.md`, termasuk asisten suara, Supabase, Tailscale, dan model keamanan. Copr/Flatpak ditampilkan sebagai rencana seperti referensi. Saat memperbarui halaman, cocokkan status produk dan tautan rilis di `src/config/site.ts`; tautan LinkedIn masih memakai alamat umum dari referensi.
+Konten produk mengikuti visi `Anchoa.md`, termasuk asisten suara, Supabase, Tailscale, dan model keamanan. Flatpak ditampilkan sebagai rencana. Saat memperbarui halaman, cocokkan status produk dan tautan rilis di `src/config/site.ts`; tautan LinkedIn masih memakai alamat umum dari referensi.

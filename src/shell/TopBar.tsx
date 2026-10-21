@@ -13,7 +13,7 @@ export function TopBar({ onOpenPalette }: Readonly<{ onOpenPalette: () => void }
           <circle cx="11" cy="11" r="7" />
           <path d="M20 20l-3.5-3.5" />
         </svg>
-        <span className="flex-1">Cari atau jalankan perintah…</span>
+        <span className="flex-1">Search or run a command…</span>
         <kbd className="rounded-md border border-line px-1.5 py-0.5 font-mono text-[11px]">Ctrl K</kbd>
       </button>
       <Clock />

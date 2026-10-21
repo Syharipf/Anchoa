@@ -25,13 +25,13 @@ export function CalendarEventForm({
     e.preventDefault();
     if (busy) return;
     if (title.trim() === "") {
-      setError("Judul tidak boleh kosong");
+      setError("Title cannot be empty");
       return;
     }
     const startMs = dateInputToMs(startDate);
     const dueMs = dateInputToMs(dueDate);
     if (startMs === null || dueMs === null) {
-      setError("Tanggal tidak valid");
+      setError("Invalid date");
       return;
     }
     const startAt = Math.min(startMs, dueMs);
@@ -57,7 +57,7 @@ export function CalendarEventForm({
 
   async function handleDelete() {
     if (busy) return;
-    if (!window.confirm("Hapus acara ini dari Google Kalender?")) return;
+    if (!window.confirm("Delete this event from Google Calendar?")) return;
     setBusy(true);
     setError(null);
     try {
@@ -70,18 +70,17 @@ export function CalendarEventForm({
   }
 
   return (
-    <Dialog title="Edit acara Google Kalender" onClose={onClose}>
+    <Dialog title="Edit Google Calendar event" onClose={onClose}>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
-        <Field label="Judul">
+        <Field label="Title">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Judul acara"
-            className={FIELD}
+            placeholder="Event title"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Mulai">
+          <Field label="Start">
             <input
               type="date"
               value={startDate}
@@ -89,7 +88,7 @@ export function CalendarEventForm({
               className={FIELD}
             />
           </Field>
-          <Field label="Selesai">
+          <Field label="End">
             <input
               type="date"
               value={dueDate}
@@ -110,7 +109,7 @@ export function CalendarEventForm({
             onClick={() => void handleDelete()}
             className={DANGER_BUTTON}
           >
-            Hapus
+            Delete
           </button>
           <div className="flex gap-2">
             <button
@@ -119,10 +118,10 @@ export function CalendarEventForm({
               onClick={onClose}
               className={SECONDARY}
             >
-              Batal
+              Cancel
             </button>
             <button type="submit" disabled={busy} className={PRIMARY}>
-              {busy ? "Menyimpan…" : "Simpan"}
+              {busy ? "Saving…" : "Save"}
             </button>
           </div>
         </div>

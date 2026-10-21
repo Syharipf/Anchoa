@@ -7,9 +7,6 @@ import { sectionStatus, THIRD_PARTY_LICENSES } from "./view";
 
 const REPO_URL = "https://github.com/Syharipf/Anchoa";
 const RELEASES_URL = "https://github.com/Syharipf/Anchoa/releases";
-const PACMAN_COMMAND = "sudo pacman -Syu anchoa";
-const PARU_COMMAND = "paru -S anchoa-bin";
-const DNF_COMMAND = "sudo dnf upgrade anchoa";
 
 export function AboutSection({ version: initialVersion }: Readonly<{ version?: string }>) {
   const toast = useToast();
@@ -32,9 +29,9 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
       const res = await api.checkUpdate();
       setUpdateResult(res);
       if (res.newer) {
-        toast(`Versi ${res.latest} tersedia`);
+        toast(`Version ${res.latest} available`);
       } else {
-        toast("Sudah versi terbaru");
+        toast("Already the latest version");
       }
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -43,12 +40,6 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
     }
   }
 
-  function handleCopy(command: string) {
-    if (navigator?.clipboard) {
-      void navigator.clipboard.writeText(command);
-      toast("Perintah disalin ke clipboard");
-    }
-  }
 
   function openExternal(url: string) {
     api.openLink(url).catch((e) => toast(errorMessage(e), "error"));
@@ -68,7 +59,7 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
         </div>
 
         <p className="m-0 text-xs text-muted">
-          Satu aplikasi untuk keuangan, proyek, tugas, jadwal, catatan, berkas, dan unduhan, saling terhubung dan tersimpan di laptopmu.
+          One app for finance, projects, tasks, schedule, notes, files, and downloads, interconnected and stored on your device.
         </p>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -79,12 +70,12 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
             className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
             {checking
-              ? "Memeriksa…"
+              ? "Checking…"
               : updateResult?.newer
-                ? `Versi ${updateResult.latest} tersedia`
+                ? `Version ${updateResult.latest} available`
                 : updateResult
-                  ? "Sudah versi terbaru"
-                  : "Cek pembaruan"}
+                  ? "Already the latest version"
+                  : "Check for updates"}
           </button>
 
           {updateResult?.newer && (
@@ -93,7 +84,7 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
               onClick={() => openExternal(updateResult.url || RELEASES_URL)}
               className="text-xs font-medium text-accent underline hover:text-accent/80"
             >
-              Unduh pembaruan ›
+              Download update ›
             </button>
           )}
         </div>
@@ -105,7 +96,7 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
             onClick={() => openExternal(REPO_URL)}
             className="cursor-pointer text-accent hover:underline"
           >
-            Repositori GitHub
+            GitHub Repository
           </button>
           <span className="text-muted">·</span>
           <button
@@ -113,51 +104,20 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
             onClick={() => openExternal(RELEASES_URL)}
             className="cursor-pointer text-accent hover:underline"
           >
-            Catatan Rilis
+            Release Notes
           </button>
         </div>
 
-        {/* CLI upgrade command */}
         <div className="flex flex-col gap-1.5 pt-1">
-          <span className="text-xs text-muted">Pembaruan lewat AUR (paru / yay):</span>
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink">
-            <code className="select-all">{PARU_COMMAND}</code>
-            <button
-              type="button"
-              onClick={() => handleCopy(PARU_COMMAND)}
-              className="shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink"
-            >
-              Salin
-            </button>
-          </div>
-          <span className="mt-1 text-xs text-muted">Pembaruan repositori pacman resmi:</span>
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink">
-            <code className="select-all">{PACMAN_COMMAND}</code>
-            <button
-              type="button"
-              onClick={() => handleCopy(PACMAN_COMMAND)}
-              className="shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink"
-            >
-              Salin
-            </button>
-          </div>
-          <span className="mt-1 text-xs text-muted">Pembaruan paket (Fedora RPM):</span>
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-ink">
-            <code className="select-all">{DNF_COMMAND}</code>
-            <button
-              type="button"
-              onClick={() => handleCopy(DNF_COMMAND)}
-              className="shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink"
-            >
-              Salin
-            </button>
-          </div>
+          <p className="m-0 text-xs text-muted">
+            To update Anchoa, use your system package manager or download the latest release from GitHub.
+          </p>
         </div>
       </section>
 
       {/* Third party licenses */}
       <section className={`${PANEL} flex flex-col gap-3`}>
-        <h2 className={H2}>Lisensi pihak ketiga</h2>
+        <h2 className={H2}>Third-party licenses</h2>
         <div className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface-2">
           {THIRD_PARTY_LICENSES.map((item) => (
             <div
@@ -169,10 +129,10 @@ export function AboutSection({ version: initialVersion }: Readonly<{ version?: s
               <button
                 type="button"
                 onClick={() => openExternal(item.url)}
-                aria-label={`Buka lisensi atau situs ${item.name}`}
+                aria-label={`Open license or project website for ${item.name}`}
                 className="cursor-pointer text-accent hover:underline"
               >
-                Buka ↗
+                {item.url.replace(/^https?:\/\//, "")}
               </button>
             </div>
           ))}

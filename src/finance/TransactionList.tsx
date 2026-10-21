@@ -9,9 +9,9 @@ import { FinanceIcon } from "./icons";
 import { groupByMonth, iconFor, isIncome, transactionMeta } from "./view";
 
 const FLOWS = [
-  { value: "all", label: "Semua" },
-  { value: "in", label: "Masuk" },
-  { value: "out", label: "Keluar" },
+  { value: "all", label: "All" },
+  { value: "in", label: "In" },
+  { value: "out", label: "Out" },
 ] as const;
 
 function TransactionRow({ t, onEdit }: Readonly<{ t: TransactionView; onEdit: (t: TransactionView) => void }>) {
@@ -25,10 +25,10 @@ function TransactionRow({ t, onEdit }: Readonly<{ t: TransactionView; onEdit: (t
         <FinanceIcon name={iconFor(t)} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm">{t.title || "Tanpa keterangan"}</span>
+        <span className="truncate text-sm">{t.title || "No description"}</span>
         <span className="truncate text-xs text-muted">{transactionMeta(t)}</span>
       </span>
-      {t.scheduled && <span className="shrink-0 rounded-md border border-line px-1.5 py-px text-[11px] text-muted">terjadwal</span>}
+      {t.scheduled && <span className="shrink-0 rounded-md border border-line px-1.5 py-px text-[11px] text-muted">scheduled</span>}
       <span className={`shrink-0 font-mono text-sm ${income ? "text-accent" : ""}`}>
         {t.transferId ? formatRupiah(t.amount) : signedRupiah(t.amount)}
       </span>
@@ -36,7 +36,7 @@ function TransactionRow({ t, onEdit }: Readonly<{ t: TransactionView; onEdit: (t
   );
 }
 
-/** "Transaksi terbaru": everything up to the end of `until`, 50 rows at a time (spec Fase 2 §4). */
+/** "Recent transactions": everything up to the end of `until`, 50 rows at a time (spec Fase 2 §4). */
 export function TransactionList({
   until,
   version,
@@ -67,14 +67,14 @@ export function TransactionList({
     );
 
   return (
-    <section aria-labelledby="transaksi-judul" className={`${PANEL} flex flex-col gap-2`}>
+    <section aria-labelledby="transactions-heading" className={`${PANEL} flex flex-col gap-2`}>
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
-          <h2 id="transaksi-judul" className={H2}>
-            Transaksi terbaru
+          <h2 id="transactions-heading" className={H2}>
+            Recent transactions
           </h2>
           <div className="w-[200px]">
-            <Segmented label="Filter transaksi" options={FLOWS} value={flow} onChange={setFlow} />
+            <Segmented label="Filter transactions" options={FLOWS} value={flow} onChange={setFlow} />
           </div>
         </div>
         <div className="relative">
@@ -82,12 +82,12 @@ export function TransactionList({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari transaksi berdasarkan judul, kategori, atau catatan..."
+            placeholder="Search transactions by title, category, or note..."
             className="w-full rounded-lg border border-line bg-surface-2/40 px-3 py-1.5 text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
           />
         </div>
       </div>
-      {items?.length === 0 && <p className="m-0 py-6 text-center text-sm text-muted">Tidak ada transaksi untuk filter ini.</p>}
+      {items?.length === 0 && <p className="m-0 py-6 text-center text-sm text-muted">No transactions for this filter.</p>}
       {(() => {
         const q = search.trim().toLowerCase();
         const filtered = q
@@ -103,7 +103,7 @@ export function TransactionList({
         if (filtered.length === 0) {
           return (
             <p className="m-0 py-6 text-center text-sm text-muted">
-              {q ? "Tidak ada transaksi yang cocok dengan pencarian." : "Tidak ada transaksi untuk filter ini."}
+              {q ? "No transactions match your search." : "No transactions for this filter."}
             </p>
           );
         }
@@ -121,7 +121,7 @@ export function TransactionList({
       })()}
       {more && (
         <button onClick={() => void loadMore()} className={`${SECONDARY} self-center`}>
-          Muat lagi
+          Load more
         </button>
       )}
     </section>

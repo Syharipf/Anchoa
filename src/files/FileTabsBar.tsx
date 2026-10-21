@@ -2,7 +2,7 @@ import type { FileTab } from "./useFileTabs";
 
 /** Short label for a tab: the last folder name, or the remote name at its root. */
 export function tabLabel(path: string): string {
-  if (!path) return "Berkas";
+  if (!path) return "Files";
   const remote = /^rclone:([^:]+):(.*)$/.exec(path);
   const rest = remote ? remote[2] : path;
   const trimmed = rest.replace(/\/+$/, "");
@@ -26,7 +26,7 @@ export function FileTabsBar({
 }>) {
   if (tabs.length < 2 && !onNewTab) return null;
   return (
-    <div role="tablist" aria-label="Tab berkas" className="flex min-w-0 gap-1 overflow-x-auto">
+    <div role="tablist" aria-label="File tabs" className="flex min-w-0 gap-1 overflow-x-auto">
       {tabs.map((tab) => {
         const active = tab.id === activeId;
         const label = tabLabel(tab.path);
@@ -49,7 +49,7 @@ export function FileTabsBar({
             </button>
             <button
               type="button"
-              aria-label={`Tutup tab ${label}`}
+              aria-label={`Close tab ${label}`}
               onClick={() => onClose(tab.id)}
               className="flex h-6 w-6 items-center justify-center rounded-md hover:text-ink"
             >
@@ -64,8 +64,8 @@ export function FileTabsBar({
         <button
           type="button"
           onClick={onNewTab}
-          aria-label="Tab baru"
-          title="Tab baru (Ctrl+T)"
+          aria-label="New tab"
+          title="New tab (Ctrl+T)"
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">

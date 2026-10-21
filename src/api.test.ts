@@ -195,6 +195,17 @@ const cases: Case[] = [
   ["unlockPassword", () => api.unlockPassword("secret"), "unlock_password", { password: "secret" }],
   ["disablePassword", () => api.disablePassword("secret"), "disable_password", { secret: "secret" }],
   ["financeRecapPdf", () => api.financeRecapPdf("/home/kamu", "monthly", "2026-10"), "finance_recap_pdf", { dir: "/home/kamu", kind: "monthly", period: "2026-10" }],
+  ["libraryList", () => api.libraryList({ kind: "film", status: "want", query: "test" }), "library_list", { kind: "film", status: "want", query: "test" }],
+  ["libraryOverview", () => api.libraryOverview(), "library_overview"],
+  ["saveMedia", () => api.saveMedia({ title: "Film", body: "", kind: "film", status: "want", creator: "", tags: "" }), "save_media", { input: { title: "Film", body: "", kind: "film", status: "want", creator: "", tags: "" } }],
+  ["setMediaStatus", () => api.setMediaStatus("m1", "active"), "set_media_status", { id: "m1", status: "active" }],
+  ["deleteMedia", () => api.deleteMedia("m1"), "delete_media", { id: "m1" }],
+  ["restoreMedia", () => api.restoreMedia("m1"), "restore_media", { id: "m1" }],
+  ["saveHealthMetric", () => api.saveHealthMetric("weight_g", "2026-10-21", 68400, "note"), "save_health_metric", { kind: "weight_g", date: "2026-10-21", value: 68400, note: "note" }],
+  ["deleteHealthMetric", () => api.deleteHealthMetric("weight_g", "2026-10-21"), "delete_health_metric", { kind: "weight_g", date: "2026-10-21" }],
+  ["healthToday", () => api.healthToday(), "health_today"],
+  ["healthSeries", () => api.healthSeries("weight_g", 90), "health_series", { kind: "weight_g", days: 90 }],
+  ["healthHistory", () => api.healthHistory(14), "health_history", { days: 14 }],
 ];
 
 describe("API IPC contract", () => {
@@ -288,7 +299,7 @@ describe("API IPC contract", () => {
     const spy = spyOn(dialog, "open").mockResolvedValueOnce("/voice.onnx").mockResolvedValueOnce(null).mockResolvedValueOnce(["/voice.onnx"]);
     try {
       expect(await api.pickVoiceModel()).toBe("/voice.onnx");
-      expect(spy).toHaveBeenCalledWith({ multiple: false, directory: false, filters: [{ name: "Suara Piper", extensions: ["onnx"] }] });
+      expect(spy).toHaveBeenCalledWith({ multiple: false, directory: false, filters: [{ name: "Piper voice", extensions: ["onnx"] }] });
       expect(await api.pickVoiceModel()).toBeNull();
       expect(await api.pickVoiceModel()).toBeNull();
     } finally { spy.mockRestore(); }

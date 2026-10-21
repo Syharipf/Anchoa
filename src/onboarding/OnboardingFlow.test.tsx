@@ -39,25 +39,25 @@ describe("OnboardingFlow", () => {
     harness = mount();
     const rendered = texts(harness.render()).join(" | ");
 
-    for (const label of ["Mikrofon", "Suara asisten", "Uji performa", "Hubungkan HP"]) {
+    for (const label of ["Microphone", "Assistant voice", "Performance test", "Connect phone"]) {
       expect(rendered).toContain(label);
     }
-    expect(rendered).toContain("Langkah 1 dari 4");
-    expect(rendered).toContain("Biar asisten bisa mendengar");
+    expect(rendered).toContain("Step 1 of 4");
+    expect(rendered).toContain("Let the assistant listen");
   });
 
-  it("walks steps with Lanjut and Kembali", () => {
+  it("walks steps with Next and Back", () => {
     voicesSpy = spyOn(api, "voiceVoices").mockResolvedValue([]);
     harness = mount();
 
-    (buttonWith(harness.render(), "Lanjut")!.props.onClick as () => void)();
+    (buttonWith(harness.render(), "Next")!.props.onClick as () => void)();
     let rendered = texts(harness.render()).join(" | ");
-    expect(rendered).toContain("Langkah 2 dari 4");
-    expect(rendered).toContain("Pilih suara asisten");
+    expect(rendered).toContain("Step 2 of 4");
+    expect(rendered).toContain("Choose assistant voice");
 
-    (buttonWith(harness.render(), "Kembali")!.props.onClick as () => void)();
+    (buttonWith(harness.render(), "Back")!.props.onClick as () => void)();
     rendered = texts(harness.render()).join(" | ");
-    expect(rendered).toContain("Langkah 1 dari 4");
+    expect(rendered).toContain("Step 1 of 4");
   });
 
   it("persists completion through the onboarding flag and ends the flow", async () => {
@@ -67,12 +67,12 @@ describe("OnboardingFlow", () => {
     harness = hookHarness(() => OnboardingFlow({ onComplete: () => { completed = true; } }));
 
     for (let i = 0; i < 3; i++) {
-      (buttonWith(harness.render(), "Lanjut")!.props.onClick as () => void)();
+      (buttonWith(harness.render(), "Next")!.props.onClick as () => void)();
     }
     const rendered = harness.render();
-    expect(texts(rendered).join(" | ")).toContain("Langkah 4 dari 4");
+    expect(texts(rendered).join(" | ")).toContain("Step 4 of 4");
 
-    await (buttonWith(rendered, "Selesai")!.props.onClick as () => Promise<void>)();
+    await (buttonWith(rendered, "Finish")!.props.onClick as () => Promise<void>)();
     expect(completeSpy).toHaveBeenCalled();
     expect(completed).toBe(true);
   });
@@ -83,7 +83,7 @@ describe("OnboardingFlow", () => {
     let completed = false;
     harness = hookHarness(() => OnboardingFlow({ onComplete: () => { completed = true; } }));
 
-    await (buttonWith(harness.render(), "Lewati semua")!.props.onClick as () => Promise<void>)();
+    await (buttonWith(harness.render(), "Skip all")!.props.onClick as () => Promise<void>)();
     expect(completeSpy).toHaveBeenCalled();
     expect(completed).toBe(true);
   });

@@ -1,14 +1,14 @@
 export type PetStatus = 'idle' | 'listening' | 'thinking' | 'speaking' | 'happy' | 'surprised' | 'sad' | 'sleep';
 
 export const PET_LABELS: Record<PetStatus, string> = {
-  idle: 'Diam',
-  listening: 'Mendengarkan',
-  thinking: 'Berpikir',
-  speaking: 'Berbicara',
-  happy: 'Senang',
-  surprised: 'Kaget',
-  sad: 'Gagal',
-  sleep: 'Tidur',
+  idle: 'Idle',
+  listening: 'Listening',
+  thinking: 'Thinking',
+  speaking: 'Speaking',
+  happy: 'Happy',
+  surprised: 'Surprised',
+  sad: 'Failed',
+  sleep: 'Sleeping',
 };
 
 export const FRAMES: Record<PetStatus, string> = {

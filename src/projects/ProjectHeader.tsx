@@ -25,20 +25,20 @@ export function ProjectHeader({
     const pct = looseCount.total > 0 ? Math.round((looseCount.done / looseCount.total) * 100) : 0;
     return (
       <section
-        aria-labelledby="proyek-judul"
+        aria-labelledby="project-header-title"
         className="flex shrink-0 flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-[16px_18px]"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h2 id="proyek-judul" aria-live="polite" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
-              Tugas lepas
+            <h2 id="project-header-title" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
+              Loose tasks
             </h2>
-            <p className="m-0 text-[13px] text-muted">Tugas yang tidak terikat pada proyek tertentu.</p>
+            <p className="m-0 text-[13px] text-muted">Tasks not tied to a specific project.</p>
           </div>
           <div className="flex flex-col items-end gap-0.5">
             <span className="font-mono text-[22px] font-medium">{pct}%</span>
             <span className="text-xs text-muted">
-              {looseCount.done} dari {looseCount.total} tugas
+              {looseCount.done} of {looseCount.total} tasks
             </span>
           </div>
         </div>
@@ -61,46 +61,46 @@ export function ProjectHeader({
 
   return (
     <section
-      aria-labelledby="proyek-judul"
+      aria-labelledby="project-header-title"
       className="flex shrink-0 flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-[16px_18px]"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 id="proyek-judul" aria-live="polite" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
+            <h2 id="project-header-title" aria-live="polite" className="m-0 font-display text-[22px] font-semibold tracking-[-0.01em]">
               {project.name}
             </h2>
-            <nav aria-label="Tampilan proyek" className="flex gap-1 rounded-[10px] border border-line bg-stage p-1">
-                <button
-                  type="button"
-                  onClick={() => onTabChange?.("kanban")}
-                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
-                    tab === "kanban" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
-                  }`}
-                  aria-current={tab === "kanban" ? "page" : undefined}
-                >
-                  Kanban
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTabChange?.("prd")}
-                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
-                    tab === "prd" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
-                  }`}
-                  aria-current={tab === "prd" ? "page" : undefined}
-                >
-                  PRD &amp; Bisnis
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTabChange?.("diff")}
-                  className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
-                    tab === "diff" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
-                  }`}
-                  aria-current={tab === "diff" ? "page" : undefined}
-                >
-                  Perubahan &amp; Diff
-                </button>
+            <nav aria-label="Project views" className="flex gap-1 rounded-[10px] border border-line bg-stage p-1">
+              <button
+                type="button"
+                onClick={() => onTabChange?.("kanban")}
+                className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                  tab === "kanban" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                }`}
+                aria-current={tab === "kanban" ? "page" : undefined}
+              >
+                Kanban
+              </button>
+              <button
+                type="button"
+                onClick={() => onTabChange?.("prd")}
+                className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                  tab === "prd" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                }`}
+                aria-current={tab === "prd" ? "page" : undefined}
+              >
+                PRD &amp; Business
+              </button>
+              <button
+                type="button"
+                onClick={() => onTabChange?.("diff")}
+                className={`flex min-h-[28px] items-center rounded-[7px] px-3 text-xs transition-colors ${
+                  tab === "diff" ? "bg-surface-2 text-ink font-medium shadow-sm" : "text-muted hover:text-ink"
+                }`}
+                aria-current={tab === "diff" ? "page" : undefined}
+              >
+                Changes &amp; Diff
+              </button>
               {project.agent && (
                 <button
                   type="button"
@@ -110,7 +110,7 @@ export function ProjectHeader({
                   }`}
                   aria-current={tab === "agent" ? "page" : undefined}
                 >
-                  Agen kode
+                  Coding agent
                   <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-accent animate-pulse" : "bg-disabled"}`} />
                 </button>
               )}
@@ -130,25 +130,25 @@ export function ProjectHeader({
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              Draft Sasaran AI
+              Draft AI Goals
             </button>
           )}
           <button
             type="button"
             onClick={onEdit}
-            title="Ubah proyek"
-            aria-label="Ubah proyek"
+            title="Edit project"
+            aria-label="Edit project"
             className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-3"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
-            Ubah
+            Edit
           </button>
           <div className="flex flex-col items-end gap-0.5">
             <span className="font-mono text-[22px] font-medium">{pct}%</span>
             <span className="text-xs text-muted">
-              {project.done} dari {project.total} tugas
+              {project.done} of {project.total} tasks
             </span>
           </div>
         </div>
@@ -184,7 +184,7 @@ export function ProjectHeader({
           <button
             type="button"
             onClick={() => void api.openRepo(project.id).catch((e) => toast(errorMessage(e), "error"))}
-            title="Buka repositori di browser"
+            title="Open repository in browser"
             className="flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-accent transition-colors hover:text-accent-hover"
           >
             <svg

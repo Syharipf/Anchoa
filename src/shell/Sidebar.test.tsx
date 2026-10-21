@@ -55,14 +55,14 @@ describe("Sidebar rail", () => {
     harness = mount();
     const rendered = harness.render();
     expect(nav(rendered).props.className).toContain("w-0");
-    expect(btn(rendered, "Tampilkan menu samping")).toBeDefined();
+    expect(btn(rendered, "Show sidebar menu")).toBeDefined();
   });
 
   it("expand from collapsed: nav becomes w-[72px]", () => {
     store.set(KEY, "1");
     harness = mount();
     const collapsed = harness.render();
-    (btn(collapsed, "Tampilkan menu samping").props.onClick as () => void)();
+    (btn(collapsed, "Show sidebar menu").props.onClick as () => void)();
     expect(nav(harness.render()).props.className).toContain("w-[72px]");
   });
 
@@ -70,7 +70,7 @@ describe("Sidebar rail", () => {
     store.set(KEY, "1");
     harness = mount();
     const collapsed = harness.render();
-    (btn(collapsed, "Tampilkan menu samping").props.onClick as () => void)();
+    (btn(collapsed, "Show sidebar menu").props.onClick as () => void)();
     expect(store.get(KEY)).toBe("0");
   });
 });

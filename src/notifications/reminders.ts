@@ -10,7 +10,7 @@ export type Reminder =
   | { kind: "journal"; id: "journal" };
 
 export interface ReminderGroup {
-  title: "Terlambat" | "Hari ini";
+  title: "Overdue" | "Today";
   items: Reminder[];
 }
 
@@ -57,14 +57,14 @@ export function reminders(
 
   const groups: ReminderGroup[] = [
     {
-      title: "Terlambat",
+      title: "Overdue",
       items: [
         ...open.filter((t) => t.overdue).map(fromTask),
         ...bills.filter((b) => b.status === "overdue").map(fromBill),
       ],
     },
     {
-      title: "Hari ini",
+      title: "Today",
       items: [
         ...open.filter((t) => !t.overdue).map(fromTask),
         ...bills.filter((b) => b.status === "dueToday").map(fromBill),
@@ -90,30 +90,30 @@ export function reminderCount(
 /** Title and detail line of one reminder card. */
 export function reminderText(r: Reminder): { title: string; detail: string; tone: Tone } {
   if (r.kind === "task") {
-    const title = r.task.title || "Tanpa judul";
+    const title = r.task.title || "Untitled";
     return r.task.overdue
-      ? { title, detail: `Terlambat · jatuh tempo ${shortDate(r.task.dueAt)}`, tone: "danger" }
-      : { title, detail: "Jatuh tempo hari ini", tone: "muted" };
+      ? { title, detail: `Overdue · due ${shortDate(r.task.dueAt)}`, tone: "danger" }
+      : { title, detail: "Due today", tone: "muted" };
   }
   if (r.kind === "bill") {
     const late = r.bill.status === "overdue";
-    const when = late ? `Terlambat ${r.bill.daysLate} hari` : "Jatuh tempo hari ini";
+    const when = late ? `Overdue by ${r.bill.daysLate} ${r.bill.daysLate === 1 ? "day" : "days"}` : "Due today";
     return { title: r.bill.name, detail: `${when} · ${formatRupiah(r.bill.amount)}`, tone: late ? "danger" : "muted" };
   }
   if (r.kind === "habit") {
     const time = r.habit.remindAt.replace(":", ".");
     return {
       title: r.habit.name,
-      detail: `Belum dicentang · pengingat ${time}`,
+      detail: `Not completed · reminder ${time}`,
       tone: "muted",
     };
   }
   if (r.kind === "journal") {
     return {
-      title: "Jurnal harian",
-      detail: "Belum menulis jurnal hari ini",
+      title: "Daily journal",
+      detail: "Haven't written journal today",
       tone: "muted",
     };
   }
-  return { title: "Batas pengeluaran", detail: `Pengeluaran ${r.percent}% dari batas`, tone: r.over ? "danger" : "warn" };
+  return { title: "Spending limit", detail: `Spending at ${r.percent}% of limit`, tone: r.over ? "danger" : "warn" };
 }

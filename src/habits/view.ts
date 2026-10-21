@@ -1,23 +1,23 @@
 import type { DayState } from "../api";
 
-export const DAY_INITIALS = ["S", "S", "R", "K", "J", "S", "M"] as const;
+export const DAY_INITIALS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 export const DAY_NAMES = [
-  "Senin",
-  "Selasa",
-  "Rabu",
-  "Kamis",
-  "Jumat",
-  "Sabtu",
-  "Minggu",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
 ] as const;
 export const SHORT_DAY_NAMES = [
-  "Sen",
-  "Sel",
-  "Rab",
-  "Kam",
-  "Jum",
-  "Sab",
-  "Min",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+  "Sun",
 ] as const;
 
 /**
@@ -37,19 +37,19 @@ export function toggleDay(days: number, index: number): number {
 
 /**
  * Human-readable schedule label:
- * 127 -> "Setiap hari", 31 -> "Sen–Jum", 96 -> "Sab–Min".
- * Other consecutive days use "Sel–Kam".
- * Non-consecutive days use "Sen, Rab, Jum".
+ * 127 -> "Every day", 31 -> "Mon–Fri", 96 -> "Sat–Sun".
+ * Other consecutive days use "Tue–Thu".
+ * Non-consecutive days use "Mon, Wed, Fri".
  */
 export function scheduleLabel(days: number): string {
   if (days === 127) {
-    return "Setiap hari";
+    return "Every day";
   }
   if (days === 31) {
-    return "Sen–Jum";
+    return "Mon–Fri";
   }
   if (days === 96) {
-    return "Sab–Min";
+    return "Sat–Sun";
   }
 
   const active: number[] = [];
@@ -76,17 +76,17 @@ export function scheduleLabel(days: number): string {
   return active.map((i) => SHORT_DAY_NAMES[i]).join(", ");
 }
 
-/** Formats "HH:MM" (or "HH.MM") to local Indonesian time display "HH.MM". */
+/** Formats "HH:MM" (or "HH.MM") to local time display "HH:MM". */
 function formatTime(remindAt: string | null | undefined): string {
   if (!remindAt) {
     return "";
   }
-  return remindAt.replace(":", ".");
+  return remindAt.replace(".", ":");
 }
 
 /**
  * Row subtitle meta label:
- * "06.30 · Setiap hari", or "Setiap hari" without time.
+ * "06:30 · Every day", or "Every day" without time.
  */
 export function metaLabel(row: { days: number; remindAt?: string | null }): string {
   const sched = scheduleLabel(row.days);
@@ -99,7 +99,7 @@ export function metaLabel(row: { days: number; remindAt?: string | null }): stri
 
 /**
  * Long schedule description for the detail panel:
- * "Setiap hari pukul 06.30", or "Setiap hari" without time.
+ * "Every day at 06:30", or "Every day" without time.
  */
 export function longSchedule(row: { days: number; remindAt?: string | null }): string {
   const sched = scheduleLabel(row.days);
@@ -107,7 +107,7 @@ export function longSchedule(row: { days: number; remindAt?: string | null }): s
   if (!time) {
     return sched;
   }
-  return `${sched} pukul ${time}`;
+  return `${sched} at ${time}`;
 }
 
 /** Tailwind classes for each DayState, mirroring `look()` from the design artboard. */
@@ -143,15 +143,15 @@ export function resolveRemindOn(
 export type HabitFilter = "all" | "open";
 
 /**
- * Returns true if the habit is scheduled today and not yet done (the 'Belum' rule).
+ * Returns true if the habit is scheduled today and not yet done (the 'open' rule).
  */
 export function isHabitOpen(habit: { scheduledToday: boolean; doneToday: boolean }): boolean {
   return habit.scheduledToday && !habit.doneToday;
 }
 
 /**
- * Filters habits according to the selected filter tab ('all' or 'open'/'Belum').
- * The 'Belum' filter lists only habits that are scheduled today and not yet done.
+ * Filters habits according to the selected filter tab ('all' or 'open').
+ * The 'open' filter lists only habits that are scheduled today and not yet done.
  */
 export function filterHabits<T extends { scheduledToday: boolean; doneToday: boolean }>(
   habits: readonly T[],

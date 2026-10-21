@@ -4,10 +4,10 @@ import { OllamaOfflineCard } from "./OllamaOfflineCard";
 import { VoiceMissingCard } from "./VoiceMissingCard";
 
 export const STATUS: Record<AssistantMode, { text: string; color: string }> = {
-  idle: { text: "Siap", color: "var(--color-muted)" },
-  thinking: { text: "Berpikir…", color: "var(--color-accent)" },
-  listening: { text: "Mendengarkan…", color: "var(--color-danger)" },
-  speaking: { text: "Berbicara", color: "var(--color-accent)" },
+  idle: { text: "Ready", color: "var(--color-muted)" },
+  thinking: { text: "Thinking…", color: "var(--color-accent)" },
+  listening: { text: "Listening…", color: "var(--color-danger)" },
+  speaking: { text: "Speaking", color: "var(--color-accent)" },
 };
 
 export interface AssistantFeedbackProps {
@@ -18,7 +18,7 @@ export interface AssistantFeedbackProps {
 
 export function AssistantCaption({
   assistant,
-  hint = "Aku siap membantu tugas, jadwal, keuangan, dan catatanmu. Ketik pesan atau ketuk mikrofon.",
+  hint = "I'm ready to help with your tasks, schedule, finance, and notes. Type a message or tap the microphone.",
   compact = false,
   onOpenAiSettings,
   onOpenVoiceSettings,
@@ -41,26 +41,26 @@ export function AssistantCaption({
     <div className="flex flex-col gap-1.5">
       {thinking || speaking ? (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-accent">{speaking ? "Berbicara" : "Sedang berpikir…"}</span>
+          <span className="text-xs text-accent">{speaking ? "Speaking" : "Thinking…"}</span>
           <button
             type="button"
-            aria-label={speaking ? "Hentikan suara" : "Hentikan"}
+            aria-label={speaking ? "Stop voice" : "Stop"}
             onClick={assistant.stop}
             className={`rounded border px-2 py-0.5 text-xs font-medium cursor-pointer ${speaking
               ? "border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
               : "border-danger/40 bg-danger/10 text-danger hover:bg-danger/20"}`}
           >
-            Hentikan
+            Stop
           </button>
         </div>
       ) : !compact && (
         <span className={`text-xs ${listening ? "text-danger" : "text-muted"}`}>
-          {listening ? "Mendengarkan…" : "Asisten suara"}
+          {listening ? "Listening…" : "Voice assistant"}
         </span>
       )}
       <p className="m-0 max-h-40 overflow-y-auto break-words text-sm leading-snug text-ink">
-        {listening ? "Bicaralah ke mikrofon. Ketuk lagi untuk mengirim ke asisten."
-          : streamingCaption || (thinking ? "Memproses permintaan…" : hint)}
+        {listening ? "Speak into the microphone. Tap again to send."
+          : streamingCaption || (thinking ? "Processing request…" : hint)}
       </p>
     </div>
   );
@@ -81,11 +81,11 @@ export function AssistantFeedback({
           <span className="flex-1">{assistant.error}</span>
           <button
             type="button"
-            aria-label="Tutup pesan kesalahan"
+            aria-label="Close error message"
             onClick={assistant.clearError}
             className="cursor-pointer font-semibold hover:underline"
           >
-            Tutup
+            Close
           </button>
         </div>
       )}
@@ -100,7 +100,7 @@ export function AssistantFeedback({
 
       {showHistory && assistant.messages.length > 0 && (
         <div
-          aria-label="Riwayat pesan"
+          aria-label="Message history"
           className={
             compact
               ? "flex max-h-28 flex-col gap-1.5 overflow-y-auto rounded-lg border border-line bg-surface-2/40 p-2 text-xs"

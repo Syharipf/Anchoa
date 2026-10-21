@@ -3,10 +3,10 @@
 const DIGITS = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
 const MINUS = "−";
 const MONTHS = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
-const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const AMOUNT = /^([-−]?)\s*(?:rp\.?\s*)?(\d{1,3}(?:\.\d{3})+|\d+)$/i;
 
 /** 25000 → "25.000", -25000 → "-25.000". The format of the amount fields. */

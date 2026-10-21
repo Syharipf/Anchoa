@@ -8,7 +8,7 @@ import {
   type MonthCell,
 } from "./layout";
 
-const DAYS_OF_WEEK = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
+const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 function cellBackgroundClass(isSelected: boolean, inMonth: boolean): string {
   if (isSelected) {
@@ -52,7 +52,7 @@ export function CalendarView({
 
   return (
     <section
-      aria-label="Kalender"
+      aria-label="Calendar"
       className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-line"
     >
       <div

@@ -163,10 +163,10 @@ export function SchedulePage({
       if (!calendarAccount) {
         const st = await api.calendarConnect();
         setCalendarAccount(st.account || null);
-        toast("Google Kalender terhubung");
+        toast("Google Calendar connected");
       } else {
         await api.calendarRefresh();
-        toast("Google Kalender disinkronkan");
+        toast("Google Calendar synced");
       }
       setVersion((v) => v + 1);
       onChanged();
@@ -204,7 +204,7 @@ export function SchedulePage({
   async function handlePayBill(item: ScheduleItem) {
     try {
       const tx = await api.payBill(item.id);
-      toast(`Tercatat ${formatRupiah(tx.amount)}`);
+      toast(`Recorded ${formatRupiah(tx.amount)}`);
       setVersion((v) => v + 1);
       onChanged();
     } catch (e) {

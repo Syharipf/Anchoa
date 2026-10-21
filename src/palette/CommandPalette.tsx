@@ -101,8 +101,8 @@ export function CommandPalette({
         saving.current = true;
         try {
           const task = await api.createTask({ title: option.text, status: "plan" });
-          toast("Tugas dibuat", "info", {
-            label: "Buka",
+          toast("Task created", "info", {
+            label: "Open",
             run: () => onOpenItem(task.id),
           });
           onCaptured();
@@ -117,7 +117,7 @@ export function CommandPalette({
       saving.current = true;
       try {
         await api.captureNote(option.text);
-        toast("Tersimpan ke Jurnal");
+        toast("Saved to Journal");
         onCaptured();
         onClose();
       } catch (e) {
@@ -150,7 +150,7 @@ export function CommandPalette({
 
   return (
     <div className="fixed inset-0 z-40">
-      <button aria-label="Tutup command palette" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#05070a]/80" />
+      <button aria-label="Close command palette" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#05070a]/80" />
       <div
         role="dialog"
         aria-modal="true"
@@ -176,19 +176,19 @@ export function CommandPalette({
             aria-autocomplete="list"
             aria-controls="palette-list"
             aria-activedescendant={flat[current] ? `palette-${flat[current].id}` : undefined}
-            aria-label="Cari perintah atau halaman"
+            aria-label="Search commands or pages"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
               setActive(0);
             }}
-            placeholder="Ketik halaman, catatan, atau tulis ide…"
+            placeholder="Type a page, note, or idea…"
             className="min-w-0 flex-1 border-0 bg-transparent text-base text-ink outline-none placeholder:text-muted focus-visible:outline-none"
           />
           <kbd className="rounded-md border border-line px-1.5 py-0.5 font-mono text-[11px] text-muted">Esc</kbd>
         </div>
 
-        <div id="palette-list" role="listbox" aria-label="Hasil" className="max-h-[440px] overflow-y-auto px-2 pt-1.5 pb-2">
+        <div id="palette-list" role="listbox" aria-label="Results" className="max-h-[440px] overflow-y-auto px-2 pt-1.5 pb-2">
           {groups.map((g) => (
             <div key={g.title} role="group" aria-label={g.title}>
               <div role="presentation" className="px-2.5 pt-2.5 pb-1 text-[11px] tracking-[0.08em] text-muted uppercase">
@@ -246,18 +246,18 @@ export function CommandPalette({
           ))}
         </div>
         <span className="sr-only" aria-live="polite">
-          {flat.length} hasil
+          {flat.length} results
         </span>
 
         <div aria-hidden="true" className="flex items-center gap-4 border-t border-line bg-stage px-[18px] py-2.5 text-xs text-muted">
           <span>
-            <kbd className={KBD}>↑↓</kbd> pilih
+            <kbd className={KBD}>↑↓</kbd> navigate
           </span>
           <span>
-            <kbd className={KBD}>Enter</kbd> jalankan
+            <kbd className={KBD}>Enter</kbd> run
           </span>
           <span>
-            <kbd className={KBD}>Esc</kbd> tutup
+            <kbd className={KBD}>Esc</kbd> close
           </span>
         </div>
       </div>

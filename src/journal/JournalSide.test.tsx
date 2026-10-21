@@ -144,7 +144,7 @@ describe("JournalSide memories and weekly summary", () => {
     await harness.settle();
 
     const html = renderToStaticMarkup(harness.render());
-    expect(html).toContain("Hari ini di masa lalu");
+    expect(html).toContain("On this day");
     expect(html).toContain("Setahun lalu");
     expect(html).toContain("Preview untuk Setahun lalu");
     expect(html).toContain("4 Sep");
@@ -165,11 +165,11 @@ describe("JournalSide memories and weekly summary", () => {
     await harness.settle();
 
     const html = renderToStaticMarkup(harness.render());
-    expect(html).not.toContain("Hari ini di masa lalu");
+    expect(html).not.toContain("On this day");
     expect(html).not.toContain("j-memories-heading");
   });
 
-  it("calls api.journalWeeklySummary and onSummaryCreated when Ringkas minggu ini is clicked", async () => {
+  it("calls api.journalWeeklySummary and onSummaryCreated when Summarize this week is clicked", async () => {
     const created = makeCreatedEntry();
     spies.push(spyOn(api, "journalWeeklySummary").mockResolvedValue(created));
     const onSummaryCreated = mock(() => {});
@@ -184,12 +184,12 @@ describe("JournalSide memories and weekly summary", () => {
     );
     await harness.settle();
 
-    click(harness.render(), "Ringkas minggu ini");
+    click(harness.render(), "Summarize this week");
     await harness.settle();
 
     expect(api.journalWeeklySummary).toHaveBeenCalledTimes(1);
     expect(onSummaryCreated).toHaveBeenCalledWith(created);
-    expect(toastCalls.some((t) => t.text === "Ringkasan mingguan dibuat" && t.kind === "info")).toBe(true);
+    expect(toastCalls.some((t) => t.text === "Weekly summary created" && t.kind === "info")).toBe(true);
   });
 
   it("disables button and displays loading state while summarizing", async () => {
@@ -205,14 +205,14 @@ describe("JournalSide memories and weekly summary", () => {
     );
     await harness.settle();
 
-    click(harness.render(), "Ringkas minggu ini");
-    const loadingBtn = button(harness.render(), "Meringkas…");
+    click(harness.render(), "Summarize this week");
+    const loadingBtn = button(harness.render(), "Summarizing…");
     expect(loadingBtn.props.disabled).toBe(true);
 
     pending.resolve(makeCreatedEntry());
     await harness.settle();
 
-    const normalBtn = button(harness.render(), "Ringkas minggu ini");
+    const normalBtn = button(harness.render(), "Summarize this week");
     expect(normalBtn.props.disabled).toBe(false);
   });
 
@@ -230,7 +230,7 @@ describe("JournalSide memories and weekly summary", () => {
     );
     await harness.settle();
 
-    click(harness.render(), "Ringkas minggu ini");
+    click(harness.render(), "Summarize this week");
     await harness.settle();
 
     expect(onSummaryCreated).not.toHaveBeenCalled();
@@ -249,7 +249,7 @@ describe("JournalSide memories and weekly summary", () => {
 
     const html = renderToStaticMarkup(harness.render());
     expect(html).toContain(
-      "Asisten hanya membaca entri 7 hari terakhir saat kamu meminta ringkasan, atau entri yang kamu minta tanggapannya.",
+      "The assistant only reads the last 7 days of entries when you request a summary, or entries you ask for feedback on.",
     );
   });
 
@@ -266,7 +266,7 @@ describe("JournalSide memories and weekly summary", () => {
     );
     await harness.settle();
 
-    click(harness.render(), "Tulis dari sini");
+    click(harness.render(), "Write from here");
     expect(onPromptSelect).toHaveBeenCalledTimes(1);
 
     const ideaEl = elements(harness.render()).find(isIdeaButton);

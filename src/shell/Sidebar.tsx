@@ -10,10 +10,12 @@ const ICON_PATHS: Record<string, string[]> = {
   email: ["M3 5h18v14H3z", "M3 7l9 6 9-6"],
   jadwal: ["M3 5h18v16H3z", "M3 10h18M8 3v4M16 3v4"],
   habit: ["M12 2.5c.8 3.2 5 5.3 5 10a5 5 0 0 1-10 0c0-2.3 1.1-3.9 2.4-5 .1 1.7.9 2.8 2.1 3.2-.6-3 .1-5.9.5-8.2z"],
+  health: ["M3 12h4l2-6 4 12 2-6h6"],
   keuangan: ["M3 6h18v13H3z", "M16 12.5h2M3 10h18"],
   proyek: ["M3 3h18v18H3z", "M8 7v7M12 7v4M16 7v10"],
   berkas: ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
   unduhan: ["M12 4v11M7 10l5 5 5-5M5 20h14"],
+  library: ["M4 4h4v16H4z", "M10 4h4v16h-4z", "M17 5l3 15"],
   profil: ["M4 21a8 8 0 0 1 16 0", "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"],
   settings: ["M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
 };
@@ -182,7 +184,7 @@ export function Sidebar({
       <div className="flex shrink-0">
         <nav
           data-navwheel
-          aria-label="Menu utama"
+          aria-label="Main menu"
           className="w-0 h-[800px] relative select-none"
           style={{
             position: "relative",
@@ -198,7 +200,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={toggle}
-            aria-label="Tampilkan menu samping"
+            aria-label="Show sidebar menu"
             aria-expanded={false}
             style={{
               position: "absolute",
@@ -240,7 +242,7 @@ export function Sidebar({
     <div className="flex shrink-0 sticky top-0 h-screen z-40">
       <nav
         data-navwheel
-        aria-label="Menu utama"
+        aria-label="Main menu"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
@@ -334,7 +336,7 @@ export function Sidebar({
         <div
           role="button"
           tabIndex={0}
-          aria-label="Anchoa, ke Dashboard"
+          aria-label="Anchoa, go to Dashboard"
           title="Dashboard"
           onClick={() => onSelect("dashboard")}
           onKeyDown={(e) => {
@@ -351,15 +353,15 @@ export function Sidebar({
             zIndex: 10,
           }}
         >
-          <AnchoaLogo tile size={40} label="Logo Anchoa" />
+          <AnchoaLogo tile size={40} label="Anchoa Logo" />
         </div>
 
         {/* Up arrow ▲ — top: 120px */}
         <button
           type="button"
           onClick={() => turn(-1)}
-          aria-label="Menu sebelumnya"
-          title="Menu sebelumnya (Scroll / Panah Atas)"
+          aria-label="Previous menu"
+          title="Previous menu (Scroll / Up Arrow)"
           className="group hover:border-accent hover:text-accent transition-all duration-200 hover:scale-105 active:scale-95"
           style={{
             position: "absolute",
@@ -494,8 +496,8 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => turn(1)}
-          aria-label="Menu berikutnya"
-          title="Menu berikutnya (Scroll / Panah Bawah)"
+          aria-label="Next menu"
+          title="Next menu (Scroll / Down Arrow)"
           className="group hover:border-accent hover:text-accent transition-all duration-200 hover:scale-105 active:scale-95"
           style={{
             position: "absolute",
@@ -547,8 +549,8 @@ export function Sidebar({
           <button
             type="button"
             onClick={onToggleNotifications}
-            aria-label={reminders > 0 ? `Notifikasi, ${reminders} pengingat` : "Notifikasi"}
-            title="Notifikasi"
+            aria-label={reminders > 0 ? `Notifications, ${reminders} reminders` : "Notifications"}
+            title="Notifications"
             aria-haspopup="dialog"
             aria-expanded={notificationsOpen}
             className="transition-transform hover:scale-105 active:scale-95"

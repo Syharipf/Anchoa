@@ -65,7 +65,7 @@ describe("VoiceSection", () => {
     speaking: false,
   };
 
-  it("renders status rows for pw-record, whisper binary with dnf hint, whisper model, and Piper", async () => {
+  it("renders status rows for pw-record, whisper binary with generic hint, whisper model, and Piper", async () => {
     const uninstalledStatus: VoiceStatus = {
       ...baseVoiceStatus,
       pwRecord: true,
@@ -80,16 +80,16 @@ describe("VoiceSection", () => {
     await harness.settle();
 
     const html = renderToStaticMarkup(harness.render());
-    expect(html).toContain("Perekam Audio (pw-record)");
-    expect(html).toContain("Tersedia");
+    expect(html).toContain("Audio Recorder (pw-record)");
+    expect(html).toContain("Available");
 
     expect(html).toContain("Binary whisper.cpp");
-    expect(html).toContain("Belum terpasang");
-    expect(html).toContain("sudo dnf install whisper-cpp");
+    expect(html).toContain("Not installed");
+    expect(html).toContain("Install whisper.cpp using your system package manager.");
 
-    expect(html).toContain("Model Whisper Base (ggml-base.bin)");
+    expect(html).toContain("Whisper Base Model (ggml-base.bin)");
     expect(html).toContain("Piper TTS");
-    expect(html).toContain("Pasang");
+    expect(html).toContain("Install");
   });
 
   it("handles component install and shows progress bar from voiceInstall events", async () => {
@@ -112,7 +112,7 @@ describe("VoiceSection", () => {
     await harness.settle();
 
     const pasangBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Pasang model whisper base",
+      (el) => el.props["aria-label"] === "Install whisper base model",
     );
     expect(pasangBtn).toBeDefined();
 
@@ -135,14 +135,14 @@ describe("VoiceSection", () => {
 
     const progressHtml = renderToStaticMarkup(harness.render());
     expect(progressHtml).toContain("50%");
-    expect(progressHtml).toContain("Mengunduh…");
+    expect(progressHtml).toContain("Downloading…");
 
     // Complete install
     installDeferred.resolve();
     await harness.settle();
   });
 
-  it("renders voice list with active voice badge, Pasang for uninstalled, and Pilih for installed", async () => {
+  it("renders voice list with active voice badge, Install for uninstalled, and Select for installed", async () => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
     const setVoiceSpy = spyOn(api, "setVoice").mockResolvedValue({
       id: "en_US-amy-medium",
@@ -157,12 +157,12 @@ describe("VoiceSection", () => {
 
     const html = renderToStaticMarkup(harness.render());
     expect(html).toContain("Indonesia · News");
-    expect(html).toContain("Suara aktif");
+    expect(html).toContain("Active voice");
     expect(html).toContain("English · Amy");
     expect(html).toContain("English · Lessac");
 
     const amyBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Pilih suara English · Amy",
+      (el) => el.props["aria-label"] === "Select voice English · Amy",
     );
     expect(amyBtn).toBeDefined();
 
@@ -172,7 +172,7 @@ describe("VoiceSection", () => {
     expect(changed).toBe(true);
   });
 
-  it("offers Pasang for the active voice when it is not installed yet", async () => {
+  it("offers Install for the active voice when it is not installed yet", async () => {
     const fresh: VoiceStatus = {
       ...baseVoiceStatus,
       voices: baseVoiceStatus.voices.map((v) => (v.id === "id_ID-news_tts-medium" ? { ...v, installed: false } : v)),
@@ -182,10 +182,10 @@ describe("VoiceSection", () => {
     harness.render();
     await harness.settle();
     const install = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Pasang suara Indonesia · News",
+      (el) => el.props["aria-label"] === "Install voice Indonesia · News",
     );
     expect(install).toBeDefined();
-    expect(renderToStaticMarkup(harness.render())).not.toContain("Suara aktif");
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Active voice");
   });
 
   it("updates sliders and saves params via setVoice", async () => {
@@ -217,7 +217,7 @@ describe("VoiceSection", () => {
 
     const html = renderToStaticMarkup(harness.render());
     expect(html).toContain("1.15");
-    expect(html).toContain("nilai lebih tinggi menghasilkan bicara yang lebih lambat");
+    expect(html).toContain("higher values produce slower speech");
   });
 
   it("imports a voice file via pickVoiceModel then voiceImport", async () => {
@@ -232,7 +232,7 @@ describe("VoiceSection", () => {
     await harness.settle();
 
     const importBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Impor suara",
+      (el) => el.props["aria-label"] === "Import voice",
     );
     expect(importBtn).toBeDefined();
 
@@ -251,7 +251,7 @@ describe("VoiceSection", () => {
     await harness.settle();
 
     const importBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Impor suara",
+      (el) => el.props["aria-label"] === "Import voice",
     );
     await (importBtn!.props.onClick as () => Promise<void>)();
     await harness.settle();
@@ -260,7 +260,7 @@ describe("VoiceSection", () => {
     expect(html).toContain("Berkas .onnx.json tidak ditemukan");
   });
 
-  it("speaks Indonesian sample on 'Coba suara' and calls voiceStop on 'Hentikan'", async () => {
+  it("speaks Indonesian sample on 'Test voice' and calls voiceStop on 'Stop'", async () => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus));
     const speakDeferred = deferred<void>();
     const speakSpy = spyOn(api, "voiceSpeak").mockReturnValue(speakDeferred.promise);
@@ -273,7 +273,7 @@ describe("VoiceSection", () => {
     await harness.settle();
 
     const cobaBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Coba suara",
+      (el) => el.props["aria-label"] === "Test voice",
     );
     expect(cobaBtn).toBeDefined();
 
@@ -283,13 +283,12 @@ describe("VoiceSection", () => {
 
     expect(speakSpy).toHaveBeenCalledWith(expect.stringContaining("Anchoa"));
 
-    const hentikanBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Hentikan suara",
+    const stopBtn = elements(harness.render()).find(
+      (el) => el.props["aria-label"] === "Stop voice",
     );
-    expect(hentikanBtn).toBeDefined();
-
-    // Click Hentikan
-    await (hentikanBtn!.props.onClick as () => Promise<void>)();
+    expect(stopBtn).toBeDefined();
+    // Click Stop
+    await (stopBtn!.props.onClick as () => Promise<void>)();
     expect(stopSpy).toHaveBeenCalled();
   });
 
@@ -301,8 +300,8 @@ describe("VoiceSection", () => {
     await harness.settle();
 
     const html = renderToStaticMarkup(harness.render());
-    expect(html).toContain("model neural Piper");
-    expect(html).toContain("tidak pernah menggunakan espeak");
+    expect(html).toContain("Piper neural models");
+    expect(html).toContain("never uses espeak");
   });
 
   const button = (label: string) => elements(harness!.render()).find(
@@ -323,15 +322,15 @@ describe("VoiceSection", () => {
       spyOn(api, "voiceInstall").mockResolvedValue(undefined),
       spyOn(api, "setVoice").mockImplementation(async (id, params) => ({ id, params: params ?? baseVoiceStatus.settings.params })));
     await mount();
-    const installing = (button("Pasang suara English · Lessac").props.onClick as () => Promise<void>)();
+    const installing = (button("Install voice English · Lessac").props.onClick as () => Promise<void>)();
     await harness!.settle();
-    if (edit === "selection") await (button("Pilih suara English · Amy").props.onClick as () => Promise<void>)();
+    if (edit === "selection") await (button("Select voice English · Amy").props.onClick as () => Promise<void>)();
     else change("slider-speed", "1.25");
     refresh.resolve(baseVoiceStatus);
     await installing;
     if (edit === "selection") {
-      expect(button("Pilih suara Indonesia · News")).toBeDefined();
-      expect(button("Pilih suara English · Amy")).toBeUndefined();
+      expect(button("Select voice Indonesia · News")).toBeDefined();
+      expect(button("Select voice English · Amy")).toBeUndefined();
     } else expect(slider("slider-speed").props.value).toBe(1.25);
   });
 
@@ -340,12 +339,12 @@ describe("VoiceSection", () => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus),
       spyOn(api, "setVoice").mockReturnValueOnce(old.promise).mockResolvedValue(baseVoiceStatus.settings));
     await mount();
-    const first = (button("Pilih suara English · Amy").props.onClick as () => Promise<void>)();
-    await (button("Pilih suara Indonesia · News").props.onClick as () => Promise<void>)();
+    const first = (button("Select voice English · Amy").props.onClick as () => Promise<void>)();
+    await (button("Select voice Indonesia · News").props.onClick as () => Promise<void>)();
     if (fails) old.reject(new Error("Stale failure"));
     else old.resolve({ id: "en_US-amy-medium", params: { lengthScale: 1.3, noiseScale: 0.5, noiseW: 0.6 } });
     await first;
-    expect(button("Pilih suara English · Amy")).toBeDefined();
+    expect(button("Select voice English · Amy")).toBeDefined();
     expect(slider("slider-speed").props.value).toBe(1);
     expect(renderToStaticMarkup(harness!.render())).not.toContain("Stale failure");
   });
@@ -383,7 +382,7 @@ describe("VoiceSection", () => {
     const save = spyOn(api, "setVoice").mockReturnValue(selection.promise);
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus), save);
     await mount();
-    const selecting = (button("Pilih suara English · Amy").props.onClick as () => Promise<void>)();
+    const selecting = (button("Select voice English · Amy").props.onClick as () => Promise<void>)();
     change("slider-speed", "1.2");
     selection.resolve({ id: "en_US-amy-medium", params: baseVoiceStatus.settings.params });
     await selecting;
@@ -401,13 +400,13 @@ describe("VoiceSection", () => {
     const speak = spyOn(api, "voiceSpeak");
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus), start, stop, send, speak);
     await mount();
-    await (button("Uji mikrofon").props.onClick as () => Promise<void>)();
+    await (button("Test microphone").props.onClick as () => Promise<void>)();
     expect(start).toHaveBeenCalledTimes(1);
-    const stopping = (button("Hentikan rekaman uji").props.onClick as () => Promise<void>)();
-    expect(button("Uji mikrofon").props.disabled).toBe(true);
-    transcript.resolve("Tes mikrofon berhasil");
+    const stopping = (button("Stop test recording").props.onClick as () => Promise<void>)();
+    expect(button("Test microphone").props.disabled).toBe(true);
+    transcript.resolve("Mic test succeeded");
     await stopping;
-    expect(renderToStaticMarkup(harness!.render())).toContain("Tes mikrofon berhasil");
+    expect(renderToStaticMarkup(harness!.render())).toContain("Mic test succeeded");
     expect(stop).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
     expect(speak).not.toHaveBeenCalled();
@@ -418,9 +417,9 @@ describe("VoiceSection", () => {
     const start = spyOn(api, "voiceRecordStart").mockResolvedValue(undefined);
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(status), start);
     await mount();
-    const missingLabels = { pwRecord: "pw-record", whisper: "whisper.cpp", whisperModel: "model Whisper Base" };
-    expect(renderToStaticMarkup(harness!.render())).toContain(`Uji mikrofon memerlukan: ${missingLabels[component as keyof typeof missingLabels]}`);
-    expect(button("Uji mikrofon").props.disabled).toBe(true);
+    const missingLabels = { pwRecord: "pw-record", whisper: "whisper.cpp", whisperModel: "Whisper Base model" };
+    expect(renderToStaticMarkup(harness!.render())).toContain(`Microphone test requires: ${missingLabels[component as keyof typeof missingLabels]}`);
+    expect(button("Test microphone").props.disabled).toBe(true);
     expect(start).not.toHaveBeenCalled();
   });
 
@@ -430,7 +429,7 @@ describe("VoiceSection", () => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus),
       spyOn(api, "voiceRecordStart").mockReturnValue(start.promise), stop);
     await mount();
-    const testing = (button("Uji mikrofon").props.onClick as () => Promise<void>)();
+    const testing = (button("Test microphone").props.onClick as () => Promise<void>)();
     if (!pending) { start.resolve(); await testing; }
     harness!.dispose();
     if (pending) { start.resolve(); await testing; }
@@ -445,14 +444,14 @@ describe("VoiceSection", () => {
       spyOn(api, "setVoice").mockReturnValue(selection.promise),
       spyOn(api, "voiceInstall").mockResolvedValue(undefined));
     await mount();
-    const selecting = (button("Pilih suara English · Amy").props.onClick as () => Promise<void>)();
-    const installing = (button("Pasang suara English · Lessac").props.onClick as () => Promise<void>)();
+    const selecting = (button("Select voice English · Amy").props.onClick as () => Promise<void>)();
+    const installing = (button("Install voice English · Lessac").props.onClick as () => Promise<void>)();
     await harness!.settle();
     selection.resolve({ id: "en_US-amy-medium", params: { lengthScale: 1.1, noiseScale: 0.5, noiseW: 0.7 } });
     await selecting;
     refresh.resolve(baseVoiceStatus);
     await installing;
-    expect(button("Pilih suara Indonesia · News")).toBeDefined();
+    expect(button("Select voice Indonesia · News")).toBeDefined();
     expect(slider("slider-speed").props.value).toBe(1.1);
   });
 
@@ -464,15 +463,15 @@ describe("VoiceSection", () => {
       .mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise),
       spyOn(api, "voiceInstall").mockResolvedValue(undefined));
     await mount();
-    const first = (button("Pasang Piper").props.onClick as () => Promise<void>)();
+    const first = (button("Install Piper").props.onClick as () => Promise<void>)();
     await harness!.settle();
-    const second = (button("Pasang suara English · Lessac").props.onClick as () => Promise<void>)();
+    const second = (button("Install voice English · Lessac").props.onClick as () => Promise<void>)();
     await harness!.settle();
     newer.resolve(baseVoiceStatus);
     await second;
     older.resolve(missingPiper);
     await first;
-    expect(button("Pasang Piper")).toBeUndefined();
+    expect(button("Install Piper")).toBeUndefined();
   });
 
   it("accepts fresh settings after StrictMode's cleanup when there are no pending edits", async () => {
@@ -486,7 +485,7 @@ describe("VoiceSection", () => {
     await mount();
     harness!.replayEffects();
     await harness!.settle();
-    await (button("Pasang suara English · Lessac").props.onClick as () => Promise<void>)();
+    await (button("Install voice English · Lessac").props.onClick as () => Promise<void>)();
     expect(slider("slider-speed").props.value).toBe(1.2);
   });
 
@@ -495,23 +494,23 @@ describe("VoiceSection", () => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue({ ...baseVoiceStatus, pwPlay: false, piper: false }),
       start, spyOn(api, "voiceRecordStop").mockResolvedValue("Microphone works"));
     await mount();
-    expect(button("Uji mikrofon").props.disabled).toBe(false);
-    expect(button("Coba suara").props.disabled).toBe(true);
-    await (button("Uji mikrofon").props.onClick as () => Promise<void>)();
-    await (button("Hentikan rekaman uji").props.onClick as () => Promise<void>)();
+    expect(button("Test microphone").props.disabled).toBe(false);
+    expect(button("Test voice").props.disabled).toBe(true);
+    await (button("Test microphone").props.onClick as () => Promise<void>)();
+    await (button("Stop test recording").props.onClick as () => Promise<void>)();
     expect(renderToStaticMarkup(harness!.render())).toContain("Microphone works");
   });
 
   it.each([false, true])("shows a microphone transcription error or empty result (failure: %s)", async (fails) => {
     spies.push(spyOn(api, "voiceStatus").mockResolvedValue(baseVoiceStatus),
       spyOn(api, "voiceRecordStart").mockResolvedValue(undefined),
-      fails ? spyOn(api, "voiceRecordStop").mockRejectedValue(new Error("Mikrofon tidak tersedia"))
+      fails ? spyOn(api, "voiceRecordStop").mockRejectedValue(new Error("Microphone unavailable"))
         : spyOn(api, "voiceRecordStop").mockResolvedValue("  "));
     await mount();
-    await (button("Uji mikrofon").props.onClick as () => Promise<void>)();
-    await (button("Hentikan rekaman uji").props.onClick as () => Promise<void>)();
-    expect(renderToStaticMarkup(harness!.render())).toContain(fails ? "Mikrofon tidak tersedia" : "Tidak ada ucapan yang terdeteksi");
-    expect(button("Uji mikrofon").props.disabled).toBe(false);
+    await (button("Test microphone").props.onClick as () => Promise<void>)();
+    await (button("Stop test recording").props.onClick as () => Promise<void>)();
+    expect(renderToStaticMarkup(harness!.render())).toContain(fails ? "Microphone unavailable" : "No speech detected");
+    expect(button("Test microphone").props.disabled).toBe(false);
   });
 
 });

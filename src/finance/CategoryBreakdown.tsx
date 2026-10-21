@@ -39,7 +39,7 @@ export function CategoryBreakdown({
 
   for (const t of items) {
     if (t.amount < 0 && !t.transferId) {
-      const cat = t.category?.trim() || "Lain-lain";
+      const cat = t.category?.trim() || "Other";
       const positiveAmount = Math.abs(t.amount);
       totalExpense += positiveAmount;
       categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + positiveAmount);
@@ -63,10 +63,10 @@ export function CategoryBreakdown({
   }
 
   return (
-    <section aria-labelledby="kategori-judul" className={`${PANEL} flex flex-col gap-3`}>
+    <section aria-labelledby="category-heading" className={`${PANEL} flex flex-col gap-3`}>
       <div className="flex items-center justify-between">
-        <h2 id="kategori-judul" className={H2}>
-          Pengeluaran per Kategori
+        <h2 id="category-heading" className={H2}>
+          Expenses by Category
         </h2>
         <span className="font-mono text-xs text-muted">
           Total: {formatRupiah(totalExpense)}
@@ -76,7 +76,7 @@ export function CategoryBreakdown({
       {/* Stacked Progress Bar */}
       <div
         role="progressbar"
-        aria-label="Distribusi kategori pengeluaran"
+        aria-label="Expense category distribution"
         aria-valuenow={100}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -115,7 +115,7 @@ export function CategoryBreakdown({
         ))}
         {sortedCategories.length > 5 && (
           <span className="text-right text-[11px] text-muted">
-            +{sortedCategories.length - 5} kategori lainnya
+            +{sortedCategories.length - 5} more categories
           </span>
         )}
       </div>

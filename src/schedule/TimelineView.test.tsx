@@ -4,7 +4,7 @@ import type { ScheduleItem } from "../api";
 import { TimelineGroup } from "./TimelineView";
 
 test.each([
-  ["test", "Tes"],
+  ["test", "Test"],
   ["review", "Review"],
 ] as const)("timeline describes tasks in %s", (status, label) => {
   const item: ScheduleItem = {
@@ -21,18 +21,18 @@ test.each([
       onOpenFinance={() => {}}
     />,
   );
-  expect(html).toContain(`aria-label="Tugas · 1 Okt · ${label}"`);
+  expect(html).toContain(`aria-label="Tugas · Oct 1 · ${label}"`);
 });
 
 test("Google Kalender events render read-only, without any button", () => {
   const item: ScheduleItem = {
     key: "calendar:e1", source: "calendar", id: "e1", kind: "calendar", title: "Rapat",
-    groupId: "calendar", groupName: "Google Kalender", startDate: "2026-10-01", dueDate: "2026-10-01",
+    groupId: "calendar", groupName: "Google Calendar", startDate: "2026-10-01", dueDate: "2026-10-01",
     status: "plan", overdue: false, checkable: false,
   };
   const html = renderToStaticMarkup(
     <TimelineGroup
-      group={{ id: "calendar", name: "Google Kalender", kind: "calendar", items: [item] }}
+      group={{ id: "calendar", name: "Google Calendar", kind: "calendar", items: [item] }}
       window={{ from: "2026-10-01", to: "2026-10-01", days: ["2026-10-01"] }}
       today="2026-10-01"
       calendarReadOnly={true}
@@ -40,19 +40,19 @@ test("Google Kalender events render read-only, without any button", () => {
       onOpenFinance={() => {}}
     />,
   );
-  expect(html).toContain('title="Rapat · 1 Okt · Hanya baca · Google Kalender"');
+  expect(html).toContain('title="Rapat · Oct 1 · Read-only · Google Calendar"');
   expect(html).not.toContain("<button");
 });
 
 test("Google Kalender events render with button when writable", () => {
   const item: ScheduleItem = {
     key: "calendar:e1", source: "calendar", id: "e1", kind: "calendar", title: "Rapat",
-    groupId: "calendar", groupName: "Google Kalender", startDate: "2026-10-01", dueDate: "2026-10-01",
+    groupId: "calendar", groupName: "Google Calendar", startDate: "2026-10-01", dueDate: "2026-10-01",
     status: "plan", overdue: false, checkable: false,
   };
   const html = renderToStaticMarkup(
     <TimelineGroup
-      group={{ id: "calendar", name: "Google Kalender", kind: "calendar", items: [item] }}
+      group={{ id: "calendar", name: "Google Calendar", kind: "calendar", items: [item] }}
       window={{ from: "2026-10-01", to: "2026-10-01", days: ["2026-10-01"] }}
       today="2026-10-01"
       calendarReadOnly={false}
@@ -60,6 +60,6 @@ test("Google Kalender events render with button when writable", () => {
       onOpenFinance={() => {}}
     />,
   );
-  expect(html).toContain('title="Rapat · 1 Okt · Google Kalender"');
+  expect(html).toContain('title="Rapat · Oct 1 · Google Calendar"');
   expect(html).toContain("<button");
 });

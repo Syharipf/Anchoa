@@ -15,23 +15,25 @@ export interface PaletteGroup {
 
 const RECENT_IN_PALETTE = 5;
 
-/** "Aksi cepat". `sub` stays empty so that typing a page name (e.g. "keu") never picks an action first. */
+/** "Quick actions". `sub` stays empty so that typing a page name (e.g. "fin") never picks an action first. */
 const ACTIONS: PaletteOption[] = [
-  { kind: "action", id: "action-new-transaction", label: "Catat transaksi", sub: "", action: "new-transaction" },
+  { kind: "action", id: "action-new-transaction", label: "Record transaction", sub: "", action: "new-transaction" },
 ];
 
 export function itemKindLabel(type: string): string {
   switch (type) {
     case "page":
-      return "Catatan";
+      return "Notes";
     case "note":
-      return "Jurnal";
+      return "Journal";
     case "task":
-      return "Tugas";
+      return "Tasks";
     case "habit":
-      return "Habit";
+      return "Habits";
     case "project":
-      return "Proyek";
+      return "Projects";
+    case "media":
+      return "Library";
     default:
       return "Item";
   }
@@ -41,7 +43,7 @@ export function searchItemOption(hit: SearchHit): PaletteOption {
   return {
     kind: "item",
     id: `item-${hit.id}`,
-    label: hit.title || "Tanpa judul",
+    label: hit.title || "Untitled",
     sub: itemKindLabel(hit.type),
     itemId: hit.id,
     snippet: hit.snippet,
@@ -82,30 +84,30 @@ export function paletteResults(
   const items: PaletteOption[] = recent.slice(0, RECENT_IN_PALETTE).map((i) => ({
     kind: "item",
     id: `item-${i.id}`,
-    label: i.title || "Tanpa judul",
-    sub: "Catatan",
+    label: i.title || "Untitled",
+    sub: "Notes",
     itemId: i.id,
   }));
 
   const itemOptions = searchHits.map(searchItemOption);
 
   const groups: PaletteGroup[] = [
-    { title: "Aksi cepat", options: ACTIONS.filter(matches) },
-    { title: "Buka halaman", options: pages.filter(matches) },
+    { title: "Quick actions", options: ACTIONS.filter(matches) },
+    { title: "Open page", options: pages.filter(matches) },
   ];
 
   if (itemOptions.length > 0) {
     groups.push({ title: "Item", options: itemOptions });
   } else if (!text || items.some(matches)) {
-    groups.push({ title: "Terbaru", options: items.filter(matches) });
+    groups.push({ title: "Recent", options: items.filter(matches) });
   }
 
   if (text) {
     groups.push({
-      title: "Simpan",
+      title: "Save",
       options: [
-        { kind: "capture", id: "capture", label: `Simpan ke Jurnal: “${text}”`, sub: "Enter", text },
-        { kind: "task", id: "task", label: `Buat tugas: “${text}”`, sub: "", text },
+        { kind: "capture", id: "capture", label: `Save to Journal: “${text}”`, sub: "Enter", text },
+        { kind: "task", id: "task", label: `Create task: “${text}”`, sub: "", text },
       ],
     });
   }

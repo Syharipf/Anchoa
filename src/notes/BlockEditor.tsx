@@ -444,7 +444,7 @@ export function BlockEditor(
       content: (
         <>
           <span className="text-accent text-base leading-none">+</span>
-          <span className="truncate">Buat halaman &quot;{lq}&quot;</span>
+          <span className="truncate">Create page &quot;{lq}&quot;</span>
         </>
       ),
       onSelect: () => handleSelectCreateLink(lq ?? ""),
@@ -470,7 +470,7 @@ export function BlockEditor(
                 onKeyUp={updateCaretPos}
                 onClick={updateCaretPos}
                 onSelect={updateCaretPos}
-                placeholder="Ketik / untuk jenis blok, [[ untuk menautkan"
+                placeholder="Type / for block type, [[ to link"
                 rows={1}
                 className={`w-full resize-none overflow-hidden rounded-lg bg-surface-2/40 px-2 py-1 text-ink outline-none border border-line focus:border-field-focus transition-colors ${
                   isCode
@@ -518,7 +518,7 @@ export function BlockEditor(
           >
             {isEmpty ? (
               <p className="m-0 leading-relaxed text-muted italic text-[15px]">
-                Ketik / untuk jenis blok, [[ untuk menautkan
+                Type / for block type, [[ to link
               </p>
             ) : (
               <BlockPreview

@@ -397,7 +397,7 @@ fn run_media(
         Ok(child) => child,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             return Outcome::Failed(
-                "yt-dlp belum terpasang: sudo dnf install yt-dlp ffmpeg".into(),
+                "yt-dlp is not installed. Install yt-dlp and ffmpeg using your system package manager".into(),
             );
         }
         Err(e) => return Outcome::Failed(format!("yt-dlp gagal: {e}")),

@@ -28,29 +28,29 @@ export function ConnectionForm({ onConnected }: Readonly<{ onConnected: (status:
 
   return (
     <section className={`${PANEL} mx-auto flex w-full max-w-lg flex-col gap-4`} aria-labelledby="email-connect-title">
-      <h2 id="email-connect-title" className={H2}>Sambungkan Gmail</h2>
-      <p className="m-0 text-sm text-muted">Baca dan kirim email Gmail dengan App Password Google.</p>
+      <h2 id="email-connect-title" className={H2}>Connect Gmail</h2>
+      <p className="m-0 text-sm text-muted">Read and send Gmail messages with a Google App Password.</p>
       <ol className="m-0 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-ink">
-        <li>Aktifkan 2-Step Verification di akun Google.</li>
+        <li>Enable 2-Step Verification on your Google account.</li>
         <li>
-          Buka {" "}
+          Open{" "}
           <button type="button" className="text-accent underline hover:text-accent-hover"
             onClick={() => void api.openLink("https://myaccount.google.com/apppasswords").catch((e) => setError(errorMessage(e)))}>
             myaccount.google.com/apppasswords
-          </button> dan buat App Password untuk Anchoa.
+          </button> and generate an App Password for Anchoa.
         </li>
-        <li>Masukkan alamat Gmail dan password 16 huruf di bawah ini (spasi boleh).</li>
+        <li>Enter your Gmail address and the 16-letter password below (spaces are allowed).</li>
       </ol>
       <form onSubmit={connect} className="flex flex-col gap-3">
-        <label htmlFor="email-address" className="text-xs text-muted">Alamat Gmail</label>
+        <label htmlFor="email-address" className="text-xs text-muted">Gmail address</label>
         <input id="email-address" type="email" autoComplete="email" autoFocus required disabled={busy} value={address}
-          onChange={(e) => setAddress(e.target.value)} className={FIELD} placeholder="nama@gmail.com" />
+          onChange={(e) => setAddress(e.target.value)} className={FIELD} placeholder="name@gmail.com" />
         <label htmlFor="email-password" className="text-xs text-muted">App Password</label>
         <input id="email-password" type="password" autoComplete="off" required disabled={busy} value={password}
           onChange={(e) => setPassword(e.target.value)} className={FIELD} />
         {error && <p role="alert" className="m-0 text-sm text-danger">{error}</p>}
         <button type="submit" disabled={busy || !address.trim() || !password.trim()} className={`${PRIMARY} self-start`}>
-          {busy ? "Menyambungkan…" : "Sambungkan"}
+          {busy ? "Connecting…" : "Connect"}
         </button>
       </form>
     </section>

@@ -34,7 +34,7 @@ export function DownloadsCard({
           <path d="M12 4v11M7 10l5 5 5-5" />
           <path d="M5 20h14" />
         </svg>
-        <span id="c-unduh" className="font-display text-sm font-semibold text-ink">Unduhan</span>
+        <span id="c-unduh" className="font-display text-sm font-semibold text-ink">Downloads</span>
         {downloads && downloads.speed > 0 ? (
           <span className="ml-auto font-mono text-[11px] text-accent">
             ↓ {formatSpeed(downloads.speed)}
@@ -44,16 +44,16 @@ export function DownloadsCard({
         )}
       </div>
       {items.length === 0 ? (
-        <span className="text-xs text-muted">Tidak ada unduhan aktif</span>
+        <span className="text-xs text-muted">No active downloads</span>
       ) : (
         items.map((item) => {
           let secondary = `${item.progress}%`;
           if (item.status === "processing") {
-            secondary = "Memproses (ffmpeg)…";
+            secondary = "Processing (ffmpeg)…";
           } else if (item.status === "queued") {
-            secondary = "Menunggu";
+            secondary = "Queued";
           } else if (item.eta !== null && item.eta !== undefined && item.eta > 0) {
-            secondary = `${item.progress}% · ${formatEta(item.eta)} lagi`;
+            secondary = `${item.progress}% · ${formatEta(item.eta)} left`;
           } else if (item.speed !== null && item.speed !== undefined && item.speed > 0) {
             secondary = `${item.progress}% · ${formatSpeed(item.speed)}`;
           }

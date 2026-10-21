@@ -22,7 +22,7 @@ export function ActionBar({
       className="flex shrink-0 items-center gap-3 border-t border-line bg-surface-2 px-3.5 py-2 pr-[88px] text-xs"
     >
       <span className="font-semibold text-ink">
-        {selectedCount} item <span className="font-mono font-normal text-muted">· {formatSize(totalSizeBytes)}</span>
+        {selectedCount} item{selectedCount === 1 ? "" : "s"} <span className="font-mono font-normal text-muted">· {formatSize(totalSizeBytes)}</span>
       </span>
       <div className="ml-auto flex items-center gap-1.5">
         <button
@@ -30,28 +30,28 @@ export function ActionBar({
           onClick={onCopy}
           className="min-h-[30px] rounded-lg border border-disabled px-2.5 text-xs text-ink transition-colors hover:bg-surface"
         >
-          Salin
+          Copy
         </button>
         <button
           type="button"
           onClick={onMove}
           className="min-h-[30px] rounded-lg border border-disabled px-2.5 text-xs text-ink transition-colors hover:bg-surface"
         >
-          Pindahkan
+          Move
         </button>
         <button
           type="button"
           onClick={onTrash}
           className="min-h-[30px] rounded-lg border border-danger px-2.5 text-xs text-danger transition-colors hover:bg-danger-row"
         >
-          Hapus
+          Delete
         </button>
         <button
           type="button"
           onClick={onClear}
           className="min-h-[30px] rounded-lg px-2.5 text-xs text-muted transition-colors hover:text-ink"
         >
-          Batal
+          Cancel
         </button>
       </div>
     </div>

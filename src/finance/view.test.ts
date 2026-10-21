@@ -33,8 +33,8 @@ describe("transaction rows", () => {
   test("icons follow transfers, income and the category", () => {
     expect(iconFor(tx({ transferId: "x" }))).toBe("transfer");
     expect(iconFor(tx({ amount: 5000, category: "Gaji" }))).toBe("income");
-    expect(iconFor(tx({ category: "Transportasi" }))).toBe("car");
-    expect(iconFor(tx({ category: "Makan & minum" }))).toBe("food");
+    expect(iconFor(tx({ category: "Transportation" }))).toBe("car");
+    expect(iconFor(tx({ category: "Food & drink" }))).toBe("food");
     expect(iconFor(tx({ category: "constructor" }))).toBe("other");
     expect(iconFor(tx())).toBe("other");
   });
@@ -46,8 +46,8 @@ describe("transaction rows", () => {
   });
 
   test("meta line", () => {
-    expect(transactionMeta(tx({ category: "Belanja" }))).toBe("Belanja · BCA");
-    expect(transactionMeta(tx())).toBe("Tanpa kategori · BCA");
+    expect(transactionMeta(tx({ category: "Shopping" }))).toBe("Shopping · BCA");
+    expect(transactionMeta(tx())).toBe("Uncategorized · BCA");
     expect(transactionMeta(tx({ transferId: "x", counterAccountName: "GoPay" }))).toBe("BCA → GoPay");
   });
 
@@ -86,10 +86,10 @@ const bill = (name: string, status: BillView["status"]): BillView => ({
 
 describe("billChip", () => {
   test("late bills first, then today's, else all clear", () => {
-    expect(billChip([bill("Listrik", "overdue"), bill("Air", "dueToday")])).toEqual({ text: "1 terlambat", tone: "danger" });
-    expect(billChip([bill("Air", "dueToday")])).toEqual({ text: "Air hari ini", tone: "ink" });
-    expect(billChip([bill("Air", "dueToday"), bill("Gas", "dueToday")])).toEqual({ text: "2 tagihan hari ini", tone: "ink" });
-    expect(billChip([])).toEqual({ text: "Tagihan aman", tone: "accent" });
+    expect(billChip([bill("Listrik", "overdue"), bill("Air", "dueToday")])).toEqual({ text: "1 overdue", tone: "danger" });
+    expect(billChip([bill("Air", "dueToday")])).toEqual({ text: "Air today", tone: "ink" });
+    expect(billChip([bill("Air", "dueToday"), bill("Gas", "dueToday")])).toEqual({ text: "2 bills today", tone: "ink" });
+    expect(billChip([])).toEqual({ text: "Bills clear", tone: "accent" });
   });
 });
 
@@ -97,9 +97,9 @@ describe("billStatusText", () => {
   test("describes each status", () => {
     const sep28 = new Date(2026, 8, 28).getTime();
     const oct5 = new Date(2026, 9, 5).getTime();
-    expect(billStatusText({ ...bill("Listrik", "overdue"), dueAt: sep28 })).toBe("Terlambat 1 hari · sejak 28 Sep");
-    expect(billStatusText(bill("Air", "dueToday"))).toBe("Jatuh tempo hari ini");
-    expect(billStatusText({ ...bill("Internet", "upcoming"), dueAt: oct5 })).toBe("Jatuh tempo 5 Okt");
-    expect(billStatusText(bill("Gas", "paidToday"))).toBe("Lunas hari ini");
+    expect(billStatusText({ ...bill("Listrik", "overdue"), dueAt: sep28 })).toBe("Overdue 1 day · since Sep 28");
+    expect(billStatusText(bill("Air", "dueToday"))).toBe("Due today");
+    expect(billStatusText({ ...bill("Internet", "upcoming"), dueAt: oct5 })).toBe("Due Oct 5");
+    expect(billStatusText(bill("Gas", "paidToday"))).toBe("Paid today");
   });
 });

@@ -31,7 +31,7 @@ export function BrowserSection({
     try {
       const s = await api.installNativeHost(browser, chromeId.trim() || null);
       setStatus(s);
-      toast("Manifest integrasi browser berhasil dipasang", "info");
+      toast("Browser integration manifest installed successfully", "info");
       onChanged?.();
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -45,7 +45,7 @@ export function BrowserSection({
     try {
       const s = await api.uninstallNativeHost();
       setStatus(s);
-      toast("Manifest integrasi browser berhasil dicopot", "info");
+      toast("Browser integration manifest uninstalled successfully", "info");
       onChanged?.();
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -65,10 +65,10 @@ export function BrowserSection({
             id="browser-integration-heading"
             className="text-sm font-semibold text-ink"
           >
-            Integrasi Ekstensi Browser
+            Browser Extension Integration
           </h3>
           <p className="mt-0.5 text-xs text-muted">
-            Kirim unduhan dari Chrome, Chromium, Brave, Helium, dan Firefox langsung ke Anchoa.
+            Send downloads from Chrome, Chromium, Brave, Helium, and Firefox directly to Anchoa.
           </p>
         </div>
         <span
@@ -83,14 +83,14 @@ export function BrowserSection({
               status?.installed ? "bg-accent" : "bg-muted"
             }`}
           />
-          {status?.installed ? "Terpasang" : "Belum terpasang"}
+          {status?.installed ? "Installed" : "Not installed"}
         </span>
       </div>
 
       <div className="mt-4 flex flex-col gap-3 text-xs">
         <div>
           <label htmlFor="chrome-ext-id" className="font-medium text-ink">
-            ID Ekstensi Chromium / Brave / Helium (32 karakter a-p):
+            Chromium / Brave / Helium Extension ID (32 characters a-p):
           </label>
           <div className="mt-1 flex gap-2">
             <input
@@ -98,7 +98,7 @@ export function BrowserSection({
               type="text"
               value={chromeId}
               onChange={(e) => setChromeId(e.target.value)}
-              placeholder="contoh: abcdefghijklmnopabcdefghijklmnop"
+              placeholder="example: abcdefghijklmnopabcdefghijklmnop"
               maxLength={32}
               className="flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 font-mono text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
             />
@@ -108,7 +108,7 @@ export function BrowserSection({
               disabled={loading || chromeId.trim().length !== 32}
               className="rounded-lg bg-surface-2 px-3 py-1.5 font-medium text-ink transition-colors hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Pasang Chromium/Helium
+              Install Chromium/Helium
             </button>
           </div>
         </div>
@@ -117,7 +117,7 @@ export function BrowserSection({
           <div>
             <span className="font-medium text-ink">Mozilla Firefox</span>
             <p className="text-[11px] text-muted">
-              Menggunakan ID ekstensi tetap: downloads@anchoa.local
+              Uses fixed extension ID: downloads@anchoa.local
             </p>
           </div>
           <button
@@ -126,7 +126,7 @@ export function BrowserSection({
             disabled={loading}
             className="rounded-lg bg-surface-2 px-3 py-1.5 font-medium text-ink transition-colors hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Pasang Firefox
+            Install Firefox
           </button>
         </div>
 
@@ -138,7 +138,7 @@ export function BrowserSection({
               disabled={loading}
               className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 font-medium text-danger transition-colors hover:bg-danger/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Copot Semua Manifest
+              Uninstall All Manifests
             </button>
           </div>
         )}

@@ -8,10 +8,12 @@ const ICON_PATHS: Record<string, string[]> = {
   email: ["M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z", "M22 6l-10 7L2 6"],
   jadwal: ["M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z", "M16 2v4M8 2v4M3 10h18"],
   habit: ["M9 11l3 3L22 4", "M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"],
+  health: ["M3 12h4l2-6 4 12 2-6h6"],
   keuangan: ["M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"],
   proyek: ["M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"],
   berkas: ["M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z", "M13 2v7h7"],
   unduhan: ["M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "M7 10l5 5 5-5", "M12 15V3"],
+  library: ["M4 4h4v16H4z", "M10 4h4v16h-4z", "M17 5l3 15"],
   profil: ["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"],
   settings: [
     "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
@@ -73,14 +75,14 @@ export function MobileDock({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Roda menu utama"
+          aria-label="Main menu wheel"
           className="fixed inset-0 z-50 flex flex-col justify-end bg-black/70 backdrop-blur-sm transition-opacity"
         >
           {/* Backdrop dismiss touch */}
           <button
             type="button"
             className="flex-1 cursor-default bg-transparent border-0"
-            aria-label="Tutup menu"
+            aria-label="Close menu"
             onClick={() => setWheelOpen(false)}
           />
 
@@ -88,12 +90,12 @@ export function MobileDock({
           <div className="relative rounded-t-3xl border-t border-[#1F3E49] bg-[#0A242D] px-6 pb-28 pt-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <span className="font-['Space_Grotesk'] text-lg font-semibold text-[#E7E9EE]">
-                Menu Utama
+                Main Menu
               </span>
               <button
                 type="button"
                 onClick={() => setWheelOpen(false)}
-                aria-label="Tutup menu"
+                aria-label="Close menu"
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-[#10303A] text-[#CFE3EA] hover:text-white"
               >
                 ✕
@@ -128,14 +130,14 @@ export function MobileDock({
 
       {/* Dok Bawah Ringkas (3 tombol) */}
       <nav
-        aria-label="Navigasi Dok Mobile"
+        aria-label="Mobile Dock Navigation"
         className="fixed bottom-0 inset-x-0 z-40 flex h-20 items-center justify-around border-t border-[#1F3E49]/60 bg-[#0A242D]/95 px-6 backdrop-blur-md"
       >
         {/* Tombol 1: Cari */}
         <button
           type="button"
           onClick={onOpenSearch}
-          aria-label="Cari item dan menu"
+          aria-label="Search items and menu"
           className="flex h-12 w-12 items-center justify-center rounded-full bg-[#10303A] text-[#CFE3EA] transition-transform active:scale-95"
         >
           <svg
@@ -158,7 +160,7 @@ export function MobileDock({
         <button
           type="button"
           onClick={toggleWheel}
-          aria-label="Menu utama"
+          aria-label="Main menu"
           aria-expanded={wheelOpen}
           className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#163C48] text-[#C6F36B] shadow-[0_0_16px_rgba(198,243,107,0.25)] ring-2 ring-[#C6F36B] transition-transform active:scale-95"
         >
@@ -169,7 +171,7 @@ export function MobileDock({
         <button
           type="button"
           onClick={onOpenAssistant}
-          aria-label="Buka asisten AI"
+          aria-label="Open AI assistant"
           className="flex h-12 w-12 items-center justify-center rounded-full bg-[#10303A] text-[#C6F36B] transition-transform active:scale-95"
         >
           <svg

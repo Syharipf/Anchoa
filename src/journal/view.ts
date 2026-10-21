@@ -8,15 +8,15 @@ export interface KindMeta {
 
 export const KIND_META: Record<EntryKind, KindMeta> = {
   idea: {
-    label: "Ide",
+    label: "Idea",
     icon: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z",
   },
   vent: {
-    label: "Curhat",
+    label: "Vent",
     icon: "M4 5h16v11H9l-5 4z",
   },
   note: {
-    label: "Catatan",
+    label: "Note",
     icon: "M6 3h9l3 3v15H6zM9 11h6M9 15h6",
   },
 };
@@ -33,35 +33,35 @@ export interface JournalTemplate {
 export const JOURNAL_TEMPLATES: readonly JournalTemplate[] = [
   {
     id: "daily-reflection",
-    label: "Refleksi harian",
-    description: "Evaluasi hari ini dan apa yang dipelajari",
+    label: "Daily reflection",
+    description: "Evaluate today and what was learned",
     kind: "note",
-    title: "Refleksi harian",
-    body: "### Apa yang berjalan baik hari ini?\n\n\n### Apa tantangan yang dihadapi?\n\n\n### Apa pelajaran untuk besok?\n",
+    title: "Daily reflection",
+    body: "### What went well today?\n\n\n### What challenges did I face?\n\n\n### What are the lessons for tomorrow?\n",
   },
   {
     id: "gratitude",
-    label: "3 hal yang disyukuri",
-    description: "Latihan bersyukur untuk hal-hal bermakna",
+    label: "3 things to be grateful for",
+    description: "Gratitude exercise for meaningful things",
     kind: "note",
-    title: "3 hal yang disyukuri",
+    title: "3 things to be grateful for",
     body: "1. \n2. \n3. \n",
   },
   {
     id: "weekly-review",
-    label: "Review mingguan",
-    description: "Kilas balik pencapaian dan arah minggu depan",
+    label: "Weekly review",
+    description: "Reflect on accomplishments and direction for next week",
     kind: "note",
-    title: "Review mingguan",
-    body: "### Pencapaian terbesar minggu ini\n\n\n### Hal yang belum selesai atau tertunda\n\n\n### Fokus utama minggu depan\n",
+    title: "Weekly review",
+    body: "### Biggest achievements this week\n\n\n### Unfinished or delayed items\n\n\n### Main focus for next week\n",
   },
   {
     id: "guided-vent",
-    label: "Curhat terarah",
-    description: "Uraikan emosi dan cari titik kendali",
+    label: "Guided vent",
+    description: "Untangle emotions and find what you can control",
     kind: "vent",
-    title: "Curhat terarah",
-    body: "### Apa yang sedang kurasakan?\n\n\n### Mengapa hal ini menggangguku?\n\n\n### Apa yang berada dalam kendaliku?\n",
+    title: "Guided vent",
+    body: "### What am I feeling right now?\n\n\n### Why does this bother me?\n\n\n### What is within my control?\n",
   },
 ];
 
@@ -75,17 +75,17 @@ export function formatDailyRecap(data: {
   const doneTasks = data.tasks.filter((t) => t.done);
   const pendingTasks = data.tasks.filter((t) => !t.done);
 
-  let body = "### 🎯 Tugas Hari Ini\n";
+  let body = "### 🎯 Today's Tasks\n";
   if (doneTasks.length === 0 && pendingTasks.length === 0) {
-    body += "_Tidak ada tugas terjadwal hari ini._\n";
+    body += "_No tasks scheduled for today._\n";
   } else {
     for (const t of doneTasks) body += `- [x] ${t.title}\n`;
     for (const t of pendingTasks) body += `- [ ] ${t.title}\n`;
   }
 
-  body += "\n### 🌟 Kebiasaan (Habits)\n";
+  body += "\n### 🌟 Habits\n";
   if (data.habits.length === 0) {
-    body += "_Belum ada habit yang dijadwalkan._\n";
+    body += "_No habits scheduled yet._\n";
   } else {
     for (const h of data.habits) {
       body += `- [${h.doneToday ? "x" : " "}] ${h.name}\n`;
@@ -93,23 +93,23 @@ export function formatDailyRecap(data: {
   }
 
   if (data.income !== undefined || data.expense !== undefined) {
-    body += "\n### 💰 Keuangan\n";
+    body += "\n### 💰 Finance\n";
     if (data.income !== undefined && data.income > 0) {
-      body += `- Pemasukan: Rp ${Math.abs(data.income).toLocaleString("id-ID")}\n`;
+      body += `- Income: Rp ${Math.abs(data.income).toLocaleString("id-ID")}\n`;
     }
     if (data.expense !== undefined && data.expense > 0) {
-      body += `- Pengeluaran: Rp ${Math.abs(data.expense).toLocaleString("id-ID")}\n`;
+      body += `- Expenses: Rp ${Math.abs(data.expense).toLocaleString("id-ID")}\n`;
     }
     if ((!data.income || data.income === 0) && (!data.expense || data.expense === 0)) {
-      body += "_Tidak ada transaksi tercatat hari ini._\n";
+      body += "_No transactions recorded today._\n";
     }
   }
 
-  body += "\n### 📝 Refleksi Singkat\n\n";
+  body += "\n### 📝 Quick Reflection\n\n";
   return body;
 }
 
-export const MOODS = ["Berat", "Kurang", "Biasa", "Baik", "Senang"] as const;
+export const MOODS = ["Heavy", "Down", "Neutral", "Good", "Great"] as const;
 
 export interface MoodBar {
   readonly h: number;
@@ -128,14 +128,14 @@ export function moodBars(mood: number | null | undefined): MoodBar[] {
 }
 
 export const PROMPTS = [
-  "Apa satu hal kecil yang berjalan baik hari ini?",
-  "Apa yang paling menguras energimu minggu ini, dan apa yang bisa dikurangi?",
-  "Ide apa yang terus muncul tapi belum sempat dicoba?",
-  "Siapa atau apa yang membuatmu bersyukur hari ini?",
-  "Apa tantangan yang sedang kamu hadapi dan bagaimana caramu melewatinya?",
-  "Kalau hari ini bisa diulang, apa yang ingin kamu lakukan secara berbeda?",
-  "Hal menarik apa yang kamu pelajari atau temukan baru-baru ini?",
-  "Apa yang sedang kamu nantikan atau ingin kamu capai besok?",
+  "What is one small thing that went well today?",
+  "What drained your energy most this week, and what can be reduced?",
+  "What idea keeps coming to mind that you haven't tried yet?",
+  "Who or what made you feel grateful today?",
+  "What challenge are you currently facing and how are you working through it?",
+  "If today could be replayed, what would you do differently?",
+  "What interesting thing did you learn or discover recently?",
+  "What are you looking forward to or hoping to accomplish tomorrow?",
 ] as const;
 
 /** Cycles to the next prompt index. */

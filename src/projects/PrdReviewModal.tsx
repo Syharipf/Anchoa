@@ -30,8 +30,8 @@ export function PrdReviewModal({
     if (!text || busy) return;
     setBusy(true);
     try {
-      await api.agentRequest(projectId, `Minta revisi draft PRD/Alur: ${text}`);
-      toast("Permintaan revisi dikirim ke harness");
+      await api.agentRequest(projectId, `Request PRD/Flow draft revision: ${text}`);
+      toast("Revision request sent to harness");
       setRevision("");
       onApproved();
     } catch (err) {
@@ -50,7 +50,7 @@ export function PrdReviewModal({
       if (flow) {
         await api.projectSaveFlow(projectId, flow);
       }
-      toast("Draft disetujui! Pipeline dimulai.");
+      toast("Draft approved! Pipeline started.");
       onApproved();
     } catch (err) {
       toast(errorMessage(err), "error");
@@ -74,7 +74,7 @@ export function PrdReviewModal({
               id="review-draft-title"
               className="font-display text-base font-semibold text-ink"
             >
-              Review &amp; Edit Draft AI (Opsi A)
+              Review &amp; Edit AI Draft (Option A)
             </h2>
             <span className="rounded bg-surface-2 px-2 py-0.5 font-mono text-xs text-accent">
               Model: @plan
@@ -95,8 +95,8 @@ export function PrdReviewModal({
             ✓
           </span>
           <p className="text-xs text-[#C3D2D6]">
-            Harness telah menyusun draf spesifikasi PRD dan diagram alur. Periksa
-            atau ubah langsung isi sebelum menyetujui eksekusi otomatis.
+            The harness has prepared a draft PRD specification and flow diagram. Review
+            or edit the content directly before approving automated execution.
           </p>
         </div>
 
@@ -121,7 +121,7 @@ export function PrdReviewModal({
             onClick={onClose}
             className={`${SECONDARY} text-xs text-danger hover:border-danger`}
           >
-            Batal / Buang Draft
+            Cancel / Discard Draft
           </button>
 
           <form
@@ -132,7 +132,7 @@ export function PrdReviewModal({
               type="text"
               value={revision}
               onChange={(e) => setRevision(e.target.value)}
-              placeholder="Ada kekurangan? Minta revisi AI (Enter)..."
+              placeholder="Anything missing? Request AI revision (Enter)..."
               disabled={busy}
               className="flex-1 rounded-lg border border-line bg-stage px-3 py-1.5 text-xs text-ink outline-none"
             />
@@ -141,7 +141,7 @@ export function PrdReviewModal({
               disabled={busy || !revision.trim()}
               className={`${SECONDARY} py-1.5 text-xs`}
             >
-              Revisi
+              Revise
             </button>
           </form>
 
@@ -151,7 +151,7 @@ export function PrdReviewModal({
             disabled={busy}
             className={`${PRIMARY} py-1.5 px-4 font-display text-xs font-bold text-[#0C1417] shadow-lg`}
           >
-            {busy ? "Memproses…" : "Setujui & Eksekusi Pipeline ▶"}
+            {busy ? "Processing…" : "Approve & Execute Pipeline ▶"}
           </button>
         </div>
       </div>

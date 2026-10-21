@@ -62,7 +62,7 @@ pub(crate) fn search_for_chat(
     search_filtered(
         conn,
         text,
-        "AND i.type NOT IN ('note', 'journal', 'email')
+        "AND i.type NOT IN ('note', 'journal', 'email', 'media')
          AND NOT EXISTS (SELECT 1 FROM journal_entries j WHERE j.task_id = i.id OR j.item_id = i.id)
          AND NOT EXISTS (SELECT 1 FROM emails e WHERE e.item_id = i.id)",
         limit,
@@ -226,5 +226,17 @@ mod tests {
         assert_eq!(page_hits.len(), 1);
         assert_eq!(page_hits[0].item.id, page_id);
         assert_ne!(page_hits[0].item.id, note_id);
+    }
+
+    #[test]
+    fn chat_search_excludes_media() {
+        let conn = crate::db::open_in_memory();
+        let now = 1000;
+        let media_id = crate::items::insert(&conn, "media", "Dune Book", "review novel sci-fi", now).unwrap();
+        let task_id = crate::items::insert(&conn, "task", "Dune Movie", "beli tiket", now).unwrap();
+
+        let hits = search_for_chat(&conn, "dune", 10).unwrap();
+        assert!(hits.iter().any(|h| h.item.id == task_id));
+        assert!(!hits.iter().any(|h| h.item.id == media_id));
     }
 }

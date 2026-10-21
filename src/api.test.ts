@@ -288,7 +288,7 @@ describe("API IPC contract", () => {
     const spy = spyOn(dialog, "open").mockResolvedValueOnce("/voice.onnx").mockResolvedValueOnce(null).mockResolvedValueOnce(["/voice.onnx"]);
     try {
       expect(await api.pickVoiceModel()).toBe("/voice.onnx");
-      expect(spy).toHaveBeenCalledWith({ multiple: false, directory: false, filters: [{ name: "Suara Piper", extensions: ["onnx"] }] });
+      expect(spy).toHaveBeenCalledWith({ multiple: false, directory: false, filters: [{ name: "Piper voice", extensions: ["onnx"] }] });
       expect(await api.pickVoiceModel()).toBeNull();
       expect(await api.pickVoiceModel()).toBeNull();
     } finally { spy.mockRestore(); }

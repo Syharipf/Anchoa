@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, type EnginesInfo, type NativeHostStatus } from "../api";
 
-/** Version on the right, or "Belum terpasang" (spec U1). A stale yt-dlp shows in warn colour. */
+/** Version on the right, or "Not installed" (spec U1). A stale yt-dlp shows in warn colour. */
 function EngineState({ version, stale = false }: Readonly<{ version?: string; stale?: boolean }>) {
-  if (!version) return <span className="text-xs text-danger">Belum terpasang</span>;
+  if (!version) return <span className="text-xs text-danger">Not installed</span>;
   return <span className={`font-mono text-xs ${stale ? "text-warn" : "text-muted"}`}>{version}</span>;
 }
 
@@ -38,11 +38,11 @@ export function EnginesPanel({
   }
   return (
     <section
-      aria-labelledby="mesin-unduhan-judul"
+      aria-labelledby="download-engines-title"
       className="flex flex-col gap-1 rounded-2xl border border-line bg-surface p-3.5"
     >
-      <h2 id="mesin-unduhan-judul" className="mb-1 text-sm font-semibold font-display text-ink">
-        Mesin unduhan
+      <h2 id="download-engines-title" className="mb-1 text-sm font-semibold font-display text-ink">
+        Download engines
       </h2>
 
       <div className="flex items-center gap-2.5 py-1.5">
@@ -51,7 +51,7 @@ export function EnginesPanel({
         </span>
         <div className="flex flex-1 min-w-0 flex-col">
           <span className="font-mono text-xs font-medium text-ink">yt-dlp</span>
-          <span className="truncate text-[11px] text-muted">Video & audio dari ribuan situs</span>
+          <span className="truncate text-[11px] text-muted">Video & audio from thousands of sites</span>
         </div>
         <EngineState version={engines?.ytdlp?.version} stale={engines?.ytdlp?.stale} />
       </div>
@@ -62,7 +62,7 @@ export function EnginesPanel({
         </span>
         <div className="flex flex-1 min-w-0 flex-col">
           <span className="font-mono text-xs font-medium text-ink">ffmpeg</span>
-          <span className="truncate text-[11px] text-muted">Gabung & konversi format</span>
+          <span className="truncate text-[11px] text-muted">Merge & convert formats</span>
         </div>
         {/* "ffmpeg version 8.1.3 Copyright ..." → "8.1.3" */}
         <EngineState version={engines?.ffmpeg?.version.match(/version (\S+)/)?.[1] ?? engines?.ffmpeg?.version} />
@@ -73,10 +73,10 @@ export function EnginesPanel({
           fl
         </span>
         <div className="flex flex-1 min-w-0 flex-col">
-          <span className="font-mono text-xs font-medium text-ink">File langsung</span>
-          <span className="truncate text-[11px] text-muted">Satu koneksi, bisa dilanjut</span>
+          <span className="font-mono text-xs font-medium text-ink">Direct download</span>
+          <span className="truncate text-[11px] text-muted">Single connection, resumable</span>
         </div>
-        <span className="text-xs text-muted">Bawaan</span>
+        <span className="text-xs text-muted">Built-in</span>
       </div>
 
       <div className="flex items-center gap-2.5 py-1.5">
@@ -85,9 +85,9 @@ export function EnginesPanel({
         </span>
         <div className="flex flex-1 min-w-0 flex-col">
           <span className="font-mono text-xs font-medium text-ink">aria2c &amp; Torrent</span>
-          <span className="truncate text-[11px] text-muted">Akselerator 8 koneksi &amp; magnet</span>
+          <span className="truncate text-[11px] text-muted">8-connection accelerator & magnet</span>
         </div>
-        <span className="text-xs text-accent font-mono font-medium">Aktif</span>
+        <span className="text-xs text-accent font-mono font-medium">Active</span>
       </div>
 
       <div className="flex flex-col gap-1.5 border-t border-line/50 mt-1 pt-2">
@@ -96,10 +96,10 @@ export function EnginesPanel({
             🌐
           </span>
           <div className="flex flex-1 min-w-0 flex-col">
-            <span className="font-mono text-xs font-medium text-ink">Ekstensi Browser</span>
+            <span className="font-mono text-xs font-medium text-ink">Browser Extension</span>
             <span className="truncate text-[11px] text-muted">
               {connectedBrowsers.length > 0
-                ? `Terkoneksi: ${connectedBrowsers.join(", ")}`
+                ? `Connected: ${connectedBrowsers.join(", ")}`
                 : "Chrome, Brave, Helium, Firefox"}
             </span>
           </div>
@@ -113,7 +113,7 @@ export function EnginesPanel({
                   : "border-line bg-surface-2 text-muted hover:border-accent hover:text-accent"
               }`}
             >
-              {connectedBrowsers.length > 0 ? "Kelola ›" : "Pasang ›"}
+              {connectedBrowsers.length > 0 ? "Manage ›" : "Install ›"}
             </button>
           )}
         </div>

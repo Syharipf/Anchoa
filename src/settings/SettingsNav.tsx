@@ -41,7 +41,7 @@ export function SettingsNav({
 
   return (
     <nav
-      aria-label="Bagian pengaturan"
+      aria-label="Settings sections"
       className="flex w-[212px] shrink-0 self-start flex-col gap-0.5 rounded-[14px] border border-line bg-surface p-2"
     >
       {SETTINGS_SECTIONS.map((s, index) => {
@@ -81,7 +81,7 @@ export function SettingsNav({
               </span>
               <span
                 className={`truncate text-[11px] leading-tight ${
-                  active && sub === "Terhubung"
+                  active && sub === "Connected"
                     ? "text-accent"
                     : "text-muted"
                 }`}

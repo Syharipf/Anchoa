@@ -3,16 +3,16 @@ import type { EntryKind, EntrySummary, Group, JournalFilter } from "../api";
 import { KIND_META, MOODS, moodBars } from "./view";
 
 const FILTERS: readonly { readonly id: EntryKind | undefined; readonly label: string }[] = [
-  { id: undefined, label: "Semua" },
-  { id: "idea", label: "Ide" },
-  { id: "vent", label: "Curhat" },
-  { id: "note", label: "Catatan" },
+  { id: undefined, label: "All" },
+  { id: "idea", label: "Idea" },
+  { id: "vent", label: "Vent" },
+  { id: "note", label: "Note" },
 ];
 
 function moodLabel(mood: number | null): string {
-  if (!mood) return "Suasana hati belum diisi";
+  if (!mood) return "No mood recorded";
   const label = MOODS[mood - 1];
-  return `Suasana hati: ${label}`;
+  return `Mood: ${label}`;
 }
 
 function EntryCard({
@@ -73,11 +73,11 @@ function EntryCard({
       </span>
 
       <span className="text-[13px] font-medium text-ink">
-        {entry.title || "Tanpa judul"}
+        {entry.title || "Untitled"}
       </span>
 
       <span className="line-clamp-2 text-xs leading-relaxed text-muted">
-        {entry.preview || "Belum ada isi."}
+        {entry.preview || "No content yet."}
       </span>
     </button>
   );
@@ -115,7 +115,7 @@ export function EntryList({
   const filtered = Boolean(filter.query || filter.kind || filter.tag || filter.mood || filter.date);
   return (
     <section
-      aria-label="Daftar entri"
+      aria-label="Entries list"
       className="flex min-h-0 flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-3"
     >
       {/* Search Input */}
@@ -137,15 +137,15 @@ export function EntryList({
         <input
           value={localQuery}
           onChange={(e) => setLocalQuery(e.target.value)}
-          aria-label="Cari di jurnal"
-          placeholder="Cari di jurnal (di perangkat)…"
+          aria-label="Search journal"
+          placeholder="Search journal (on device)…"
           className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted focus:outline-none"
         />
       </label>
 
       {/* Filter jenis */}
       <fieldset className="m-0 flex flex-wrap gap-1 border-0 p-0">
-        <legend className="sr-only">Saring jenis</legend>
+        <legend className="sr-only">Filter kind</legend>
         {FILTERS.map((f) => {
           const active = filter.kind === f.id;
           const bgClass = active ? "bg-surface-2 text-ink font-medium" : "text-muted hover:bg-surface-2";
@@ -164,7 +164,7 @@ export function EntryList({
       </fieldset>
 
       <fieldset className="m-0 flex flex-wrap gap-1 border-0 p-0">
-        <legend className="sr-only">Saring suasana hati</legend>
+        <legend className="sr-only">Filter mood</legend>
         {MOODS.map((label, index) => {
           const mood = index + 1;
           const active = filter.mood === mood;
@@ -184,13 +184,13 @@ export function EntryList({
       </fieldset>
 
       {(filter.tag || filter.mood || filter.date) && (
-        <div aria-label="Saringan aktif" className="flex flex-wrap gap-1.5">
+        <div aria-label="Active filters" className="flex flex-wrap gap-1.5">
           {filter.date && (
             <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
-              Tanggal: {filter.date}
+              Date: {filter.date}
               <button
                 type="button"
-                aria-label={`Hapus saringan tanggal ${filter.date}`}
+                aria-label={`Remove date filter ${filter.date}`}
                 onClick={() => onFilterChange({ date: undefined })}
                 className="ml-0.5 min-h-6 min-w-6 text-xs hover:text-ink"
               >
@@ -203,7 +203,7 @@ export function EntryList({
               #{filter.tag}
               <button
                 type="button"
-                aria-label={`Hapus saringan tag ${filter.tag}`}
+                aria-label={`Remove tag filter ${filter.tag}`}
                 onClick={() => onFilterChange({ tag: undefined })}
                 className="ml-0.5 min-h-6 min-w-6 text-xs hover:text-ink"
               >
@@ -213,10 +213,10 @@ export function EntryList({
           )}
           {filter.mood && (
             <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
-              Suasana {filter.mood}
+              Mood {filter.mood}
               <button
                 type="button"
-                aria-label="Hapus saringan suasana hati"
+                aria-label="Remove mood filter"
                 onClick={() => onFilterChange({ mood: undefined })}
                 className="ml-0.5 min-h-6 min-w-6 hover:text-ink"
               >
@@ -232,8 +232,8 @@ export function EntryList({
         {totalEntries === 0 ? (
           <p className="p-3 text-xs leading-relaxed text-muted">
             {filtered
-              ? "Tidak ada entri yang cocok dengan saringan."
-              : "Belum ada entri. Mulai dari pemantik di kanan, atau tekan Tulis."}
+              ? "No entries match the filter."
+              : "No entries yet. Start with a prompt on the right, or press Write."}
           </p>
         ) : (
           groups.map((group) => (

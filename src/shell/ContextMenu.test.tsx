@@ -22,12 +22,12 @@ describe("ContextMenu", () => {
     const pick = mock(() => {});
     harness = hookHarness(() => useContextMenu());
     harness.render().open({ x: 5, y: 5 }, [
-      { label: "Buka", onSelect: pick },
+      { label: "Open", onSelect: pick },
       "separator",
-      { label: "Hapus", onSelect: () => {}, danger: true },
+      { label: "Delete", onSelect: () => {}, danger: true },
     ]);
     const items = elements(harness.render().menu).filter((e) => e.props.role === "menuitem");
-    expect(items.map((e) => textOf(e.props.children))).toContain("Buka");
+    expect(items.map((e) => textOf(e.props.children))).toContain("Open");
     (items[0].props.onClick as () => void)();
     expect(pick).toHaveBeenCalled();
     expect(harness.render().menu).toBeNull();

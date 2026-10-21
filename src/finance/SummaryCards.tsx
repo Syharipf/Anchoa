@@ -29,7 +29,7 @@ function Card({ label, value, tone = "", note, action }: Readonly<{ label: strin
   );
 }
 
-/** Saldo, Pemasukan, Pengeluaran (with the monthly limit) and Arus bersih. */
+/** Balance, Income, Expense (with monthly limit) and Net flow. */
 export function SummaryCards({ overview: o, onBudget }: Readonly<{ overview: FinanceOverview; onBudget: () => void }>) {
   const [moneyHidden, setMoneyHidden] = useState(loadMoneyHidden);
   useEffect(() => saveMoneyHidden(moneyHidden), [moneyHidden]);
@@ -41,7 +41,7 @@ export function SummaryCards({ overview: o, onBudget }: Readonly<{ overview: Fin
       onClick={(e) => { e.stopPropagation(); setMoneyHidden((c) => !c); }}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setMoneyHidden((c) => !c); } }}
       className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[9px] text-muted transition-colors hover:bg-surface"
-      aria-label={moneyHidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
+      aria-label={moneyHidden ? "Show balance" : "Hide balance"}
     >
       {moneyHidden ? "•••" : "₡"}
     </span>
@@ -49,45 +49,45 @@ export function SummaryCards({ overview: o, onBudget }: Readonly<{ overview: Fin
   return (
     <div className="grid grid-cols-4 gap-3.5">
       <Card
-        label="Saldo total"
+        label="Total balance"
         value={moneyHidden ? "•••" : formatBalance(o.balance)}
         tone={o.balance < 0 ? "text-danger" : ""}
-        note={`${o.accountCount} akun · per hari ini`}
+        note={`${o.accountCount} accounts · as of today`}
         action={eye}
       />
       <Card
-        label={`Pemasukan ${monthShort(o.month)}`}
+        label={`Income ${monthShort(o.month)}`}
         value={formatRupiah(o.income)}
         tone={o.income > 0 ? "text-accent" : ""}
         note={monthLabel(o.month)}
       />
       <button
         onClick={onBudget}
-        aria-label={`Pengeluaran ${monthLabel(o.month)} ${formatRupiah(o.expense)}. Atur batas pengeluaran`}
+        aria-label={`Expenses ${monthLabel(o.month)} ${formatRupiah(o.expense)}. Set spending limit`}
         className={`${CARD} text-left transition-colors hover:bg-surface-2`}
       >
-        <span className="text-xs text-muted">Pengeluaran {monthShort(o.month)}</span>
+        <span className="text-xs text-muted">Expenses ${monthShort(o.month)}</span>
         <span className={VALUE}>{formatRupiah(o.expense)}</span>
         {o.budget ? (
           <>
-            <span className="text-xs text-muted">dari {formatRupiah(o.budget.amount)}</span>
+            <span className="text-xs text-muted">of ${formatRupiah(o.budget.amount)}</span>
             <FishProgress
               role="meter"
               value={used}
-              label={`Pemakaian anggaran ${monthLabel(o.month)}`}
+              label={`Budget usage ${monthLabel(o.month)}`}
               tone={o.budget.level === "over" ? "danger" : o.budget.level === "warn" ? "warning" : "accent"}
               className="mt-1 h-2"
             />
           </>
         ) : (
-          <span className="text-xs text-muted">Atur batas</span>
+          <span className="text-xs text-muted">Set limit</span>
         )}
       </button>
       <Card
-        label="Arus bersih"
+        label="Net flow"
         value={signedRupiah(o.net)}
         tone={o.net < 0 ? "text-danger" : "text-accent"}
-        note="pemasukan − pengeluaran"
+        note="income − expense"
       />
     </div>
   );

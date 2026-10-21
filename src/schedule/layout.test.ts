@@ -79,8 +79,8 @@ describe("schedule layout", () => {
   });
 
   it("weekLabel memformat rentang minggu dengan benar", () => {
-    expect(weekLabel("2026-10-12", "2026-10-18")).toBe("12 – 18 Okt 2026");
-    expect(weekLabel("2026-09-28", "2026-10-04")).toBe("28 Sep – 4 Okt 2026");
+    expect(weekLabel("2026-10-12", "2026-10-18")).toBe("12 – 18 Oct 2026");
+    expect(weekLabel("2026-09-28", "2026-10-04")).toBe("28 Sep – 4 Oct 2026");
   });
 
   it("chipsFor memberi more yang benar", () => {
@@ -168,9 +168,9 @@ describe("schedule layout", () => {
   });
 
   it("agendaTitle formats correctly", () => {
-    expect(agendaTitle("2026-09-30")).toBe("Rabu, 30 September");
-    expect(agendaTitle("2026-09-29")).toBe("Selasa, 29 September");
-    expect(agendaTitle("2026-10-01")).toBe("Kamis, 1 Oktober");
+    expect(agendaTitle("2026-09-30")).toBe("Wednesday, September 30");
+    expect(agendaTitle("2026-09-29")).toBe("Tuesday, September 29");
+    expect(agendaTitle("2026-10-01")).toBe("Thursday, October 1");
   });
 
   it("navSelectedDate memindahkan selectedDate ke tanggal yang sesuai", () => {
@@ -352,8 +352,8 @@ describe("schedule layout", () => {
   });
 
   it("timelineLabel memformat rentang dengan benar", () => {
-    expect(timelineLabel("2026-09-28", "2026-11-22")).toBe("28 Sep – 22 Nov");
-    expect(timelineLabel("2026-09-21", "2026-11-15")).toBe("21 Sep – 15 Nov");
+    expect(timelineLabel("2026-09-28", "2026-11-22")).toBe("Sep 28 – Nov 22");
+    expect(timelineLabel("2026-09-21", "2026-11-15")).toBe("Sep 21 – Nov 15");
   });
 
   it("acara Google Kalender: tidak pernah terlambat dan masuk grup sendiri di timeline", () => {

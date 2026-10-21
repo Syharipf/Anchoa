@@ -55,13 +55,13 @@ pub struct AssistantReply {
 
 impl AssistantState {
     pub(crate) fn configuration_lock(&self) -> Result<MutexGuard<'_, ()>, AppError> {
-        self.configuration.lock().map_err(|_| AppError::Other("Konfigurasi AI tidak tersedia".into()))
+        self.configuration.lock().map_err(|_| AppError::Other("AI configuration unavailable".into()))
     }
 
     fn lock(&self) -> Result<MutexGuard<'_, Conversation>, AppError> {
         self.conversation
             .lock()
-            .map_err(|_| AppError::Other("State asisten tidak tersedia".into()))
+            .map_err(|_| AppError::Other("Assistant state unavailable".into()))
     }
 
     #[cfg(test)]
@@ -85,7 +85,7 @@ impl AssistantState {
         on_event: impl FnMut(AssistantEvent) -> Result<(), AppError>,
     ) -> Result<AssistantReply, AppError> {
         self.send_resolved(db, Some(store), text, now, tz, on_event, |endpoint, request, cancel, delta| {
-            llm::stream_chat(endpoint.ok_or_else(|| AppError::Other("Endpoint AI tidak tersedia".into()))?, request, cancel, delta)
+            llm::stream_chat(endpoint.ok_or_else(|| AppError::Other("AI endpoint unavailable".into()))?, request, cancel, delta)
         })
     }
 
@@ -121,19 +121,19 @@ impl AssistantState {
                 return Err(AppError::Empty);
             }
             if text.len() > 64 * 1024 {
-                return Err(AppError::Invalid("Pesan asisten terlalu panjang".into()));
+                return Err(AppError::Invalid("Assistant message too long".into()));
             }
             let (epoch, history) = {
                 let mut state = self.lock()?;
                 if state.running {
-                    return Err(AppError::Invalid("Asisten masih menjawab".into()));
+                    return Err(AppError::Invalid("Assistant is still replying".into()));
                 }
                 let pending = std::mem::take(&mut state.pending);
                 for (id, (proposal, call_id)) in pending {
                     if let Some(call_id) = call_id {
                         state.history.push(tool_message(
                             &call_id,
-                            json!({"ok":false,"reason":"diabaikan, user mengirim pesan baru"}),
+                            json!({"ok":false,"reason":"ignored, user sent a new message"}),
                         ));
                     } else {
                         state.pending.insert(id, (proposal, None));
@@ -190,11 +190,11 @@ impl AssistantState {
                 for call in &message.tool_calls {
                     if call.id.is_empty() || !seen_calls.insert(call.id.clone()) {
                         return Err(AppError::Other(
-                            "ID panggilan tool model tidak valid".into(),
+                            "Invalid model tool call ID".into(),
                         ));
                     }
                     let args = serde_json::from_str::<Value>(&call.function.arguments)
-                        .map_err(|_| AppError::Invalid("Argumen JSON tool tidak valid".into()));
+                        .map_err(|_| AppError::Invalid("Invalid tool JSON arguments".into()));
                     let result = args.and_then(|args| {
                         if tools::is_read(&call.function.name) {
                             let conn = db.conn()?;
@@ -266,7 +266,7 @@ impl AssistantState {
                 }
             }
             Err(AppError::Other(
-                "Asisten mencapai batas 4 putaran tool; coba permintaan yang lebih sederhana"
+                "Assistant reached 4 tool loop limit; please try a simpler request"
                     .into(),
             ))
         })();
@@ -309,7 +309,7 @@ impl AssistantState {
         let mut state = self.lock()?;
         if state.running {
             return Err(AppError::Invalid(
-                "Tunggu sampai asisten selesai menjawab".into(),
+                "Please wait until assistant finishes replying".into(),
             ));
         }
         let (proposal, call_id) = state.pending.get(id).ok_or(AppError::NotFound)?;
@@ -324,7 +324,7 @@ impl AssistantState {
         // only receives its ID. Never copy persisted journal content to history.
         let result = match &item {
             Some(value) => json!({"ok":true,"id":value.get("id")}),
-            None => json!({"ok":false,"reason":"ditolak user"}),
+            None => json!({"ok":false,"reason":"rejected by user"}),
         };
         if let Some(call_id) = call_id {
             let message = tool_message(call_id, result);
@@ -371,7 +371,7 @@ impl AssistantState {
 }
 
 fn cancelled() -> AppError {
-    AppError::Other("Permintaan asisten dihentikan".into())
+    AppError::Other("Assistant request cancelled".into())
 }
 
 fn tool_message(call_id: &str, value: Value) -> ChatMessage {
@@ -407,7 +407,7 @@ pub async fn assistant_send(
         )
     })
     .await
-    .map_err(|_| AppError::Other("Proses asisten gagal".into()))?
+    .map_err(|_| AppError::Other("Assistant process failed".into()))?
 }
 
 #[tauri::command]
@@ -448,7 +448,7 @@ pub struct AiStatus {
 pub async fn ai_status(app: AppHandle) -> Result<AiStatus, AppError> {
     tauri::async_runtime::spawn_blocking(move || providers::status(&app, None))
         .await
-        .map_err(|_| AppError::Other("Pemeriksaan penyedia AI gagal".into()))?
+        .map_err(|_| AppError::Other("AI provider check failed".into()))?
 }
 
 #[derive(Debug, Serialize)]
@@ -619,7 +619,7 @@ mod tests {
         );
         assert_eq!(
             serde_json::from_str::<Value>(&history.last().unwrap().content).unwrap(),
-            json!({"ok":false,"reason":"ditolak user"})
+            json!({"ok":false,"reason":"rejected by user"})
         );
     }
 
@@ -719,7 +719,7 @@ mod tests {
                         assert_eq!(results[0].role, "tool");
                         assert_eq!(
                             serde_json::from_str::<Value>(&results[0].content).unwrap(),
-                            json!({"ok":false,"reason":"diabaikan, user mengirim pesan baru"})
+                            json!({"ok":false,"reason":"ignored, user sent a new message"})
                         );
                     }
                     assert_eq!(request.messages.last().unwrap().content, "Pesan baru");
@@ -752,7 +752,7 @@ mod tests {
                 |event| {
                     if matches!(event, AssistantEvent::Proposal(_)) {
                         attempts += 1;
-                        return Err(AppError::Other("Channel tertutup".into()));
+                        return Err(AppError::Other("Channel closed".into()));
                     }
                     Ok(())
                 },
@@ -765,7 +765,7 @@ mod tests {
                 },
             )
             .unwrap_err();
-        assert!(error.to_string().contains("Channel tertutup"));
+        assert!(error.to_string().contains("Channel closed"));
         assert_eq!(attempts, 1);
         assert!(state.lock().unwrap().pending.is_empty());
         assert!(!state.lock().unwrap().running);
@@ -818,7 +818,7 @@ mod tests {
                         match event {
                             AssistantEvent::Proposal(proposal) => {
                                 if !emitted.is_empty() {
-                                    return Err(AppError::Other("Channel tertutup".into()));
+                                    return Err(AppError::Other("Channel closed".into()));
                                 }
                                 emitted.push(proposal);
                                 if cancel {
@@ -841,9 +841,9 @@ mod tests {
                 )
                 .unwrap_err();
             assert!(error.to_string().contains(if cancel {
-                "dihentikan"
+                "cancelled"
             } else {
-                "Channel tertutup"
+                "Channel closed"
             }));
             assert!(!done);
             assert_eq!(emitted.len(), 1);
@@ -1054,7 +1054,7 @@ mod tests {
                 },
             )
             .unwrap_err();
-        assert!(error.to_string().contains("dihentikan"));
+        assert!(error.to_string().contains("cancelled"));
         assert!(matches!(events.as_slice(), [AssistantEvent::Error(_)]));
         assert!(state.lock().unwrap().pending.is_empty());
         assert_eq!(
@@ -1093,7 +1093,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(rounds, 4);
-        assert!(error.to_string().contains("4 putaran"));
+        assert!(error.to_string().contains("4 tool loop limit"));
         assert!(matches!(events.as_slice(), [AssistantEvent::Error(_)]));
         assert!(state.lock().unwrap().history.is_empty());
     }
@@ -1299,7 +1299,7 @@ mod tests {
             assert!(content.contains(&public_id), "{id}: {content}");
         }
         assert_eq!(results[3].0, "journal");
-        assert!(results[3].1.contains("hanya tersedia untuk AI lokal"));
+        assert!(results[3].1.contains("only available for local AI"));
         let journals: i64 = db.conn().unwrap().query_row("SELECT COUNT(*) FROM journal_entries", [], |r| r.get(0)).unwrap();
         assert_eq!(journals, 1);
     }

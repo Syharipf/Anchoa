@@ -12,23 +12,23 @@ import {
 } from "./view";
 
 describe("journal view rules", () => {
-  it("provides KIND_META with Indonesian labels and SVG icon paths", () => {
-    expect(KIND_META.idea.label).toBe("Ide");
-    expect(KIND_META.vent.label).toBe("Curhat");
-    expect(KIND_META.note.label).toBe("Catatan");
+  it("provides KIND_META with English labels and SVG icon paths", () => {
+    expect(KIND_META.idea.label).toBe("Idea");
+    expect(KIND_META.vent.label).toBe("Vent");
+    expect(KIND_META.note.label).toBe("Note");
 
     expect(KIND_META.idea.icon).toContain("M9 18h6");
     expect(KIND_META.vent.icon).toContain("M4 5h16");
     expect(KIND_META.note.icon).toContain("M6 3h9");
   });
 
-  it("provides MOODS in order from 1 (Berat) to 5 (Senang)", () => {
+  it("provides MOODS in order from 1 (Heavy) to 5 (Great)", () => {
     expect(MOODS).toHaveLength(5);
-    expect(MOODS[0]).toBe("Berat");
-    expect(MOODS[1]).toBe("Kurang");
-    expect(MOODS[2]).toBe("Biasa");
-    expect(MOODS[3]).toBe("Baik");
-    expect(MOODS[4]).toBe("Senang");
+    expect(MOODS[0]).toBe("Heavy");
+    expect(MOODS[1]).toBe("Down");
+    expect(MOODS[2]).toBe("Neutral");
+    expect(MOODS[3]).toBe("Good");
+    expect(MOODS[4]).toBe("Great");
   });
 
   it("calculates moodBars correctly", () => {
@@ -53,11 +53,11 @@ describe("journal view rules", () => {
 
   it("provides 8 reflective prompts and cycles through them with nextPrompt", () => {
     expect(PROMPTS).toHaveLength(8);
-    expect(PROMPTS[0]).toBe("Apa satu hal kecil yang berjalan baik hari ini?");
+    expect(PROMPTS[0]).toBe("What is one small thing that went well today?");
     expect(PROMPTS[1]).toBe(
-      "Apa yang paling menguras energimu minggu ini, dan apa yang bisa dikurangi?",
+      "What drained your energy most this week, and what can be reduced?",
     );
-    expect(PROMPTS[2]).toBe("Ide apa yang terus muncul tapi belum sempat dicoba?");
+    expect(PROMPTS[2]).toBe("What idea keeps coming to mind that you haven't tried yet?");
 
     expect(nextPrompt(0)).toBe(1);
     expect(nextPrompt(6)).toBe(7);
@@ -77,8 +77,8 @@ describe("journal view rules", () => {
     expect(text).toContain("- [x] Beli kopi");
     expect(text).toContain("- [ ] Kirim email");
     expect(text).toContain("- [x] Olahraga");
-    expect(text).toContain("Pemasukan: Rp 50.000");
-    expect(text).toContain("Pengeluaran: Rp 20.000");
+    expect(text).toContain("Income: Rp 50.000");
+    expect(text).toContain("Expenses: Rp 20.000");
   });
 
   it("parses and validates tags", () => {
@@ -117,13 +117,13 @@ describe("journal view rules", () => {
     }
 
     const daily = JOURNAL_TEMPLATES.find((t) => t.id === "daily-reflection");
-    expect(daily?.label).toBe("Refleksi harian");
+    expect(daily?.label).toBe("Daily reflection");
     expect(daily?.kind).toBe("note");
-    expect(daily?.body).toContain("Apa yang berjalan baik hari ini?");
+    expect(daily?.body).toContain("What went well today?");
 
     const vent = JOURNAL_TEMPLATES.find((t) => t.id === "guided-vent");
-    expect(vent?.label).toBe("Curhat terarah");
+    expect(vent?.label).toBe("Guided vent");
     expect(vent?.kind).toBe("vent");
-    expect(vent?.body).toContain("Apa yang sedang kurasakan?");
+    expect(vent?.body).toContain("What am I feeling right now?");
   });
 });

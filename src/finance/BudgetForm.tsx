@@ -18,7 +18,7 @@ export function BudgetForm({
     e.preventDefault();
     const value = parseRupiah(amount);
     if (value === null || value <= 0) {
-      toast("Batas harus angka bulat lebih dari 0", "error");
+      toast("Limit must be a whole number greater than 0", "error");
       return;
     }
     void run(() => api.setBudget(value));
@@ -27,11 +27,11 @@ export function BudgetForm({
   const remove = current === null ? undefined : () => void run(() => api.setBudget(null));
 
   return (
-    <Dialog title="Batas pengeluaran bulanan" onClose={onClose}>
+    <Dialog title="Monthly spending limit" onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <p className="m-0 text-sm text-muted">Berlaku setiap bulan. Hanya peringatan: transaksi tetap bisa dicatat.</p>
-        <MoneyField label="Batas per bulan" value={amount} onChange={setAmount} />
-        <DialogActions busy={busy} onCancel={onClose} onDelete={remove} deleteLabel="Hapus batas" />
+        <p className="m-0 text-sm text-muted">Applies each month. Informational only: transactions can still be recorded.</p>
+        <MoneyField label="Limit per month" value={amount} onChange={setAmount} />
+        <DialogActions busy={busy} onCancel={onClose} onDelete={remove} deleteLabel="Delete limit" />
       </form>
     </Dialog>
   );

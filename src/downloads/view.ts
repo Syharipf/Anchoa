@@ -79,13 +79,13 @@ export const DOWNLOAD_EXAMPLES = [
 ] as const;
 
 export const STATUS_LABELS: Readonly<Record<DownloadStatus, string>> = {
-  queued: "Menunggu",
-  running: "Mengunduh",
-  paused: "Dijeda",
-  processing: "Memproses",
-  done: "Selesai",
-  failed: "Gagal",
-  interrupted: "Terputus",
+  queued: "Queued",
+  running: "Downloading",
+  paused: "Paused",
+  processing: "Processing",
+  done: "Done",
+  failed: "Failed",
+  interrupted: "Interrupted",
 };
 
 /** Tailwind text class for the status label. */
@@ -118,27 +118,27 @@ export function formatSpeed(bytesPerSec: number): string {
   return `${formatSize(Math.round(bytesPerSec))}/s`;
 }
 
-/** Formats ETA in seconds to Indonesian short text: "19 dtk", "2 mnt", "1 jam 30 mnt". */
+/** Formats ETA in seconds to short text: "19s", "2m", "1h 30m". */
 export function formatEta(seconds: number): string {
   if (seconds <= 0 || !Number.isFinite(seconds)) {
-    return "0 dtk";
+    return "0s";
   }
   const s = Math.round(seconds);
   if (s < 60) {
-    return `${s} dtk`;
+    return `${s}s`;
   }
   if (s < 3600) {
-    return `${Math.round(s / 60)} mnt`;
+    return `${Math.round(s / 60)}m`;
   }
   const hours = Math.floor(s / 3600);
   const mins = Math.round((s % 3600) / 60);
   if (mins === 60) {
-    return `${hours + 1} jam`;
+    return `${hours + 1}h`;
   }
   if (mins === 0) {
-    return `${hours} jam`;
+    return `${hours}h`;
   }
-  return `${hours} jam ${mins} mnt`;
+  return `${hours}h ${mins}m`;
 }
 
 /** Calculates download percentage (0 to 100). */
@@ -162,7 +162,7 @@ export function progressPercent(
 export function progressText(row: DownloadView): string {
   switch (row.status) {
     case "queued":
-      return "Menunggu giliran antrean";
+      return "Waiting in queue";
     case "running": {
       const pct = progressPercent(row);
       const parts: string[] = [];
@@ -177,37 +177,37 @@ export function progressText(row: DownloadView): string {
         parts.push(formatSpeed(row.speed));
       }
       if (row.eta !== null && row.eta !== undefined) {
-        parts.push(`${formatEta(row.eta)} lagi`);
+        parts.push(`${formatEta(row.eta)} left`);
       }
       return parts.join(" · ");
     }
     case "paused": {
       const pct = progressPercent(row);
       if (row.totalBytes && row.totalBytes > 0) {
-        return `${pct}% · dijeda`;
+        return `${pct}% · paused`;
       }
       if (row.doneBytes > 0) {
-        return `${formatSize(row.doneBytes)} · dijeda`;
+        return `${formatSize(row.doneBytes)} · paused`;
       }
-      return "0% · dijeda";
+      return "0% · paused";
     }
     case "processing": {
       if (row.options?.format) {
-        return `Mengonversi ke ${row.options.format} (ffmpeg)…`;
+        return `Converting to ${row.options.format} (ffmpeg)…`;
       }
-      return "Memproses (ffmpeg)…";
+      return "Processing (ffmpeg)…";
     }
     case "done":
-      return row.filePath ? `Tersimpan di ${row.filePath}` : "Tersimpan";
+      return row.filePath ? `Saved to ${row.filePath}` : "Saved";
     case "failed":
-      return row.error ?? "Gagal";
+      return row.error ?? "Failed";
     case "interrupted": {
       const now = Date.now();
       if (row.nextRetryAt && row.nextRetryAt > now) {
         const secs = Math.ceil((row.nextRetryAt - now) / 1000);
-        return `Terputus · lanjut otomatis dalam ${secs} dtk`;
+        return `Interrupted · retrying in ${secs}s`;
       }
-      return "Terputus · koneksi terputus";
+      return "Interrupted · connection lost";
     }
     default:
       return "";
@@ -222,16 +222,16 @@ export function addLabel(
   if (det === "media") {
     if (opts?.audioOnly) {
       const fmt = opts.format ?? "MP3";
-      return `Unduh audio ${fmt}`;
+      return `Download audio ${fmt}`;
     }
     const quality = opts?.quality ?? "1080p";
     const fmt = opts?.format ?? "MP4";
-    return `Unduh ${quality} ${fmt}`;
+    return `Download ${quality} ${fmt}`;
   }
   if (det === "torrent") {
-    return "Tambah torrent";
+    return "Add torrent";
   }
-  return "Unduh";
+  return "Download";
 }
 
 /** Extracts domain name from a URL without leading 'www.'. */
@@ -276,34 +276,34 @@ export function detectionInfo(kind: DetectedKind, host?: string): DetectionInfo 
   switch (kind) {
     case "none":
       return {
-        label: "Menunggu tautan",
-        hint: "Tempel tautan video, audio, atau file.",
+        label: "Waiting for link",
+        hint: "Paste a video, audio, or file link.",
         color: "text-muted",
       };
     case "media":
       return {
         label: "Video/audio · yt-dlp",
         hint: host
-          ? `Terdeteksi ${host}. Judul diambil otomatis saat unduhan mulai.`
-          : "Judul diambil otomatis saat unduhan mulai.",
+          ? `Detected ${host}. Title fetched automatically when download starts.`
+          : "Title fetched automatically when download starts.",
         color: "text-accent",
       };
     case "file":
       return {
-        label: "File langsung",
-        hint: "Diunduh langsung oleh aplikasi, bisa dilanjut kalau terputus.",
+        label: "Direct download",
+        hint: "Downloaded directly by the app, resumable if interrupted.",
         color: "text-accent",
       };
     case "torrent":
       return {
         label: "Torrent · magnet",
-        hint: "Torrent belum didukung.",
+        hint: "Torrents not yet supported.",
         color: "text-danger",
       };
     case "invalid":
       return {
-        label: "Tautan tidak dikenali",
-        hint: "Pastikan tautan diawali https://",
+        label: "Unrecognized link",
+        hint: "Make sure link starts with https://",
         color: "text-danger",
       };
   }
@@ -312,10 +312,10 @@ export function detectionInfo(kind: DetectedKind, host?: string): DetectionInfo 
 export type DownloadTab = "all" | "active" | "done" | "failed";
 
 export const TAB_LABELS: Readonly<Record<DownloadTab, string>> = {
-  all: "Semua",
-  active: "Aktif",
-  done: "Selesai",
-  failed: "Gagal",
+  all: "All",
+  active: "Active",
+  done: "Done",
+  failed: "Failed",
 };
 
 const ACTIVE: Readonly<Record<DownloadStatus, boolean>> = {

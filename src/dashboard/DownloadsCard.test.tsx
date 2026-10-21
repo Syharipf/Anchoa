@@ -4,20 +4,20 @@ import type { DownloadsSummary } from "../api";
 import { DownloadsCard } from "./DownloadsCard";
 
 describe("DownloadsCard", () => {
-  it("renders empty state with 'Tidak ada unduhan aktif'", () => {
+  it("renders empty state with 'No active downloads'", () => {
     const html = renderToStaticMarkup(
       <DownloadsCard downloads={{ speed: 0, items: [] }} onSelect={() => {}} />,
     );
-    expect(html).toContain("Unduhan");
-    expect(html).toContain("Tidak ada unduhan aktif");
+    expect(html).toContain("Downloads");
+    expect(html).toContain("No active downloads");
   });
 
   it("renders undefined downloads as empty", () => {
     const html = renderToStaticMarkup(
       <DownloadsCard onSelect={() => {}} />,
     );
-    expect(html).toContain("Unduhan");
-    expect(html).toContain("Tidak ada unduhan aktif");
+    expect(html).toContain("Downloads");
+    expect(html).toContain("No active downloads");
   });
 
   it("renders active downloads with progress and speed", () => {
@@ -50,13 +50,13 @@ describe("DownloadsCard", () => {
     const html = renderToStaticMarkup(
       <DownloadsCard downloads={summary} onSelect={() => {}} />,
     );
-    expect(html).toContain("Unduhan");
+    expect(html).toContain("Downloads");
     expect(html).toContain("Tutorial rigging Live2D");
     expect(html).toContain("63%");
-    expect(html).toContain("19 dtk lagi");
+    expect(html).toContain("19s left");
     expect(html).toContain("Klip musik");
-    expect(html).toContain("Memproses (ffmpeg)…");
+    expect(html).toContain("Processing (ffmpeg)…");
     expect(html).toContain("↓ 7,8 MB/s");
-    expect(html).not.toContain("Tidak ada unduhan aktif");
+    expect(html).not.toContain("No active downloads");
   });
 });

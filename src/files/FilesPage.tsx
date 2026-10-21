@@ -70,12 +70,11 @@ function TrashConfirmDialog({
 }>) {
   return (
     <Dialog
-      title={`Pindahkan ${count} item ke Tong Sampah?`}
+      title={`Move ${count} item(s) to Trash?`}
       onClose={onCancel}
     >
       <p className="m-0 text-sm text-muted">
-        Item akan dipindahkan ke folder Tong Sampah dan dapat dipulihkan
-        nanti jika diperlukan.
+        Items will be moved to the Trash folder and can be restored later if needed.
       </p>
       <div className="mt-2 flex items-center justify-end gap-2">
         <button
@@ -83,14 +82,14 @@ function TrashConfirmDialog({
           onClick={onCancel}
           className={SECONDARY}
         >
-          Batal
+          Cancel
         </button>
         <button
           type="button"
           onClick={onConfirm}
           className="min-h-10 rounded-full border border-danger px-4 text-[13px] font-semibold text-danger transition-colors hover:bg-danger-row"
         >
-          Hapus
+          Delete
         </button>
       </div>
     </Dialog>
@@ -106,7 +105,7 @@ function NewFolderDialog({
 }>) {
   const [name, setName] = useState("");
   return (
-    <Dialog title="Buat Folder Baru" onClose={onCancel}>
+    <Dialog title="New Folder" onClose={onCancel}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -119,7 +118,7 @@ function NewFolderDialog({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Nama folder..."
+          placeholder="Folder name..."
           className="rounded-lg border border-line bg-canvas px-3 py-2 text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
         />
         <div className="flex items-center justify-end gap-2">
@@ -128,14 +127,14 @@ function NewFolderDialog({
             onClick={onCancel}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="submit"
             disabled={!name.trim()}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            Buat Folder
+            Create Folder
           </button>
         </div>
       </form>
@@ -154,7 +153,7 @@ function RenameDialog({
 }>) {
   const [name, setName] = useState(initialName);
   return (
-    <Dialog title="Ganti Nama" onClose={onCancel}>
+    <Dialog title="Rename" onClose={onCancel}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -171,7 +170,7 @@ function RenameDialog({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Nama baru..."
+          placeholder="New name..."
           className="rounded-lg border border-line bg-canvas px-3 py-2 text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
         />
         <div className="flex items-center justify-end gap-2">
@@ -180,14 +179,14 @@ function RenameDialog({
             onClick={onCancel}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="submit"
             disabled={!name.trim() || name.trim() === initialName}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            Simpan
+            Save
           </button>
         </div>
       </form>
@@ -225,7 +224,7 @@ function PathPickerRow({
         disabled={disabled}
         className="shrink-0 whitespace-nowrap rounded-lg border border-line px-2.5 py-2 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
       >
-        Pilih…
+        Choose…
       </button>
       {picking && (
         <FolderPicker
@@ -250,7 +249,7 @@ function ExtractDialog({
     joinPath(parentPath(entry.path), archiveStem(entry.name) || "ekstrak"),
   );
   return (
-    <Dialog title="Ekstrak ke Folder" onClose={onCancel}>
+    <Dialog title="Extract to Folder" onClose={onCancel}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -258,11 +257,11 @@ function ExtractDialog({
         }}
         className="flex flex-col gap-3"
       >
-        <span className="truncate text-xs text-muted">Arsip: {entry.name}</span>
+        <span className="truncate text-xs text-muted">Archive: {entry.name}</span>
         <PathPickerRow
           value={dest}
           onChange={setDest}
-          ariaLabel="Folder tujuan ekstrak"
+          ariaLabel="Extract destination folder"
           initialPath={parentPath(entry.path)}
         />
         <div className="flex items-center justify-end gap-2">
@@ -271,14 +270,14 @@ function ExtractDialog({
             onClick={onCancel}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="submit"
             disabled={!dest.trim()}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            Ekstrak
+            Extract
           </button>
         </div>
       </form>
@@ -307,7 +306,7 @@ function CompressDialog({
     trimmedName === "..";
   const target = joinPath(dir, `${trimmedName}${format}`);
   return (
-    <Dialog title="Kompres" onClose={onCancel}>
+    <Dialog title="Compress" onClose={onCancel}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -315,20 +314,20 @@ function CompressDialog({
         }}
         className="flex flex-col gap-3"
       >
-        <span className="truncate text-xs text-muted">Sumber: {entry.name}</span>
+        <span className="truncate text-xs text-muted">Source: {entry.name}</span>
         <div className="flex items-center gap-2">
           <input
             autoFocus
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            aria-label="Nama arsip"
+            aria-label="Archive name"
             className="w-full min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-xs text-ink focus:border-field-focus focus:outline-none"
           />
           <select
             value={format}
             onChange={(e) => setFormat(e.target.value as ".zip" | ".tar.gz")}
-            aria-label="Format arsip"
+            aria-label="Archive format"
             className="shrink-0 rounded-lg border border-line bg-canvas px-2 py-2 text-xs text-ink focus:border-field-focus focus:outline-none"
           >
             <option value=".zip">.zip</option>
@@ -342,14 +341,14 @@ function CompressDialog({
             onClick={onCancel}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="submit"
             disabled={invalidName}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            Kompres
+            Compress
           </button>
         </div>
       </form>
@@ -370,7 +369,7 @@ function MoveDialog({
 }>) {
   const [dest, setDest] = useState("");
   return (
-    <Dialog title="Pindahkan ke Folder" onClose={onCancel}>
+    <Dialog title="Move to Folder" onClose={onCancel}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -382,7 +381,7 @@ function MoveDialog({
         <PathPickerRow
           value={dest}
           onChange={setDest}
-          ariaLabel="Folder tujuan pindah"
+          ariaLabel="Move destination folder"
           initialPath={initialPath}
         />
         <div className="flex items-center justify-end gap-2">
@@ -391,14 +390,14 @@ function MoveDialog({
             onClick={onCancel}
             className="flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="submit"
             disabled={!dest.trim()}
             className="flex h-8 items-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            Pindahkan
+            Move
           </button>
         </div>
       </form>
@@ -512,7 +511,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Buka
+            Open
           </button>
           {entry.kind === "folder" && onOpenTab && (
             <button
@@ -524,7 +523,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Buka di Tab Baru
+              Open in New Tab
             </button>
           )}
           {entry.kind === "folder" && !remote && onOpenTerminal && (
@@ -537,7 +536,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Buka di Terminal
+              Open in Terminal
             </button>
           )}
           {onAskAssistant && (
@@ -550,7 +549,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-accent transition-colors hover:bg-surface-2"
             >
-              Tanya Asisten AI
+              Ask AI Assistant
             </button>
           )}
           {entry.kind === "folder" && !remote && onMakeProject && (
@@ -563,7 +562,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Jadikan Proyek
+              Turn into Project
             </button>
           )}
           <div className="my-1 h-px bg-line" role="separator" />
@@ -578,7 +577,7 @@ export function FileContextMenu({
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-accent transition-colors hover:bg-surface-2"
               >
-                Ekstrak di sini
+                Extract here
               </button>
               {onExtractTo && (
                 <button
@@ -590,7 +589,7 @@ export function FileContextMenu({
                   }}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
                 >
-                  Ekstrak ke folder…
+                  Extract to folder…
                 </button>
               )}
             </>
@@ -606,7 +605,7 @@ export function FileContextMenu({
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
               >
-                Kompres ke .zip
+                Compress to .zip
               </button>
               {onCompressAs && (
                 <button
@@ -618,7 +617,7 @@ export function FileContextMenu({
                   }}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
                 >
-                  Kompres sebagai…
+                  Compress as…
                 </button>
               )}
             </>
@@ -633,7 +632,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Konversi…
+              Convert…
             </button>
           )}
           {entry.kind === "folder" && onToggleBookmark && (
@@ -646,7 +645,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              {isBookmarked ? "Hapus dari Markah" : "Tambah ke Markah"}
+              {isBookmarked ? "Remove from Bookmarks" : "Add to Bookmarks"}
             </button>
           )}
           <button
@@ -658,7 +657,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Salin Path
+            Copy Path
           </button>
           <div className="my-1 h-px bg-line" role="separator" />
           <button
@@ -670,7 +669,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            <span>Salin</span>
+            <span>Copy</span>
             <span className="font-mono text-[10px] text-muted">Ctrl+C</span>
           </button>
           <button
@@ -682,7 +681,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            <span>Potong</span>
+            <span>Cut</span>
             <span className="font-mono text-[10px] text-muted">Ctrl+X</span>
           </button>
           {!remote && onDuplicate && (
@@ -695,7 +694,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Duplikat
+              Duplicate
             </button>
           )}
           <div className="my-1 h-px bg-line" role="separator" />
@@ -709,7 +708,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Pindahkan ke…
+              Move to…
             </button>
           )}
           <button
@@ -721,7 +720,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Ganti Nama
+            Rename
           </button>
           <button
             type="button"
@@ -732,7 +731,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-danger transition-colors hover:bg-danger-row"
           >
-            <span>Hapus</span>
+            <span>Delete</span>
             <span className="font-mono text-[10px] text-muted">Del</span>
           </button>
         </>
@@ -748,7 +747,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Folder Baru
+            New Folder
           </button>
           {clipboard && clipboard.paths.length > 0 && (
             <button
@@ -760,7 +759,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-accent transition-colors hover:bg-surface-2"
             >
-              <span>Tempel {clipboard.paths.length} item</span>
+              <span>Paste {clipboard.paths.length} item{clipboard.paths.length === 1 ? "" : "s"}</span>
               <span className="font-mono text-[10px] text-muted">Ctrl+V</span>
             </button>
           )}
@@ -773,7 +772,7 @@ export function FileContextMenu({
             }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Salin Path Folder
+            Copy Folder Path
           </button>
           {onOpenTerminal && (
             <button
@@ -785,7 +784,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Buka di Terminal
+              Open in Terminal
             </button>
           )}
           {onAskAssistant && (
@@ -798,7 +797,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-accent transition-colors hover:bg-surface-2"
             >
-              Tanya Asisten AI
+              Ask AI Assistant
             </button>
           )}
           {onMakeProject && (
@@ -811,7 +810,7 @@ export function FileContextMenu({
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Jadikan Proyek
+              Turn into Project
             </button>
           )}
         </>
@@ -973,7 +972,7 @@ export function FilesPage({
         !isWithin(path, homePath) &&
         !next.some((d) => isWithin(path, d.path));
       if (orphaned) {
-        toast("Perangkat dilepas, kembali ke folder Home", "info");
+        toast("Device unmounted, returning to Home folder", "info");
         tabs.go(homePath);
       }
     },
@@ -1003,7 +1002,7 @@ export function FilesPage({
       if (entry.kind === "folder") {
         tabs.go(entry.path);
       } else if (isRemotePath(entry.path)) {
-        toast("Berkas remote belum bisa dibuka langsung. Salin ke folder lokal dulu.", "info");
+        toast("Remote files cannot be opened directly yet. Copy to a local folder first.", "info");
       } else {
         api.openFile(entry.path).catch((err) => toast(errorMessage(err), "error"));
       }
@@ -1040,14 +1039,14 @@ export function FilesPage({
     const paths = selectedEntries.map((e) => e.path);
     if (paths.length === 0) return;
     onSetClipboard({ mode: "copy", paths });
-    toast(`${paths.length} item disalin ke papan klip`);
+    toast(`${paths.length} item(s) copied to clipboard`);
   }, [selectedEntries, onSetClipboard, toast]);
 
   const handleMove = useCallback(() => {
     const paths = selectedEntries.map((e) => e.path);
     if (paths.length === 0) return;
     onSetClipboard({ mode: "move", paths });
-    toast(`${paths.length} item ditandai untuk dipindahkan`);
+    toast(`${paths.length} item(s) marked for moving`);
   }, [selectedEntries, onSetClipboard, toast]);
 
   const paste = useCallback(
@@ -1088,7 +1087,7 @@ export function FilesPage({
     if (paths.length === 0) return;
     try {
       const report = await api.trashItems(paths);
-      const { ok, error } = reportToasts(report, "dipindahkan ke Tong Sampah");
+      const { ok, error } = reportToasts(report, "moved to Trash");
       if (ok) toast(ok);
       if (error) toast(error, "error");
       setSelected([]);
@@ -1103,7 +1102,7 @@ export function FilesPage({
     async (path: string) => {
       try {
         await api.extractArchive(path);
-        toast("Arsip berhasil diekstrak");
+        toast("Archive extracted successfully");
         reload();
       } catch (e) {
         toast(errorMessage(e), "error");
@@ -1115,7 +1114,7 @@ export function FilesPage({
     async (entry: FileEntry) => {
       try {
         await api.compressArchive([entry.path]);
-        toast("Arsip .zip berhasil dibuat");
+        toast(".zip archive created successfully");
         reload();
       } catch (e) {
         toast(errorMessage(e), "error");
@@ -1129,7 +1128,7 @@ export function FilesPage({
       setExtractTarget(null);
       try {
         await api.extractArchive(entry.path, dest);
-        toast(`Arsip diekstrak ke ${dest}`);
+        toast(`Archive extracted to ${dest}`);
         reload();
       } catch (e) {
         toast(errorMessage(e), "error");
@@ -1143,7 +1142,7 @@ export function FilesPage({
       setCompressTarget(null);
       try {
         await api.compressArchive([entry.path], destPath);
-        toast("Arsip berhasil dibuat");
+        toast("Archive created successfully");
         reload();
       } catch (e) {
         toast(errorMessage(e), "error");
@@ -1159,8 +1158,8 @@ export function FilesPage({
         const result = await api.convertFile(entry.path, target);
         toast(
           result.bytes === 0
-            ? `Tidak ada isi yang bisa diekstrak; ${baseName(result.path)} kosong`
-            : `Berkas dikonversi ke ${baseName(result.path)}`,
+            ? `No contents could be extracted; ${baseName(result.path)} is empty`
+            : `File converted to ${baseName(result.path)}`,
         );
         setConvertTarget(null);
         reload();
@@ -1185,7 +1184,7 @@ export function FilesPage({
           mode: "copy",
           onConflict: "rename",
         });
-        const { ok, error } = reportToasts(report, "diduplikasi");
+        const { ok, error } = reportToasts(report, "duplicated");
         if (ok) toast(ok);
         if (error) toast(error, "error");
         reload();
@@ -1206,7 +1205,7 @@ export function FilesPage({
           mode: "move",
           onConflict: "rename",
         });
-        const { ok, error } = reportToasts(report, "dipindahkan");
+        const { ok, error } = reportToasts(report, "moved");
         if (ok) toast(ok);
         if (error) toast(error, "error");
         reload();
@@ -1222,14 +1221,14 @@ export function FilesPage({
       const target = path || currentPath;
       if (!target || isRemotePath(target)) return;
       if (home && target === home) {
-        toast("Folder Home tidak bisa dijadikan proyek", "error");
+        toast("Home folder cannot be turned into a project", "error");
         return;
       }
       if (home && !isWithin(target, home)) {
-        toast("Folder proyek harus berada di bawah Home", "error");
+        toast("Project folder must be inside Home", "error");
         return;
       }
-      const name = baseName(target) || "Proyek";
+      const name = baseName(target) || "Project";
       try {
         await api.saveProject({
           name,
@@ -1238,7 +1237,7 @@ export function FilesPage({
           agent: false,
           agentDir: target,
         });
-        toast(`Proyek "${name}" dibuat`);
+        toast(`Project "${name}" created`);
       } catch (e) {
         toast(errorMessage(e), "error");
       }
@@ -1253,7 +1252,7 @@ export function FilesPage({
       try {
         if (navigator?.clipboard?.writeText) {
           await navigator.clipboard.writeText(target);
-          toast("Path disalin ke papan klip");
+          toast("Path copied to clipboard");
         }
       } catch (e) {
         toast(errorMessage(e), "error");
@@ -1269,7 +1268,7 @@ export function FilesPage({
       try {
         const next = await api.folderMetaPin(entry.path, !isPinned);
         handleMetaChange(entry.path, next);
-        toast(isPinned ? "Dihapus dari Markah" : "Ditambahkan ke Markah");
+        toast(isPinned ? "Removed from Bookmarks" : "Added to Bookmarks");
       } catch (e) {
         toast(errorMessage(e), "error");
       }
@@ -1295,7 +1294,7 @@ export function FilesPage({
       if (!target) return;
       onOpenAssistant({
         kind: "compose",
-        text: `Bantu jelaskan atau kelola isi folder ini:\nLokasi: ${target}`,
+        text: `Help explain or manage the contents of this folder:\nPath: ${target}`,
       });
     },
     [currentPath, onOpenAssistant],
@@ -1310,7 +1309,7 @@ export function FilesPage({
           mode: "move",
           onConflict: "rename",
         });
-        const { ok, error } = reportToasts(report, "dipindahkan");
+        const { ok, error } = reportToasts(report, "moved");
         if (ok) toast(ok);
         if (error) toast(error, "error");
         reload();
@@ -1326,7 +1325,7 @@ export function FilesPage({
       if (!renameTarget) return;
       try {
         await api.renameEntry(renameTarget.path, newName, showHidden);
-        toast("Nama berhasil diubah");
+        toast("Rename successful");
         setRenameTarget(null);
         reload();
       } catch (e) {
@@ -1525,7 +1524,7 @@ export function FilesPage({
               .then(() => {
                 setReloadToken((t) => t + 1);
                 setNewFolderOpen(false);
-                toast("Folder berhasil dibuat");
+                toast("Folder created successfully");
               })
               .catch((e) => toast(errorMessage(e), "error"));
           }}
@@ -1587,11 +1586,11 @@ export function FilesPage({
           onAskAssistant={handleAskAssistant}
           onCopy={(e) => {
             onSetClipboard({ mode: "copy", paths: [e.path] });
-            toast("Disalin ke papan klip");
+            toast("Copied to clipboard");
           }}
           onCut={(e) => {
             onSetClipboard({ mode: "move", paths: [e.path] });
-            toast("Ditandai untuk dipindahkan");
+            toast("Marked for moving");
           }}
           onPaste={() => void paste()}
           onRename={(e) => setRenameTarget(e)}

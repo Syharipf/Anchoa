@@ -49,7 +49,7 @@ export function MediaPlayerModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup pemutar"
+            aria-label="Close player"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-3 hover:text-ink transition-colors"
           >
             ✕
@@ -66,7 +66,7 @@ export function MediaPlayerModal({
               className="max-h-[65vh] w-full rounded-lg object-contain"
             >
               <track kind="captions" />
-              Browser tidak mendukung pemutaran video ini.
+              Your browser does not support this video.
             </video>
           ) : (
             <div className="flex w-full flex-col items-center gap-4 py-8">
@@ -74,7 +74,7 @@ export function MediaPlayerModal({
                 🎵
               </div>
               <audio controls autoPlay src={mediaSrc} className="w-full max-w-md">
-                Browser tidak mendukung pemutaran audio ini.
+                Your browser does not support this audio.
               </audio>
             </div>
           )}
@@ -90,7 +90,7 @@ export function MediaPlayerModal({
             onClick={onClose}
             className={`${SECONDARY} py-1 text-xs`}
           >
-            Tutup
+            Close
           </button>
         </div>
       </div>

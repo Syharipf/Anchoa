@@ -43,12 +43,12 @@ describe("file manager components", () => {
           onSelectPlace={() => {}}
         />,
       );
-      expect(html).toContain("Tempat");
+      expect(html).toContain("Places");
       expect(html).toContain("Home");
       expect(html).toContain("Dokumen");
       expect(html).toContain('aria-current="page"');
-      expect(html).not.toContain("Perangkat");
-      expect(html).not.toContain("Markah");
+      expect(html).not.toContain("Devices");
+      expect(html).not.toContain("Bookmarks");
       expect(html).not.toContain("Remote");
     });
 
@@ -66,7 +66,7 @@ describe("file manager components", () => {
           onSelectPlace={() => {}}
         />,
       );
-      expect(html).toContain("Perangkat");
+      expect(html).toContain("Devices");
       expect(html).toContain("USB Flash");
     });
 
@@ -85,7 +85,7 @@ describe("file manager components", () => {
           onSelectPlace={() => {}}
         />,
       );
-      expect(html).toContain("Markah");
+      expect(html).toContain("Bookmarks");
       expect(html).toContain("Foto");
       expect(html).toContain("📷");
       expect(html).toContain("Remote");
@@ -139,15 +139,15 @@ describe("file manager components", () => {
           onClearClipboard={() => {}}
         />,
       );
-      expect(html).toContain('aria-label="Kembali"');
-      expect(html).toContain('aria-label="Maju"');
-      expect(html).toContain('aria-label="Naik satu folder"');
-      expect(html).toContain('aria-label="Tampilan ikon"');
-      expect(html).toContain('aria-label="Tampilan daftar"');
-      expect(html).toContain("Tampilkan tersembunyi");
+      expect(html).toContain('aria-label="Back"');
+      expect(html).toContain('aria-label="Forward"');
+      expect(html).toContain('aria-label="Up one folder"');
+      expect(html).toContain('aria-label="Icon view"');
+      expect(html).toContain('aria-label="List view"');
+      expect(html).toContain("Show hidden");
       expect(html).toContain("Home");
       expect(html).toContain("Dokumen");
-      expect(html).not.toContain("Tempel");
+      expect(html).not.toContain("Paste");
     });
 
     it("renders paste and clear buttons when clipboard has items", () => {
@@ -170,8 +170,8 @@ describe("file manager components", () => {
           onClearClipboard={() => {}}
         />,
       );
-      expect(html).toContain("Tempel 3 item");
-      expect(html).toContain('aria-label="Kosongkan papan klip"');
+      expect(html).toContain("Paste 3 items");
+      expect(html).toContain('aria-label="Clear clipboard"');
     });
   });
 
@@ -204,7 +204,7 @@ describe("file manager components", () => {
           onOpen={() => {}}
         />,
       );
-      expect(gridHtml).toContain("Folder kosong");
+      expect(gridHtml).toContain("Empty folder");
 
       const listHtml = renderToStaticMarkup(
         <FileList
@@ -214,7 +214,7 @@ describe("file manager components", () => {
           onOpen={() => {}}
         />,
       );
-      expect(listHtml).toContain("Folder kosong");
+      expect(listHtml).toContain("Empty folder");
     });
 
     it("renders lazy loading image tag for image entries in grid", () => {
@@ -241,10 +241,10 @@ describe("file manager components", () => {
           onOpen={() => {}}
         />,
       );
-      expect(html).toContain("Nama");
-      expect(html).toContain("Ukuran");
-      expect(html).toContain("Jenis");
-      expect(html).toContain("Diubah");
+      expect(html).toContain("Name");
+      expect(html).toContain("Size");
+      expect(html).toContain("Kind");
+      expect(html).toContain("Modified");
       expect(html).toContain("data-file-entry");
       expect(html).toContain("foto.png");
       expect(html).toContain("PDF");
@@ -284,7 +284,7 @@ describe("file manager components", () => {
       expect(tabLabel("rclone:gdrive:")).toBe("gdrive");
       expect(tabLabel("rclone:gdrive:Docs/Arsip")).toBe("Arsip");
       expect(tabLabel("/")).toBe("/");
-      expect(tabLabel("")).toBe("Berkas");
+      expect(tabLabel("")).toBe("Files");
     });
 
     it("stays hidden with one tab and renders closable tabs otherwise", () => {
@@ -296,7 +296,7 @@ describe("file manager components", () => {
       );
       expect(html).toContain('role="tablist"');
       expect(html).toContain('aria-selected="true"');
-      expect(html).toContain("Tutup tab c");
+      expect(html).toContain("Close tab c");
     });
   });
 
@@ -312,13 +312,13 @@ describe("file manager components", () => {
           onClear={() => {}}
         />,
       );
-      expect(html).toContain("3 item");
+      expect(html).toContain("3 items");
       expect(html).toContain("12,4 MB");
       expect(html).toContain("· 12,4 MB");
-      expect(html).toContain("Salin");
-      expect(html).toContain("Pindahkan");
-      expect(html).toContain("Hapus");
-      expect(html).toContain("Batal");
+      expect(html).toContain("Copy");
+      expect(html).toContain("Move");
+      expect(html).toContain("Delete");
+      expect(html).toContain("Cancel");
       expect(html).toContain("pr-[88px]");
     });
   });
@@ -332,11 +332,11 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(html).toContain("2 nama sudah ada di folder ini");
-      expect(html).toContain("Ganti");
-      expect(html).toContain("Lewati");
-      expect(html).toContain("Simpan dengan nama baru");
-      expect(html).toContain("Batal");
+      expect(html).toContain("2 name(s) already exist in this folder");
+      expect(html).toContain("Replace");
+      expect(html).toContain("Skip");
+      expect(html).toContain("Save with new name");
+      expect(html).toContain("Cancel");
     });
   });
 
@@ -378,8 +378,8 @@ describe("file manager components", () => {
         />,
       );
       expect(html).toContain("pantai.jpg");
-      expect(html).toContain("Gambar");
-      expect(html).toContain("Tanya asisten");
+      expect(html).toContain("Image");
+      expect(html).toContain("Ask assistant");
       expect(html).toContain("<img");
     });
 
@@ -431,11 +431,11 @@ describe("file manager components", () => {
           />
         </PreviewPanel>,
       );
-      expect(html).toContain("Penanda");
-      expect(html).toContain('aria-label="Penanda 📷" aria-pressed="true"');
-      expect(html).toContain("Hapus dari Markah");
-      expect(html).toContain("Buka di tab baru");
-      expect(html).toContain("Ringkasan folder");
+      expect(html).toContain("Markers");
+      expect(html).toContain('aria-label="Marker 📷" aria-pressed="true"');
+      expect(html).toContain("Remove from Bookmarks");
+      expect(html).toContain("Open in new tab");
+      expect(html).toContain("Folder summary");
     });
 
     it("hides the local-only summary for remote folders and their file previews", () => {
@@ -450,8 +450,8 @@ describe("file manager components", () => {
       const tools = renderToStaticMarkup(
         <FolderTools entry={remoteFolder} meta={undefined} onMetaChange={() => {}} onOpenTab={() => {}} />,
       );
-      expect(tools).toContain("Tambah ke Markah");
-      expect(tools).not.toContain("Ringkasan folder");
+      expect(tools).toContain("Add to Bookmarks");
+      expect(tools).not.toContain("Folder summary");
 
       const html = renderToStaticMarkup(
         <PreviewPanel
@@ -462,7 +462,7 @@ describe("file manager components", () => {
         />,
       );
       expect(html).not.toContain("<img");
-      expect(html).toContain("Pratinjau belum tersedia");
+      expect(html).toContain("Preview not available");
     });
   });
 
@@ -506,16 +506,16 @@ describe("file manager components", () => {
           onClose={() => {}}
         />,
       );
-      expect(html).toContain("Buka di Tab Baru");
-      expect(html).toContain("Buka di Terminal");
-      expect(html).toContain("Tanya Asisten AI");
-      expect(html).toContain("Jadikan Proyek");
-      expect(html).toContain("Salin Path");
-      expect(html).toContain("Kompres ke .zip");
-      expect(html).toContain("Kompres sebagai…");
-      expect(html).toContain("Duplikat");
-      expect(html).toContain("Pindahkan ke…");
-      expect(html).toContain("Tambah ke Markah");
+      expect(html).toContain("Open in New Tab");
+      expect(html).toContain("Open in Terminal");
+      expect(html).toContain("Ask AI Assistant");
+      expect(html).toContain("Turn into Project");
+      expect(html).toContain("Copy Path");
+      expect(html).toContain("Compress to .zip");
+      expect(html).toContain("Compress as…");
+      expect(html).toContain("Duplicate");
+      expect(html).toContain("Move to…");
+      expect(html).toContain("Add to Bookmarks");
     });
 
     it("offers both extract actions for archives and hides local-only ones on rclone paths", () => {
@@ -547,8 +547,8 @@ describe("file manager components", () => {
           onClose={() => {}}
         />,
       );
-      expect(local).toContain("Ekstrak di sini");
-      expect(local).toContain("Ekstrak ke folder…");
+      expect(local).toContain("Extract here");
+      expect(local).toContain("Extract to folder…");
 
       const remote = renderToStaticMarkup(
         <FileContextMenu
@@ -575,11 +575,11 @@ describe("file manager components", () => {
           onClose={() => {}}
         />,
       );
-      expect(remote).not.toContain("Buka di Terminal");
-      expect(remote).not.toContain("Jadikan Proyek");
-      expect(remote).not.toContain("Kompres ke .zip");
-      expect(remote).not.toContain("Duplikat");
-      expect(remote).not.toContain("Pindahkan ke…");
+      expect(remote).not.toContain("Open in Terminal");
+      expect(remote).not.toContain("Turn into Project");
+      expect(remote).not.toContain("Compress to .zip");
+      expect(remote).not.toContain("Duplicate");
+      expect(remote).not.toContain("Move to…");
     });
 
     it("hides extract and compress for an archive on an rclone path", () => {
@@ -611,10 +611,10 @@ describe("file manager components", () => {
           onClose={() => {}}
         />,
       );
-      expect(html).not.toContain("Ekstrak di sini");
-      expect(html).not.toContain("Ekstrak ke folder…");
-      expect(html).not.toContain("Kompres ke .zip");
-      expect(html).not.toContain("Kompres sebagai…");
+      expect(html).not.toContain("Extract here");
+      expect(html).not.toContain("Extract to folder…");
+      expect(html).not.toContain("Compress to .zip");
+      expect(html).not.toContain("Compress as…");
     });
 
     it("renders Hapus dari Markah if folder is already bookmarked", () => {
@@ -639,7 +639,7 @@ describe("file manager components", () => {
           onClose={() => {}}
         />,
       );
-      expect(html).toContain("Hapus dari Markah");
+      expect(html).toContain("Remove from Bookmarks");
     });
 
     it("renders empty folder context menu with Salin Path Folder, Buka di Terminal, Tanya Asisten AI", () => {
@@ -665,10 +665,10 @@ describe("file manager components", () => {
           onClose={() => {}}
         />,
       );
-      expect(html).toContain("Folder Baru");
-      expect(html).toContain("Salin Path Folder");
-      expect(html).toContain("Buka di Terminal");
-      expect(html).toContain("Tanya Asisten AI");
+      expect(html).toContain("New Folder");
+      expect(html).toContain("Copy Folder Path");
+      expect(html).toContain("Open in Terminal");
+      expect(html).toContain("Ask AI Assistant");
     });
   });
 
@@ -703,12 +703,12 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(html).toContain("Pilih Folder");
+      expect(html).toContain("Select Folder");
       expect(html).toContain("/home/user");
       expect(html).toContain("Proyek");
       expect(html).toContain("Dokumen");
-      expect(html).toContain("Pilih folder ini");
-      expect(html).toContain("Batal");
+      expect(html).toContain("Select this folder");
+      expect(html).toContain("Cancel");
     });
 
     it("disables Naik button when path is / (root)", () => {
@@ -722,7 +722,7 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(html).toMatch(/<button[^>]*disabled=""[^>]*>\s*Naik\s*<\/button>/);
+      expect(html).toMatch(/<button[^>]*disabled=""[^>]*>\s*Up\s*<\/button>/);
     });
 
     it("renders empty state when there are no subfolders", () => {
@@ -736,7 +736,7 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(html).toContain("Tidak ada subfolder");
+      expect(html).toContain("No subfolders");
     });
 
     it("displays error with role=alert when present", () => {
@@ -781,11 +781,11 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(html).toContain("Sumber: foto.png");
+      expect(html).toContain("Source: foto.png");
       expect(html).toContain("JPG");
       expect(html).toContain("WEBP");
       expect(html).toContain("/home/user/foto.jpg");
-      expect(html).toContain("Tidak menimpa berkas");
+      expect(html).toContain("Does not overwrite existing files");
     });
 
     it("previews the next free name when the target exists", () => {
@@ -813,7 +813,7 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(html).toContain("Mengonversi…");
+      expect(html).toContain("Converting…");
       expect(html).toContain("disabled");
     });
 
@@ -828,7 +828,7 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(empty).toContain("Tidak ada format tujuan");
+      expect(empty).toContain("No target format available");
 
       const pdf = renderToStaticMarkup(
         <ConvertDialog
@@ -840,7 +840,7 @@ describe("file manager components", () => {
           onCancel={() => {}}
         />,
       );
-      expect(pdf).toContain("Hanya halaman pertama");
+      expect(pdf).toContain("First page only");
     });
   });
 
@@ -854,7 +854,7 @@ describe("file manager components", () => {
       hidden: false,
     };
 
-    it("shows Konversi… only for a convertible local file", () => {
+    it("shows Convert… only for a convertible local file", () => {
       const menu = (entry: FileEntry, convertible: boolean) =>
         renderToStaticMarkup(
           <FileContextMenu
@@ -877,10 +877,10 @@ describe("file manager components", () => {
             onClose={() => {}}
           />,
         );
-      expect(menu(png, true)).toContain("Konversi…");
-      expect(menu(png, false)).not.toContain("Konversi…");
+      expect(menu(png, true)).toContain("Convert…");
+      expect(menu(png, false)).not.toContain("Convert…");
       expect(menu({ ...png, path: "rclone:gdrive:foto.png" }, true)).not.toContain(
-        "Konversi…",
+        "Convert…",
       );
     });
   });

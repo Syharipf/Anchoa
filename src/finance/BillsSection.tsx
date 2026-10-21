@@ -27,16 +27,16 @@ function BillRow({
           onClick={() => onPay(b)}
           className="min-h-8 shrink-0 rounded-full bg-accent px-3 text-xs font-semibold text-canvas transition-transform hover:scale-105 active:scale-95"
         >
-          Tandai lunas
+          Mark as paid
         </button>
       )}
       {b.status === "upcoming" && <span className="shrink-0 font-mono text-sm">{formatRupiah(b.amount)}</span>}
-      {b.status === "paidToday" && <span className="shrink-0 text-xs text-accent">✓ Lunas</span>}
+      {b.status === "paidToday" && <span className="shrink-0 text-xs text-accent">✓ Paid</span>}
     </div>
   );
 }
 
-/** "Tagihan": every unfinished bill, soonest first, with "Tandai lunas" once it is due (spec Fase 2 §5). */
+/** "Bills": every unfinished bill, soonest first, with "Mark as paid" once it is due (spec Fase 2 §5). */
 export function BillsSection({
   bills,
   onAdd,
@@ -44,16 +44,16 @@ export function BillsSection({
   onPay,
 }: Readonly<{ bills: BillView[]; onAdd: () => void; onEdit: (bill: BillView) => void; onPay: (bill: BillView) => void }>) {
   return (
-    <section aria-labelledby="tagihan-judul" className={`${PANEL} flex flex-col gap-2`}>
+    <section aria-labelledby="bills-heading" className={`${PANEL} flex flex-col gap-2`}>
       <div className="flex items-center justify-between">
-        <h2 id="tagihan-judul" className={H2}>
-          Tagihan
+        <h2 id="bills-heading" className={H2}>
+          Bills
         </h2>
         <button onClick={onAdd} className="text-xs text-accent hover:text-accent-hover">
-          + Tambah
+          + Add
         </button>
       </div>
-      {bills.length === 0 && <p className="m-0 text-sm text-muted">Belum ada tagihan</p>}
+      {bills.length === 0 && <p className="m-0 text-sm text-muted">No bills yet</p>}
       {bills.map((b) => (
         <BillRow key={b.id} bill={b} onEdit={onEdit} onPay={onPay} />
       ))}

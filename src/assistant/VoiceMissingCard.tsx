@@ -16,10 +16,10 @@ export function VoiceMissingCard({
     >
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-warn" aria-hidden="true" />
-        <span className="font-semibold text-warn">Suara belum dipasang</span>
+        <span className="font-semibold text-warn">Voice not installed</span>
       </div>
       <p className="m-0 text-muted leading-relaxed">
-        Fitur suara (whisper &amp; Piper) perlu dipasang terlebih dahulu di pengaturan.
+        Voice features (whisper &amp; Piper) need to be installed in settings first.
       </p>
       {onOpenVoiceSettings && (
         <button
@@ -27,7 +27,7 @@ export function VoiceMissingCard({
           onClick={onOpenVoiceSettings}
           className="self-start pt-0.5 font-medium text-accent hover:underline cursor-pointer"
         >
-          Pengaturan › Suara
+          Settings › Voice
         </button>
       )}
     </div>

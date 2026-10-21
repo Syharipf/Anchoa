@@ -26,21 +26,21 @@ import {
 describe("project view helpers", () => {
   test("ordinary projects keep their three columns", () => {
     expect(boardColumns(false).map(({ status, title }) => [status, title])).toEqual([
-      ["plan", "Rencana"], ["doing", "Dikerjakan"], ["done", "Selesai"],
+      ["plan", "Plan"], ["doing", "In Progress"], ["done", "Done"],
     ]);
   });
 
   test("agent projects show all five columns in workflow order", () => {
     expect(boardColumns(true).map(({ status, title }) => [status, title])).toEqual([
-      ["plan", "Rencana"], ["doing", "Dikerjakan"], ["test", "Tes"],
-      ["review", "Review"], ["done", "Selesai"],
+      ["plan", "Plan"], ["doing", "In Progress"], ["test", "Test"],
+      ["review", "Review"], ["done", "Done"],
     ]);
   });
 
-  test("activity roles have Indonesian labels", () => {
+  test("activity roles have English labels", () => {
     expect(ROLE_LABELS).toEqual({
-      request: "Permintaan", plan: "Rencana", implement: "Implementasi", test: "Tes",
-      review: "Review", merge: "Merge", note: "Catatan",
+      request: "Request", plan: "Plan", implement: "Implementation", test: "Test",
+      review: "Review", merge: "Merge", note: "Note",
     });
   });
 
@@ -66,17 +66,17 @@ describe("project view helpers", () => {
     expect(lastActivity([{ ...activities[0] }, { ...activities[2], createdAt: 30 }])?.actor).toBe("Gemini");
   });
 
-  test("kind labels map every ProjectKind to Indonesian", () => {
-    expect(KIND_LABELS.app).toBe("Aplikasi");
-    expect(KIND_LABELS.document).toBe("Dokumen");
-    expect(KIND_LABELS.research).toBe("Riset");
-    expect(KIND_LABELS.personal).toBe("Pribadi");
+  test("kind labels map every ProjectKind to English", () => {
+    expect(KIND_LABELS.app).toBe("App");
+    expect(KIND_LABELS.document).toBe("Document");
+    expect(KIND_LABELS.research).toBe("Research");
+    expect(KIND_LABELS.personal).toBe("Personal");
   });
 
   test("status labels provide label and tone", () => {
-    expect(STATUS_LABELS.active).toEqual({ label: "Aktif", tone: "accent" });
-    expect(STATUS_LABELS.late).toEqual({ label: "Terlambat", tone: "danger" });
-    expect(STATUS_LABELS.done).toEqual({ label: "Selesai", tone: "muted" });
+    expect(STATUS_LABELS.active).toEqual({ label: "Active", tone: "accent" });
+    expect(STATUS_LABELS.late).toEqual({ label: "Overdue", tone: "danger" });
+    expect(STATUS_LABELS.done).toEqual({ label: "Done", tone: "muted" });
   });
 
   test("deadlineLabel formats empty, today, late, and future dates", () => {
@@ -85,11 +85,11 @@ describe("project view helpers", () => {
 
     expect(deadlineLabel(null, null)).toBe("");
     expect(deadlineLabel(null, 5)).toBe("");
-    expect(deadlineLabel(oct31, 0)).toBe("hari ini");
-    expect(deadlineLabel(oct31, -1)).toBe("terlambat 1 hari");
-    expect(deadlineLabel(oct31, -3)).toBe("terlambat 3 hari");
-    expect(deadlineLabel(oct31, 32)).toBe("31 Okt");
-    expect(deadlineLabel(oct31, null)).toBe("31 Okt");
+    expect(deadlineLabel(oct31, 0)).toBe("today");
+    expect(deadlineLabel(oct31, -1)).toBe("1 day overdue");
+    expect(deadlineLabel(oct31, -3)).toBe("3 days overdue");
+    expect(deadlineLabel(oct31, 32)).toBe("Oct 31");
+    expect(deadlineLabel(oct31, null)).toBe("Oct 31");
   });
 
   test("nextStatus cycles plan -> doing -> done -> plan", () => {
@@ -106,18 +106,18 @@ describe("project view helpers", () => {
     expect(nextStatus("test", true)).toBe("review");
     expect(nextStatus("review", true)).toBe("done");
     expect(nextStatus("done", true)).toBe("plan");
-    expect(moveLabel("doing", true)).toBe("Pindah ke Tes");
-    expect(moveLabel("test", true)).toBe("Pindah ke Review");
-    expect(moveLabel("review", true)).toBe("Pindah ke Selesai");
-    expect(moveLabel("done", true)).toBe("Kembalikan ke Rencana");
+    expect(moveLabel("doing", true)).toBe("Move to Test");
+    expect(moveLabel("test", true)).toBe("Move to Review");
+    expect(moveLabel("review", true)).toBe("Move to Done");
+    expect(moveLabel("done", true)).toBe("Move back to Plan");
   });
 
   test("moveLabel provides button aria-labels for each column", () => {
-    expect(moveLabel("plan")).toBe("Pindah ke Dikerjakan");
-    expect(moveLabel("doing")).toBe("Pindah ke Selesai");
-    expect(moveLabel("test")).toBe("Pindah ke Selesai");
-    expect(moveLabel("review")).toBe("Pindah ke Selesai");
-    expect(moveLabel("done")).toBe("Kembalikan ke Rencana");
+    expect(moveLabel("plan")).toBe("Move to In Progress");
+    expect(moveLabel("doing")).toBe("Move to Done");
+    expect(moveLabel("test")).toBe("Move to Done");
+    expect(moveLabel("review")).toBe("Move to Done");
+    expect(moveLabel("done")).toBe("Move back to Plan");
   });
 
   test("subLabel formats subtask progress or returns null if none", () => {
@@ -135,16 +135,16 @@ describe("project view helpers", () => {
   });
 
   test("parentLabel formats parent title with arrow", () => {
-    expect(parentLabel("Tugas Induk")).toBe("↑ Tugas Induk");
-    expect(parentLabel(null)).toBe("↑ Induk");
-    expect(parentLabel(undefined)).toBe("↑ Induk");
+    expect(parentLabel("Parent Task")).toBe("↑ Parent Task");
+    expect(parentLabel(null)).toBe("↑ Parent");
+    expect(parentLabel(undefined)).toBe("↑ Parent");
   });
 
   test("activity filters define standard filter categories", () => {
     expect(ACTIVITY_FILTERS.map((f) => [f.id, f.label])).toEqual([
-      ["all", "Semua"],
-      ["tasks", "Rencana & tugas"],
-      ["test", "Tes"],
+      ["all", "All"],
+      ["tasks", "Plans & tasks"],
+      ["test", "Tests"],
     ]);
   });
 
@@ -209,10 +209,10 @@ describe("project view helpers", () => {
 
   test("quick buttons provide standard prompts", () => {
     expect(AGENT_QUICK_BUTTONS).toEqual([
-      "Jalankan tes",
-      "Perbaiki tes yang gagal",
-      "Lanjutkan tugas berikutnya",
-      "Ringkas progres hari ini",
+      "Run tests",
+      "Fix failing tests",
+      "Continue to next task",
+      "Summarize today's progress",
     ]);
   });
 
@@ -229,7 +229,7 @@ describe("project view helpers", () => {
     expect(hasFilter({})).toBe(false);
     expect(hasFilter({ query: "  " })).toBe(false);
     expect(hasFilter({ due: "none" })).toBe(true);
-    expect([1, 2, 3].map((p) => PRIORITY_LABELS[p as Priority].label)).toEqual(["Tinggi", "Sedang", "Rendah"]);
+    expect([1, 2, 3].map((p) => PRIORITY_LABELS[p as Priority].label)).toEqual(["High", "Medium", "Low"]);
   });
 });
 

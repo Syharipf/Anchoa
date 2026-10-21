@@ -35,7 +35,7 @@ describe("AssistantMini", () => {
     harness.render();
 
     const trigger = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Buka asisten",
+      (el) => el.props["aria-label"] === "Open assistant",
     );
     expect(trigger).toBeDefined();
 
@@ -69,19 +69,19 @@ describe("AssistantMini", () => {
 
     // Open popup
     const trigger = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Buka asisten",
+      (el) => el.props["aria-label"] === "Open assistant",
     );
     expect(trigger).toBeDefined();
     (trigger!.props.onClick as () => void)();
     harness.render();
 
     const html = renderToStaticMarkup(harness.render());
-    expect(html).toContain("Ollama belum berjalan");
+    expect(html).toContain("Ollama is not running");
     expect(html).toContain("sudo systemctl start ollama");
-    expect(html).toContain("Pengaturan › Asisten &amp; AI");
+    expect(html).toContain("Settings › Assistant &amp; AI");
 
     const linkBtn = elements(harness.render()).find(
-      (el) => el.type === "button" && el.props.children === "Pengaturan › Asisten & AI",
+      (el) => el.type === "button" && el.props.children === "Settings › Assistant & AI",
     );
     if (linkBtn) {
       (linkBtn.props.onClick as () => void)();
@@ -118,14 +118,14 @@ describe("AssistantMini", () => {
 
     // Open
     const trigger = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Buka asisten",
+      (el) => el.props["aria-label"] === "Open assistant",
     );
     (trigger!.props.onClick as () => void)();
     harness.render();
 
     // Toggle typing
     const typingBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Ketik pesan",
+      (el) => el.props["aria-label"] === "Type message",
     );
     expect(typingBtn).toBeDefined();
     (typingBtn!.props.onClick as () => void)();
@@ -139,12 +139,11 @@ describe("AssistantMini", () => {
 
     // Send
     const kirimBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Kirim",
+      (el) => el.props["aria-label"] === "Send",
     );
     expect(kirimBtn).toBeDefined();
     (kirimBtn!.props.onClick as () => void)();
     harness.render();
-
     expect(sendSpy).toHaveBeenCalledWith("buat catatan", expect.any(Function));
 
     // Emit streaming delta
@@ -153,22 +152,22 @@ describe("AssistantMini", () => {
     harness.render();
 
     const markup = renderToStaticMarkup(harness.render());
-    expect(markup).toContain("Sedang berpikir…");
+    expect(markup).toContain("Thinking…");
     expect(markup).toContain("Mencatat...");
-    expect(markup).toContain("Hentikan");
+    expect(markup).toContain("Stop");
 
-    const microphone = elements(harness.render()).find((el) => el.props["aria-label"] === "Ketuk untuk bicara")!;
+    const microphone = elements(harness.render()).find((el) => el.props["aria-label"] === "Tap to speak")!;
     expect(microphone.props.disabled).toBe(true);
     (microphone.props.onClick as () => void)();
     (kirimBtn!.props.onClick as () => void)();
     expect(sendSpy).toHaveBeenCalledTimes(1);
-    expect(renderToStaticMarkup(harness.render())).toContain("Sedang berpikir…");
+    expect(renderToStaticMarkup(harness.render())).toContain("Thinking…");
     (typingBtn!.props.onClick as () => void)();
-    expect(renderToStaticMarkup(harness.render())).toContain("Hentikan");
+    expect(renderToStaticMarkup(harness.render())).toContain("Stop");
 
-    // Click Hentikan
+    // Click Stop
     const hentikanBtn = elements(harness.render()).find(
-      (el) => el.props["aria-label"] === "Hentikan",
+      (el) => el.props["aria-label"] === "Stop",
     );
     expect(hentikanBtn).toBeDefined();
     await (hentikanBtn!.props.onClick as () => Promise<void>)();
@@ -182,11 +181,11 @@ describe("AssistantMini", () => {
     harness.render();
     await harness.settle();
     const button = (label: string) => elements(harness!.render()).find((el) => el.props["aria-label"] === label)!;
-    (button("Buka asisten").props.onClick as () => void)();
-    (button("Ketik pesan").props.onClick as () => void)();
+    (button("Open assistant").props.onClick as () => void)();
+    (button("Type message").props.onClick as () => void)();
     const input = elements(harness.render()).find((el) => el.type === "input")!;
     (input.props.onChange as (e: unknown) => void)({ target: { value: "Halo" } });
-    (button("Kirim").props.onClick as () => void)();
+    (button("Send").props.onClick as () => void)();
     await harness.settle();
 
     const feedback = elements(harness.render()).find((el) => el.type === AssistantFeedback)!;
@@ -197,7 +196,7 @@ describe("AssistantMini", () => {
     expect(alert.props.className).toContain("text-danger");
     expect(renderToStaticMarkup(alert)).toContain("Balasan gagal");
     const closeBtn = feedbackElements.find(
-      (el) => el.props["aria-label"] === "Tutup pesan kesalahan",
+      (el) => el.props["aria-label"] === "Close error message",
     )!;
     expect(closeBtn).toBeDefined();
     (closeBtn.props.onClick as () => void)();
@@ -211,12 +210,12 @@ describe("AssistantMini", () => {
     harness = hookHarness<ReactNode>(() => AssistantMini({ hint: "Petunjuk", onOpenFull: () => {} }));
     harness.render();
     await harness.settle();
-    const trigger = elements(harness.render()).find((el) => el.props["aria-label"] === "Buka asisten")!;
+    const trigger = elements(harness.render()).find((el) => el.props["aria-label"] === "Open assistant")!;
     (trigger.props.onClick as () => void)();
-    expect(renderToStaticMarkup(harness.render())).toContain("Ollama belum berjalan");
+    expect(renderToStaticMarkup(harness.render())).toContain("Ollama is not running");
     harness.runTimers();
     await harness.settle();
-    expect(renderToStaticMarkup(harness.render())).not.toContain("Ollama belum berjalan");
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Ollama is not running");
   });
 
   it("shows VoiceMissingCard linking to Pengaturan > Suara when voice parts are missing and mic is pressed in Mini", async () => {
@@ -245,19 +244,19 @@ describe("AssistantMini", () => {
     await harness.settle();
 
     // Open popup
-    const trigger = elements(harness.render()).find((el) => el.props["aria-label"] === "Buka asisten")!;
+    const trigger = elements(harness.render()).find((el) => el.props["aria-label"] === "Open assistant")!;
     (trigger.props.onClick as () => void)();
     harness.render();
 
-    const micBtn = elements(harness.render()).find((el) => el.props["aria-label"] === "Ketuk untuk bicara")!;
+    const micBtn = elements(harness.render()).find((el) => el.props["aria-label"] === "Tap to speak")!;
     expect(micBtn).toBeDefined();
 
     await (micBtn.props.onClick as () => Promise<void>)();
     await harness.settle();
 
     const markup = renderToStaticMarkup(harness.render());
-    expect(markup).toContain("Suara belum dipasang");
-    expect(markup).toContain("Pengaturan › Suara");
+    expect(markup).toContain("Voice not installed");
+    expect(markup).toContain("Settings › Voice");
 
     const card = elements(harness.render()).find((el) => el.type === VoiceMissingCard);
     expect(card).toBeDefined();

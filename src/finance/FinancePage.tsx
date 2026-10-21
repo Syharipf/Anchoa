@@ -84,7 +84,7 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
     api.financeCategories().then(setCategories, fail);
   }, [version, toast]);
 
-  if (!overview || !accounts || !bills) return <h1 className={H1}>Keuangan</h1>;
+  if (!overview || !accounts || !bills) return <h1 className={H1}>Finance</h1>;
 
   const close = () => setOpen(null);
   const refresh = () => {
@@ -99,8 +99,8 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
     api.payBill(bill.id).then(
       (paid) => {
         refresh();
-        toast(`Tercatat ${formatRupiah(bill.amount)}`, "info", {
-          label: "Ubah",
+        toast(`Recorded ${formatRupiah(bill.amount)}`, "info", {
+          label: "Edit",
           run: () => setOpen({ form: "transaction", edit: paid }),
         });
       },
@@ -111,7 +111,7 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
     if (open === null) return null;
     if (open.form === "account") return <AccountForm edit={open.edit} onClose={close} onSaved={saved} />;
     if (open.form === "budget") return <BudgetForm current={overview.budget?.amount ?? null} onClose={close} onSaved={saved} />;
-    if (accounts.length === 0) return <AccountForm note="Buat akun dulu" onClose={close} onSaved={saved} />;
+    if (accounts.length === 0) return <AccountForm note="Create an account first" onClose={close} onSaved={saved} />;
     if (open.form === "bill") return <BillForm edit={open.edit} accounts={accounts} onClose={close} onSaved={saved} />;
     return <TransactionForm edit={open.edit} accounts={accounts} categories={categories} onClose={close} onSaved={saved} />;
   };
@@ -119,16 +119,16 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
   return (
     <>
       <div className="flex items-center gap-4">
-        <h1 className={H1}>Keuangan</h1>
+        <h1 className={H1}>Finance</h1>
         <div className="flex items-center gap-0.5 rounded-[10px] border border-line bg-surface p-0.5">
-          <button aria-label="Bulan sebelumnya" onClick={() => setMonth(addMonths(overview.month, -1))} className={MONTH_NAV}>
+          <button aria-label="Previous month" onClick={() => setMonth(addMonths(overview.month, -1))} className={MONTH_NAV}>
             <Chevron d="M15 6l-6 6 6 6" />
           </button>
           <span aria-live="polite" className="min-w-[128px] text-center font-mono text-[13px] text-ink">
             {monthLabel(overview.month)}
           </span>
           <button
-            aria-label="Bulan berikutnya"
+            aria-label="Next month"
             disabled={overview.month >= overview.currentMonth}
             onClick={() => setMonth(addMonths(overview.month, 1))}
             className={MONTH_NAV}
@@ -143,7 +143,7 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
             className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
             <MicIcon />
-            <span>Catat lewat suara</span>
+            <span>Record with voice</span>
           </button>
           <button
             type="button"
@@ -153,7 +153,7 @@ export function FinancePage({ newTransaction, onChanged, onOpenAssistant }: Read
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
             </svg>
-            <span>Transaksi</span>
+            <span>Transaction</span>
           </button>
         </div>
       </div>

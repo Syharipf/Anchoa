@@ -73,14 +73,14 @@ export function MobileDock({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Roda menu utama"
+          aria-label="Main menu wheel"
           className="fixed inset-0 z-50 flex flex-col justify-end bg-black/70 backdrop-blur-sm transition-opacity"
         >
           {/* Backdrop dismiss touch */}
           <button
             type="button"
             className="flex-1 cursor-default bg-transparent border-0"
-            aria-label="Tutup menu"
+            aria-label="Close menu"
             onClick={() => setWheelOpen(false)}
           />
 
@@ -88,12 +88,12 @@ export function MobileDock({
           <div className="relative rounded-t-3xl border-t border-[#1F3E49] bg-[#0A242D] px-6 pb-28 pt-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <span className="font-['Space_Grotesk'] text-lg font-semibold text-[#E7E9EE]">
-                Menu Utama
+                Main Menu
               </span>
               <button
                 type="button"
                 onClick={() => setWheelOpen(false)}
-                aria-label="Tutup menu"
+                aria-label="Close menu"
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-[#10303A] text-[#CFE3EA] hover:text-white"
               >
                 ✕
@@ -128,14 +128,14 @@ export function MobileDock({
 
       {/* Dok Bawah Ringkas (3 tombol) */}
       <nav
-        aria-label="Navigasi Dok Mobile"
+        aria-label="Mobile Dock Navigation"
         className="fixed bottom-0 inset-x-0 z-40 flex h-20 items-center justify-around border-t border-[#1F3E49]/60 bg-[#0A242D]/95 px-6 backdrop-blur-md"
       >
         {/* Tombol 1: Cari */}
         <button
           type="button"
           onClick={onOpenSearch}
-          aria-label="Cari item dan menu"
+          aria-label="Search items and menu"
           className="flex h-12 w-12 items-center justify-center rounded-full bg-[#10303A] text-[#CFE3EA] transition-transform active:scale-95"
         >
           <svg
@@ -158,7 +158,7 @@ export function MobileDock({
         <button
           type="button"
           onClick={toggleWheel}
-          aria-label="Menu utama"
+          aria-label="Main menu"
           aria-expanded={wheelOpen}
           className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#163C48] text-[#C6F36B] shadow-[0_0_16px_rgba(198,243,107,0.25)] ring-2 ring-[#C6F36B] transition-transform active:scale-95"
         >
@@ -169,7 +169,7 @@ export function MobileDock({
         <button
           type="button"
           onClick={onOpenAssistant}
-          aria-label="Buka asisten AI"
+          aria-label="Open AI assistant"
           className="flex h-12 w-12 items-center justify-center rounded-full bg-[#10303A] text-[#C6F36B] transition-transform active:scale-95"
         >
           <svg

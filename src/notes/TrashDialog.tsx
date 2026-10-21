@@ -25,10 +25,10 @@ export function TrashDialog({
   }
 
   return (
-    <Dialog title="Sampah" onClose={onClose}>
+    <Dialog title="Trash" onClose={onClose}>
       <div className="flex flex-col gap-3">
         {entries.length === 0 ? (
-          <p className="m-0 text-sm text-muted">Sampah kosong.</p>
+          <p className="m-0 text-sm text-muted">Trash is empty.</p>
         ) : (
           <ul className="flex max-h-[360px] flex-col gap-2 overflow-y-auto pr-1">
             {entries.map((entry) => {
@@ -43,8 +43,8 @@ export function TrashDialog({
                       {entry.title}
                     </span>
                     <span className="text-xs text-muted">
-                      Dihapus {relativeTime(entry.deletedAt, Date.now())}
-                      {entry.descendants > 0 ? ` · ${entry.descendants} subhalaman` : ""}
+                      Deleted {relativeTime(entry.deletedAt, Date.now())}
+                      {entry.descendants > 0 ? ` · ${entry.descendants} subpages` : ""}
                     </span>
                   </div>
                   <button
@@ -53,7 +53,7 @@ export function TrashDialog({
                     onClick={() => void handleRestore(entry.id)}
                     className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-surface-2 disabled:text-muted"
                   >
-                    {isRestoring ? "Memulihkan…" : "Pulihkan"}
+                    {isRestoring ? "Restoring…" : "Restore"}
                   </button>
                 </li>
               );
@@ -63,7 +63,7 @@ export function TrashDialog({
 
         <div className="mt-2 flex items-center justify-end">
           <button type="button" onClick={onClose} className={SECONDARY}>
-            Tutup
+            Close
           </button>
         </div>
       </div>

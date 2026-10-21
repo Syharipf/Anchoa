@@ -98,7 +98,7 @@ export function HabitsPage({
 
   const [y, m, d] = overview.today.split("-").map(Number);
   const todayMs = new Date(y, m - 1, d).getTime();
-  const subtitle = `Kebiasaan harian · ${fullDate(todayMs)}`;
+  const subtitle = `Daily habits · ${fullDate(todayMs)}`;
   const selectedHabit = overview.habits.find((h) => h.id === selectedId) ?? null;
 
   async function handleToggleCheck(id: string, done: boolean) {
@@ -113,7 +113,7 @@ export function HabitsPage({
   async function handleCheckDate(id: string, date: string, done: boolean) {
     try {
       await api.checkHabit(id, done, date);
-      toast(done ? "Habit berhasil dicentang" : "Centang dibatalkan");
+      toast(done ? "Habit successfully checked" : "Check-in undone");
       setVersion((v) => v + 1);
       onChanged?.();
     } catch (e) {
@@ -172,7 +172,7 @@ export function HabitsPage({
               className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
             >
               <MicIcon />
-              <span>Catat lewat suara</span>
+              <span>Record with voice</span>
             </button>
             <button
               type="button"

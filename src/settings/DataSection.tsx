@@ -48,16 +48,16 @@ export function DataSection() {
       {/* Storage and database overview */}
       <section className={`${PANEL} flex flex-col gap-3`}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className={H2}>Database lokal</h2>
+          <h2 className={H2}>Local database</h2>
         </div>
 
         <p className="m-0 break-all font-mono text-xs text-muted">
-          {overview?.dataDir ?? "Memuat lokasi data…"}
+          {overview?.dataDir ?? "Loading data directory…"}
         </p>
 
         {overview && (
           <div className="flex flex-wrap items-baseline gap-2 text-sm text-ink">
-            <span>Ukuran database:</span>
+            <span>Database size:</span>
             <span className="font-mono font-medium text-accent">
               {formatBytes(overview.dbBytes)}
             </span>
@@ -76,32 +76,32 @@ export function DataSection() {
             disabled={busy}
             className={SECONDARY}
           >
-            {busy ? "Membuat backup…" : "Backup sekarang"}
+            {busy ? "Creating backup…" : "Backup now"}
           </button>
           <button
             type="button"
             onClick={() => void open("backup")}
             className={SECONDARY}
           >
-            Buka folder backup
+            Open backup folder
           </button>
           <button
             type="button"
             onClick={() => void open("data")}
             className={SECONDARY}
           >
-            Buka folder data
+            Open data folder
           </button>
         </div>
 
         <p className="m-0 text-xs text-muted">
-          Backup harian dibuat otomatis saat aplikasi dibuka; 7 backup terbaru disimpan.
+          Daily backups are created automatically when app opens; 7 most recent backups are kept.
         </p>
       </section>
 
       {/* Item counts summary */}
       <section className={`${PANEL} flex flex-col gap-3`}>
-        <h2 className={H2}>Ringkasan data</h2>
+        <h2 className={H2}>Data summary</h2>
         {overview && (overview.counts.length > 0 || overview.trashed > 0) ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {overview.counts.map((c) => (
@@ -111,20 +111,20 @@ export function DataSection() {
               >
                 <span className="text-muted">{formatKind(c.kind)}</span>
                 <span className="font-mono font-semibold text-ink">
-                  {c.count.toLocaleString("id-ID")}
+                  {c.count.toLocaleString("en-US")}
                 </span>
               </div>
             ))}
             <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-2 text-xs">
-              <span className="text-muted">Sampah (terhapus)</span>
+              <span className="text-muted">Trash (deleted)</span>
               <span className="font-mono font-semibold text-muted">
-                {overview.trashed.toLocaleString("id-ID")}
+                {overview.trashed.toLocaleString("en-US")}
               </span>
             </div>
           </div>
         ) : (
           <p className="m-0 text-xs text-muted">
-            {overview ? "Belum ada item." : "Memuat ringkasan item…"}
+            {overview ? "No items yet." : "Loading item summary…"}
           </p>
         )}
       </section>
@@ -132,10 +132,10 @@ export function DataSection() {
       {/* Backup file list */}
       <section className={`${PANEL} flex flex-col gap-3`}>
         <div className="flex items-center justify-between">
-          <h2 className={H2}>Berkas backup</h2>
+          <h2 className={H2}>Backup files</h2>
           {overview && (
             <span className="text-xs text-muted">
-              {overview.backups.length} berkas
+              {overview.backups.length} files
             </span>
           )}
         </div>
@@ -161,7 +161,7 @@ export function DataSection() {
           </div>
         ) : (
           <p className="m-0 text-xs text-muted">
-            {overview ? "Belum ada berkas backup." : "Memuat berkas backup…"}
+            {overview ? "No backup files yet." : "Loading backup files…"}
           </p>
         )}
       </section>

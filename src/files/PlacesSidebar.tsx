@@ -143,9 +143,9 @@ export function PlacesSidebar({
   onSelectPlace: (path: string) => void;
 }>) {
   const sections: readonly SectionData[] = [
-    { title: "Tempat", items: places },
-    { title: "Markah", items: bookmarks.map(bookmarkPlace) },
-    { title: "Perangkat", items: devices },
+    { title: "Places", items: places },
+    { title: "Bookmarks", items: bookmarks.map(bookmarkPlace) },
+    { title: "Devices", items: devices },
     {
       title: "Remote",
       items: remotes,
@@ -157,7 +157,7 @@ export function PlacesSidebar({
 
   return (
     <aside
-      aria-label="Tempat"
+      aria-label="Places"
       className="flex w-[200px] shrink-0 flex-col gap-3 overflow-y-auto"
     >
       {sections.map((sec) => (

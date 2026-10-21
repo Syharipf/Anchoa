@@ -182,7 +182,7 @@ export function Sidebar({
       <div className="flex shrink-0">
         <nav
           data-navwheel
-          aria-label="Menu utama"
+          aria-label="Main menu"
           className="w-0 h-[800px] relative select-none"
           style={{
             position: "relative",
@@ -198,7 +198,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={toggle}
-            aria-label="Tampilkan menu samping"
+            aria-label="Show sidebar menu"
             aria-expanded={false}
             style={{
               position: "absolute",
@@ -240,7 +240,7 @@ export function Sidebar({
     <div className="flex shrink-0 sticky top-0 h-screen z-40">
       <nav
         data-navwheel
-        aria-label="Menu utama"
+        aria-label="Main menu"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
@@ -334,7 +334,7 @@ export function Sidebar({
         <div
           role="button"
           tabIndex={0}
-          aria-label="Anchoa, ke Dashboard"
+          aria-label="Anchoa, go to Dashboard"
           title="Dashboard"
           onClick={() => onSelect("dashboard")}
           onKeyDown={(e) => {
@@ -351,15 +351,15 @@ export function Sidebar({
             zIndex: 10,
           }}
         >
-          <AnchoaLogo tile size={40} label="Logo Anchoa" />
+          <AnchoaLogo tile size={40} label="Anchoa Logo" />
         </div>
 
         {/* Up arrow ▲ — top: 120px */}
         <button
           type="button"
           onClick={() => turn(-1)}
-          aria-label="Menu sebelumnya"
-          title="Menu sebelumnya (Scroll / Panah Atas)"
+          aria-label="Previous menu"
+          title="Previous menu (Scroll / Up Arrow)"
           className="group hover:border-accent hover:text-accent transition-all duration-200 hover:scale-105 active:scale-95"
           style={{
             position: "absolute",
@@ -494,8 +494,8 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => turn(1)}
-          aria-label="Menu berikutnya"
-          title="Menu berikutnya (Scroll / Panah Bawah)"
+          aria-label="Next menu"
+          title="Next menu (Scroll / Down Arrow)"
           className="group hover:border-accent hover:text-accent transition-all duration-200 hover:scale-105 active:scale-95"
           style={{
             position: "absolute",
@@ -547,8 +547,8 @@ export function Sidebar({
           <button
             type="button"
             onClick={onToggleNotifications}
-            aria-label={reminders > 0 ? `Notifikasi, ${reminders} pengingat` : "Notifikasi"}
-            title="Notifikasi"
+            aria-label={reminders > 0 ? `Notifications, ${reminders} reminders` : "Notifications"}
+            title="Notifications"
             aria-haspopup="dialog"
             aria-expanded={notificationsOpen}
             className="transition-transform hover:scale-105 active:scale-95"

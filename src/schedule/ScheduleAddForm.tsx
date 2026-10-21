@@ -9,9 +9,9 @@ export function validateScheduleInput(
   title: string,
   date: string,
 ): { dueAt: number } | { error: string } {
-  if (title.trim() === "") return { error: "Judul tidak boleh kosong" };
+  if (title.trim() === "") return { error: "Title cannot be empty" };
   const dueAt = dateInputToMs(date);
-  if (dueAt === null) return { error: `Tanggal tidak valid: ${date}` };
+  if (dueAt === null) return { error: `Invalid date: ${date}` };
   return { dueAt };
 }
 
@@ -71,17 +71,17 @@ export function ScheduleAddForm({
   }
 
   return (
-    <Dialog title="Tugas baru" onClose={onClose}>
+    <Dialog title="New task" onClose={onClose}>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
-        <Field label="Judul">
+        <Field label="Title">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Apa yang perlu dikerjakan?"
+            placeholder="What needs to be done?"
             className={FIELD}
           />
         </Field>
-        <Field label="Tanggal">
+        <Field label="Date">
           <input
             type="date"
             value={date}
@@ -90,13 +90,13 @@ export function ScheduleAddForm({
           />
         </Field>
         {projects.length > 0 && (
-          <Field label="Proyek (opsional)">
+          <Field label="Project (optional)">
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
               className={FIELD}
             >
-              <option value="">Pribadi (tanpa proyek)</option>
+              <option value="">Personal (no project)</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}

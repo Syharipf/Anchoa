@@ -116,7 +116,7 @@ export function ProfilePage({
       setProfile(updated);
       setNameInput(updated.name);
       setIsEditing(false);
-      toast("Nama profil diperbarui", "info");
+      toast("Profile name updated", "info");
     } catch (err) {
       toast(errorMessage(err), "error");
     } finally {
@@ -164,9 +164,9 @@ export function ProfilePage({
   return (
     <div className="flex flex-col gap-3.5">
       <div className="flex items-baseline gap-3">
-        <h1 className={H1}>Profil</h1>
+        <h1 className={H1}>Profile</h1>
         <span className="text-[13px] text-muted">
-          Akun, asisten suara, dan preferensi notifikasi
+          Account, voice assistant, and notification preferences
         </span>
       </div>
 
@@ -201,8 +201,8 @@ export function ProfilePage({
                   onChange={(e) => setNameInput(e.target.value)}
                   maxLength={40}
                   className={`${FIELD} w-full text-center`}
-                  aria-label="Nama tampilan"
-                  placeholder="Nama tampilan"
+                  aria-label="Display name"
+                  placeholder="Display name"
                   autoFocus
                 />
                 <div className="flex items-center gap-2">
@@ -211,14 +211,14 @@ export function ProfilePage({
                     disabled={isSaving}
                     className="min-h-8 rounded-lg bg-accent px-3 text-xs font-semibold text-canvas transition-transform hover:scale-105 active:scale-95 disabled:bg-disabled disabled:text-muted"
                   >
-                    Simpan
+                    Save
                   </button>
                   <button
                     type="button"
                     onClick={handleCancelEdit}
                     className="min-h-8 rounded-lg border border-line px-3 text-xs text-muted transition-colors hover:bg-surface-2"
                   >
-                    Batal
+                    Cancel
                   </button>
                 </div>
               </form>
@@ -228,7 +228,7 @@ export function ProfilePage({
                   id="section-profile"
                   className="m-0 font-display text-2xl font-semibold text-ink"
                 >
-                  {profile?.name ?? "Kamu"}
+                  {profile?.name ?? "You"}
                 </h2>
                 <span className="text-xs text-muted">
                   {formatSince(profile?.since ?? null)}
@@ -238,7 +238,7 @@ export function ProfilePage({
                   onClick={handleStartEdit}
                   className="mt-2 min-h-8 rounded-lg border border-disabled px-3.5 text-xs text-ink transition-colors hover:bg-surface-2"
                 >
-                  Ubah profil
+                  Edit profile
                 </button>
               </div>
             )}
@@ -257,7 +257,7 @@ export function ProfilePage({
 
           <section aria-labelledby="section-security" className={`${PANEL} flex flex-col gap-3`}>
             <h2 id="section-security" className={H2}>
-              Keamanan
+              Security
             </h2>
 
             {securityError ? (
@@ -266,13 +266,13 @@ export function ProfilePage({
                 className="flex flex-col gap-1.5 rounded-lg border border-danger/40 bg-danger-row p-3 text-xs text-danger"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-danger">Gagal memuat status keamanan</span>
+                  <span className="font-semibold text-danger">Failed to load security status</span>
                   <button
                     type="button"
                     onClick={loadSecurityStatus}
                     className="font-medium text-accent hover:underline cursor-pointer"
                   >
-                    Coba lagi
+                    Try again
                   </button>
                 </div>
                 <p className="m-0 text-muted leading-relaxed">{securityError}</p>
@@ -282,10 +282,10 @@ export function ProfilePage({
                 <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
                   <div className="flex min-w-0 flex-col">
                     <span id="lbl-security-pin" className="text-sm text-ink">
-                      Kunci dengan PIN saat aplikasi dibuka
+                      Lock with PIN when app opens
                     </span>
                     <span className="text-xs text-muted">
-                      Memerlukan PIN saat membuka aplikasi
+                      Require PIN when opening the app
                     </span>
                   </div>
                   <button
@@ -315,15 +315,15 @@ export function ProfilePage({
                 {security?.pinEnabled && (
                   <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
                     <div className="flex min-w-0 flex-col">
-                      <span className="text-sm text-ink">PIN aktif</span>
-                      <span className="text-xs text-muted">Ganti PIN keamanan saat ini</span>
+                      <span className="text-sm text-ink">PIN active</span>
+                      <span className="text-xs text-muted">Change current security PIN</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setPinDialog("change")}
                       className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
                     >
-                      Ganti PIN
+                      Change PIN
                     </button>
                   </div>
                 )}
@@ -331,10 +331,10 @@ export function ProfilePage({
                 <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
                   <div className="flex min-w-0 flex-col">
                     <span id="lbl-security-password" className="text-sm text-ink">
-                      Kata sandi alternatif
+                      Alternative password
                     </span>
                     <span className="text-xs text-muted">
-                      Bisa dipakai untuk membuka aplikasi selain PIN
+                      Can be used to open the app instead of PIN
                     </span>
                   </div>
                   {security?.passwordEnabled ? (
@@ -343,7 +343,7 @@ export function ProfilePage({
                       onClick={() => setPasswordDialog("change")}
                       className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
                     >
-                      Ganti kata sandi
+                      Change password
                     </button>
                   ) : (
                     <button
@@ -351,7 +351,7 @@ export function ProfilePage({
                       onClick={() => setPasswordDialog("create")}
                       className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-ink transition-colors hover:bg-surface-2"
                     >
-                      Buat kata sandi
+                      Create password
                     </button>
                   )}
                 </div>
@@ -359,9 +359,9 @@ export function ProfilePage({
                 {security?.passwordEnabled && (
                   <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
                     <div className="flex min-w-0 flex-col">
-                      <span className="text-sm text-ink">Kata sandi aktif</span>
+                      <span className="text-sm text-ink">Password active</span>
                       <span className="text-xs text-muted">
-                        Mematikan butuh kata sandi atau PIN
+                        Disabling requires password or PIN
                       </span>
                     </div>
                     <button
@@ -369,7 +369,7 @@ export function ProfilePage({
                       onClick={() => setPasswordDialog("disable")}
                       className="min-h-8 shrink-0 rounded-lg border border-line px-3 text-xs text-danger transition-colors hover:bg-surface-2"
                     >
-                      Matikan
+                      Disable
                     </button>
                   </div>
                 )}
@@ -378,11 +378,11 @@ export function ProfilePage({
 
             <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
               <div className="flex min-w-0 flex-col">
-                <span className="text-sm text-ink">Enkripsi data lokal</span>
-                <span className="text-xs text-muted">Keuangan, email, dan catatan</span>
+                <span className="text-sm text-ink">Local data encryption</span>
+                <span className="text-xs text-muted">Finance, email, and notes</span>
               </div>
               <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
-                Belum tersedia
+                Not available
               </span>
             </div>
           </section>
@@ -392,7 +392,7 @@ export function ProfilePage({
         <div className="flex flex-col gap-3.5">
           <section aria-labelledby="section-accounts" className={`${PANEL} flex flex-col gap-3`}>
             <h2 id="section-accounts" className={H2}>
-              Akun terhubung
+              Connected Accounts
             </h2>
 
             <div className="flex items-center gap-3 border-t border-line pt-3 first:border-0 first:pt-0">
@@ -400,11 +400,11 @@ export function ProfilePage({
                 GH
               </span>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-medium text-ink">Repo kode</span>
+                <span className="text-sm font-medium text-ink">Code repo</span>
                 <span className="truncate text-xs text-muted">
                   {github?.connected
-                    ? `Terhubung${github.login ? ` sebagai @${github.login}` : ""}`
-                    : "Belum terhubung · untuk kontribusi & proyek"}
+                    ? `Connected${github.login ? ` as @${github.login}` : ""}`
+                    : "Not connected · for contributions & projects"}
                 </span>
               </div>
               <button
@@ -412,7 +412,7 @@ export function ProfilePage({
                 onClick={() => onOpenSettings?.("integrations")}
                 className="min-h-7 shrink-0 rounded-md border border-disabled px-2.5 text-xs text-ink transition-colors hover:bg-surface-2"
               >
-                Atur
+                Manage
               </button>
             </div>
 
@@ -431,7 +431,7 @@ export function ProfilePage({
                 SYN
               </span>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-medium text-ink">Sinkron antarperangkat</span>
+                <span className="text-sm font-medium text-ink">Cross-device sync</span>
                 <span className="break-all text-xs text-muted">{syncLabel(sync)}</span>
               </div>
               <button
@@ -439,7 +439,7 @@ export function ProfilePage({
                 onClick={() => onOpenSettings?.("data")}
                 className="min-h-7 shrink-0 rounded-md border border-disabled px-2.5 text-xs text-ink transition-colors hover:bg-surface-2"
               >
-                Atur
+                Manage
               </button>
             </div>
 
@@ -448,21 +448,21 @@ export function ProfilePage({
                 CAL
               </span>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-medium text-ink">Kalender</span>
-                <span className="text-xs text-muted">Impor acara ke Jadwal</span>
+                <span className="text-sm font-medium text-ink">Calendar</span>
+                <span className="text-xs text-muted">Import events to Schedule</span>
               </div>
               <span className="shrink-0 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">
-                Belum tersedia
+                Not available
               </span>
             </div>
           </section>
 
           <section aria-labelledby="section-voice" className={`${PANEL} flex flex-col gap-2.5`}>
             <h2 id="section-voice" className={H2}>
-              Asisten suara
+              Voice assistant
             </h2>
             <p className="m-0 text-xs leading-relaxed text-muted">
-              Pilihan suara, kecepatan bicara, dan model suara diatur di Pengaturan &gt; Suara.
+              Voice choices, speech rate, and voice models are configured in Settings &gt; Voice.
             </p>
             <div className="flex items-center gap-3 border-t border-line pt-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-surface-2">
@@ -471,11 +471,11 @@ export function ProfilePage({
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-sm font-medium text-ink">Ako</span>
                 <span className="text-xs text-muted">
-                  Teri pendamping · status suara mengikuti asisten
+                  Companion anchovy · voice status follows assistant
                 </span>
               </div>
               <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-                Siap
+                Ready
               </span>
             </div>
             <button
@@ -483,7 +483,7 @@ export function ProfilePage({
               onClick={() => onOpenSettings?.("suara")}
               className="self-start min-h-7 shrink-0 rounded-md border border-disabled px-2.5 text-xs text-ink transition-colors hover:bg-surface-2"
             >
-              Atur suara
+              Voice settings
             </button>
           </section>
         </div>
@@ -492,7 +492,7 @@ export function ProfilePage({
         <div className="flex flex-col gap-3.5">
           <section aria-labelledby="section-notify" className={`${PANEL} flex flex-col gap-1`}>
             <h2 id="section-notify" className={`${H2} pb-2`}>
-              Notifikasi
+              Notifications
             </h2>
 
             {NOTIFY_PREF_OPTIONS.map((opt) => (
@@ -526,10 +526,10 @@ export function ProfilePage({
                 </div>
                 {opt.key === "journal" && prefs.journal && (
                   <div className="mt-2 flex items-center justify-between gap-3 pl-2">
-                    <span className="text-xs text-muted">Waktu pengingat</span>
+                    <span className="text-xs text-muted">Reminder time</span>
                     <input
                       type="time"
-                      aria-label="Jam pengingat jurnal"
+                      aria-label="Journal reminder time"
                       value={prefs.journalAt}
                       onChange={(e) => handleJournalAtChange(e.target.value)}
                       className={`${FIELD} h-7 w-24 px-2 text-center text-xs`}
@@ -543,13 +543,13 @@ export function ProfilePage({
 
             <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-ink">Jam tenang</span>
+                <span className="text-sm text-ink">Quiet hours</span>
                 <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-                  Belum tersedia
+                  Not available
                 </span>
               </div>
               <p className="m-0 text-xs leading-relaxed text-muted">
-                Pengaturan jam tenang dan suara notifikasi desktop belum tersedia.
+                Quiet hours and desktop notification sounds are not available yet.
               </p>
             </div>
           </section>
@@ -566,14 +566,14 @@ export function ProfilePage({
               setSecurity((prev) =>
                 prev ? { ...prev, pinEnabled: true } : { pinEnabled: true, passwordEnabled: false, locked: false },
               );
-              toast("Kunci PIN berhasil diaktifkan", "info");
+              toast("PIN lock activated", "info");
             } else if (finishedMode === "disable") {
               setSecurity((prev) =>
                 prev ? { ...prev, pinEnabled: false } : { pinEnabled: false, passwordEnabled: false, locked: false },
               );
-              toast("Kunci PIN dinonaktifkan", "info");
+              toast("PIN lock disabled", "info");
             } else if (finishedMode === "change") {
-              toast("PIN berhasil diubah", "info");
+              toast("PIN updated successfully", "info");
             }
           }}
         />
@@ -591,12 +591,12 @@ export function ProfilePage({
                   ? { ...prev, passwordEnabled: true }
                   : { pinEnabled: false, passwordEnabled: true, locked: false },
               );
-              toast("Kata sandi berhasil dibuat", "info");
+              toast("Password created successfully", "info");
             } else if (finishedMode === "disable") {
               setSecurity((prev) => (prev ? { ...prev, passwordEnabled: false } : prev));
-              toast("Kata sandi dinonaktifkan", "info");
+              toast("Password disabled", "info");
             } else {
-              toast("Kata sandi berhasil diubah", "info");
+              toast("Password updated successfully", "info");
             }
           }}
         />

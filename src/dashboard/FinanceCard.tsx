@@ -46,7 +46,7 @@ export function FinanceCard({ finance, onSelect }: Readonly<{ finance?: FinanceS
           <path d="M16 12.5h2" />
           <path d="M3 10h18" />
         </svg>
-        <span id="c-uang" className="font-display text-sm font-semibold text-ink">Keuangan</span>
+        <span id="c-uang" className="font-display text-sm font-semibold text-ink">Finance</span>
         <span className="ml-auto text-xs text-accent">›</span>
         <span
           role="button"
@@ -54,16 +54,16 @@ export function FinanceCard({ finance, onSelect }: Readonly<{ finance?: FinanceS
           onClick={(e) => { e.stopPropagation(); setMoneyHidden((c) => !c); }}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setMoneyHidden((c) => !c); } }}
           className="rounded-full bg-surface-2 p-2 text-xs text-muted transition-colors hover:bg-surface"
-          aria-label={moneyHidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
+          aria-label={moneyHidden ? "Show balance" : "Hide balance"}
         >
           {moneyHidden ? "••••••" : "👁"}
         </span>
       </div>
-      {finance && !finance.hasAccounts && <span className="text-xs text-muted">Belum ada akun</span>}
+      {finance && !finance.hasAccounts && <span className="text-xs text-muted">No accounts yet</span>}
       {finance?.hasAccounts && chip && (
         <>
           {moneyHidden || (
-            <span className="text-[11px] uppercase tracking-[0.08em] text-muted">Saldo</span>
+            <span className="text-[11px] uppercase tracking-[0.08em] text-muted">Balance</span>
           )}
           {moneyHidden || (
             <span className={`font-mono text-[22px] font-medium leading-[1.1] ${finance.balance < 0 ? "text-danger" : ""}`}>
@@ -71,8 +71,8 @@ export function FinanceCard({ finance, onSelect }: Readonly<{ finance?: FinanceS
             </span>
           )}
           <span className={`text-xs ${LEVEL_TEXT[finance.budget?.level ?? "ok"]}`}>
-            Keluar bulan ini {formatRupiah(finance.expense)}
-            {finance.budget && ` dari ${formatRupiah(finance.budget.amount)}`}
+            Spent this month {formatRupiah(finance.expense)}
+            {finance.budget && ` of ${formatRupiah(finance.budget.amount)}`}
           </span>
           <span className={`mt-auto flex items-center gap-1.5 self-start rounded-full border px-2.5 py-[3px] text-xs ${CHIP[chip.tone]}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${DOT[chip.tone]}`} />

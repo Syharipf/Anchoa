@@ -13,7 +13,7 @@ import {
 } from "./layout";
 
 const STATUS_LABELS: Record<ScheduleItem["status"], string> = {
-  plan: "Rencana", doing: "Dikerjakan", test: "Tes", review: "Review", done: "Selesai",
+  plan: "Plan", doing: "Doing", test: "Test", review: "Review", done: "Done",
 };
 
 export function TimelineGroup({
@@ -37,8 +37,8 @@ export function TimelineGroup({
   const dlVisible = dlIdx !== -1;
   const dlDiff = group.deadline ? diffDays(today, group.deadline) : 999;
   const metaText = group.deadline
-    ? `tenggat ${shortDateStr(group.deadline)}`
-    : `${group.items.length} item`;
+    ? `due ${shortDateStr(group.deadline)}`
+    : `${group.items.length} items`;
   const metaColor =
     group.deadline && dlDiff <= 3 ? "text-danger" : "text-muted";
 
@@ -79,8 +79,8 @@ export function TimelineGroup({
             <button
               type="button"
               onClick={() => onOpenItem(group.id)}
-              title={`Tenggat ${group.name} · ${shortDateStr(group.deadline)}`}
-              aria-label={`Tenggat ${group.name} · ${shortDateStr(group.deadline)}`}
+              title={`Deadline ${group.name} · ${shortDateStr(group.deadline)}`}
+              aria-label={`Deadline ${group.name} · ${shortDateStr(group.deadline)}`}
               style={{ left: `${dlIdx * 16 + 3}px` }}
               className="absolute top-1/2 -mt-[5px] h-2.5 w-2.5 rotate-45 cursor-pointer bg-[#3987e5] shadow-[0_0_0_2px_#171a21] transition-transform hover:scale-125 focus-visible:outline-2 focus-visible:outline-accent"
             />
@@ -97,7 +97,7 @@ export function TimelineGroup({
           item.startDate && item.startDate !== item.dueDate
             ? `${shortDateStr(item.startDate)} – ${shortDateStr(item.dueDate)}`
             : shortDateStr(item.dueDate);
-        const overdueText = item.overdue ? " · Terlambat" : "";
+        const overdueText = item.overdue ? " · Overdue" : "";
         const barTitle = `${item.title} · ${dateText} · ${statusText}${overdueText}`;
         const handleOpen = () => {
           if (item.source === "bill") {
@@ -154,7 +154,7 @@ export function TimelineGroup({
                   item.overdue ? "text-danger" : "text-muted"
                 }`}
               >
-                {item.overdue ? "terlambat" : shortDateStr(item.dueDate)}
+                {item.overdue ? "overdue" : shortDateStr(item.dueDate)}
               </span>
             </div>
             <div className="relative h-full w-[896px] shrink-0">
@@ -292,7 +292,7 @@ export function TimelineView({
 
             {groups.length === 0 ? (
               <div className="flex h-32 items-center justify-center text-[13px] text-muted">
-                Tidak ada tugas atau tagihan dalam rentang ini.
+                No tasks or bills in this range.
               </div>
             ) : (
               groups.map((group) => (

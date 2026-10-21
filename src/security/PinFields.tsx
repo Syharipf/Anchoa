@@ -25,13 +25,13 @@ export function PinFields({
   return (
     <div className="flex flex-col gap-3">
       {(mode === "change" || mode === "disable") && (
-        <Field label={mode === "change" ? "PIN saat ini" : "Masukkan PIN saat ini"}>
+        <Field label={mode === "change" ? "Current PIN" : "Enter current PIN"}>
           <input
             type="password"
             inputMode="numeric"
             autoFocus
             autoComplete="current-password"
-            aria-label="PIN saat ini"
+            aria-label="Current PIN"
             placeholder="••••"
             value={currentPin}
             onChange={(e) => onCurrentPinChange(e.target.value)}
@@ -42,13 +42,13 @@ export function PinFields({
       )}
       {(mode === "create" || mode === "change") && (
         <>
-          <Field label={mode === "create" ? "PIN (4–8 digit)" : "PIN baru (4–8 digit)"}>
+          <Field label={mode === "create" ? "PIN (4–8 digits)" : "New PIN (4–8 digits)"}>
             <input
               type="password"
               inputMode="numeric"
               autoFocus={mode === "create"}
               autoComplete="new-password"
-              aria-label={mode === "create" ? "PIN" : "PIN baru"}
+              aria-label={mode === "create" ? "PIN" : "New PIN"}
               placeholder="••••"
               value={newPin}
               onChange={(e) => onNewPinChange(e.target.value)}
@@ -56,12 +56,12 @@ export function PinFields({
               className={FIELD}
             />
           </Field>
-          <Field label="Konfirmasi PIN">
+          <Field label="Confirm PIN">
             <input
               type="password"
               inputMode="numeric"
               autoComplete="new-password"
-              aria-label="Konfirmasi PIN"
+              aria-label="Confirm PIN"
               placeholder="••••"
               value={confirmPin}
               onChange={(e) => onConfirmPinChange(e.target.value)}

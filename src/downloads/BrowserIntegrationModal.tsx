@@ -75,7 +75,7 @@ export function BrowserIntegrationModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup"
+            aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink transition-colors"
           >
             ✕
@@ -83,26 +83,26 @@ export function BrowserIntegrationModal({
         </div>
 
         <p className="text-xs text-muted leading-relaxed">
-          Dengan memasang ekstensi, setiap kali mengklik tautan download di Chrome, Brave, atau Firefox, berkas otomatis dialihkan dan diunduh cepat lewat Anchoa (lengkap dengan pause/resume &amp; akselerator 8 koneksi).
+          By installing the extension, download links clicked in Chrome, Brave, or Firefox are automatically redirected and downloaded quickly through Anchoa (with pause/resume &amp; 8-connection accelerator).
         </p>
 
         {/* Step-by-step installation guide */}
         <div className="flex flex-col gap-3 rounded-xl border border-line bg-canvas p-3.5 text-xs">
-          <span className="font-semibold text-accent">Langkah 1: Pasang Ekstensi di Browser</span>
+          <span className="font-semibold text-accent">Step 1: Install Extension in Browser</span>
           <ol className="list-decimal pl-5 space-y-1 text-muted">
-            <li>Buka halaman ekstensi browser: <code className="text-ink">chrome://extensions/</code> (Chrome/Brave/Helium) lalu aktifkan <b>Developer mode</b>.</li>
-            <li>Klik <b>Load unpacked</b> lalu pilih folder <code className="text-ink">browser-extension/</code> di direktori repo Anchoa.</li>
-            <li>Salin <b>ID Ekstensi</b> yang muncul (32 karakter huruf a-p).</li>
+            <li>Open browser extension page: <code className="text-ink">chrome://extensions/</code> (Chrome/Brave/Helium) and enable <b>Developer mode</b>.</li>
+            <li>Click <b>Load unpacked</b> and choose the <code className="text-ink">browser-extension/</code> folder in the Anchoa repository.</li>
+            <li>Copy the <b>Extension ID</b> that appears (32 characters a-p).</li>
           </ol>
         </div>
 
         {/* Step 2: Register manifest */}
         <div className="flex flex-col gap-3 text-xs">
-          <span className="font-semibold text-accent">Langkah 2: Hubungkan Manifest ke Anchoa</span>
+          <span className="font-semibold text-accent">Step 2: Connect Manifest to Anchoa</span>
           
           <div>
             <label htmlFor="chrome-id-input" className="block text-muted mb-1 font-medium">
-              ID Ekstensi Chrome / Chromium / Brave / Helium:
+              Chrome / Chromium / Brave / Helium Extension ID:
             </label>
             <div className="flex gap-2">
               <input
@@ -110,7 +110,7 @@ export function BrowserIntegrationModal({
                 type="text"
                 value={chromeId}
                 onChange={(e) => setChromeId(e.target.value)}
-                placeholder="tempel 32 karakter ID ekstensi..."
+                placeholder="paste 32-character extension ID..."
                 maxLength={32}
                 className="flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 font-mono text-xs text-ink placeholder:text-muted focus:border-field-focus focus:outline-none"
               />
@@ -120,7 +120,7 @@ export function BrowserIntegrationModal({
                 disabled={loading || chromeId.trim().length !== 32}
                 className={`${PRIMARY} py-1 text-xs`}
               >
-                Hubungkan Chromium/Helium
+                Connect Chromium/Helium
               </button>
             </div>
           </div>
@@ -138,7 +138,7 @@ export function BrowserIntegrationModal({
               disabled={loading}
               className={`${SECONDARY} py-1 text-xs`}
             >
-              Hubungkan Firefox
+              Connect Firefox
             </button>
           </div>
         </div>
@@ -151,7 +151,7 @@ export function BrowserIntegrationModal({
               disabled={loading}
               className="text-xs text-danger hover:underline"
             >
-              Copot Manifest
+              Uninstall Manifest
             </button>
           )}
           <button
@@ -159,7 +159,7 @@ export function BrowserIntegrationModal({
             onClick={onClose}
             className={`${SECONDARY} ml-auto py-1 px-4 text-xs`}
           >
-            Selesai
+            Done
           </button>
         </div>
       </div>

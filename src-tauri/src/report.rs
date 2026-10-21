@@ -18,7 +18,7 @@ use crate::db::Db;
 use crate::error::AppError;
 use crate::finance::{self, invalid};
 use crate::overview;
-use crate::time::{add_months, first_day, indonesian_long_month, indonesian_short_month, local_date, month_bounds, now_ms};
+use crate::time::{add_months, english_long_month, english_short_month, first_day, local_date, month_bounds, now_ms};
 
 /// Which recap the user asked for. `monthly` takes a `YYYY-MM` period,
 /// `yearly` a `YYYY` one.
@@ -77,8 +77,8 @@ pub fn recap(conn: &Connection, kind: RecapKind, period: &str, now: i64, tz: &Ti
             let (start, end) = month_bounds(period, tz)?;
             let flow = overview::month_flow(conn, period, tz)?;
             let date = first_day(period)?;
-            let label = format!("{} {}", indonesian_long_month(date.month()), date.year());
-            ("Rekap Bulanan", label, start, end, daily_buckets(conn, start, end, tz)?, flow.income, flow.expense)
+            let label = format!("{} {}", english_long_month(date.month()), date.year());
+            ("Monthly Recap", label, start, end, daily_buckets(conn, start, end, tz)?, flow.income, flow.expense)
         }
         RecapKind::Yearly => {
             let year = year_of(period)?;
@@ -87,14 +87,15 @@ pub fn recap(conn: &Connection, kind: RecapKind, period: &str, now: i64, tz: &Ti
             let end = month_bounds(&add_months(&january, 12)?, tz)?.0;
             let mut buckets = Vec::with_capacity(12);
             let mut totals = (0_i128, 0_i128);
-            for month in 1..=12_i8 {
-                let flow = overview::month_flow(conn, &format!("{year:04}-{month:02}"), tz)?;
+            for month in 1..=12 {
+                let month_str = format!("{year:04}-{month:02}");
+                let flow = overview::month_flow(conn, &month_str, tz)?;
+                buckets.push(Bucket { label: english_short_month(month).into(), income: flow.income, expense: flow.expense });
                 totals = (totals.0 + i128::from(flow.income), totals.1 + i128::from(flow.expense));
-                buckets.push(Bucket { label: indonesian_short_month(month).into(), income: flow.income, expense: flow.expense });
             }
             let income = small(totals.0)?;
             let expense = small(totals.1)?;
-            ("Rekap Tahunan", format!("{year:04}"), start, end, buckets, income, expense)
+            ("Yearly Recap", format!("{year:04}"), start, end, buckets, income, expense)
         }
     };
     let accounts = finance::list_accounts_before(conn, end.min(finance::balance_cutoff(now, tz)?))?;
@@ -113,13 +114,13 @@ pub fn recap(conn: &Connection, kind: RecapKind, period: &str, now: i64, tz: &Ti
 
 fn year_of(period: &str) -> Result<i32, AppError> {
     if period.len() != 4 || !period.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(invalid("Periode tahun harus YYYY"));
+        return Err(invalid("Year period must be YYYY"));
     }
-    period.parse::<i32>().map_err(|_| invalid("Periode tahun harus YYYY"))
+    period.parse::<i32>().map_err(|_| invalid("Year period must be YYYY"))
 }
 
 fn out_of_range() -> AppError {
-    invalid("Total di luar batas bilangan bulat")
+    invalid("Total out of integer range")
 }
 
 fn small(value: i128) -> Result<i64, AppError> {
@@ -139,7 +140,7 @@ fn daily_buckets(conn: &Connection, start: i64, end: i64, tz: &TimeZone) -> Resu
     for row in rows {
         let (at, amount) = row?;
         let day = Timestamp::from_millisecond(at)?.to_zoned(tz.clone()).day() as usize;
-        let bucket = buckets.get_mut(day - 1).ok_or_else(|| invalid("Tanggal di luar periode"))?;
+        let bucket = buckets.get_mut(day - 1).ok_or_else(|| invalid("Date out of period"))?;
         let slot = if amount > 0 { &mut bucket.income } else { &mut bucket.expense };
         let delta = i64::try_from(amount.unsigned_abs()).map_err(|_| out_of_range())?;
         *slot = slot.checked_add(delta).ok_or_else(out_of_range)?;
@@ -157,10 +158,10 @@ fn count_transactions(conn: &Connection, start: i64, end: i64) -> Result<i64, Ap
 }
 
 /// Expenses grouped by category, biggest first. A missing category is grouped
-/// under "Tanpa kategori" so nothing is silently dropped.
+/// under "Uncategorized" so nothing is silently dropped.
 fn expense_categories(conn: &Connection, start: i64, end: i64) -> Result<Vec<CategoryTotal>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT COALESCE(NULLIF(TRIM(t.category), ''), 'Tanpa kategori') AS name, -SUM(t.amount) AS total
+        "SELECT COALESCE(NULLIF(TRIM(t.category), ''), 'Uncategorized') AS name, -SUM(t.amount) AS total
          FROM transactions t JOIN items i ON i.id = t.item_id
          WHERE i.deleted_at IS NULL AND t.transfer_id IS NULL AND t.amount < 0
            AND t.occurred_at >= ?1 AND t.occurred_at < ?2
@@ -203,9 +204,9 @@ pub fn share(part: i64, total: i64) -> String {
 fn generated_label(now: i64, tz: &TimeZone) -> Result<String, AppError> {
     let zoned = Timestamp::from_millisecond(now)?.to_zoned(tz.clone());
     Ok(format!(
-        "{} {} {} {:02}.{:02}",
+        "{} {} {} {:02}:{:02}",
         zoned.day(),
-        indonesian_long_month(zoned.month()),
+        english_long_month(zoned.month()),
         zoned.year(),
         zoned.hour(),
         zoned.minute()
@@ -330,14 +331,14 @@ pub fn render_pdf(recap: &Recap, generated: &str) -> Result<Vec<u8>, AppError> {
     draw_header(&mut c, recap, generated);
     draw_summary(&mut c, recap);
     if recap.empty() {
-        text(&mut c, MARGIN, 700.0, 11.0, MUTED, Font::Regular, "Tidak ada transaksi pada periode ini.");
+        text(&mut c, MARGIN, 700.0, 11.0, MUTED, Font::Regular, "No transactions recorded for this period.");
     } else {
         draw_cash_flow(&mut c, recap);
         let rows = display_rows(recap)?;
         draw_categories(&mut c, &rows, recap.expense);
         draw_table(&mut c, &rows, recap.expense);
     }
-    text(&mut c, MARGIN, 22.0, 8.0, MUTED, Font::Regular, "Dibuat dengan Anchoa");
+    text(&mut c, MARGIN, 22.0, 8.0, MUTED, Font::Regular, "Created with Anchoa");
 
     let stream = c.finish();
     let (catalog, pages, page, contents) = (Ref::new(1), Ref::new(2), Ref::new(3), Ref::new(4));
@@ -361,18 +362,18 @@ pub fn render_pdf(recap: &Recap, generated: &str) -> Result<Vec<u8>, AppError> {
 
 fn draw_header(c: &mut Content, recap: &Recap, generated: &str) {
     text(c, MARGIN, 800.0, 19.0, INK, Font::Bold, &recap.heading);
-    text(c, MARGIN, 780.0, 11.0, INK, Font::Regular, &format!("Periode: {}", recap.period));
-    text(c, MARGIN, 764.0, 9.0, MUTED, Font::Regular, &format!("Dibuat: {generated}"));
+    text(c, MARGIN, 780.0, 11.0, INK, Font::Regular, &format!("Period: {}", recap.period));
+    text(c, MARGIN, 764.0, 9.0, MUTED, Font::Regular, &format!("Generated: {generated}"));
 }
 
 fn draw_summary(c: &mut Content, recap: &Recap) {
-    text(c, MARGIN, 738.0, 12.5, INK, Font::Bold, "Ringkasan");
+    text(c, MARGIN, 738.0, 12.5, INK, Font::Bold, "Summary");
     let rows = [
-        ("Total pemasukan", rupiah(recap.income)),
-        ("Total pengeluaran", rupiah(recap.expense)),
-        ("Selisih", rupiah(recap.net)),
-        ("Saldo akhir", rupiah(recap.balance)),
-        ("Jumlah transaksi", grouped(recap.count.unsigned_abs())),
+        ("Total income", rupiah(recap.income)),
+        ("Total expenses", rupiah(recap.expense)),
+        ("Net", rupiah(recap.net)),
+        ("Closing balance", rupiah(recap.balance)),
+        ("Total transactions", grouped(recap.count.unsigned_abs())),
     ];
     for (i, (label, value)) in rows.iter().enumerate() {
         let y = 720.0 - i as f32 * 18.0;
@@ -382,7 +383,7 @@ fn draw_summary(c: &mut Content, recap: &Recap) {
 }
 
 fn draw_cash_flow(c: &mut Content, recap: &Recap) {
-    text(c, MARGIN, 618.0, 12.5, INK, Font::Bold, "Arus Kas");
+    text(c, MARGIN, 618.0, 12.5, INK, Font::Bold, "Cash Flow");
     let (x0, y0, w, h) = (100.0, 440.0, PAGE_W - MARGIN - 100.0, 150.0);
     let max = recap.buckets.iter().flat_map(|b| [b.income, b.expense]).max().unwrap_or(0);
     for step in 0..=4 {
@@ -394,10 +395,10 @@ fn draw_cash_flow(c: &mut Content, recap: &Recap) {
     c.line_to(x0 + w, y0);
     c.stroke();
     fill_rect(c, x0, y0 + h + 8.0, 7.0, 7.0, INCOME);
-    text(c, x0 + 11.0, y0 + h + 9.0, 8.0, MUTED, Font::Regular, "Pemasukan");
+    text(c, x0 + 11.0, y0 + h + 9.0, 8.0, MUTED, Font::Regular, "Income");
     fill_rect(c, x0 + 90.0, y0 + h + 8.0, 7.0, 7.0, EXPENSE);
-    text(c, x0 + 101.0, y0 + h + 9.0, 8.0, MUTED, Font::Regular, "Pengeluaran");
-    mono_right(c, x0 + w, y0 + h + 9.0, 8.0, MUTED, &format!("Skala maks {}", rupiah(max)));
+    text(c, x0 + 101.0, y0 + h + 9.0, 8.0, MUTED, Font::Regular, "Expense");
+    mono_right(c, x0 + w, y0 + h + 9.0, 8.0, MUTED, &format!("Max scale {}", rupiah(max)));
     if max <= 0 {
         return;
     }
@@ -422,7 +423,7 @@ fn draw_cash_flow(c: &mut Content, recap: &Recap) {
     }
 }
 
-/// Top slices plus one "Lainnya" bucket, so the pie and the table stay legible.
+/// Top slices plus one "Other" bucket, so the pie and the table stay legible.
 fn display_rows(recap: &Recap) -> Result<Vec<(String, i64)>, AppError> {
     if recap.categories.len() <= TABLE_ROWS {
         return Ok(recap.categories.iter().map(|c| (c.name.clone(), c.amount)).collect());
@@ -431,12 +432,12 @@ fn display_rows(recap: &Recap) -> Result<Vec<(String, i64)>, AppError> {
     let rest = recap.categories[TABLE_ROWS - 1..].iter().try_fold(0_i128, |sum, c| sum.checked_add(i128::from(c.amount)));
     let rest = small(rest.ok_or_else(out_of_range)?)?;
     let mut rows: Vec<(String, i64)> = head.iter().map(|c| (c.name.clone(), c.amount)).collect();
-    rows.push((format!("Lainnya ({} kategori)", recap.categories.len() - (TABLE_ROWS - 1)), rest));
+    rows.push((format!("Other ({} categories)", recap.categories.len() - (TABLE_ROWS - 1)), rest));
     Ok(rows)
 }
 
 fn draw_categories(c: &mut Content, rows: &[(String, i64)], expense: i64) {
-    text(c, MARGIN, 400.0, 12.5, INK, Font::Bold, "Pengeluaran per Kategori");
+    text(c, MARGIN, 400.0, 12.5, INK, Font::Bold, "Expenses by Category");
     let (cx, cy, r) = (150.0, 300.0, 72.0);
     let mut angle = 90.0_f32;
     for (i, (_, amount)) in rows.iter().enumerate() {
@@ -461,11 +462,11 @@ fn draw_categories(c: &mut Content, rows: &[(String, i64)], expense: i64) {
 }
 
 fn draw_table(c: &mut Content, rows: &[(String, i64)], expense: i64) {
-    text(c, MARGIN, 196.0, 12.5, INK, Font::Bold, "Rincian Kategori");
+    text(c, MARGIN, 196.0, 12.5, INK, Font::Bold, "Category Details");
     let (amount_x, share_x) = (430.0, PAGE_W - MARGIN);
-    text(c, MARGIN, 176.0, 9.5, MUTED, Font::Bold, "Kategori");
-    mono_right(c, amount_x, 176.0, 9.5, MUTED, "Jumlah");
-    mono_right(c, share_x, 176.0, 9.5, MUTED, "Bagian");
+    text(c, MARGIN, 176.0, 9.5, MUTED, Font::Bold, "Category");
+    mono_right(c, amount_x, 176.0, 9.5, MUTED, "Amount");
+    mono_right(c, share_x, 176.0, 9.5, MUTED, "Share");
     hairline(c, MARGIN, 170.0, PAGE_W - MARGIN, 170.0);
     for (i, (name, amount)) in rows.iter().enumerate() {
         let y = 152.0 - i as f32 * 15.5;
@@ -553,7 +554,7 @@ mod tests {
 
         assert_eq!((r.income, r.expense, r.net, r.count), (1_000_000, 80_000, 920_000, 4));
         assert_eq!(r.balance, 1_415_000);
-        assert_eq!((r.heading.as_str(), r.period.as_str()), ("Rekap Bulanan", "Oktober 2026"));
+        assert_eq!((r.heading.as_str(), r.period.as_str()), ("Monthly Recap", "October 2026"));
         assert_eq!(r.buckets.len(), 31);
         assert_eq!((r.buckets[0].income, r.buckets[0].expense), (1_000_000, 0));
         assert_eq!((r.buckets[1].income, r.buckets[1].expense), (0, 40_000));
@@ -583,10 +584,10 @@ mod tests {
 
         let r = recap(&conn, RecapKind::Yearly, "2026", ms("2026-12-31T12:00:00+07:00"), &tz).unwrap();
 
-        assert_eq!((r.heading.as_str(), r.period.as_str()), ("Rekap Tahunan", "2026"));
+        assert_eq!((r.heading.as_str(), r.period.as_str()), ("Yearly Recap", "2026"));
         assert_eq!((r.income, r.expense, r.count), (100_000, 50_000, 3));
         assert_eq!(r.buckets.len(), 12);
-        assert_eq!((r.buckets[0].label.as_str(), r.buckets[11].label.as_str()), ("Jan", "Des"));
+        assert_eq!((r.buckets[0].label.as_str(), r.buckets[11].label.as_str()), ("Jan", "Dec"));
         assert_eq!((r.buckets[0].income, r.buckets[5].expense, r.buckets[11].expense), (100_000, 30_000, 20_000));
         assert_eq!(overview::month_flow(&conn, "2026-06", &tz).unwrap().expense, 30_000);
         assert_eq!(r.categories.len(), 2);
@@ -601,12 +602,12 @@ mod tests {
         assert!(r.empty());
         assert_eq!((r.income, r.expense, r.net, r.count, r.balance), (0, 0, 0, 0, 0));
 
-        let pdf = render_pdf(&r, "6 Oktober 2026 14:30").unwrap();
+        let pdf = render_pdf(&r, "6 October 2026 14:30").unwrap();
         let text = text_of(&pdf);
         assert!(pdf.starts_with(b"%PDF"));
-        assert!(text.contains("Rekap Bulanan"));
-        assert!(text.contains("Oktober 2026"));
-        assert!(text.contains("Tidak ada transaksi pada periode ini"));
+        assert!(text.contains("Monthly Recap"));
+        assert!(text.contains("October 2026"));
+        assert!(text.contains("No transactions recorded for this period."));
         assert!(text.contains("%%EOF"));
     }
 
@@ -642,18 +643,18 @@ mod tests {
         let bytes = std::fs::read(&first).unwrap();
         let text = text_of(&bytes);
         assert!(bytes.starts_with(b"%PDF"));
-        assert!(text.contains("Rekap Bulanan"));
-        assert!(text.contains("Periode: Oktober 2026"));
-        assert!(text.contains("Total pemasukan"));
-        assert!(text.contains("Total pengeluaran"));
-        assert!(text.contains("Selisih"));
-        assert!(text.contains("Saldo akhir"));
-        assert!(text.contains("Jumlah transaksi"));
+        assert!(text.contains("Monthly Recap"));
+        assert!(text.contains("Period: October 2026"));
+        assert!(text.contains("Total income"));
+        assert!(text.contains("Total expenses"));
+        assert!(text.contains("Net"));
+        assert!(text.contains("Closing balance"));
+        assert!(text.contains("Total transactions"));
         assert!(text.contains("Rp 1.000.000"));
         assert!(text.contains("Rp 25.000"));
-        assert!(text.contains("Arus Kas"));
-        assert!(text.contains("Pengeluaran per Kategori"));
-        assert!(text.contains("Rincian Kategori"));
+        assert!(text.contains("Cash Flow"));
+        assert!(text.contains("Expenses by Category"));
+        assert!(text.contains("Category Details"));
         assert!(text.contains("Makan & minum"));
         assert!(text.contains("100,0%"));
         assert!(text.contains("%%EOF"));
@@ -682,10 +683,10 @@ mod tests {
         let r = recap(&conn, RecapKind::Monthly, "2026-10", end_of_october(), &tz).unwrap();
         let rows = display_rows(&r).unwrap();
         assert_eq!(rows.len(), TABLE_ROWS);
-        assert_eq!(rows[7].0, "Lainnya (3 kategori)");
+        assert_eq!(rows[7].0, "Other (3 categories)");
         assert_eq!(rows[7].1, 1_000 + 2_000 + 3_000);
-        let pdf = render_pdf(&r, "6 Oktober 2026 14:30").unwrap();
-        assert!(text_of(&pdf).contains("Lainnya (3 kategori)"));
+        let pdf = render_pdf(&r, "6 October 2026 14:30").unwrap();
+        assert!(text_of(&pdf).contains("Other (3 categories)"));
     }
 
     #[test]
@@ -700,7 +701,7 @@ mod tests {
 
         let r = recap(&conn, RecapKind::Monthly, "2026-10", end_of_october(), &tz).unwrap();
 
-        assert_eq!(r.categories, vec![CategoryTotal { name: "Tanpa kategori".into(), amount: 5_000 }]);
+        assert_eq!(r.categories, vec![CategoryTotal { name: "Uncategorized".into(), amount: 5_000 }]);
         assert_eq!(r.count, 1);
     }
 

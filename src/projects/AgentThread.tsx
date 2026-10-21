@@ -5,7 +5,7 @@ import { splitBlocks } from "../notes/blocks";
 import { BlockPreview } from "../notes/markdown";
 import { useToast } from "../shell/toast";
 import { FIELD, H2, PRIMARY } from "../shell/ui";
-import { actorInitials, boardColumns, ROLE_LABELS } from "./view";
+import { actorInitials, actorLabel, boardColumns, ROLE_LABELS } from "./view";
 
 const unresolved = () => false;
 const readOnlyTodo = () => {};
@@ -22,7 +22,7 @@ function ActivityMessage({ activity, now, onOpenItem }: Readonly<{
     try {
       const target = await api.resolveLink(title);
       if (target) onOpenItem(target.id);
-      else toast("Catatan belum ditemukan");
+      else toast("Note not found");
     } catch (error) {
       toast(errorMessage(error), "error");
     }
@@ -39,9 +39,9 @@ function ActivityMessage({ activity, now, onOpenItem }: Readonly<{
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="text-[13px] font-semibold text-ink">{activity.actor}</span>
+          <span className="text-[13px] font-semibold text-ink">{actorLabel(activity.actor)}</span>
           <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">{ROLE_LABELS[activity.role]}</span>
-          <time dateTime={new Date(activity.createdAt).toISOString()} title={new Date(activity.createdAt).toLocaleString("id-ID")}
+          <time dateTime={new Date(activity.createdAt).toISOString()} title={new Date(activity.createdAt).toLocaleString("en-US")}
             className="text-[11px] text-muted">{relativeTime(activity.createdAt, now)}</time>
         </div>
         {activity.title && activity.title !== activity.body.trim() && <p className="m-0 text-sm font-medium text-ink">{activity.title}</p>}
@@ -91,9 +91,9 @@ export function AgentLog({ taskId }: Readonly<{ taskId: string }>) {
   }, [taskId, toast]);
 
   if (error) return <p className="m-0 text-sm text-danger">{error}</p>;
-  if (log === null) return <p className="m-0 text-sm text-muted">Memuat log…</p>;
+  if (log === null) return <p className="m-0 text-sm text-muted">Loading log…</p>;
   return log ? <pre className="m-0 whitespace-pre-wrap break-words rounded-[10px] bg-stage p-3 font-mono text-xs leading-relaxed text-ink">{log}</pre>
-    : <p className="m-0 text-sm text-muted">Belum ada log untuk tugas ini.</p>;
+    : <p className="m-0 text-sm text-muted">No log for this task yet.</p>;
 }
 
 export function AgentThread({
@@ -142,7 +142,7 @@ export function AgentThread({
     const projectId = task.projectId;
     if (!body || !projectId) return;
     await save(() => api.addActivity({
-      taskId: task.id, projectId, actor: "Kamu", role: "note", kind: "message",
+      taskId: task.id, projectId, actor: "You", role: "note", kind: "message",
       title: body.split("\n")[0].slice(0, 120), body,
     }), () => setReply(""));
   }
@@ -152,36 +152,36 @@ export function AgentThread({
   }
 
   return (
-    <aside aria-label={showLog ? "Log agen" : "Utas"} onKeyDown={(event) => {
+    <aside aria-label={showLog ? "Agent log" : "Thread"} onKeyDown={(event) => {
       if (event.key === "Escape") { event.preventDefault(); onClose(); }
     }} className="flex min-h-0 w-[360px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-line bg-surface">
       <div className="flex shrink-0 items-start gap-3 border-b border-line p-3.5">
         <div className="min-w-0 flex-1">
-          <h2 className={H2}>{showLog ? "Log agen" : "Utas"}</h2>
-          <p className="m-0 mt-1 break-words text-[13px] text-muted">{task.title || "Tanpa judul"}</p>
+          <h2 className={H2}>{showLog ? "Agent log" : "Thread"}</h2>
+          <p className="m-0 mt-1 break-words text-[13px] text-muted">{task.title || "Untitled"}</p>
         </div>
-        <button ref={closeButton} type="button" onClick={onClose} aria-label={showLog ? "Tutup log" : "Tutup utas"}
+        <button ref={closeButton} type="button" onClick={onClose} aria-label={showLog ? "Close log" : "Close thread"}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink">×</button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
         {showLog ? <AgentLog key={task.id} taskId={task.id} /> : (
-          <ol className="m-0 flex list-none flex-col gap-5 p-0" aria-label="Aktivitas tugas">
+          <ol className="m-0 flex list-none flex-col gap-5 p-0" aria-label="Task activity">
             {chronological.map((activity) => <ActivityMessage key={activity.id} activity={activity} now={now} onOpenItem={onOpenItem} />)}
-            {chronological.length === 0 && <li className="text-sm text-muted">{activities ? "Belum ada aktivitas." : "Memuat utas…"}</li>}
+            {chronological.length === 0 && <li className="text-sm text-muted">{activities ? "No activity yet." : "Loading thread…"}</li>}
           </ol>
         )}
       </div>
       {!showLog && (
         <div className="flex shrink-0 flex-col gap-3 border-t border-line p-3.5">
-          <div className="flex flex-wrap gap-1.5" aria-label="Status tugas">
+          <div className="flex flex-wrap gap-1.5" aria-label="Task status">
             {boardColumns(true).map(({ status, title }) => <button key={status} type="button" disabled={busy}
               onClick={() => setStatus(status)} aria-pressed={task.status === status}
               className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${task.status === status ? "border-field-focus bg-surface-2 text-accent" : "border-line text-muted hover:bg-surface-2 hover:text-ink"}`}>{title}</button>)}
           </div>
           <form onSubmit={sendReply} className="flex flex-col gap-2">
-            <textarea aria-label="Balas di utas" value={reply} onChange={(event) => setReply(event.target.value)}
-              disabled={busy} rows={3} placeholder="Tulis balasan… (Markdown)" className={`${FIELD} resize-y`} />
-            <button type="submit" disabled={busy || !reply.trim()} className={`${PRIMARY} self-start`}>Balas</button>
+            <textarea aria-label="Reply in thread" value={reply} onChange={(event) => setReply(event.target.value)}
+              disabled={busy} rows={3} placeholder="Write reply… (Markdown)" className={`${FIELD} resize-y`} />
+            <button type="submit" disabled={busy || !reply.trim()} className={`${PRIMARY} self-start`}>Reply</button>
           </form>
         </div>
       )}

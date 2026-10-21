@@ -23,7 +23,7 @@ export function ProposalCard({ proposal, onDecide }: Readonly<ProposalCardProps>
   return (
     <div
       role="region"
-      aria-label={`Usulan: ${proposal.summary}`}
+      aria-label={`Proposal: ${proposal.summary}`}
       className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-3"
     >
       <div className="flex items-start gap-2">
@@ -53,7 +53,7 @@ export function ProposalCard({ proposal, onDecide }: Readonly<ProposalCardProps>
           onClick={() => handleDecide(false)}
           className="min-h-7 cursor-pointer rounded-lg border border-line px-3 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-50"
         >
-          Tolak
+          Reject
         </button>
         <button
           type="button"
@@ -61,7 +61,7 @@ export function ProposalCard({ proposal, onDecide }: Readonly<ProposalCardProps>
           onClick={() => handleDecide(true)}
           className="min-h-7 cursor-pointer rounded-lg bg-accent px-3 text-xs font-semibold text-canvas transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
         >
-          Setujui
+          Approve
         </button>
       </div>
     </div>

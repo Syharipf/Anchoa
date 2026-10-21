@@ -17,6 +17,7 @@ import { AgentRequest } from "./AgentRequest";
 import {
   ACTIVITY_FILTERS,
   actorInitials,
+  actorLabel,
   AGENT_CLI_SNIPPET,
   connectedAgents,
   filterActivities,
@@ -111,7 +112,7 @@ function EventCard({
     try {
       const target = await api.resolveLink(title);
       if (target) onOpenItem(target.id);
-      else toast("Catatan belum ditemukan");
+      else toast("Note not found");
     } catch (error) {
       toast(errorMessage(error), "error");
     }
@@ -132,10 +133,10 @@ function EventCard({
       <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-[10px] border border-line bg-stage/50 p-3">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-medium text-[13px] text-ink">{displayTitle}</span>
-          <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">{activity.actor}</span>
+          <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">{actorLabel(activity.actor)}</span>
           <time
             dateTime={new Date(activity.createdAt).toISOString()}
-            title={new Date(activity.createdAt).toLocaleString("id-ID")}
+            title={new Date(activity.createdAt).toLocaleString("en-US")}
             className="ml-auto font-mono text-[11px] text-muted"
           >
             {relativeTime(activity.createdAt, now)}
@@ -161,7 +162,7 @@ function EventCard({
             onClick={() => onOpenTaskInKanban(activity.taskId!)}
             className="self-start text-xs text-accent hover:text-accent-hover underline-offset-2 hover:underline transition-colors mt-0.5"
           >
-            Lihat di Kanban ›
+            View in Kanban ›
           </button>
         )}
       </div>
@@ -207,7 +208,7 @@ export function ConnectAgentDialog({
         agentDir: dir.trim() || null,
         agentCommand: cmd.trim() || null,
       });
-      toast("Pengaturan agen disimpan");
+      toast("Agent settings saved");
       onSaved?.();
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -222,7 +223,7 @@ export function ConnectAgentDialog({
     try {
       const res = await api.agentTestSetup(project.id);
       setTestResult(`✓ ${res}`);
-      toast("Konfigurasi agen valid");
+      toast("Agent configuration valid");
     } catch (e) {
       setTestResult(`✕ ${errorMessage(e)}`);
       toast(errorMessage(e), "error");
@@ -255,19 +256,19 @@ export function ConnectAgentDialog({
       >
         <div className="flex items-center justify-between">
           <h2 id="cn-title" className="m-0 font-display text-lg font-semibold text-ink">
-            Hubungkan agen kode
+            Connect CLI Agent
           </h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup"
+            aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted hover:bg-surface-2 hover:text-ink transition-colors"
           >
             ✕
           </button>
         </div>
         <p className="m-0 text-[13px] text-muted leading-relaxed">
-          Agen di terminal atau IDE mencatat rencana, progres, dan hasil tes ke proyek ini lewat CLI Anchoa.
+          CLI agents in your terminal or IDE record plans, progress, and test runs to this project via the Anchoa CLI.
         </p>
 
         {/* 1. Isi perintah agen dan folder di pengaturan proyek */}
@@ -276,10 +277,10 @@ export function ConnectAgentDialog({
             1
           </span>
           <div className="flex flex-col gap-2 min-w-0 flex-1">
-            <span className="text-sm font-medium text-ink">Perintah dan folder kerja agen</span>
+            <span className="text-sm font-medium text-ink">Target working directory &amp; command</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-muted">Folder kerja agen</span>
+                <span className="text-[11px] text-muted">Repo folder</span>
                 <div className="flex items-center gap-1.5">
                   <input
                     type="text"
@@ -294,7 +295,7 @@ export function ConnectAgentDialog({
                     disabled={saving}
                     className="shrink-0 whitespace-nowrap rounded-lg border border-line px-2 py-1.5 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
                   >
-                    Pilih…
+                    Choose…
                   </button>
                 </div>
                 {pickingDir && (
@@ -306,7 +307,7 @@ export function ConnectAgentDialog({
                 )}
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-muted">Perintah agen</span>
+                <span className="text-[11px] text-muted">Agent command</span>
                 <input
                   type="text"
                   value={cmd}
@@ -323,7 +324,7 @@ export function ConnectAgentDialog({
                 disabled={saving}
                 className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-3 transition-colors disabled:opacity-50"
               >
-                {saving ? "Menyimpan…" : "Simpan"}
+                {saving ? "Saving…" : "Save"}
               </button>
               <button
                 type="button"
@@ -331,7 +332,7 @@ export function ConnectAgentDialog({
                 disabled={testing}
                 className="rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors disabled:opacity-50"
               >
-                {testing ? "Menguji…" : "Uji konfigurasi"}
+                {testing ? "Testing…" : "Test setup"}
               </button>
               {testResult && (
                 <span className={`text-xs ${testResult.startsWith("✓") ? "text-accent" : "text-danger"}`}>
@@ -348,7 +349,7 @@ export function ConnectAgentDialog({
                 }}
                 className="self-start text-xs text-accent hover:text-accent-hover underline-offset-2 hover:underline"
               >
-                Ubah di pengaturan proyek ›
+                Edit in project settings ›
               </button>
             )}
           </div>
@@ -362,14 +363,14 @@ export function ConnectAgentDialog({
           <div className="flex flex-col gap-2 min-w-0 flex-1">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-ink">
-                Beri tahu agen kapan mencatat (tempel ke CLAUDE.md / AGENTS.md)
+                Instruct the agent when to record (paste into CLAUDE.md / AGENTS.md)
               </span>
               <button
                 type="button"
                 onClick={() => void handleCopy(AGENT_CLI_SNIPPET, true)}
                 className="rounded-md border border-line bg-surface-2 px-2.5 py-1 text-xs text-accent hover:text-accent-hover transition-colors"
               >
-                {copiedSnippet ? "Tersalin!" : "Salin"}
+                {copiedSnippet ? "Copied!" : "Copy"}
               </button>
             </div>
             <pre className="m-0 overflow-x-auto rounded-[9px] border border-line bg-stage p-3 font-mono text-[11.5px] leading-relaxed text-ink whitespace-pre-wrap">
@@ -384,9 +385,9 @@ export function ConnectAgentDialog({
             3
           </span>
           <div className="flex flex-col gap-2 min-w-0 flex-1">
-            <span className="text-sm font-medium text-ink">ID Proyek</span>
+            <span className="text-sm font-medium text-ink">Project ID</span>
             <p className="m-0 text-xs text-muted">
-              Gunakan ID ini untuk perintah agen atau inbox (<code>anchoa agent inbox --project &lt;id&gt;</code>).
+              Use this ID for agent commands or inbox (<code>anchoa agent inbox --project &lt;id&gt;</code>).
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 overflow-x-auto rounded-[9px] border border-line bg-stage px-3 py-2 font-mono text-xs text-ink">
@@ -397,7 +398,7 @@ export function ConnectAgentDialog({
                 onClick={() => void handleCopy(project.id, false)}
                 className="shrink-0 rounded-[9px] border border-line bg-surface-2 px-3 py-2 text-xs font-medium text-ink hover:bg-surface-2/80 transition-colors"
               >
-                {copiedId ? "Tersalin!" : "Salin ID"}
+                {copiedId ? "Copied!" : "Copy ID"}
               </button>
             </div>
           </div>
@@ -405,7 +406,7 @@ export function ConnectAgentDialog({
 
         <div className="flex justify-end pt-3 border-t border-line mt-2">
           <button type="button" onClick={onClose} className={PRIMARY}>
-            Selesai
+            Done
           </button>
         </div>
       </div>
@@ -517,7 +518,7 @@ export function AgentTab({
         agentCommand: null,
       });
       setUnlinkConfirm(false);
-      toast("Tautan agen dilepas");
+      toast("Agent unlinked");
     } catch (error) {
       toast(errorMessage(error), "error");
     } finally {
@@ -534,11 +535,11 @@ export function AgentTab({
   const lastReporter = agents[0] ?? null;
   const runningText = running
     ? mins > 0
-      ? `Agen sedang bekerja · ${mins} mnt`
-      : "Agen sedang bekerja"
+      ? `Agent working · ${mins}m`
+      : "Agent working"
     : lastReporter
-      ? `Agen tidak berjalan · terakhir ${lastReporter.name} ${relativeTime(lastReporter.lastActiveAt, now)}`
-      : "Agen tidak berjalan";
+      ? `Agent idle · last active ${lastReporter.name} ${relativeTime(lastReporter.lastActiveAt, now)}`
+      : "Agent idle";
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -564,7 +565,7 @@ export function AgentTab({
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="6" y="6" width="12" height="12" />
               </svg>
-              Hentikan
+              Stop
             </button>
           )}
         </div>
@@ -574,7 +575,7 @@ export function AgentTab({
             onClick={onShowLog}
             className="text-xs text-accent hover:text-accent-hover transition-colors"
           >
-            Lihat log
+            View log
           </button>
         )}
       </div>
@@ -584,8 +585,8 @@ export function AgentTab({
         {/* Left: Aktivitas agen feed */}
         <section aria-labelledby="ag-feed-title" className="flex min-h-[580px] flex-col rounded-2xl border border-line bg-surface shadow-sm overflow-hidden">
           <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3.5">
-            <h2 id="ag-feed-title" className={H2}>Aktivitas agen</h2>
-            <div role="group" aria-label="Saring aktivitas" className="flex gap-1 rounded-[8px] bg-stage p-0.5">
+            <h2 id="ag-feed-title" className={H2}>Agent activity</h2>
+            <div role="group" aria-label="Filter activity" className="flex gap-1 rounded-[8px] bg-stage p-0.5">
               {ACTIVITY_FILTERS.map((f) => (
                 <button
                   key={f.id}
@@ -602,12 +603,12 @@ export function AgentTab({
                 </button>
               ))}
             </div>
-            <span className="ml-auto text-[11px] text-muted">dicatat lewat anchoa agent</span>
+            <span className="ml-auto text-[11px] text-muted">recorded via anchoa agent</span>
           </div>
 
           <div className="p-5 flex flex-col gap-3 min-h-[500px]">
             {filtered.length === 0 ? (
-              <p className="m-0 py-8 text-center text-sm text-muted">Belum ada aktivitas agen.</p>
+              <p className="m-0 py-8 text-center text-sm text-muted">No agent activity yet.</p>
             ) : (
               filtered.map((activity) => (
                 <EventCard
@@ -635,7 +636,7 @@ export function AgentTab({
           />
 
           <section aria-labelledby="ag-conn-title" className="flex shrink-0 flex-col gap-3 rounded-[14px] border border-line bg-surface p-4">
-            <h2 id="ag-conn-title" className={H2}>Agen terhubung</h2>
+            <h2 id="ag-conn-title" className={H2}>Connected agent</h2>
             {project.agentCommand ? (
               <div className="flex items-center gap-3">
                 <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-surface-2 font-mono text-xs font-semibold text-ink">
@@ -644,16 +645,16 @@ export function AgentTab({
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[13px] font-medium text-ink">{agentName}</span>
                   <span className="truncate text-[11px] text-muted" title={project.agentDir ?? undefined}>
-                    {project.agentDir ? "Runner + CLI · bisa menerima perintah" : "Runner belum punya folder kerja"}
+                    {project.agentDir ? "Runner + CLI · accepts requests" : "Runner has no working folder"}
                   </span>
                 </div>
                 <span role="status" aria-live="polite" className="shrink-0 text-[11px] text-muted">
-                  {running ? "berjalan" : "menganggur"}
+                  {running ? "running" : "idle"}
                 </span>
                 <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? "bg-accent" : "bg-disabled"}`} />
               </div>
             ) : (
-              <p className="m-0 py-2 text-xs text-muted">Belum ada agen terhubung.</p>
+              <p className="m-0 py-2 text-xs text-muted">No connected agent yet.</p>
             )}
             {agents.map((agent) => (
               <div key={agent.name} className="flex items-center gap-3 border-t border-line pt-3">
@@ -662,15 +663,15 @@ export function AgentTab({
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[13px] font-medium text-ink">{agent.name}</span>
-                  <span className="text-[11px] text-muted">aktif {relativeTime(agent.lastActiveAt, now)}</span>
+                  <span className="text-[11px] text-muted">active ${relativeTime(agent.lastActiveAt, now)}</span>
                 </div>
                 <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? "bg-accent" : "bg-disabled"}`} />
               </div>
             ))}
             {unlinkConfirm ? (
-              <div role="group" aria-label="Konfirmasi lepas agen" className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+              <div role="group" aria-label="Confirm unlink agent" className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
                 <span className="text-[11px] text-muted">
-                  {running ? "Agen dihentikan dan tautan dilepas?" : "Lepas tautan agen?"}
+                  {running ? "Stop agent and unlink?" : "Unlink agent?"}
                 </span>
                 <button
                   type="button"
@@ -678,14 +679,14 @@ export function AgentTab({
                   disabled={busy}
                   className="rounded-[9px] border border-danger/60 bg-transparent px-2.5 py-1 text-[11px] font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
                 >
-                  {busy ? "Melepas…" : "Ya, lepas"}
+                  {busy ? "Unlinking…" : "Yes, unlink"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setUnlinkConfirm(false)}
                   className="rounded-[9px] border border-line bg-transparent px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:text-ink"
                 >
-                  Batal
+                  Cancel
                 </button>
               </div>
             ) : (
@@ -697,7 +698,7 @@ export function AgentTab({
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   {project.agentCommand ? <path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" /> : <path d="M12 5v14M5 12h14" />}
                 </svg>
-                {project.agentCommand ? "Lepas agen" : "Hubungkan agen"}
+                {project.agentCommand ? "Unlink agent" : "Connect agent"}
               </button>
             )}
           </section>

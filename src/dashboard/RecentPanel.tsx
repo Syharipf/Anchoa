@@ -40,7 +40,7 @@ export function RecentPanel({
         >
           <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
         </svg>
-        <h2 id="c-berkas" className="m-0 font-display text-sm font-semibold text-ink">Catatan terbaru</h2>
+        <h2 id="c-berkas" className="m-0 font-display text-sm font-semibold text-ink">Recent notes</h2>
         {onSelect ? (
           <button type="button" onClick={() => onSelect("catatan")} className="ml-auto text-xs text-accent hover:underline">
             ›
@@ -49,13 +49,13 @@ export function RecentPanel({
           <span className="ml-auto text-xs text-accent">›</span>
         )}
       </div>
-      {items?.length === 0 && <p className="m-0 text-sm text-muted">Belum ada item</p>}
+      {items?.length === 0 && <p className="m-0 text-sm text-muted">No items yet</p>}
       {items?.slice(0, 3).map((i) => (
         <button key={i.id} type="button" onClick={() => onOpen(i.id)} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-surface-2">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted">
             <NoteIcon />
           </span>
-          <span className="flex-1 truncate">{i.title || "Tanpa judul"}</span>
+          <span className="flex-1 truncate">{i.title || "Untitled"}</span>
           <span className="shrink-0 font-mono text-[11px] text-muted">{relativeTime(i.lastActivityAt, now)}</span>
         </button>
       ))}

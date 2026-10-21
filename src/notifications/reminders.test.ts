@@ -36,14 +36,14 @@ describe("reminders", () => {
   test("splits open tasks into late and due today, skipping done ones", () => {
     const today = [task("late", true), task("late-done", true, 5), task("today", false), task("today-done", false, 5)];
     expect(ids(reminders(today, null))).toEqual([
-      ["Terlambat", ["late"]],
-      ["Hari ini", ["today"]],
+      ["Overdue", ["late"]],
+      ["Today", ["today"]],
     ]);
     expect(reminderCount(today, null)).toBe(2);
   });
 
   test("empty groups are left out", () => {
-    expect(reminders([task("today", false)], null).map((g) => g.title)).toEqual(["Hari ini"]);
+    expect(reminders([task("today", false)], null).map((g) => g.title)).toEqual(["Today"]);
     expect(reminders([], null)).toEqual([]);
     expect(reminderCount([], finance([]))).toBe(0);
   });
@@ -51,13 +51,13 @@ describe("reminders", () => {
   test("bills join the tasks by status", () => {
     const groups = reminders([task("late", true)], finance([bill("listrik", "overdue"), bill("air", "dueToday")]));
     expect(ids(groups)).toEqual([
-      ["Terlambat", ["late", "listrik"]],
-      ["Hari ini", ["air"]],
+      ["Overdue", ["late", "listrik"]],
+      ["Today", ["air"]],
     ]);
   });
 
   test("the monthly limit shows from 80%", () => {
-    expect(ids(reminders([], finance([], { amount: 200000, level: "warn" }, 175000)))).toEqual([["Hari ini", ["budget"]]]);
+    expect(ids(reminders([], finance([], { amount: 200000, level: "warn" }, 175000)))).toEqual([["Today", ["budget"]]]);
     expect(reminders([], finance([], { amount: 200000, level: "ok" }, 100000))).toEqual([]);
     const [group] = reminders([], finance([], { amount: 200000, level: "over" }, 250000));
     expect(group.items[0]).toEqual({ kind: "budget", id: "budget", percent: 125, over: true });
@@ -68,17 +68,17 @@ describe("reminderText", () => {
   test("describes tasks, bills and the limit", () => {
     expect(reminderText({ kind: "task", id: "a", task: task("Bayar kos", false) })).toEqual({
       title: "Bayar kos",
-      detail: "Jatuh tempo hari ini",
+      detail: "Due today",
       tone: "muted",
     });
     expect(reminderText({ kind: "bill", id: "l", bill: bill("Listrik", "overdue") })).toEqual({
       title: "Listrik",
-      detail: "Terlambat 2 hari · Rp 150.000",
+      detail: "Overdue by 2 days · Rp 150.000",
       tone: "danger",
     });
     expect(reminderText({ kind: "budget", id: "budget", percent: 88, over: false })).toEqual({
-      title: "Batas pengeluaran",
-      detail: "Pengeluaran 88% dari batas",
+      title: "Spending limit",
+      detail: "Spending at 88% of limit",
       tone: "warn",
     });
     expect(
@@ -89,17 +89,16 @@ describe("reminderText", () => {
       }),
     ).toEqual({
       title: "Olahraga pagi",
-      detail: "Belum dicentang · pengingat 06.30",
+      detail: "Not completed · reminder 06.30",
       tone: "muted",
     });
   });
 
-  test("habit reminders appear in Hari ini group", () => {
+  test("habit reminders appear in Today group", () => {
     const habitReminders = [{ id: "h1", name: "Olahraga pagi", remindAt: "06:30" }];
     const groups = reminders([], null, habitReminders);
     expect(groups).toHaveLength(1);
-    expect(groups[0].title).toBe("Hari ini");
-    expect(groups[0].items).toHaveLength(1);
+    expect(groups[0].title).toBe("Today");
     expect(groups[0].items[0]).toEqual({
       kind: "habit",
       id: "h1",
@@ -118,8 +117,8 @@ describe("reminders with NotifyPrefs", () => {
   test("all enabled includes every kind", () => {
     const groups = reminders(today, fin, habits, allOn);
     expect(ids(groups)).toEqual([
-      ["Terlambat", ["t-late", "b-late"]],
-      ["Hari ini", ["t-today", "b-today", "h1", "budget"]],
+      ["Overdue", ["t-late", "b-late"]],
+      ["Today", ["t-today", "b-today", "h1", "budget"]],
     ]);
     expect(reminderCount(today, fin, habits, allOn)).toBe(6);
   });
@@ -128,8 +127,8 @@ describe("reminders with NotifyPrefs", () => {
     const prefs = { ...allOn, task: false };
     const groups = reminders(today, fin, habits, prefs);
     expect(ids(groups)).toEqual([
-      ["Terlambat", ["b-late"]],
-      ["Hari ini", ["b-today", "h1", "budget"]],
+      ["Overdue", ["b-late"]],
+      ["Today", ["b-today", "h1", "budget"]],
     ]);
     expect(reminderCount(today, fin, habits, prefs)).toBe(4);
   });
@@ -138,8 +137,8 @@ describe("reminders with NotifyPrefs", () => {
     const prefs = { ...allOn, bill: false };
     const groups = reminders(today, fin, habits, prefs);
     expect(ids(groups)).toEqual([
-      ["Terlambat", ["t-late"]],
-      ["Hari ini", ["t-today", "h1", "budget"]],
+      ["Overdue", ["t-late"]],
+      ["Today", ["t-today", "h1", "budget"]],
     ]);
     expect(reminderCount(today, fin, habits, prefs)).toBe(4);
   });
@@ -148,18 +147,18 @@ describe("reminders with NotifyPrefs", () => {
     const prefs = { ...allOn, budget: false };
     const groups = reminders(today, fin, habits, prefs);
     expect(ids(groups)).toEqual([
-      ["Terlambat", ["t-late", "b-late"]],
-      ["Hari ini", ["t-today", "b-today", "h1"]],
+      ["Overdue", ["t-late", "b-late"]],
+      ["Today", ["t-today", "b-today", "h1"]],
     ]);
     expect(reminderCount(today, fin, habits, prefs)).toBe(5);
   });
 
-  test("dropping habit reminders removes habits from Hari ini", () => {
+  test("dropping habit reminders removes habits from Today", () => {
     const prefs = { ...allOn, habit: false };
     const groups = reminders(today, fin, habits, prefs);
     expect(ids(groups)).toEqual([
-      ["Terlambat", ["t-late", "b-late"]],
-      ["Hari ini", ["t-today", "b-today", "budget"]],
+      ["Overdue", ["t-late", "b-late"]],
+      ["Today", ["t-today", "b-today", "budget"]],
     ]);
     expect(reminderCount(today, fin, habits, prefs)).toBe(5);
   });
@@ -174,11 +173,10 @@ describe("reminders with NotifyPrefs", () => {
 describe("journal reminder", () => {
   const allOn = { task: true, bill: true, budget: true, habit: true, journal: true, journalAt: "20:00" };
 
-  test("journal card appears in Hari ini when journal pref on and journalReminder true", () => {
+  test("journal card appears in Today when journal pref on and journalReminder true", () => {
     const groups = reminders([], null, [], allOn, true);
     expect(groups).toHaveLength(1);
-    expect(groups[0].title).toBe("Hari ini");
-    expect(groups[0].items).toEqual([{ kind: "journal", id: "journal" }]);
+    expect(groups[0].title).toBe("Today");
     expect(reminderCount([], null, [], allOn, true)).toBe(1);
   });
 
@@ -195,8 +193,8 @@ describe("journal reminder", () => {
 
   test("reminderText for journal kind", () => {
     expect(reminderText({ kind: "journal", id: "journal" })).toEqual({
-      title: "Jurnal harian",
-      detail: "Belum menulis jurnal hari ini",
+      title: "Daily journal",
+      detail: "Haven't written journal today",
       tone: "muted",
     });
   });

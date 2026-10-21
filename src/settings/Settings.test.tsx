@@ -21,22 +21,22 @@ describe("SettingsNav", () => {
       />,
     );
     expect(html).toContain("w-[212px]");
-    expect(html).toContain("Asisten &amp; AI");
-    expect(html).toContain("Avatar Live2D");
-    expect(html).toContain("Suara");
-    expect(html).toContain("Sinkron &amp; data");
-    expect(html).toContain("Integrasi");
-    expect(html).toContain("Tentang");
+    expect(html).toContain("Assistant &amp; AI");
+    expect(html).toContain("Live2D Avatar");
+    expect(html).toContain("Voice");
+    expect(html).toContain("Sync &amp; data");
+    expect(html).toContain("Integrations");
+    expect(html).toContain("About");
 
-    expect(html).toContain("Statis");
-    expect(html).toContain("Belum dipasang");
-    expect(html).toContain("Lokal");
-    expect(html).toContain("Terhubung");
+    expect(html).toContain("Static");
+    expect(html).toContain("Not installed");
+    expect(html).toContain("Local");
+    expect(html).toContain("Connected");
     expect(html).toContain("v0.10.0");
     expect(html).toContain('aria-current="page"');
   });
 
-  it("shows 'Belum terhubung' when GitHub is not connected", () => {
+  it("shows 'Not connected' when GitHub is not connected", () => {
     const html = renderToStaticMarkup(
       <SettingsNav
         current="integrations"
@@ -44,10 +44,10 @@ describe("SettingsNav", () => {
         statusContext={{ githubConnected: false, version: "0.10.0" }}
       />,
     );
-    expect(html).toContain("Belum terhubung");
+    expect(html).toContain("Not connected");
   });
 
-  it("shows 'Terhubung' or 'Perlu kunci' for data section when sync is connected", () => {
+  it("shows 'Connected' or 'Key required' for data section when sync is connected", () => {
     const connectedHtml = renderToStaticMarkup(
       <SettingsNav
         current="data"
@@ -67,7 +67,7 @@ describe("SettingsNav", () => {
         }}
       />,
     );
-    expect(connectedHtml).toContain("Terhubung");
+    expect(connectedHtml).toContain("Connected");
 
     const lockedHtml = renderToStaticMarkup(
       <SettingsNav
@@ -88,28 +88,28 @@ describe("SettingsNav", () => {
         }}
       />,
     );
-    expect(lockedHtml).toContain("Perlu kunci");
+    expect(lockedHtml).toContain("Key required");
   });
 });
 
 describe("DataSection", () => {
   it("renders database, ringkasan data, and backup sections with buttons", () => {
     const html = renderToStaticMarkup(<DataSection />);
-    expect(html).toContain("Database lokal");
-    expect(html).toContain("Backup sekarang");
-    expect(html).toContain("Buka folder backup");
-    expect(html).toContain("Buka folder data");
-    expect(html).toContain("Ringkasan data");
-    expect(html).toContain("Berkas backup");
+    expect(html).toContain("Local database");
+    expect(html).toContain("Backup now");
+    expect(html).toContain("Open backup folder");
+    expect(html).toContain("Open data folder");
+    expect(html).toContain("Data summary");
+    expect(html).toContain("Backup files");
   });
 });
 
 describe("IntegrationsSection", () => {
-  it("renders built GitHub, Email and Google Kalender integrations without an SFTP placeholder", () => {
+  it("renders built GitHub, Email and Google Calendar integrations without an SFTP placeholder", () => {
     const html = renderToStaticMarkup(<IntegrationsSection onChanged={() => {}} />);
     expect(html).toContain("GitHub");
     expect(html).toContain("Email");
-    expect(html).toContain("Google Kalender");
+    expect(html).toContain("Google Calendar");
     expect(html).not.toContain("SFTP");
     expect(html).not.toContain("Menyusul");
     expect(html).not.toContain("Tailscale");
@@ -117,13 +117,13 @@ describe("IntegrationsSection", () => {
 });
 
 describe("AboutSection", () => {
-  it("renders version, check update button, repo links, upgrade command, and all required licenses", () => {
+  it("renders version, check update button, repo links, and all required licenses", () => {
     const html = renderToStaticMarkup(<AboutSection version="0.10.0" />);
     expect(html).toContain("v0.10.0");
-    expect(html).toContain("Cek pembaruan");
-    expect(html).toContain("Repositori GitHub");
-    expect(html).toContain("Catatan Rilis");
-    expect(html).toContain("sudo dnf upgrade anchoa");
+    expect(html).toContain("Check for updates");
+    expect(html).toContain("GitHub Repository");
+    expect(html).toContain("Release Notes");
+    expect(html).toContain("To update Anchoa, use your system package manager");
 
     // Static third-party licence table:
     // Tauri MIT/Apache-2.0, React MIT, SQLite public domain, rusqlite MIT, jiff MIT/Unlicense,
@@ -154,27 +154,27 @@ describe("Settings layout", () => {
     const html = renderToStaticMarkup(
       <Settings initialSection="data" onSectionChange={() => {}} onGithubChanged={() => {}} />,
     );
-    expect(html).toContain("Pengaturan");
-    expect(html).toContain("Perangkat ini: Laptop Fedora");
+    expect(html).toContain("Settings");
+    expect(html).toContain("This device: Fedora Laptop");
     expect(html).toContain("w-[212px]");
-    expect(html).toContain("Database lokal");
+    expect(html).toContain("Local database");
   });
 
   it("renders initial section when provided", () => {
     const html = renderToStaticMarkup(
       <Settings initialSection="about" onSectionChange={() => {}} onGithubChanged={() => {}} />,
     );
-    expect(html).toContain("Lisensi pihak ketiga");
-    expect(html).toContain("sudo dnf upgrade anchoa");
+    expect(html).toContain("Third-party licenses");
+    expect(html).toContain("To update Anchoa, use your system package manager");
   });
 
   it("renders AiSection when initialSection is ai", () => {
     const html = renderToStaticMarkup(
       <Settings initialSection="ai" onSectionChange={() => {}} onGithubChanged={() => {}} />,
     );
-    expect(html).toContain("Penyedia AI");
-    expect(html).toContain("Model per tugas");
-    expect(html).toContain("Privasi AI");
+    expect(html).toContain("AI Providers");
+    expect(html).toContain("Model assignments");
+    expect(html).toContain("AI Privacy");
   });
 });
 
@@ -245,10 +245,10 @@ describe("Settings interactions", () => {
     harness.render();
     await harness.settle();
     const html = renderToStaticMarkup(harness.render());
-    expect(html.includes("Belum ada item.")).toBe(empty);
-    expect(html.includes("Sampah (terhapus)")).toBe(!empty);
-    if (trashed > 0) expect(html).toContain("1.234");
-    if (counts.length > 0) expect(html).toContain("Tugas");
+    expect(html.includes("No items yet.")).toBe(empty);
+    expect(html.includes("Trash (deleted)")).toBe(!empty);
+    if (trashed > 0) expect(html).toContain("1,234");
+    if (counts.length > 0) expect(html).toContain("Task");
   });
 
   it.each(["resolve", "reject"] as const)("uses only the loaded app version in About (%s)", async (result) => {
@@ -275,7 +275,7 @@ describe("Settings interactions", () => {
     spies.push(opening);
     harness = hookHarness(() => AboutSection({ version: "3.4.5" }));
     const links = elements(harness.render()).filter((element) =>
-      element.type === "button" && String(element.props["aria-label"]).startsWith("Buka lisensi atau situs "));
+      element.type === "button" && String(element.props["aria-label"]).startsWith("Open license or project website for "));
     expect(links).toHaveLength(THIRD_PARTY_LICENSES.length);
     for (const [index, link] of links.entries()) {
       const item = THIRD_PARTY_LICENSES[index];
@@ -314,6 +314,6 @@ describe("Settings interactions", () => {
     const context = () => settingsNav().props.statusContext as StatusContext;
     expect(context().syncStatus?.signedIn).toBe(true);
     expect(context().syncStatus?.email).toBe("sync@example.test");
-    expect(sectionStatus("data", context())).toBe("Terhubung");
+    expect(sectionStatus("data", context())).toBe("Connected");
   });
 });

@@ -30,17 +30,17 @@ export function UpcomingCard({
           <rect x="3" y="5" width="18" height="16" rx="2" />
           <path d="M3 10h18M8 3v4M16 3v4" />
         </svg>
-        <h2 id="c-jadwal" className="m-0 font-display text-sm font-semibold text-ink">7 hari ke depan</h2>
+        <h2 id="c-jadwal" className="m-0 font-display text-sm font-semibold text-ink">Next 7 days</h2>
         {onSelect ? (
           <button type="button" onClick={() => onSelect("jadwal")} className="ml-auto text-xs text-accent hover:underline">
-            Kalender ›
+            Calendar ›
           </button>
         ) : (
-          <span className="ml-auto text-xs text-accent">Kalender ›</span>
+          <span className="ml-auto text-xs text-accent">Calendar ›</span>
         )}
       </div>
       {days && !days.some((d) => d.tasks.length > 0) ? (
-        <p className="m-0 text-sm text-muted">Tidak ada jadwal 7 hari ke depan</p>
+        <p className="m-0 text-sm text-muted">No schedule for the next 7 days</p>
       ) : (
         <div className="grid grid-cols-7 gap-1.5">
           {days?.map((d) => {
@@ -57,12 +57,12 @@ export function UpcomingCard({
                 </span>
                 {first ? (
                   <button type="button" onClick={() => onOpen(first.id)} className="truncate text-left text-xs text-ink hover:text-accent">
-                    {first.title || "Tanpa judul"}
+                    {first.title || "Untitled"}
                   </button>
                 ) : (
                   <span className="text-xs text-disabled">—</span>
                 )}
-                {d.tasks.length > 1 && <span className="text-[10px] text-muted">+{d.tasks.length - 1} lagi</span>}
+                {d.tasks.length > 1 && <span className="text-[10px] text-muted">+{d.tasks.length - 1} more</span>}
               </div>
             );
           })}

@@ -1,5 +1,5 @@
 export function HabitCelebration({
-  message = "Semua kebiasaan hari ini selesai!",
+  message = "All habits completed for today!",
   onDismiss,
 }: Readonly<{
   message?: string;
@@ -17,7 +17,7 @@ export function HabitCelebration({
         </span>
         <div className="flex flex-col">
           <span className="font-display text-xs font-bold text-accent">
-            Pencapaian Hari Ini Tercapai!
+            Today's goals achieved!
           </span>
           <span className="text-[11px] text-ink">{message}</span>
         </div>
@@ -29,7 +29,7 @@ export function HabitCelebration({
           onClick={onDismiss}
           className="rounded-md border border-line bg-surface-2 px-2.5 py-1 text-xs text-muted hover:text-ink transition-colors"
         >
-          Tutup
+          Close
         </button>
       )}
     </div>

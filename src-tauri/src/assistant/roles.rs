@@ -13,27 +13,27 @@ const DEFAULT_MODEL: &str = "qwen2.5:3b";
 
 pub(crate) fn validate(role: &str, provider: &str, model: &str) -> Result<(), AppError> {
     if !ROLES.contains(&role) {
-        return Err(AppError::Invalid("Peran AI tidak dikenal".into()));
+        return Err(AppError::Invalid("Unknown AI role".into()));
     }
     if matches!(role, "journal" | "email") && provider != "ollama" {
         return Err(AppError::Invalid(
-            "Jurnal dan email hanya boleh memakai penyedia lokal (Ollama)".into(),
+            "Journal and email may only use local providers (Ollama)".into(),
         ));
     }
     if !matches!(provider, "ollama" | "custom") {
         return Err(AppError::Invalid(
-            "Penyedia AI yang tersedia hanya Ollama dan Kustom".into(),
+            "Available AI providers are Ollama and Custom only".into(),
         ));
     }
     if model.trim().is_empty() || model.len() > 256 || model.chars().any(char::is_control) {
-        return Err(AppError::Invalid("Nama model AI tidak valid".into()));
+        return Err(AppError::Invalid("Invalid AI model name".into()));
     }
     Ok(())
 }
 
 pub fn get_role(conn: &Connection, role: &str) -> Result<RoleConfig, AppError> {
     if !ROLES.contains(&role) {
-        return Err(AppError::Invalid("Peran AI tidak dikenal".into()));
+        return Err(AppError::Invalid("Unknown AI role".into()));
     }
     let setting = |field: &str, default: &str| -> Result<String, AppError> {
         Ok(conn
@@ -83,7 +83,7 @@ mod tests {
         let conn = open_in_memory();
         for role in ["journal", "email"] {
             let error = set_role(&conn, role, "custom", "remote").unwrap_err();
-            assert!(error.to_string().contains("lokal"));
+            assert!(error.to_string().contains("local"));
             assert_eq!(get_role(&conn, role).unwrap().provider, "ollama");
         }
     }

@@ -19,32 +19,32 @@ export interface SectionItem {
 export const SETTINGS_SECTIONS: readonly SectionItem[] = [
   {
     id: "ai",
-    label: "Asisten & AI",
+    label: "Assistant & AI",
     icon: "M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6",
   },
   {
     id: "avatar",
-    label: "Avatar Live2D",
+    label: "Live2D Avatar",
     icon: "M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM4 21a8 8 0 0 1 16 0",
   },
   {
     id: "suara",
-    label: "Suara",
+    label: "Voice",
     icon: "M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3",
   },
   {
     id: "data",
-    label: "Sinkron & data",
+    label: "Sync & data",
     icon: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
   },
   {
     id: "integrations",
-    label: "Integrasi",
+    label: "Integrations",
     icon: "M4 5h16v11H4zM2 19h20",
   },
   {
     id: "about",
-    label: "Tentang",
+    label: "About",
     icon: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v6M12 7.5h.01",
   },
 ] as const;
@@ -82,34 +82,34 @@ export function sectionStatus(
 ): string {
   switch (id) {
     case "ai": {
-      const provider = context?.aiStatus?.provider === "custom" ? context.aiStatus.name || "Kustom" : "Ollama";
+      const provider = context?.aiStatus?.provider === "custom" ? context.aiStatus.name || "Custom" : "Ollama";
       if (!context?.aiStatus || !context.aiStatus.available) {
-        return `${provider} ${context?.aiStatus?.provider === "custom" ? "tidak tersedia" : "mati"}`;
+        return `${provider} ${context?.aiStatus?.provider === "custom" ? "unavailable" : "offline"}`;
       }
       const model =
         context.aiChatModel ?? context.aiStatus.models[0] ?? "qwen2.5:3b";
       return `${provider} · ${model}`;
     }
     case "avatar":
-      return context?.avatarStatus ?? "Statis";
+      return context?.avatarStatus ?? "Static";
     case "suara": {
       if (!context?.voiceStatus || !isVoiceInstalled(context.voiceStatus)) {
-        return "Belum dipasang";
+        return "Not installed";
       }
       const active = context.voiceStatus.voices.find(
         (v) => v.id === context.voiceStatus!.settings.id,
       );
-      return active?.label ?? "Di perangkat";
+      return active?.label ?? "On device";
     }
     case "data": {
       if (context?.syncStatus?.signedIn) {
-        if (context.syncStatus.needsUnlockKey) return "Perlu kunci";
-        return "Terhubung";
+        if (context.syncStatus.needsUnlockKey) return "Key required";
+        return "Connected";
       }
-      return "Lokal";
+      return "Local";
     }
     case "integrations":
-      return context?.githubConnected ? "Terhubung" : "Belum terhubung";
+      return context?.githubConnected ? "Connected" : "Not connected";
     case "about": {
       const v = context?.version?.trim();
       if (!v) return "…";
@@ -166,16 +166,16 @@ export const THIRD_PARTY_LICENSES: readonly ThirdPartyLicense[] = [
 ] as const;
 
 export const ITEM_KIND_LABELS: Record<string, string> = {
-  task: "Tugas",
-  note: "Catatan",
-  page: "Halaman",
-  entry: "Jurnal",
-  transaction: "Transaksi",
-  account: "Akun",
-  bill: "Tagihan",
-  project: "Proyek",
+  task: "Task",
+  note: "Note",
+  page: "Page",
+  entry: "Journal",
+  transaction: "Transaction",
+  account: "Account",
+  bill: "Bill",
+  project: "Project",
   habit: "Habit",
-  download: "Unduhan",
+  download: "Download",
 };
 
 export function formatKind(kind: string): string {
@@ -184,7 +184,7 @@ export function formatKind(kind: string): string {
 
 /** One line about sync for the Profil page. */
 export function syncLabel(status: SyncStatus | null): string {
-  if (!status) return "Memuat…";
-  if (!status.configured) return "Sync belum tersedia";
-  return status.signedIn ? `Sync: tersambung sebagai ${status.email ?? "akun Anda"}` : "Sync: mati";
+  if (!status) return "Loading…";
+  if (!status.configured) return "Sync not available";
+  return status.signedIn ? `Sync: connected as ${status.email ?? "your account"}` : "Sync: off";
 }

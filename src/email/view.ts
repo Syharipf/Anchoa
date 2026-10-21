@@ -1,20 +1,20 @@
 import type { EmailFolder, EmailMessage, EmailStatus } from "../api";
 
 export const FOLDERS: readonly Readonly<{ id: EmailFolder; label: string }>[] = [
-  { id: "inbox", label: "Kotak masuk" },
-  { id: "starred", label: "Berbintang" },
-  { id: "sent", label: "Terkirim" },
+  { id: "inbox", label: "Inbox" },
+  { id: "starred", label: "Starred" },
+  { id: "sent", label: "Sent" },
 ];
 
 export const EMAIL_LABELS: readonly Readonly<{ id: string; label: string; color: string }>[] = [
-  { id: "proyek", label: "Proyek", color: "#3987E5" },
-  { id: "tagihan", label: "Tagihan", color: "#C98500" },
-  { id: "pribadi", label: "Pribadi", color: "#D55181" },
+  { id: "proyek", label: "Project", color: "#3987E5" },
+  { id: "tagihan", label: "Bills", color: "#C98500" },
+  { id: "pribadi", label: "Personal", color: "#D55181" },
 ];
 
 export function connectionLabel(status: EmailStatus | null): string {
-  if (!status) return "Memuat…";
-  return status.connected && status.address ? `Terhubung sebagai ${status.address}` : "Belum terhubung";
+  if (!status) return "Loading…";
+  return status.connected && status.address ? `Connected as ${status.address}` : "Not connected";
 }
 
 export function parseRecipients(value: string): string[] {
@@ -32,7 +32,7 @@ export function sender(message: EmailMessage): string {
 }
 
 export function emailDate(sentAt: number): string {
-  return new Date(sentAt).toLocaleString("id-ID", {
+  return new Date(sentAt).toLocaleString("en-US", {
     day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }

@@ -42,12 +42,12 @@ export function ScheduleHeader({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <h1 className={H1}>Jadwal</h1>
+        <h1 className={H1}>Schedule</h1>
 
         <div className="flex items-center gap-0.5 rounded-[9px] border border-line bg-surface p-0.5">
           <button
             type="button"
-            aria-label="Sebelumnya"
+            aria-label="Previous"
             onClick={onPrev}
             className="flex h-7 w-7 items-center justify-center rounded-md text-ink transition-colors hover:bg-surface-2"
           >
@@ -73,7 +73,7 @@ export function ScheduleHeader({
           </span>
           <button
             type="button"
-            aria-label="Berikutnya"
+            aria-label="Next"
             onClick={onNext}
             className="flex h-7 w-7 items-center justify-center rounded-md text-ink transition-colors hover:bg-surface-2"
           >
@@ -98,11 +98,11 @@ export function ScheduleHeader({
           onClick={onToday}
           className="flex h-8 items-center rounded-[9px] border border-line bg-transparent px-3 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
         >
-          Hari ini
+          Today
         </button>
 
         <fieldset className="m-0 flex gap-0.5 rounded-[9px] border border-line bg-surface p-0.5">
-          <legend className="sr-only">Tampilan</legend>
+          <legend className="sr-only">View</legend>
           <button
             type="button"
             onClick={() => {
@@ -116,7 +116,7 @@ export function ScheduleHeader({
                 : "text-muted hover:text-ink"
             }`}
           >
-            Bulan
+            Month
           </button>
           <button
             type="button"
@@ -131,7 +131,7 @@ export function ScheduleHeader({
                 : "text-muted hover:text-ink"
             }`}
           >
-            Minggu
+            Week
           </button>
           <button
             type="button"
@@ -153,8 +153,8 @@ export function ScheduleHeader({
             disabled={calendarSyncing}
             title={
               calendarAccount
-                ? `Google Kalender (${calendarAccount})`
-                : "Sinkronkan Google Kalender"
+                ? `Google Calendar (${calendarAccount})`
+                : "Sync Google Calendar"
             }
             className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-transparent px-2.5 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
@@ -173,7 +173,7 @@ export function ScheduleHeader({
               <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
             </svg>
             <span className="font-medium">
-              {calendarSyncing ? "Sync..." : "Google Kalender"}
+              {calendarSyncing ? "Syncing…" : "Google Calendar"}
             </span>
           </button>
         )}
@@ -198,7 +198,7 @@ export function ScheduleHeader({
               <path d="M5 11a7 7 0 0 0 14 0" />
               <path d="M12 18v3" />
             </svg>
-            <span>Tambah tugas lewat suara</span>
+            <span>Add task with voice</span>
           </button>
           <button type="button" onClick={onAdd} className={HEADER_PRIMARY}>
             <svg
@@ -213,13 +213,13 @@ export function ScheduleHeader({
             >
               <path d="M12 5v14M5 12h14" />
             </svg>
-            <span>Tambah</span>
+            <span>Add</span>
           </button>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="mr-1 text-xs text-muted">Tampilkan</span>
+        <span className="mr-1 text-xs text-muted">Show</span>
         {ALL_KINDS.map((kind) => {
           // Google Kalender is optional: no chip until it has events or was hidden.
           if (kind === "calendar" && !counts.calendar && !off.has(kind)) return null;
@@ -256,21 +256,21 @@ export function ScheduleHeader({
             <>
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-4 rounded-[3px] bg-muted" />
-                Dikerjakan
+                In progress
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-4 rounded-[3px] border border-muted" />
-                Rencana
+                Plan
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rotate-45 bg-muted" />
-                Tenggat
+                Deadline
               </span>
             </>
           )}
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-[2px] border-[1.5px] border-danger" />
-            {' '}Terlambat
+            {' '}Overdue
           </span>
         </div>
       </div>

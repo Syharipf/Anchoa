@@ -17,14 +17,14 @@ const at = (iso: string) => new Date(iso).getTime();
 describe("relativeTime", () => {
   const now = at("2026-09-29T14:00:00+07:00");
   test("short spans", () => {
-    expect(relativeTime(now - 30_000, now)).toBe("baru saja");
-    expect(relativeTime(now - 2 * 60_000, now)).toBe("2 menit lalu");
-    expect(relativeTime(now - 5 * 3_600_000, now)).toBe("5 jam lalu");
+    expect(relativeTime(now - 30_000, now)).toBe("just now");
+    expect(relativeTime(now - 2 * 60_000, now)).toBe("2 minutes ago");
+    expect(relativeTime(now - 5 * 3_600_000, now)).toBe("5 hours ago");
   });
   test("calendar days", () => {
-    expect(relativeTime(at("2026-09-28T09:00:00+07:00"), now)).toBe("kemarin");
-    expect(relativeTime(at("2026-09-26T09:00:00+07:00"), now)).toBe("3 hari lalu");
-    expect(relativeTime(at("2026-09-12T09:00:00+07:00"), now)).toBe("12 Sep");
+    expect(relativeTime(at("2026-09-28T09:00:00+07:00"), now)).toBe("yesterday");
+    expect(relativeTime(at("2026-09-26T09:00:00+07:00"), now)).toBe("3 days ago");
+    expect(relativeTime(at("2026-09-12T09:00:00+07:00"), now)).toBe("Sep 12");
   });
 });
 
@@ -48,8 +48,8 @@ describe("dates", () => {
     expect(msToDateInput(midnight)).toBe("2026-10-01");
   });
 
-  test("short Indonesian date", () => {
-    expect(shortDate(at("2026-09-12T08:00:00+07:00"))).toBe("12 Sep");
+  test("short English date", () => {
+    expect(shortDate(at("2026-09-12T08:00:00+07:00"))).toBe("Sep 12");
   });
   test("date input round trip uses local midnight", () => {
     expect(dateInputToMs("2026-10-01")).toBe(at("2026-10-01T00:00:00+07:00"));
@@ -61,48 +61,48 @@ describe("dates", () => {
 
 describe("greeting", () => {
   test("follows the hour boundaries", () => {
-    expect(greeting(4)).toBe("Selamat pagi");
-    expect(greeting(10)).toBe("Selamat pagi");
-    expect(greeting(11)).toBe("Selamat siang");
-    expect(greeting(14)).toBe("Selamat siang");
-    expect(greeting(15)).toBe("Selamat sore");
-    expect(greeting(17)).toBe("Selamat sore");
-    expect(greeting(18)).toBe("Selamat malam");
-    expect(greeting(3)).toBe("Selamat malam");
+    expect(greeting(4)).toBe("Good morning");
+    expect(greeting(10)).toBe("Good morning");
+    expect(greeting(12)).toBe("Good afternoon");
+    expect(greeting(14)).toBe("Good afternoon");
+    expect(greeting(17)).toBe("Good evening");
+    expect(greeting(19)).toBe("Good evening");
+    expect(greeting(21)).toBe("Good night");
+    expect(greeting(3)).toBe("Good night");
   });
 });
 
 describe("fullDate", () => {
-  test("weekday, day and month in Indonesian", () => {
-    expect(fullDate(at("2026-09-29T08:00:00+07:00"))).toBe("Selasa, 29 September");
+  test("weekday, day and month in English", () => {
+    expect(fullDate(at("2026-09-29T08:00:00+07:00"))).toBe("Tuesday, September 29");
   });
 });
 
 describe("clockLabel", () => {
   test("short weekday, date, month and 24-hour time", () => {
-    expect(clockLabel(at("2026-09-30T00:48:00+07:00"))).toBe("Rab 30 Sep · 00:48");
-    expect(clockLabel(at("2026-09-29T22:05:00+07:00"))).toBe("Sel 29 Sep · 22:05");
+    expect(clockLabel(at("2026-09-30T00:48:00+07:00"))).toBe("Wed, Sep 30 · 00:48");
+    expect(clockLabel(at("2026-09-29T22:05:00+07:00"))).toBe("Tue, Sep 29 · 22:05");
   });
 });
 
 describe("upcomingLabel", () => {
   test("reads the local date without shifting it", () => {
-    expect(upcomingLabel("2026-10-01")).toEqual({ weekday: "Kam", day: 1 });
-    expect(upcomingLabel("2026-10-04")).toEqual({ weekday: "Min", day: 4 });
+    expect(upcomingLabel("2026-10-01")).toEqual({ weekday: "Thu", day: 1 });
+    expect(upcomingLabel("2026-10-04")).toEqual({ weekday: "Sun", day: 4 });
   });
 });
 
 describe("formatBytes", () => {
-  test("formats byte sizes using Indonesian conventions", () => {
+  test("formats byte sizes using English conventions", () => {
     expect(formatBytes(0)).toBe("0 B");
     expect(formatBytes(1023)).toBe("1023 B");
-    expect(formatBytes(1536)).toBe("1,5 KB");
-    expect(formatBytes(Math.round(12.3 * 1024 * 1024))).toBe("12,3 MB");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(Math.round(12.3 * 1024 * 1024))).toBe("12.3 MB");
   });
 
   test("formats whole units and gigabytes", () => {
     expect(formatBytes(1024)).toBe("1 KB");
     expect(formatBytes(1024 * 1024)).toBe("1 MB");
-    expect(formatBytes(Math.round(2.5 * 1024 * 1024 * 1024))).toBe("2,5 GB");
+    expect(formatBytes(Math.round(2.5 * 1024 * 1024 * 1024))).toBe("2.5 GB");
   });
 });

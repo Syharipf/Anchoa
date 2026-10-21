@@ -93,9 +93,9 @@ describe("JournalCalendar", () => {
 
     expect(textNodes).toContain("3");
     expect(textNodes).toContain("12");
-    expect(textNodes).toContain("Streak saat ini");
-    expect(textNodes).toContain("Terpanjang");
-    expect(textNodes).toContain("Oktober 2026");
+    expect(textNodes).toContain("Current streak");
+    expect(textNodes).toContain("Best streak");
+    expect(textNodes).toContain("October 2026");
 
     const day1Btn = findButton(rendered, "2026-10-01");
     expect(day1Btn.props["aria-pressed"]).toBe(true);
@@ -143,14 +143,14 @@ describe("JournalCalendar", () => {
     expect(api.journalCalendar).toHaveBeenCalledWith("2026-10");
 
     // Click previous month
-    const prevBtn = findButton(harness.render(), "Bulan sebelumnya");
+    const prevBtn = findButton(harness.render(), "Previous month");
     (prevBtn.props.onClick as () => void)();
     await harness.settle();
 
     expect(api.journalCalendar).toHaveBeenCalledWith("2026-09");
 
     // Click next month twice
-    const nextBtn = findButton(harness.render(), "Bulan berikutnya");
+    const nextBtn = findButton(harness.render(), "Next month");
     (nextBtn.props.onClick as () => void)();
     await harness.settle();
     expect(api.journalCalendar).toHaveBeenCalledWith("2026-10");

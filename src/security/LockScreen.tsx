@@ -6,7 +6,7 @@ import { AnchoaPet } from "../pet/AnchoaPet";
 
 type Method = "pin" | "password";
 
-const COOLDOWN_RE = /\d+\s+detik/;
+const COOLDOWN_RE = /\d+\s+(?:detik|seconds|second|s)/;
 
 export function LockScreen({
   onUnlocked,
@@ -68,7 +68,7 @@ export function LockScreen({
     } catch (err) {
       const msg = errorMessage(err);
       setError(msg);
-      const match = msg.match(/(\d+)\s+detik/);
+      const match = msg.match(/(\d+)\s+(?:detik|seconds|second|s)/);
       if (match) {
         setCooldown(Number.parseInt(match[1], 10));
       } else {
@@ -82,8 +82,8 @@ export function LockScreen({
 
   const displayError =
     cooldown > 0
-      ? error?.replace(COOLDOWN_RE, `${cooldown} detik`) ??
-        `Terlalu banyak percobaan. Coba lagi dalam ${cooldown} detik.`
+      ? error?.replace(COOLDOWN_RE, `${cooldown} seconds`) ??
+        `Too many attempts. Try again in ${cooldown} seconds.`
       : error && !COOLDOWN_RE.test(error)
       ? error
       : null;
@@ -102,16 +102,16 @@ export function LockScreen({
 
       <div className="laut-card relative z-10 flex w-full max-w-[380px] flex-col items-center gap-5 rounded-[18px] border border-line/70 bg-surface/90 p-6 backdrop-blur-md">
         <div className="flex flex-col items-center gap-1.5 text-center">
-          <h1 className={H1}>Anchoa terkunci</h1>
+          <h1 className={H1}>Anchoa is locked</h1>
           <p className="m-0 text-xs text-muted">
             {active === "password"
-              ? "Masukkan kata sandi untuk membuka aplikasi"
-              : "Masukkan PIN Anda untuk membuka aplikasi"}
+              ? "Enter password to unlock"
+              : "Enter your PIN to unlock"}
           </p>
         </div>
 
         {showToggle && (
-          <div role="group" aria-label="Metode buka" className="flex gap-1 rounded-full bg-canvas p-1">
+          <div role="group" aria-label="Unlock method" className="flex gap-1 rounded-full bg-canvas p-1">
             {(["pin", "password"] as const).map((id) => (
               <button
                 key={id}
@@ -128,7 +128,7 @@ export function LockScreen({
                   active === id ? "bg-accent font-semibold text-canvas" : "text-muted hover:text-ink"
                 }`}
               >
-                {id === "pin" ? "PIN" : "Kata sandi"}
+                {id === "pin" ? "PIN" : "Password"}
               </button>
             ))}
           </div>
@@ -146,7 +146,7 @@ export function LockScreen({
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="lock-secret" className="text-xs text-muted">
-              {active === "password" ? "Kata sandi" : "PIN"}
+              {active === "password" ? "Password" : "PIN"}
             </label>
             <input
               id="lock-secret"
@@ -155,8 +155,8 @@ export function LockScreen({
               inputMode={active === "password" ? "text" : "numeric"}
               autoFocus
               autoComplete="current-password"
-              aria-label={active === "password" ? "Kata sandi" : "PIN"}
-              placeholder={active === "password" ? "Masukkan kata sandi" : "Masukkan PIN"}
+              aria-label={active === "password" ? "Password" : "PIN"}
+              placeholder={active === "password" ? "Enter password" : "Enter PIN"}
               value={secret}
               onChange={(e) => {
                 setSecret(e.target.value);
@@ -174,33 +174,29 @@ export function LockScreen({
             disabled={disabled || !secret}
             className="flex h-9 w-full items-center justify-center rounded-[9px] bg-accent px-4 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
           >
-            {busy ? "Membuka…" : "Buka"}
+            {busy ? "Unlocking…" : "Unlock"}
           </button>
         </form>
 
         <details className="w-full text-center text-xs text-muted">
-          <summary className="cursor-pointer hover:text-ink">Lupa PIN?</summary>
+          <summary className="cursor-pointer hover:text-ink">Forgot PIN?</summary>
           <div className="mt-3 rounded-lg border border-line bg-surface p-3 text-left text-xs leading-relaxed text-muted">
-            <p className="m-0 font-medium text-ink">Reset PIN lewat terminal:</p>
+            <p className="m-0 font-medium text-ink">Reset PIN via terminal:</p>
             <ol className="m-0 mt-2 list-decimal space-y-1.5 pl-4">
-              <li>Tutup aplikasi Anchoa (close Anchoa).</li>
+              <li>Close the Anchoa application.</li>
               <li>
-                Buka terminal, lalu jalankan perintah sqlite3 pada berkas{" "}
+                Open a terminal, then run the sqlite3 command on{" "}
                 <code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-ink">
                   anchoa.db
                 </code>{" "}
-                di folder data aplikasi (app data dir) untuk menghapus baris pengaturan{" "}
-                <code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-ink">
-                  security.pin_hash
-                </code>
-                :
+                in the application data folder to delete the setting:
               </li>
             </ol>
             <pre className="mt-2 overflow-x-auto rounded border border-line bg-canvas p-2 font-mono text-[11px] text-ink">
               sqlite3 ~/.local/share/io.github.syharipf.anchoa/anchoa.db "DELETE FROM settings WHERE key = 'security.pin_hash';"
             </pre>
             <p className="m-0 mt-2">
-              Setelah baris security.pin_hash dihapus, buka kembali Anchoa. PIN akan nonaktif.
+              After security.pin_hash is removed, reopen Anchoa. The PIN will be disabled.
             </p>
           </div>
         </details>

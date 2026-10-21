@@ -8,7 +8,7 @@ describe("ProjectsCard", () => {
     const html = renderToStaticMarkup(
       <ProjectsCard projects={[]} onSelect={() => {}} />,
     );
-    expect(html).toContain("Belum ada proyek");
+    expect(html).toContain("No projects yet");
   });
 
   it("renders up to 2 active projects with minimal 4px solid progress bar", () => {

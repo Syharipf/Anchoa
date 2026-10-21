@@ -6,20 +6,20 @@ import { FIELD } from "../shell/ui";
 import { DAY_INITIALS, DAY_NAMES, resolveRemindOn, toggleDay } from "./view";
 
 export const HABIT_CATEGORIES = [
-  { id: "kesehatan", label: "Kesehatan", defaultIcon: "🏃" },
-  { id: "belajar", label: "Belajar", defaultIcon: "📚" },
-  { id: "produktivitas", label: "Produktivitas", defaultIcon: "⚡" },
-  { id: "keuangan", label: "Keuangan", defaultIcon: "💰" },
+  { id: "kesehatan", label: "Health", defaultIcon: "🏃" },
+  { id: "belajar", label: "Learning", defaultIcon: "📚" },
+  { id: "produktivitas", label: "Productivity", defaultIcon: "⚡" },
+  { id: "keuangan", label: "Finance", defaultIcon: "💰" },
   { id: "mindfulness", label: "Mindfulness", defaultIcon: "🧘" },
 ] as const;
 
 export const EMOJI_OPTIONS = ["🏃", "💧", "📚", "⚡", "🧘", "💰", "💪", "🍎", "🛌", "✍️", "🎯", "🚶"];
 
 const TARGET_OPTIONS = [
-  { label: "Tanpa Target", value: 0 },
-  { label: "30 Hari (Challenge)", value: 30 },
-  { label: "66 Hari (Pembentukan Otomatis)", value: 66 },
-  { label: "100 Hari (Mastery)", value: 100 },
+  { label: "No Target", value: 0 },
+  { label: "30 Days (Challenge)", value: 30 },
+  { label: "66 Days (Automatic Formation)", value: 66 },
+  { label: "100 Days (Mastery)", value: 100 },
 ];
 
 export function HabitForm({
@@ -53,7 +53,7 @@ export function HabitForm({
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      toast("Nama habit tidak boleh kosong", "error");
+      toast("Habit name cannot be empty", "error");
       return;
     }
     const trimmedTime = remindAt.trim();
@@ -84,11 +84,11 @@ export function HabitForm({
     : undefined;
 
   return (
-    <Dialog title={edit ? "Ubah habit" : "Habit baru"} onClose={onClose}>
+    <Dialog title={edit ? "Edit habit" : "New habit"} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {/* Category & Icon Selector */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs text-muted font-medium">Kategori</label>
+          <label className="text-xs text-muted font-medium">Category</label>
           <div className="flex flex-wrap gap-1.5">
             {HABIT_CATEGORIES.map((c) => (
               <button
@@ -110,7 +110,7 @@ export function HabitForm({
 
         {/* Emoji picker row */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted font-medium">Ikon Kebiasaan</label>
+          <label className="text-xs text-muted font-medium">Habit Icon</label>
           <div className="flex flex-wrap gap-1.5">
             {EMOJI_OPTIONS.map((em) => (
               <button
@@ -129,18 +129,18 @@ export function HabitForm({
           </div>
         </div>
 
-        <Field label="Nama Habit">
+        <Field label="Habit Name">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Misalnya: Minum 2L air, Membaca 15 menit…"
+            placeholder="e.g. Drink 2L water, Read for 15 mins…"
             className={FIELD}
           />
         </Field>
 
         {/* Target Challenge */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-muted font-medium">Target / Tantangan</label>
+          <label className="text-xs text-muted font-medium">Target / Challenge</label>
           <select
             value={targetDays}
             onChange={(e) => setTargetDays(Number(e.target.value))}
@@ -154,7 +154,7 @@ export function HabitForm({
           </select>
         </div>
 
-        <Field label="Jam pengingat (opsional)">
+        <Field label="Reminder time (optional)">
           <input
             type="time"
             value={remindAt}
@@ -164,7 +164,7 @@ export function HabitForm({
         </Field>
 
         <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
-          <legend className="mb-1 text-xs text-muted">Hari aktif</legend>
+          <legend className="mb-1 text-xs text-muted">Active days</legend>
           <div className="grid grid-cols-7 gap-1">
             {DAY_INITIALS.map((init, i) => {
               const active = (days & (1 << i)) !== 0;
@@ -191,9 +191,9 @@ export function HabitForm({
         {edit && (
           <div className="flex items-center justify-between border-t border-line pt-3">
             <div className="flex flex-col">
-              <span className="text-xs font-medium text-ink">Arsipkan Habit</span>
+              <span className="text-xs font-medium text-ink">Archive Habit</span>
               <span className="text-[11px] text-muted">
-                Sembunyikan dari daftar harian tanpa menghapus riwayat
+                Hide from daily list without deleting history
               </span>
             </div>
             <button
@@ -218,7 +218,7 @@ export function HabitForm({
           busy={busy}
           onCancel={onClose}
           onDelete={remove}
-          deleteLabel="Hapus habit"
+          deleteLabel="Delete habit"
         />
       </form>
     </Dialog>

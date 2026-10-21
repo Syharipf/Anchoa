@@ -93,13 +93,13 @@ export function reportToasts(
 ): { ok?: string; error?: string } {
   const result: { ok?: string; error?: string } = {};
   if (report.done.length > 0) {
-    result.ok = `${report.done.length} item ${doneVerb}`;
+    result.ok = `${report.done.length} item(s) ${doneVerb}`;
   }
   if (report.failed.length > 0) {
     const errs = report.failed
       .map((f) => `${f.path}: ${f.error}`)
       .join(", ");
-    result.error = `Gagal: ${errs}`;
+    result.error = `Failed: ${errs}`;
   }
   return result;
 }
@@ -176,11 +176,11 @@ export function targetsFor(
 
 export const KIND_LABELS: Record<FileKind, string> = {
   folder: "Folder",
-  image: "Gambar",
+  image: "Image",
   video: "Video",
   pdf: "PDF",
-  text: "Teks",
-  other: "Berkas",
+  text: "Text",
+  other: "File",
 };
 
 export const KIND_ICONS: Record<FileKind, string> = {

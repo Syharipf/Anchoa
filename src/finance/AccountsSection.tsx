@@ -14,20 +14,20 @@ export function AccountsSection({
 }: Readonly<{ accounts: AccountView[]; onAdd: () => void; onEdit: (account: AccountView) => void }>) {
   const shares = accountShares(accounts);
   return (
-    <section aria-labelledby="akun-judul" className={`${PANEL} flex flex-col gap-3`}>
+    <section aria-labelledby="accounts-heading" className={`${PANEL} flex flex-col gap-3`}>
       <div className="flex items-center justify-between">
-        <h2 id="akun-judul" className={H2}>
-          Akun
+        <h2 id="accounts-heading" className={H2}>
+          Accounts
         </h2>
         <button onClick={onAdd} className="text-xs text-accent hover:text-accent-hover">
-          + Tambah
+          + Add
         </button>
       </div>
       {accounts.length === 0 ? (
         <div className="flex flex-col items-start gap-2">
-          <p className="m-0 text-sm text-muted">Belum ada akun</p>
+          <p className="m-0 text-sm text-muted">No accounts yet</p>
           <button onClick={onAdd} className={SECONDARY}>
-            Buat akun
+            Create account
           </button>
         </div>
       ) : (
@@ -47,7 +47,7 @@ export function AccountsSection({
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm">{a.name}</span>
-                    <span className="text-xs text-muted">{share === undefined ? KIND_LABELS[a.kind] : `${share}% saldo`}</span>
+                    <span className="text-xs text-muted">{share === undefined ? KIND_LABELS[a.kind] : `${share}% balance`}</span>
                   </span>
                   <span className={`font-mono text-sm ${a.balance < 0 ? "text-danger" : ""}`}>{formatBalance(a.balance)}</span>
                 </button>

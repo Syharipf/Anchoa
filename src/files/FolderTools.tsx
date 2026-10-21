@@ -25,7 +25,7 @@ function SummaryView({ summary }: Readonly<{ summary: FolderSummary }>) {
     <div className="flex flex-col gap-1.5 rounded-[10px] border border-line bg-sidebar p-2.5 text-xs text-[#c9ced8]">
       <span>
         {prefix}
-        {summary.files} berkas · {summary.folders} folder ·{" "}
+        {summary.files} file(s) · {summary.folders} folder(s) ·{" "}
         <span className="font-mono">{formatSize(summary.totalBytes)}</span>
       </span>
       {summary.byKind.map((k) => (
@@ -38,13 +38,13 @@ function SummaryView({ summary }: Readonly<{ summary: FolderSummary }>) {
       ))}
       {summary.largest[0] && (
         <span className="truncate" title={summary.largest[0].path}>
-          Terbesar: {summary.largest[0].name} ({formatSize(summary.largest[0].bytes)})
+          Largest: {summary.largest[0].name} ({formatSize(summary.largest[0].bytes)})
         </span>
       )}
       <span className={summary.duplicates.length > 0 ? "text-[#ffb547]" : "text-muted"}>
         {summary.duplicates.length > 0
-          ? `${summary.duplicates.length} kelompok berkas kembar`
-          : "Tidak ada berkas kembar"}
+          ? `${summary.duplicates.length} duplicate file group(s)`
+          : "No duplicate files"}
       </span>
     </div>
   );
@@ -99,14 +99,14 @@ export function FolderTools({
   }
 
   return (
-    <section aria-label="Penanda folder" className="flex flex-col gap-2.5">
-      <span className={LABEL}>Penanda</span>
+    <section aria-label="Folder markers" className="flex flex-col gap-2.5">
+      <span className={LABEL}>Markers</span>
       <div className="flex flex-wrap gap-1.5">
         {MARKER_EMOJIS.map((e) => (
           <button
             key={e}
             type="button"
-            aria-label={`Penanda ${e}`}
+            aria-label={`Marker ${e}`}
             aria-pressed={emoji === e}
             onClick={() => setMarker({ emoji: emoji === e ? "" : e, color })}
             className={`${CHIP} ${emoji === e ? "border-field-focus bg-surface-2" : "border-line hover:bg-surface-2"}`}
@@ -120,7 +120,7 @@ export function FolderTools({
           <button
             key={c}
             type="button"
-            aria-label={`Warna ${c}`}
+            aria-label={`Color ${c}`}
             aria-pressed={color === c}
             onClick={() => setMarker({ emoji, color: color === c ? "" : c })}
             className={`${CHIP} ${color === c ? "border-ink" : "border-line"}`}
@@ -135,7 +135,7 @@ export function FolderTools({
           onClick={() => save(api.folderMetaPin(entry.path, !meta?.pinned))}
           className={ACTION}
         >
-          {meta?.pinned ? "Hapus dari Markah" : "Tambah ke Markah"}
+          {meta?.pinned ? "Remove from Bookmarks" : "Add to Bookmarks"}
         </button>
         <button
           type="button"
@@ -143,14 +143,14 @@ export function FolderTools({
           onClick={() => save(api.folderMetaClear(entry.path))}
           className={ACTION}
         >
-          Hapus penanda
+          Clear marker
         </button>
         <button type="button" onClick={() => onOpenTab(entry.path)} className={ACTION}>
-          Buka di tab baru
+          Open in new tab
         </button>
         {!remote && (
           <button type="button" disabled={summarizing} onClick={summarize} className={ACTION}>
-            {summarizing ? "Menghitung…" : "Ringkasan folder"}
+            {summarizing ? "Calculating…" : "Folder summary"}
           </button>
         )}
       </div>

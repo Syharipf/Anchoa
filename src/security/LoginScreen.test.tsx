@@ -53,7 +53,7 @@ describe("LoginScreen", () => {
     expect(buttonWith(rendered, "GitHub")).toBeDefined();
     expect(buttonWith(rendered, "Google")).toBeDefined();
 
-    const skip = buttonWith(rendered, "Lewati")!;
+    const skip = buttonWith(rendered, "Skip")!;
     (skip.props.onClick as () => void)();
     expect(skipped).toBe(true);
   });

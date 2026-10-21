@@ -71,16 +71,16 @@ describe("ProfilePage", () => {
     harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
     await harness.settle();
     const texts = () => elements(harness.render()).map((el) => el.props.children).flat();
-    expect(texts()).toContain("Sync: mati");
+    expect(texts()).toContain("Sync: off");
     syncStatusSpy.mockResolvedValue({
       configured: true, signedIn: true, email: "a@b.id", lastSyncAt: null, lastError: null,
       bytesUsed: 0, quotaBytes: 0, needsUnlockKey: false, vaultExists: null,
     });
     harness.replayEffects();
     await harness.settle();
-    expect(texts()).toContain("Sync: tersambung sebagai a@b.id");
-    expect(syncLabel(null)).toBe("Memuat…");
-    expect(syncLabel({ ...(await api.syncStatus()), configured: false })).toBe("Sync belum tersedia");
+    expect(texts()).toContain("Sync: connected as a@b.id");
+    expect(syncLabel(null)).toBe("Loading…");
+    expect(syncLabel({ ...(await api.syncStatus()), configured: false })).toBe("Sync not available");
   });
 
   it("renders profile card with name, initials, since date, and 4 stats", async () => {
@@ -96,11 +96,11 @@ describe("ProfilePage", () => {
 
     expect(textNodes).toContain("Syharipf");
     expect(textNodes).toContain("S");
-    expect(textNodes).toContain("Memakai Anchoa sejak Sep 2026");
-    expect(textNodes).toContain("hari streak");
-    expect(textNodes).toContain("tugas selesai");
-    expect(textNodes).toContain("entri jurnal");
-    expect(textNodes).toContain("catatan");
+    expect(textNodes).toContain("Using Anchoa since Sep 2026");
+    expect(textNodes).toContain("day streak");
+    expect(textNodes).toContain("tasks completed");
+    expect(textNodes).toContain("journal entries");
+    expect(textNodes).toContain("notes");
     expect(textNodes).toContain(6);
     expect(textNodes).toContain(18);
     expect(textNodes).toContain(42);
@@ -118,16 +118,16 @@ describe("ProfilePage", () => {
     harness = hookHarness(() => ProfilePage({ prefs: defaultPrefs }));
     await harness.settle();
 
-    // Click "Ubah profil"
+    // Click "Edit profile"
     const editBtn = elements(harness.render()).find(
-      (el) => el.type === "button" && el.props.children === "Ubah profil",
+      (el) => el.type === "button" && el.props.children === "Edit profile",
     );
     expect(editBtn).toBeDefined();
     (editBtn!.props.onClick as () => void)();
 
     // Now in editing mode: input and submit button should be rendered
     const input = elements(harness.render()).find(
-      (el) => el.type === "input" && el.props["aria-label"] === "Nama tampilan",
+      (el) => el.type === "input" && el.props["aria-label"] === "Display name",
     );
     expect(input).toBeDefined();
     (input!.props.onChange as (e: unknown) => void)({ target: { value: "Dewi" } });
@@ -209,7 +209,7 @@ describe("ProfilePage", () => {
     await harness.settle();
 
     const aturBtn = elements(harness.render()).find(
-      (el) => el.type === "button" && el.props.children === "Atur",
+      (el) => el.type === "button" && el.props.children === "Manage",
     );
     expect(aturBtn).toBeDefined();
     (aturBtn!.props.onClick as () => void)();
@@ -228,10 +228,10 @@ describe("ProfilePage", () => {
       .filter((el) => el.type === "h2")
       .map((el) => el.props.children);
 
-    expect(headings).toContain("Keamanan");
-    expect(headings).toContain("Asisten suara");
-    expect(headings).toContain("Akun terhubung");
-    expect(headings).toContain("Notifikasi");
+    expect(headings).toContain("Security");
+    expect(headings).toContain("Voice assistant");
+    expect(headings).toContain("Connected Accounts");
+    expect(headings).toContain("Notifications");
 
     const voiceSection = elements(harness.render()).find(
       (el) => el.type === "section" && el.props["aria-labelledby"] === "section-voice",
@@ -248,7 +248,7 @@ describe("ProfilePage", () => {
       .flat()
       .filter((t): t is string => typeof t === "string")
       .join(" ");
-    expect(voiceText).toContain("Pengaturan > Suara");
+    expect(voiceText).toContain("Settings > Voice");
     expect(voiceText).not.toContain("akan hadir di Fase 5");
   });
 
@@ -268,7 +268,7 @@ describe("ProfilePage", () => {
     await harness.settle();
 
     const aturSuaraBtn = elements(harness.render()).find(
-      (el) => el.type === "button" && el.props.children === "Atur suara",
+      (el) => el.type === "button" && el.props.children === "Voice settings",
     );
     expect(aturSuaraBtn).toBeDefined();
     (aturSuaraBtn!.props.onClick as () => void)();
@@ -298,8 +298,8 @@ describe("ProfilePage", () => {
       .filter((t): t is string => typeof t === "string")
       .join(" ");
     expect(voiceText).toContain("Ako");
-    expect(voiceText).toContain("Teri pendamping");
-    expect(voiceText).toContain("Siap");
+    expect(voiceText).toContain("Companion anchovy · voice status follows assistant");
+    expect(voiceText).toContain("Ready");
   });
 
   it("handles enabling PIN flow via switch and Buat PIN dialog", async () => {
@@ -335,7 +335,7 @@ describe("ProfilePage", () => {
     expect(pinSwitch().props["aria-checked"]).toBe(true);
 
     const changeBtn = elements(harness.render()).find(
-      (el) => el.type === "button" && el.props.children === "Ganti PIN",
+      (el) => el.type === "button" && el.props.children === "Change PIN",
     );
     expect(changeBtn).toBeDefined();
   });
@@ -350,7 +350,7 @@ describe("ProfilePage", () => {
 
     const changeBtn = () =>
       elements(harness.render()).find(
-        (el) => el.type === "button" && el.props.children === "Ganti PIN",
+        (el) => el.type === "button" && el.props.children === "Change PIN",
       )!;
     expect(changeBtn()).toBeDefined();
 
@@ -400,7 +400,7 @@ describe("ProfilePage", () => {
     expect(pinSwitch().props["aria-checked"]).toBe(false);
 
     const changeBtn = elements(harness.render()).find(
-      (el) => el.type === "button" && el.props.children === "Ganti PIN",
+      (el) => el.type === "button" && el.props.children === "Change PIN",
     );
     expect(changeBtn).toBeUndefined();
   });
@@ -417,13 +417,13 @@ describe("ProfilePage", () => {
       .map((el) => el.props.children)
       .flat();
 
-    expect(textNodes).toContain("Enkripsi data lokal");
-    expect(textNodes).toContain("Keuangan, email, dan catatan");
-    expect(textNodes.filter((text) => text === "Belum tersedia")).toHaveLength(3);
+    expect(textNodes).toContain("Local data encryption");
+    expect(textNodes).toContain("Finance, email, and notes");
+    expect(textNodes.filter((text) => text === "Not available")).toHaveLength(3);
     expect(textNodes).not.toContain("Menyusul");
     expect(textNodes).not.toContain("22.00");
     expect(textNodes).not.toContain("06.00");
-    expect(textNodes).toContain("Pengaturan jam tenang dan suara notifikasi desktop belum tersedia.");
+    expect(textNodes).toContain("Quiet hours and desktop notification sounds are not available yet.");
   });
 
   it("shows an error state for Keamanan card when securityStatus fails and prevents create flow", async () => {
@@ -450,7 +450,7 @@ describe("ProfilePage", () => {
       .flat()
       .filter((t): t is string => typeof t === "string")
       .join(" ");
-    expect(alertText).toContain("Gagal memuat status keamanan");
+    expect(alertText).toContain("Failed to load security status");
     expect(alertText).toContain("Gagal membaca database");
 
     // PIN switch is NOT rendered (no create flow on unknown status)
@@ -466,7 +466,7 @@ describe("ProfilePage", () => {
     // Retry button works when securityStatus succeeds
     securityStatusSpy.mockResolvedValueOnce({ pinEnabled: false, passwordEnabled: false, locked: false });
     const retryBtn = elements(alert!).find(
-      (el) => el.type === "button" && el.props.children === "Coba lagi",
+      (el) => el.type === "button" && el.props.children === "Try again",
     );
     expect(retryBtn).toBeDefined();
     (retryBtn!.props.onClick as () => void)();
@@ -492,7 +492,7 @@ describe("ProfilePage", () => {
     harness.render();
     await harness.settle();
     const textNodes = elements(harness.render()).map((el) => el.props.children).flat();
-    expect(textNodes).toContain(connected ? "Terhubung sebagai anchoa@gmail.com" : "Belum terhubung");
+    expect(textNodes).toContain(connected ? "Connected as anchoa@gmail.com" : "Not connected");
   });
 
   it("toggles journal notification and allows changing journalAt time", async () => {
@@ -513,7 +513,7 @@ describe("ProfilePage", () => {
     expect(journalSwitch!.props["aria-checked"]).toBe(false);
 
     let timeInput = elements(harness.render()).find(
-      (el) => el.type === "input" && el.props["aria-label"] === "Jam pengingat jurnal",
+      (el) => el.type === "input" && el.props["aria-label"] === "Journal reminder time",
     );
     expect(timeInput).toBeUndefined();
 
@@ -526,7 +526,7 @@ describe("ProfilePage", () => {
     });
 
     timeInput = elements(harness.render()).find(
-      (el) => el.type === "input" && el.props["aria-label"] === "Jam pengingat jurnal",
+      (el) => el.type === "input" && el.props["aria-label"] === "Journal reminder time",
     );
     expect(timeInput).toBeDefined();
     expect(timeInput!.props.value).toBe("20:00");

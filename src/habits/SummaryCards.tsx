@@ -18,16 +18,16 @@ export function SummaryCards({
 }>) {
   const scheduledHabits = habits.filter((h) => h.scheduledToday && !h.archived);
   const topStreakDays = topStreak?.days ?? 0;
-  const topStreakName = topStreak?.name ?? "Belum ada streak";
+  const topStreakName = topStreak?.name ?? "No streak yet";
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-      {/* Card 1: Hari ini */}
-      <section aria-label="Progres hari ini" className={CARD}>
-        <span className="text-xs font-medium text-muted">Hari ini</span>
+      {/* Card 1: Today */}
+      <section aria-label="Today's progress" className={CARD}>
+        <span className="text-xs font-medium text-muted">Today</span>
         <div className="flex items-baseline gap-1.5">
           <span className="font-mono text-[28px] font-semibold leading-none text-ink">{todayDone}</span>
-          <span className="font-mono text-xs text-muted">/ {todayTotal} selesai</span>
+          <span className="font-mono text-xs text-muted">/ {todayTotal} completed</span>
         </div>
         <div aria-hidden="true" className="flex gap-1 h-1.5 w-full items-center">
           {scheduledHabits.length === 0 ? (
@@ -45,25 +45,25 @@ export function SummaryCards({
         </div>
       </section>
 
-      {/* Card 2: Streak aktif terpanjang */}
-      <section aria-label="Streak aktif terpanjang" className={CARD}>
-        <span className="text-xs font-medium text-muted">Streak aktif terpanjang</span>
+      {/* Card 2: Longest active streak */}
+      <section aria-label="Longest active streak" className={CARD}>
+        <span className="text-xs font-medium text-muted">Longest active streak</span>
         <div className="flex items-baseline gap-2 text-accent">
           <FlameIcon />
           <span className="font-mono text-[28px] font-semibold leading-none text-ink">{topStreakDays}</span>
-          <span className="text-xs text-muted">hari</span>
+          <span className="text-xs text-muted">days</span>
         </div>
         <span className="truncate font-mono text-xs text-muted" title={topStreakName}>
           {topStreakName}
         </span>
       </section>
 
-      {/* Card 3: Konsistensi 30 hari */}
-      <section aria-label="Konsistensi 30 hari" className={CARD}>
+      {/* Card 3: 30-day consistency */}
+      <section aria-label="30-day consistency" className={CARD}>
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted">Konsistensi 30 hari</span>
+          <span className="text-xs font-medium text-muted">30-day consistency</span>
           <span className="font-mono text-xs text-muted">
-            {consistency.done}/{consistency.scheduled} hari
+            {consistency.done}/{consistency.scheduled} days
           </span>
         </div>
         <div className="flex items-baseline gap-1">

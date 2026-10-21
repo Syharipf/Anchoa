@@ -33,11 +33,11 @@ describe("AiSection", () => {
   const change = (label: string, value: string) => (control(label).props.onChange as (e: unknown) => void)({ target: { value } });
   const click = (text: string) => (button(text).props.onClick as () => void)();
   const options = (label: string) => elements(control(label).props.children as ReactNode).filter((el) => el.type === "option");
-  const openCustom = async () => { click("Kustom"); await harness.settle(); };
+  const openCustom = async () => { click("Custom"); await harness.settle(); };
   const loadModels = async (models: string[]) => {
     const load = spyOn(api, "aiCustomModels").mockResolvedValue(models); spies.push(load);
-    change("API key opsional", "secret"); await harness.settle();
-    click("Muat model"); await harness.settle();
+    change("Optional API key", "secret"); await harness.settle();
+    click("Load models"); await harness.settle();
     return load;
   };
 
@@ -45,18 +45,18 @@ describe("AiSection", () => {
     await mount();
     const html = renderToStaticMarkup(harness.render());
     const headings = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map((match) => match[1]);
-    expect(headings).toEqual(["Penyedia AI", "Model per tugas", "Pemakaian bulan ini", "Privasi AI"]);
-    expect(html).toContain("Dipakai untuk perintah suara, ringkasan, dan tanggapan jurnal");
+    expect(headings).toEqual(["AI Providers", "Model assignments", "Usage this month", "AI Privacy"]);
+    expect(html).toContain("Used for voice commands, summaries, and journal reflections");
   });
 
   it("keeps custom usable when Ollama offline and exposes provider-specific models", async () => {
     await mount();
     expect(renderToStaticMarkup(harness.render())).toContain("Ollama offline");
     await openCustom();
-    expect(control("Nama penyedia").props.value).toBe("9router");
-    expect(control("API key opsional").props.value).toBe("");
-    change("Penyedia untuk Percakapan & aksi", "custom"); await harness.settle();
-    const values = options("Model untuk Percakapan & aksi").map((el) => el.props.value);
+    expect(control("Provider name").props.value).toBe("9router");
+    expect(control("Optional API key").props.value).toBe("");
+    change("Provider for Chat & actions", "custom"); await harness.settle();
+    const values = options("Model for Chat & actions").map((el) => el.props.value);
     expect(values).toContain("remote");
     expect(values).not.toContain("local");
   });
@@ -65,40 +65,40 @@ describe("AiSection", () => {
     await mount(); await openCustom();
     const load = await loadModels(["vendor-b", "vendor-a"]);
     expect(load).toHaveBeenCalledWith(config.baseUrl, "secret");
-    const quick = options("Model dari penyedia").map((el) => el.props.value);
+    const quick = options("Models from provider").map((el) => el.props.value);
     expect(quick).toContain("vendor-a");
     const save = spyOn(api, "setAiRole").mockResolvedValue({ provider: "custom", model: "vendor-a" }); spies.push(save);
-    change("Model dari penyedia", "vendor-a"); await harness.settle();
+    change("Models from provider", "vendor-a"); await harness.settle();
     expect(save).toHaveBeenCalledWith("chat", "custom", "vendor-a");
-    expect(control("ID model untuk Percakapan & aksi")).toBeUndefined();
+    expect(control("Model ID for Chat & actions")).toBeUndefined();
   });
 
   it("shows a retryable error when loading models fails", async () => {
     await mount(); await openCustom();
-    const load = spyOn(api, "aiCustomModels").mockRejectedValueOnce(new Error("Autentikasi penyedia AI gagal; periksa API key")); spies.push(load);
-    change("API key opsional", "bad-secret"); await harness.settle();
-    click("Muat model"); await harness.settle();
-    expect(renderToStaticMarkup(harness.render())).toContain("Autentikasi penyedia AI gagal");
+    const load = spyOn(api, "aiCustomModels").mockRejectedValueOnce(new Error("AI provider authentication failed; check API key")); spies.push(load);
+    change("Optional API key", "bad-secret"); await harness.settle();
+    click("Load models"); await harness.settle();
+    expect(renderToStaticMarkup(harness.render())).toContain("Failed to load models");
     load.mockResolvedValueOnce(["recovered"]); await harness.settle();
-    click("Muat model"); await harness.settle();
-    expect(options("Model dari penyedia").map((el) => el.props.value)).toContain("recovered");
-    expect(renderToStaticMarkup(harness.render())).not.toContain("Autentikasi penyedia AI gagal");
+    click("Load models"); await harness.settle();
+    expect(options("Models from provider").map((el) => el.props.value)).toContain("recovered");
+    expect(renderToStaticMarkup(harness.render())).not.toContain("Failed to load models");
   });
 
   it("discards fetched models when the URL or key changes", async () => {
     await mount(); await openCustom();
     await loadModels(["vendor-a"]);
-    expect(options("Model dari penyedia").map((el) => el.props.value)).toContain("vendor-a");
-    change("Base URL Kustom", "http://127.0.0.1:20129/v1"); await harness.settle();
-    expect(options("Model dari penyedia").map((el) => el.props.value)).not.toContain("vendor-a");
-    expect(control("API key opsional").props.value).toBe("secret");
+    expect(options("Models from provider").map((el) => el.props.value)).toContain("vendor-a");
+    change("Custom Base URL", "http://127.0.0.1:20129/v1"); await harness.settle();
+    expect(options("Models from provider").map((el) => el.props.value)).not.toContain("vendor-a");
+    expect(control("Optional API key").props.value).toBe("secret");
   });
 
   it("keeps the load action disabled until a URL and key exist", async () => {
     await mount(); await openCustom();
-    expect(button("Muat model").props.disabled).toBe(true);
-    change("API key opsional", "secret"); await harness.settle();
-    expect(button("Muat model").props.disabled).toBeFalsy();
+    expect(button("Load models").props.disabled).toBe(true);
+    change("Optional API key", "secret"); await harness.settle();
+    expect(button("Load models").props.disabled).toBeFalsy();
   });
 
   it("saves metadata without sending or changing key or roles", async () => {
@@ -106,61 +106,61 @@ describe("AiSection", () => {
     const save = spyOn(api, "saveAiCustom").mockResolvedValue({ ...config, name: "Router" }); spies.push(save);
     const key = spyOn(api, "setAiCustomKey"); spies.push(key);
     const role = spyOn(api, "setAiRole"); spies.push(role);
-    change("Nama penyedia", "Router"); change("API key opsional", "new-secret"); await harness.settle();
-    click("Simpan metadata"); await harness.settle();
+    change("Provider name", "Router"); change("Optional API key", "new-secret"); await harness.settle();
+    click("Save metadata"); await harness.settle();
     expect(save).toHaveBeenCalledWith("Router", config.baseUrl);
     expect(key).not.toHaveBeenCalled(); expect(role).not.toHaveBeenCalled();
-    expect(renderToStaticMarkup(harness.render())).toContain("Key tersedia");
+    expect(renderToStaticMarkup(harness.render())).toContain("Key available");
   });
 
   it("changes and deletes key explicitly, clearing secret input", async () => {
     await mount(); await openCustom();
     const set = spyOn(api, "setAiCustomKey").mockResolvedValue(config); spies.push(set);
     const del = spyOn(api, "deleteAiCustomKey").mockResolvedValue({ ...config, hasKey: false }); spies.push(del);
-    change("API key opsional", "secret"); await harness.settle(); click("Ganti key"); await harness.settle();
-    expect(set).toHaveBeenCalledWith("secret"); expect(control("API key opsional").props.value).toBe("");
-    click("Hapus key"); await harness.settle(); expect(del).toHaveBeenCalledTimes(1);
-    expect(renderToStaticMarkup(harness.render())).toContain("Key tidak tersedia");
+    change("Optional API key", "secret"); await harness.settle(); click("Change key"); await harness.settle();
+    expect(set).toHaveBeenCalledWith("secret"); expect(control("Optional API key").props.value).toBe("");
+    click("Delete key"); await harness.settle(); expect(del).toHaveBeenCalledTimes(1);
+    expect(renderToStaticMarkup(harness.render())).toContain("Key unavailable");
   });
 
   it("shows save failure without losing saved key status", async () => {
     await mount(); await openCustom();
-    spies.push(spyOn(api, "saveAiCustom").mockRejectedValue(new Error("URL tidak valid")));
-    click("Simpan metadata"); await harness.settle();
-    expect(renderToStaticMarkup(harness.render())).toContain("URL tidak valid");
-    expect(renderToStaticMarkup(harness.render())).toContain("Key tersedia");
+    spies.push(spyOn(api, "saveAiCustom").mockRejectedValue(new Error("URL is not valid")));
+    click("Save metadata"); await harness.settle();
+    expect(renderToStaticMarkup(harness.render())).toContain("URL is not valid");
+    expect(renderToStaticMarkup(harness.render())).toContain("Key available");
   });
 
   it("locks journal and email providers while allowing local model changes", async () => {
     await mount();
-    for (const label of ["Tanggapan jurnal", "Asisten email"]) {
-      const picker = control(`Penyedia untuk ${label}`);
+    for (const label of ["Journal reflections", "Email assistant"]) {
+      const picker = control(`Provider for ${label}`);
       expect(picker.props.disabled).toBe(true); expect(picker.props.value).toBe("ollama");
-      expect(control(`Model untuk ${label}`).props.disabled).toBeFalsy();
+      expect(control(`Model for ${label}`).props.disabled).toBeFalsy();
     }
     const save = spyOn(api, "setAiRole").mockResolvedValue({ provider: "ollama", model: "other-local" }); spies.push(save);
-    change("Model untuk Tanggapan jurnal", "other-local"); await harness.settle();
+    change("Model for Journal reflections", "other-local"); await harness.settle();
     expect(save).toHaveBeenCalledWith("journal", "ollama", "other-local");
   });
 
   it("disables recap configuration because no production recap consumer exists", async () => {
     await mount();
-    expect(control("Model untuk Rekap harian").props.disabled).toBe(true);
-    expect(control("Model untuk Rekap harian").props.value).toBe("local");
+    expect(control("Model for Daily recap").props.disabled).toBe(true);
+    expect(control("Model for Daily recap").props.value).toBe("local");
   });
 
   it("saves the picked provider and model, retaining it after a failed refresh", async () => {
     const status = await mount(); await openCustom();
     const save = spyOn(api, "setAiRole").mockResolvedValue({ provider: "custom", model: "remote" }); spies.push(save);
-    change("Penyedia untuk Percakapan & aksi", "custom"); await harness.settle();
+    change("Provider for Chat & actions", "custom"); await harness.settle();
     const events: unknown[] = [];
     window.addEventListener("anchoa-ai-config-changed", (event) => events.push((event as CustomEvent).detail));
-    change("Model untuk Percakapan & aksi", "remote"); await harness.settle(); click("Simpan model Percakapan & aksi"); await harness.settle();
+    change("Model for Chat & actions", "remote"); await harness.settle(); click("Save model for Chat & actions"); await harness.settle();
     expect(save).toHaveBeenCalledWith("chat", "custom", "remote");
     expect(events).toEqual([{ reset: true }]);
-    status.mockResolvedValue({ available: false, models: [], error: "Autentikasi gagal" });
-    click("Tes koneksi"); await harness.settle();
-    expect(control("Model untuk Percakapan & aksi").props.value).toBe("remote");
-    expect(renderToStaticMarkup(harness.render())).toContain("Autentikasi gagal");
+    status.mockResolvedValue({ available: false, models: [], error: "Authentication failed" });
+    click("Test connection"); await harness.settle();
+    expect(control("Model for Chat & actions").props.value).toBe("remote");
+    expect(renderToStaticMarkup(harness.render())).toContain("Authentication failed");
   });
 });

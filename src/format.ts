@@ -9,39 +9,45 @@ function startOfDay(ms: number): number {
 }
 
 export function greeting(hour: number): string {
-  if (hour >= 4 && hour < 11) return "Selamat pagi";
-  if (hour >= 11 && hour < 15) return "Selamat siang";
-  if (hour >= 15 && hour < 18) return "Selamat sore";
-  return "Selamat malam";
+  if (hour >= 4 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 21) return "Good evening";
+  return "Good night";
 }
 
-/** "Selasa, 29 September" */
+/** "Tuesday, September 29" */
 export function fullDate(ms: number): string {
-  return new Date(ms).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
+  return new Date(ms).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
 }
 
-/** "Rab 30 Sep · 00:48" for the header clock. */
+/** "Wed, Sep 30 · 00:48" for the header clock. */
 export function clockLabel(ms: number): string {
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const weekday = d.toLocaleDateString("id-ID", { weekday: "short" });
-  return `${weekday} ${shortDate(ms)} · ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+  return `${weekday}, ${shortDate(ms)} · ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** "12 Sep" */
+/** "Sep 12" */
 export function shortDate(ms: number): string {
-  return new Date(ms).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export function relativeTime(then: number, now: number): string {
   const diff = now - then;
-  if (diff < MINUTE) return "baru saja";
-  if (diff < HOUR) return `${Math.floor(diff / MINUTE)} menit lalu`;
-  if (diff < DAY) return `${Math.floor(diff / HOUR)} jam lalu`;
+  if (diff < MINUTE) return "just now";
+  if (diff < HOUR) {
+    const m = Math.floor(diff / MINUTE);
+    return `${m} ${m === 1 ? "minute" : "minutes"} ago`;
+  }
+  if (diff < DAY) {
+    const h = Math.floor(diff / HOUR);
+    return `${h} ${h === 1 ? "hour" : "hours"} ago`;
+  }
   // Math.round absorbs 23/25-hour days around DST changes.
   const days = Math.round((startOfDay(now) - startOfDay(then)) / DAY);
-  if (days <= 1) return "kemarin";
-  if (days < 7) return `${days} hari lalu`;
+  if (days <= 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
   return shortDate(then);
 }
 
@@ -67,11 +73,12 @@ export function msToDateInput(ms: number | null): string {
 /** "2026-10-01" (a local date from the backend) to { weekday: "Kam", day: 1 }. */
 export function upcomingLabel(date: string): { weekday: string; day: number } {
   const [year, month, day] = date.split("-").map(Number);
-  const weekday = new Date(year, month - 1, day).toLocaleDateString("id-ID", { weekday: "short" });
+  const weekday = new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short" });
   return { weekday, day };
 }
 
-const BYTE_FMT = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
+const BYTE_FMT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+
 
 /** Formats byte sizes using Indonesian conventions: "0 B", "1023 B", "1,5 KB", "12,3 MB". */
 export function formatBytes(bytes: number): string {

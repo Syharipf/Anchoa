@@ -51,10 +51,10 @@ describe("AssistantFeedback", () => {
   it("shows custom failure without directing user to start Ollama", () => {
     const assistant = createMockAssistant({ aiStatus: { provider: "custom", name: "9router", available: false, models: [], error: "Autentikasi gagal" } });
     const html = renderToStaticMarkup(AssistantCaption({ assistant }));
-    expect(html).toContain("9router tidak tersedia");
+    expect(html).toContain("9router is unavailable");
     expect(html).toContain("Autentikasi gagal");
     expect(html).not.toContain("systemctl");
-    expect(html).not.toContain("Ollama belum berjalan");
+    expect(html).not.toContain("Ollama is not running");
   });
   it("renders nothing when there is no error, no proposals, and no messages", () => {
     const assistant = createMockAssistant();
@@ -75,13 +75,13 @@ describe("AssistantFeedback", () => {
     const tree = AssistantFeedback({ assistant });
     const html = renderToStaticMarkup(tree);
     expect(html).toContain("Koneksi terputus");
-    expect(html).toContain("Tutup");
+    expect(html).toContain("Close");
 
     const els = elements(tree);
     const alert = els.find((el) => el.props.role === "alert");
     expect(alert).toBeDefined();
 
-    const closeBtn = els.find((el) => el.props["aria-label"] === "Tutup pesan kesalahan");
+    const closeBtn = els.find((el) => el.props["aria-label"] === "Close error message");
     expect(closeBtn).toBeDefined();
     (closeBtn!.props.onClick as () => void)();
     expect(cleared).toBe(true);
@@ -108,8 +108,8 @@ describe("AssistantFeedback", () => {
     const tree = AssistantFeedback({ assistant });
     const html = renderToStaticMarkup(tree);
     expect(html).toContain("Buat tugas “Beli kopi”");
-    expect(html).toContain("Setujui");
-    expect(html).toContain("Tolak");
+    expect(html).toContain("Approve");
+    expect(html).toContain("Reject");
 
     const els = elements(tree);
     const card = els.find((el) => el.type === ProposalCard);
@@ -140,7 +140,7 @@ describe("AssistantFeedback", () => {
     expect(html).not.toContain("ignore system");
 
     const els = elements(tree);
-    const historyContainer = els.find((el) => el.props["aria-label"] === "Riwayat pesan");
+    const historyContainer = els.find((el) => el.props["aria-label"] === "Message history");
     expect(historyContainer).toBeDefined();
     expect(historyContainer!.props.className).toContain("max-h-36");
   });
@@ -154,7 +154,7 @@ describe("AssistantFeedback", () => {
     const tree = AssistantFeedback({ assistant, showHistory: false });
     const html = renderToStaticMarkup(tree);
     expect(html).not.toContain("Halo asisten");
-    expect(html).not.toContain("Riwayat pesan");
+    expect(html).not.toContain("Message history");
   });
 
   it("renders compact history container and bubbles when compact is true", () => {
@@ -165,7 +165,7 @@ describe("AssistantFeedback", () => {
 
     const tree = AssistantFeedback({ assistant, compact: true });
     const els = elements(tree);
-    const historyContainer = els.find((el) => el.props["aria-label"] === "Riwayat pesan");
+    const historyContainer = els.find((el) => el.props["aria-label"] === "Message history");
     expect(historyContainer).toBeDefined();
     expect(historyContainer!.props.className).toContain("max-h-28");
     expect(historyContainer!.props.className).toContain("bg-surface-2/40");

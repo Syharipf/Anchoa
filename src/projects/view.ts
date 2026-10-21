@@ -12,21 +12,21 @@ import type {
 import { shortDate } from "../format";
 
 export const KIND_LABELS: Record<ProjectKind, string> = {
-  app: "Aplikasi",
-  document: "Dokumen",
-  research: "Riset",
-  personal: "Pribadi",
+  app: "App",
+  document: "Document",
+  research: "Research",
+  personal: "Personal",
 };
 
 export const STATUS_LABELS: Record<ProjectStatus, { label: string; tone: "accent" | "danger" | "muted" }> = {
-  active: { label: "Aktif", tone: "accent" },
-  late: { label: "Terlambat", tone: "danger" },
-  done: { label: "Selesai", tone: "muted" },
+  active: { label: "Active", tone: "accent" },
+  late: { label: "Overdue", tone: "danger" },
+  done: { label: "Done", tone: "muted" },
 };
 export const PRIORITY_LABELS: Readonly<Record<Priority, { label: string; className: string }>> = {
-  1: { label: "Tinggi", className: "text-danger" },
-  2: { label: "Sedang", className: "text-warn" },
-  3: { label: "Rendah", className: "text-muted" },
+  1: { label: "High", className: "text-danger" },
+  2: { label: "Medium", className: "text-warn" },
+  3: { label: "Low", className: "text-muted" },
 };
 
 /** The card being dropped, or null when it stays in its own column. */
@@ -41,11 +41,11 @@ export function hasFilter(filter: BoardFilter): boolean {
 
 
 const AGENT_COLUMNS: readonly Readonly<{ status: TaskStatus; title: string; dot: string }>[] = [
-  { status: "plan", title: "Rencana", dot: "bg-muted" },
-  { status: "doing", title: "Dikerjakan", dot: "bg-accent" },
-  { status: "test", title: "Tes", dot: "bg-cat-project" },
+  { status: "plan", title: "Plan", dot: "bg-muted" },
+  { status: "doing", title: "In Progress", dot: "bg-accent" },
+  { status: "test", title: "Test", dot: "bg-cat-project" },
   { status: "review", title: "Review", dot: "bg-cat-bill" },
-  { status: "done", title: "Selesai", dot: "bg-field-focus" },
+  { status: "done", title: "Done", dot: "bg-field-focus" },
 ];
 const PROJECT_COLUMNS = AGENT_COLUMNS.filter(({ status }) => status !== "test" && status !== "review");
 
@@ -54,18 +54,23 @@ export function boardColumns(agent: boolean) {
 }
 
 export const ROLE_LABELS: Readonly<Record<ActivityRole, string>> = {
-  request: "Permintaan",
-  plan: "Rencana",
-  implement: "Implementasi",
-  test: "Tes",
+  request: "Request",
+  plan: "Plan",
+  implement: "Implementation",
+  test: "Test",
   review: "Review",
   merge: "Merge",
-  note: "Catatan",
+  note: "Note",
 };
 
 export function actorInitials(actor: string): string {
   return actor.trim().split(/\s+/).filter(Boolean).slice(0, 2)
-    .map((part) => Array.from(part)[0]).join("").toLocaleUpperCase("id-ID") || "?";
+    .map((part) => Array.from(part)[0]).join("").toLocaleUpperCase("en-US") || "?";
+}
+
+/** Activities store the local user as "Kamu"; the UI shows English. Keep the stored value for sync. */
+export function actorLabel(actor: string): string {
+  return actor === "Kamu" ? "You" : actor;
 }
 
 export function lastActivity<T extends Pick<Activity, "actor" | "role" | "createdAt">>(activities: readonly T[]): T | null {
@@ -75,9 +80,10 @@ export function lastActivity<T extends Pick<Activity, "actor" | "role" | "create
 
 export function deadlineLabel(deadlineAt: number | null, deadlineDays: number | null): string {
   if (deadlineAt === null) return "";
-  if (deadlineDays === 0) return "hari ini";
+  if (deadlineDays === 0) return "today";
   if (deadlineDays !== null && deadlineDays < 0) {
-    return `terlambat ${Math.abs(deadlineDays)} hari`;
+    const days = Math.abs(deadlineDays);
+    return `${days} ${days === 1 ? "day" : "days"} overdue`;
   }
   return shortDate(deadlineAt);
 }
@@ -93,9 +99,9 @@ export function nextStatus(status: TaskStatus, agent = false): TaskStatus {
 }
 
 export function moveLabel(status: TaskStatus, agent = false): string {
-  if (status === "done") return "Kembalikan ke Rencana";
+  if (status === "done") return "Move back to Plan";
   const title = AGENT_COLUMNS.find((column) => column.status === nextStatus(status, agent))?.title;
-  return `Pindah ke ${title}`;
+  return `Move to ${title}`;
 }
 
 export function subLabel(card: Pick<TaskCard, "subDone" | "subTotal">): string | null {
@@ -108,15 +114,15 @@ export function toggleTaskStatus(status: TaskStatus): TaskStatus {
 }
 
 export function parentLabel(parentTitle: string | null | undefined): string {
-  return parentTitle ? `↑ ${parentTitle}` : "↑ Induk";
+  return parentTitle ? `↑ ${parentTitle}` : "↑ Parent";
 }
 
 export type ActivityFilter = "all" | "tasks" | "test";
 
 export const ACTIVITY_FILTERS: readonly Readonly<{ id: ActivityFilter; label: string }>[] = [
-  { id: "all", label: "Semua" },
-  { id: "tasks", label: "Rencana & tugas" },
-  { id: "test", label: "Tes" },
+  { id: "all", label: "All" },
+  { id: "tasks", label: "Plans & tasks" },
+  { id: "test", label: "Tests" },
 ];
 
 export function matchActivityFilter(
@@ -176,13 +182,13 @@ export function connectedAgents(
 }
 
 export const AGENT_QUICK_BUTTONS = [
-  "Jalankan tes",
-  "Perbaiki tes yang gagal",
-  "Lanjutkan tugas berikutnya",
-  "Ringkas progres hari ini",
+  "Run tests",
+  "Fix failing tests",
+  "Continue to next task",
+  "Summarize today's progress",
 ] as const;
 
-export const AGENT_CLI_SNIPPET = `## Melapor ke Anchoa
-- Status tugas: "$ANCHOA_CLI" agent task status --task "$ANCHOA_TASK" <STATUS> --actor <NAMA>
-- Buat rencana: "$ANCHOA_CLI" agent plan --task "$ANCHOA_TASK" --actor <NAMA> --file <PATH.md>
-- Catat log/tes: "$ANCHOA_CLI" agent log --task "$ANCHOA_TASK" --actor <NAMA> --role implement|test|review --body "..."`;
+export const AGENT_CLI_SNIPPET = `## Reporting to Anchoa
+- Task status: "$ANCHOA_CLI" agent task status --task "$ANCHOA_TASK" <STATUS> --actor <NAME>
+- Create plan: "$ANCHOA_CLI" agent plan --task "$ANCHOA_TASK" --actor <NAME> --file <PATH.md>
+- Record log/test: "$ANCHOA_CLI" agent log --task "$ANCHOA_TASK" --actor <NAME> --role implement|test|review --body "..."`;

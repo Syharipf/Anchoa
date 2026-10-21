@@ -71,7 +71,7 @@ describe("parseRupiah", () => {
 describe("months", () => {
   test("labels", () => {
     expect(monthLabel("2026-09")).toBe("September 2026");
-    expect(monthShort("2026-08")).toBe("Agu");
+    expect(monthShort("2026-08")).toBe("Aug");
   });
 
   test("addMonths crosses years", () => {

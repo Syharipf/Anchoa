@@ -9,8 +9,8 @@ const MIN_PASSPHRASE = 12;
 
 /** The message to show when a new passphrase may not be used, or null when it is fine. */
 export function passphraseProblem(pass: string, again: string): string | null {
-  if (Array.from(pass).length < MIN_PASSPHRASE) return `Frasa sandi minimal ${MIN_PASSPHRASE} karakter.`;
-  if (pass !== again) return "Kedua frasa sandi harus sama.";
+  if (Array.from(pass).length < MIN_PASSPHRASE) return `Passphrase must be at least ${MIN_PASSPHRASE} characters.`;
+  if (pass !== again) return "Both passphrases must match.";
   return null;
 }
 
@@ -116,7 +116,7 @@ export function SyncSection({
 
   function unlockKey(e: FormEvent) {
     e.preventDefault();
-    if (!unlock.trim()) return setError("Isi frasa sandi atau recovery key.");
+    if (!unlock.trim()) return setError("Enter passphrase or recovery key.");
     return run(async () => {
       await api.syncUnlockKey(unlock.trim());
       clearFields();
@@ -125,14 +125,14 @@ export function SyncSection({
 
   function changePassphrase(e: FormEvent) {
     e.preventDefault();
-    if (!oldPass) return setError("Isi frasa sandi yang lama.");
+    if (!oldPass) return setError("Enter current passphrase.");
     const problem = passphraseProblem(pass, again);
     if (problem) return setError(problem);
     return run(async () => {
       await api.syncChangePassphrase(oldPass, pass);
       clearFields();
       setDialog(null);
-      setNote("Frasa sandi sudah diganti.");
+      setNote("Passphrase updated.");
     });
   }
 
@@ -141,8 +141,8 @@ export function SyncSection({
       const report = await api.syncNow();
       setNote(
         report.stoppedByQuota
-          ? "Kuota cloud penuh: sebagian data belum terkirim."
-          : `Selesai: ${report.pushed} terkirim, ${report.pulled} diterima.`,
+          ? "Cloud quota full: some data was not sent."
+          : `Done: ${report.pushed} sent, ${report.pulled} received.`,
       );
     });
 
@@ -152,7 +152,7 @@ export function SyncSection({
       setDialog(null);
       setDeleteCloud(false);
       if (!result.remoteRevoked) {
-        setNote("Sync dinonaktifkan di perangkat ini, tetapi pencabutan sesi di server tidak dapat dikonfirmasi.");
+        setNote("Sync disabled on this device, but session revocation on the server could not be confirmed.");
       }
     });
 
@@ -165,7 +165,7 @@ export function SyncSection({
   }
 
   const copy = () => {
-    if (recovery) navigator.clipboard.writeText(recovery).then(() => setNote("Recovery key disalin."), (e) => setError(errorMessage(e)));
+    if (recovery) navigator.clipboard.writeText(recovery).then(() => setNote("Recovery key copied."), (e) => setError(errorMessage(e)));
   };
 
   const alert = error && (
@@ -176,15 +176,15 @@ export function SyncSection({
   const noteLine = note && <p className="m-0 text-sm text-muted">{note}</p>;
 
   function body(): ReactNode {
-    if (!status) return <p className="m-0 text-xs text-muted">Memuat status sync…</p>;
-    if (!status.configured) return <p className="m-0 text-sm text-muted">Sync belum tersedia di build ini.</p>;
+    if (!status) return <p className="m-0 text-xs text-muted">Loading sync status…</p>;
+    if (!status.configured) return <p className="m-0 text-sm text-muted">Sync is not available in this build.</p>;
     if (!status.signedIn) {
       if (waiting) {
         return (
           <div className="flex items-center gap-3">
-            <p className="m-0 text-sm text-ink">Menunggu login di browser…</p>
+            <p className="m-0 text-sm text-ink">Waiting for login in browser…</p>
             <button type="button" onClick={cancelSignIn} className={SECONDARY}>
-              Batal
+              Cancel
             </button>
           </div>
         );
@@ -192,10 +192,10 @@ export function SyncSection({
       return (
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={busy} onClick={() => void signIn("google")} className={PRIMARY}>
-            Masuk dengan Google
+            Sign in with Google
           </button>
           <button type="button" disabled={busy} onClick={() => void signIn("github")} className={SECONDARY}>
-            Masuk dengan GitHub
+            Sign in with GitHub
           </button>
         </div>
       );
@@ -204,19 +204,19 @@ export function SyncSection({
       return (
         <div className="flex flex-col gap-3">
           <p className="m-0 text-sm text-ink">
-            Simpan recovery key ini di tempat aman. Kunci ini hanya tampil sekali dan tidak disimpan di Anchoa.
+            Save this recovery key in a safe place. This key is only shown once and is not stored in Anchoa.
           </p>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 select-all break-all rounded-[10px] border border-line bg-surface-2 px-3.5 py-2.5 font-mono text-sm text-ink">
               {recovery}
             </code>
             <button type="button" onClick={copy} className={SECONDARY}>
-              Salin
+              Copy
             </button>
           </div>
           <label className="flex items-center gap-2 text-sm text-ink">
             <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
-            Sudah saya simpan
+            I have saved it
           </label>
           <div>
             <button
@@ -228,7 +228,7 @@ export function SyncSection({
               }}
               className={PRIMARY}
             >
-              Lanjut
+              Continue
             </button>
           </div>
         </div>
@@ -238,17 +238,17 @@ export function SyncSection({
       return (
         <form onSubmit={createKey} className="flex flex-col gap-3">
           <p className="m-0 text-sm text-ink">
-            Buat frasa sandi sync (minimal {MIN_PASSPHRASE} karakter). Data dienkripsi dengan frasa sandi ini sebelum dikirim.
+            Create a sync passphrase (minimum {MIN_PASSPHRASE} characters). Data is encrypted with this passphrase before being sent.
           </p>
-          <Field label="Frasa sandi sync">
+          <Field label="Sync passphrase">
             <input type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} className={FIELD} />
           </Field>
-          <Field label="Ulangi frasa sandi">
+          <Field label="Repeat passphrase">
             <input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} className={FIELD} />
           </Field>
           <div>
             <button type="submit" disabled={busy} className={PRIMARY}>
-              {busy ? "Membuat kunci…" : "Buat kunci"}
+              {busy ? "Creating key…" : "Create key"}
             </button>
           </div>
         </form>
@@ -257,13 +257,13 @@ export function SyncSection({
     if (status.needsUnlockKey && status.vaultExists === true) {
       return (
         <form onSubmit={unlockKey} className="flex flex-col gap-3">
-          <p className="m-0 text-sm text-ink">Akun ini sudah punya kunci sync. Buka kunci di perangkat ini.</p>
-          <Field label="Frasa sandi atau recovery key">
+          <p className="m-0 text-sm text-ink">This account already has a sync key. Unlock on this device.</p>
+          <Field label="Passphrase or recovery key">
             <input type="password" autoComplete="off" value={unlock} onChange={(e) => setUnlock(e.target.value)} className={FIELD} />
           </Field>
           <div>
             <button type="submit" disabled={busy} className={PRIMARY}>
-              {busy ? "Membuka…" : "Buka kunci"}
+              {busy ? "Unlocking…" : "Unlock"}
             </button>
           </div>
         </form>
@@ -272,9 +272,9 @@ export function SyncSection({
     if (status.needsUnlockKey) {
       return (
         <div className="flex flex-col items-start gap-2">
-          <p className="m-0 text-sm text-muted">Status kunci di cloud belum bisa diperiksa. Periksa koneksi lalu coba lagi.</p>
+          <p className="m-0 text-sm text-muted">Unable to check key status in the cloud. Check connection and try again.</p>
           <button type="button" disabled={busy} onClick={() => void run(async () => {})} className={SECONDARY}>
-            Coba lagi
+            Try again
           </button>
         </div>
       );
@@ -282,30 +282,30 @@ export function SyncSection({
     const ratio = status.quotaBytes > 0 ? Math.min(1, status.bytesUsed / status.quotaBytes) : 0;
     return (
       <div className="flex flex-col gap-3">
-        <p className="m-0 break-all text-sm text-ink">Masuk sebagai {status.email ?? "akun Anda"}</p>
+        <p className="m-0 break-all text-sm text-ink">Signed in as {status.email ?? "your account"}</p>
         <p className="m-0 text-xs text-muted">
-          Sinkron terakhir: {status.lastSyncAt ? relativeTime(status.lastSyncAt, Date.now()) : "belum pernah"}
+          Last sync: {status.lastSyncAt ? relativeTime(status.lastSyncAt, Date.now()) : "never"}
         </p>
         {status.lastError && (
           <p role="alert" className="m-0 text-xs text-danger">
-            Sync terakhir gagal: {status.lastError}
+            Last sync failed: {status.lastError}
           </p>
         )}
         <div className="flex flex-col gap-1.5">
           <FishProgress
             role="meter"
             value={Math.round(ratio * 100)}
-            label="Pemakaian cloud"
+            label="Cloud usage"
             tone={ratio >= 0.9 ? "danger" : "accent"}
             className="h-2"
           />
           <span className="font-mono text-xs text-muted">
-            {formatBytes(status.bytesUsed)} dari {formatBytes(status.quotaBytes)}
+            {formatBytes(status.bytesUsed)} of {formatBytes(status.quotaBytes)}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={busy} onClick={() => void syncNow()} className={PRIMARY}>
-            {busy ? "Menyinkronkan…" : "Sinkronkan sekarang"}
+            {busy ? "Syncing…" : "Sync now"}
           </button>
           <button
             type="button"
@@ -316,7 +316,7 @@ export function SyncSection({
             }}
             className={SECONDARY}
           >
-            Ganti frasa sandi
+            Change passphrase
           </button>
           <button
             type="button"
@@ -327,7 +327,7 @@ export function SyncSection({
             }}
             className={`${SECONDARY} text-danger`}
           >
-            Matikan sync
+            Turn off sync
           </button>
         </div>
       </div>
@@ -336,12 +336,12 @@ export function SyncSection({
 
   return (
     <section className={`${PANEL} flex flex-col items-start gap-3`}>
-      <h2 className={H2}>Sinkron antarperangkat</h2>
+      <h2 className={H2}>Cross-device sync</h2>
       {status?.configured && (
         <p className="m-0 text-xs text-muted">
-          Login Google atau GitHub hanya menunjukkan akun mana yang dipakai; frasa sandi sync itu terpisah dan tidak pernah
-          meninggalkan perangkat ini. Kalau frasa sandi dan recovery key sama-sama hilang, salinan di cloud tidak bisa
-          dibuka lagi. Data lokal di perangkat ini tetap aman.
+          Google or GitHub sign-in only identifies which account is used; the sync passphrase is separate and never
+          leaves this device. If both passphrase and recovery key are lost, cloud copies cannot
+          be reopened. Local data on this device remains safe.
         </p>
       )}
       <div className="w-full">{body()}</div>
@@ -349,24 +349,24 @@ export function SyncSection({
       {noteLine}
 
       {dialog === "passphrase" && (
-        <Dialog title="Ganti frasa sandi" onClose={closeDialog}>
+        <Dialog title="Change passphrase" onClose={closeDialog}>
           <form onSubmit={changePassphrase} className="flex flex-col gap-3">
-            <Field label="Frasa sandi lama">
+            <Field label="Current passphrase">
               <input type="password" autoComplete="current-password" value={oldPass} onChange={(e) => setOldPass(e.target.value)} className={FIELD} />
             </Field>
-            <Field label="Frasa sandi baru">
+            <Field label="New passphrase">
               <input type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} className={FIELD} />
             </Field>
-            <Field label="Ulangi frasa sandi baru">
+            <Field label="Repeat new passphrase">
               <input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} className={FIELD} />
             </Field>
             {alert}
             <div className="flex justify-end gap-2">
               <button type="button" disabled={busy} onClick={closeDialog} className={SECONDARY}>
-                Batal
+                Cancel
               </button>
               <button type="submit" disabled={busy} className={PRIMARY}>
-                {busy ? "Menyimpan…" : "Ganti"}
+                {busy ? "Saving…" : "Change"}
               </button>
             </div>
           </form>
@@ -374,21 +374,21 @@ export function SyncSection({
       )}
 
       {dialog === "signOut" && (
-        <Dialog title="Matikan sync" onClose={closeDialog}>
+        <Dialog title="Turn off sync" onClose={closeDialog}>
           <p className="m-0 text-sm text-muted">
-            Perangkat ini berhenti menyinkronkan. Data lokal tetap ada.
+            This device will stop syncing. Local data is retained.
           </p>
           <label className="flex items-center gap-2 text-sm text-ink">
             <input type="checkbox" checked={deleteCloud} onChange={(e) => setDeleteCloud(e.target.checked)} />
-            Hapus juga data di cloud
+            Also delete cloud data
           </label>
           {alert}
           <div className="flex justify-end gap-2">
             <button type="button" disabled={busy} onClick={closeDialog} className={SECONDARY}>
-              Batal
+              Cancel
             </button>
             <button type="button" disabled={busy} onClick={() => void signOut()} className={`${SECONDARY} text-danger`}>
-              {busy ? "Mematikan…" : "Matikan sync"}
+              {busy ? "Turning off…" : "Turn off sync"}
             </button>
           </div>
         </Dialog>

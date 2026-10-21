@@ -189,8 +189,7 @@ describe("project page agent routing", () => {
     await harness.settle();
     expect(elements(harness.render()).some((element) => element.type === AgentThread)).toBe(false);
   });
-
-  it("switches between Kanban and Agen kode tabs and opens task thread via Lihat di Kanban", async () => {
+  it("switches between Kanban and Agent tabs and opens task thread via View in Kanban", async () => {
     expect(header().tab).toBe("kanban");
     expect(elements(harness.render()).some((e) => e.type === Kanban)).toBe(true);
     expect(elements(harness.render()).some((e) => e.type === AgentTab)).toBe(false);
@@ -200,8 +199,7 @@ describe("project page agent routing", () => {
     expect(header().tab).toBe("agent");
     expect(elements(harness.render()).some((e) => e.type === AgentTab)).toBe(true);
     expect(elements(harness.render()).some((e) => e.type === Kanban)).toBe(false);
-
-    // Clicking 'Lihat di Kanban' switches tab to kanban and opens the thread panel
+    // Clicking 'View in Kanban' switches tab to kanban and opens the thread panel
     agentTab().onOpenTaskInKanban(task.id);
     await harness.settle();
     expect(header().tab).toBe("kanban");
@@ -223,7 +221,7 @@ describe("project page agent routing", () => {
 
     const menu = kanban().cardMenu?.(task);
     expect(menu).toBeDefined();
-    const deleteEntry = menu?.find((e) => typeof e === "object" && e.label === "Hapus");
+    const deleteEntry = menu?.find((e) => typeof e === "object" && e.label === "Delete");
     expect(deleteEntry && typeof deleteEntry === "object" && deleteEntry.danger).toBe(true);
 
     if (deleteEntry && typeof deleteEntry === "object") {
@@ -238,7 +236,7 @@ describe("project page agent routing", () => {
     spies.push(launchSpy);
 
     const menu = kanban().cardMenu?.(task);
-    const launchEntry = menu?.find((e) => typeof e === "object" && e.label === "Jalankan dengan agen");
+    const launchEntry = menu?.find((e) => typeof e === "object" && e.label === "Run with agent");
     expect(launchEntry).toBeDefined();
     if (launchEntry && typeof launchEntry === "object") {
       launchEntry.onSelect();

@@ -3,15 +3,15 @@ import type { BoardFilter, DueFilter, Priority } from "../api";
 import { hasFilter } from "./view";
 
 const PRIORITY_LABEL: Record<Priority, string> = {
-  1: "Tinggi",
-  2: "Sedang",
-  3: "Rendah",
+  1: "High",
+  2: "Medium",
+  3: "Low",
 };
 
 const DUE_LABEL: Record<DueFilter, string> = {
-  overdue: "Terlambat",
-  week: "7 hari ke depan",
-  none: "Tanpa tenggat",
+  overdue: "Overdue",
+  week: "Next 7 days",
+  none: "No due date",
 };
 
 const PILL_BASE =
@@ -81,7 +81,7 @@ export function BoardFilterBar({
   }
 
   return (
-    <div ref={barRef} role="search" aria-label="Saring tugas" className="flex flex-col gap-2">
+    <div ref={barRef} role="search" aria-label="Filter tasks" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <svg
@@ -101,8 +101,8 @@ export function BoardFilterBar({
           </svg>
           <input
             type="search"
-            aria-label="Cari tugas"
-            placeholder="Cari tugas…"
+            aria-label="Search tasks"
+            placeholder="Search tasks…"
             value={filter.query ?? ""}
             onChange={(e) => onChange({ ...filter, query: e.target.value || undefined })}
             className="min-h-8 w-56 rounded-[10px] border border-line bg-surface-2/60 py-1.5 pr-8 pl-8 text-xs text-ink outline-none placeholder:text-muted focus:border-field-focus"
@@ -110,7 +110,7 @@ export function BoardFilterBar({
           {filter.query && (
             <button
               type="button"
-              aria-label="Hapus pencarian"
+              aria-label="Clear search"
               onClick={clearQuery}
               className="absolute top-1/2 right-1.5 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-xs text-muted transition-colors hover:bg-surface-2 hover:text-ink"
             >
@@ -121,7 +121,7 @@ export function BoardFilterBar({
         <div className="relative">
           <button
             type="button"
-            aria-label="Saring tag"
+            aria-label="Filter tag"
             aria-expanded={openMenu === "tag"}
             onClick={() => selectNext("tag")}
             className={`${PILL_BASE} ${filter.tag ? PILL_ACTIVE : PILL_IDLE}`}
@@ -130,7 +130,7 @@ export function BoardFilterBar({
             <Chevron />
           </button>
           {openMenu === "tag" && (
-            <div role="menu" aria-label="Pilih tag" className="absolute top-full left-0 z-10 mt-1 min-w-44 overflow-hidden rounded-[10px] border border-line bg-surface p-1 shadow-lg">
+            <div role="menu" aria-label="Select tag" className="absolute top-full left-0 z-10 mt-1 min-w-44 overflow-hidden rounded-[10px] border border-line bg-surface p-1 shadow-lg">
               <button
                 type="button"
                 role="menuitem"
@@ -140,11 +140,11 @@ export function BoardFilterBar({
                 }}
                 className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-surface-2 ${!filter.tag ? "font-medium text-ink" : "text-muted"}`}
               >
-                Semua tag
+                All tags
               </button>
               {tags.length === 0 ? (
                 <p className="m-0 px-2.5 py-2 text-left text-[11px] italic text-muted">
-                  Belum ada tag di proyek ini
+                  No tags in this project yet
                 </p>
               ) : (
                 tags.map((tag) => (
@@ -169,16 +169,16 @@ export function BoardFilterBar({
         <div className="relative">
           <button
             type="button"
-            aria-label="Saring prioritas"
+            aria-label="Filter priority"
             aria-expanded={openMenu === "priority"}
             onClick={() => selectNext("priority")}
             className={`${PILL_BASE} ${filter.priority ? PILL_ACTIVE : PILL_IDLE}`}
           >
-            {filter.priority ? PRIORITY_LABEL[filter.priority] : "Prioritas"}
+            {filter.priority ? PRIORITY_LABEL[filter.priority] : "Priority"}
             <Chevron />
           </button>
           {openMenu === "priority" && (
-            <div role="menu" aria-label="Pilih prioritas" className="absolute top-full left-0 z-10 mt-1 min-w-40 overflow-hidden rounded-[10px] border border-line bg-surface p-1 shadow-lg">
+            <div role="menu" aria-label="Select priority" className="absolute top-full left-0 z-10 mt-1 min-w-40 overflow-hidden rounded-[10px] border border-line bg-surface p-1 shadow-lg">
               <button
                 type="button"
                 role="menuitem"
@@ -188,7 +188,7 @@ export function BoardFilterBar({
                 }}
                 className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-surface-2 ${!filter.priority ? "font-medium text-ink" : "text-muted"}`}
               >
-                Semua prioritas
+                All priorities
               </button>
               {([1, 2, 3] as Priority[]).map((priority) => (
                 <button
@@ -211,16 +211,16 @@ export function BoardFilterBar({
         <div className="relative">
           <button
             type="button"
-            aria-label="Saring tenggat"
+            aria-label="Filter due date"
             aria-expanded={openMenu === "due"}
             onClick={() => selectNext("due")}
             className={`${PILL_BASE} ${filter.due ? PILL_ACTIVE : PILL_IDLE}`}
           >
-            {filter.due ? DUE_LABEL[filter.due] : "Tenggat"}
+            {filter.due ? DUE_LABEL[filter.due] : "Due date"}
             <Chevron />
           </button>
           {openMenu === "due" && (
-            <div role="menu" aria-label="Pilih tenggat" className="absolute top-full left-0 z-10 mt-1 min-w-44 overflow-hidden rounded-[10px] border border-line bg-surface p-1 shadow-lg">
+            <div role="menu" aria-label="Select due date" className="absolute top-full left-0 z-10 mt-1 min-w-44 overflow-hidden rounded-[10px] border border-line bg-surface p-1 shadow-lg">
               <button
                 type="button"
                 role="menuitem"
@@ -230,7 +230,7 @@ export function BoardFilterBar({
                 }}
                 className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-surface-2 ${!filter.due ? "font-medium text-ink" : "text-muted"}`}
               >
-                Semua tenggat
+                All due dates
               </button>
               {(Object.keys(DUE_LABEL) as DueFilter[]).map((due) => (
                 <button
@@ -261,27 +261,27 @@ export function BoardFilterBar({
         )}
       </div>
       {hasFilter(filter) && (
-        <div className="flex flex-wrap items-center gap-1.5" aria-live="polite" aria-label="Saringan aktif">
+        <div className="flex flex-wrap items-center gap-1.5" aria-live="polite" aria-label="Active filters">
           {filter.tag && (
             <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-muted">
               #{filter.tag}
-              <button type="button" aria-label={`Hapus saringan tag ${filter.tag}`} onClick={clearTag} className="text-muted transition-colors hover:text-ink">
+              <button type="button" aria-label={`Remove tag filter ${filter.tag}`} onClick={clearTag} className="text-muted transition-colors hover:text-ink">
                 ✕
               </button>
             </span>
           )}
           {filter.priority && (
             <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-              Prioritas {PRIORITY_LABEL[filter.priority]}
-              <button type="button" aria-label={`Hapus saringan prioritas ${PRIORITY_LABEL[filter.priority]}`} onClick={clearPriority} className="text-muted transition-colors hover:text-ink">
+              Priority: {PRIORITY_LABEL[filter.priority]}
+              <button type="button" aria-label={`Remove priority filter ${PRIORITY_LABEL[filter.priority]}`} onClick={clearPriority} className="text-muted transition-colors hover:text-ink">
                 ✕
               </button>
             </span>
           )}
           {filter.due && (
             <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-              Tenggat {DUE_LABEL[filter.due]}
-              <button type="button" aria-label={`Hapus saringan tenggat ${DUE_LABEL[filter.due]}`} onClick={clearDue} className="text-muted transition-colors hover:text-ink">
+              Due: {DUE_LABEL[filter.due]}
+              <button type="button" aria-label={`Remove due filter ${DUE_LABEL[filter.due]}`} onClick={clearDue} className="text-muted transition-colors hover:text-ink">
                 ✕
               </button>
             </span>

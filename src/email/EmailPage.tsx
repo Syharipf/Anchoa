@@ -200,11 +200,11 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
             {status.address}
           </span>
-          <span className="text-xs text-muted">{syncing ? "Menyinkronkan…" : "Disinkronkan"}</span>
+          <span className="text-xs text-muted">{syncing ? "Syncing…" : "Synced"}</span>
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              aria-label="Sinkronkan"
+              aria-label="Sync"
               disabled={syncing || busy}
               onClick={() => void sync()}
               className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
@@ -223,11 +223,11 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
               >
                 <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
               </svg>
-              <span>{syncing ? "Menyinkronkan…" : "Sinkronkan"}</span>
+              <span>{syncing ? "Syncing…" : "Sync"}</span>
             </button>
             <button
               type="button"
-              aria-label="Tulis lewat suara"
+              aria-label="Write with voice"
               onClick={() => onOpenAssistant?.({ kind: "voice" })}
               className="flex h-8 items-center gap-1.5 rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
             >
@@ -247,32 +247,32 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
                 <path d="M5 11a7 7 0 0 0 14 0" />
                 <path d="M12 18v3" />
               </svg>
-              <span>Tulis suara</span>
+              <span>Voice draft</span>
             </button>
             <button
               type="button"
-              aria-label="Tulis"
+              aria-label="Compose"
               onClick={() => setComposing(true)}
               className="flex h-8 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M4 20h4L19 9l-4-4L4 16z" />
               </svg>
-              <span>Tulis</span>
+              <span>Compose</span>
             </button>
           </div>
         </>}
       </div>
       {error && <p role="alert" className="m-0 text-sm text-danger">{error}</p>}
       {status === null && <div className="text-sm text-muted">
-        {error ? <button type="button" onClick={() => void loadStatus()} className={SECONDARY}>Coba lagi</button> : <span role="status">Memuat akun email…</span>}
+        {error ? <button type="button" onClick={() => void loadStatus()} className={SECONDARY}>Try again</button> : <span role="status">Loading email account…</span>}
       </div>}
       {status && !connected && <ConnectionForm onConnected={setStatus} />}
       {connected && <div className="flex min-h-0 flex-1 gap-3.5">
-        <nav aria-label="Folder email" className="flex w-[176px] shrink-0 flex-col gap-0.5">
+        <nav aria-label="Email folders" className="flex w-[176px] shrink-0 flex-col gap-0.5">
           {FOLDERS.map((entry) => <button key={entry.id} type="button" aria-label={entry.label} aria-current={folder === entry.id ? "page" : undefined}
             onClick={() => selectFolder(entry.id)} className={`flex min-h-9 items-center rounded-lg px-2.5 text-left text-[13px] transition-colors hover:bg-surface-2 ${folder === entry.id ? "bg-surface-2 font-semibold text-ink" : "text-muted"}`}>{entry.label}</button>)}
-          <span className="px-2.5 pt-4 pb-1.5 text-[11px] uppercase tracking-[0.08em] text-muted">Label</span>
+          <span className="px-2.5 pt-4 pb-1.5 text-[11px] uppercase tracking-[0.08em] text-muted">Labels</span>
           {EMAIL_LABELS.map((lbl) => (
             <div key={lbl.id} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-[#C9CED8]">
               <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ backgroundColor: lbl.color }} />
@@ -293,7 +293,7 @@ export function EmailPage({ onChanged, onOpenAssistant }: Readonly<{ onChanged?:
         />
         {selected ? <ReadingPane key={selected.id} message={selected} busy={busy} onStar={star} onArchive={archive} onSent={() => void sync()} onChanged={onChanged} /> : (
           <div className="flex min-w-0 flex-1 items-center justify-center rounded-[14px] border border-line bg-surface p-5 text-sm text-muted">
-            <span role="status">{openingId ? "Membuka email…" : "Pilih email untuk dibaca."}</span>
+            <span role="status">{openingId ? "Opening email…" : "Select an email to read."}</span>
           </div>
         )}
       </div>}

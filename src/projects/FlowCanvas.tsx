@@ -127,9 +127,9 @@ export function FlowCanvas({
       ...flowData.nodes,
       {
         id: newId,
-        label: `Langkah ${flowData.nodes.length + 1}`,
+        label: `Step ${flowData.nodes.length + 1}`,
         type: "process" as const,
-        desc: "Proses baru",
+        desc: "New process",
       },
     ];
     const newEdges = [...flowData.edges];
@@ -143,7 +143,7 @@ export function FlowCanvas({
     const jsonStr = JSON.stringify(updated, null, 2);
     try {
       await api.projectSaveFlow(projectId, jsonStr);
-      toast("Langkah baru ditambahkan ke diagram alur");
+      toast("New step added to flow diagram");
       onSaved?.(jsonStr);
     } catch (err) {
       toast(errorMessage(err), "error");
@@ -154,7 +154,7 @@ export function FlowCanvas({
       <div className="flex items-center justify-between border-b border-line bg-surface-2 px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="font-display text-xs font-semibold text-ink">
-            Canvas Alur Proses Bisnis
+            Business Process Flow Canvas
           </span>
           <span className="font-mono text-[11px] text-muted">(.anchoa/flow.json)</span>
         </div>
@@ -164,7 +164,7 @@ export function FlowCanvas({
             onClick={handleAddStep}
             className={`${SECONDARY} py-1 text-xs`}
           >
-            + Langkah
+            + Step
           </button>
         </div>
       </div>
@@ -172,9 +172,9 @@ export function FlowCanvas({
       <div className="relative flex-1 overflow-auto bg-[radial-gradient(#18262B_1px,transparent_1px)] [background-size:16px_16px] p-4">
         {layout.nodes.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center text-muted">
-            <p className="text-xs">Belum ada alur proses bisnis (.anchoa/flow.json).</p>
+            <p className="text-xs">No business process flow (.anchoa/flow.json) yet.</p>
             <p className="mt-1 text-[11px]">
-              Klik "+ Langkah" atau minta AI untuk merancang alur otomatis.
+              Click "+ Step" or ask the AI to design an automated flow.
             </p>
           </div>
         ) : (

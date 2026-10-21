@@ -487,7 +487,7 @@ mod tests {
             rejected.0,
             serde_json::json!({
                 "code": "locked",
-                "message": "Anchoa terkunci",
+                "message": "Anchoa is locked",
             })
         );
     }

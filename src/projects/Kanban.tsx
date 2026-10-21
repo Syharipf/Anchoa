@@ -184,7 +184,7 @@ export function Kanban({
                   autoFocus
                   type="text"
                   value={newTitle}
-                  placeholder="Judul tugas…"
+                  placeholder="Task title…"
                   onChange={(e) => setNewTitle(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
@@ -223,13 +223,13 @@ export function Kanban({
                 >
                   <path d="M12 5v14M5 12h14" />
                 </svg>
-                Tugas
+                Task
               </button>
             )}
 
             {cards.length === 0 ? (
               <div className="rounded-[10px] border border-dashed border-line p-4 text-center text-xs text-muted">
-                {filtered ? "Tidak ada yang cocok" : "Kosong"}
+                {filtered ? "No matching tasks" : "Empty"}
               </div>
             ) : (
               cards.map((c) => {
@@ -277,15 +277,15 @@ export function Kanban({
                             : "flex-1 truncate text-left text-[13px] text-done hover:text-ink before:absolute before:inset-0"
                         }
                       >
-                        <span className="block truncate">{c.title || "Tanpa judul"}</span>
+                        <span className="block truncate">{c.title || "Untitled"}</span>
                         <CardCommit commit={commit} />
                         <CardActor lastActor={actor} />
                       </button>
                       {cardMenu ? (
                         <button
                           type="button"
-                          aria-label="Menu tugas"
-                          title="Menu tugas"
+                          aria-label="Task menu"
+                          title="Task menu"
                           onClick={(e) => open(anchorOf(e), cardMenu(c))}
                           className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
                         >
@@ -297,8 +297,8 @@ export function Kanban({
                         <button
                           type="button"
                           onClick={() => onDeleteCard(c)}
-                          aria-label="Hapus tugas"
-                          title="Hapus tugas"
+                          aria-label="Delete task"
+                          title="Delete task"
                           className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-danger"
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -310,7 +310,7 @@ export function Kanban({
                         type="button"
                         onClick={() => onMoveCard(c)}
                         aria-label={moveLabel(c.status, agent)}
-                        title="Buka lagi"
+                        title="Reopen"
                         className="relative z-10 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
                       >
                         <svg
@@ -353,7 +353,7 @@ export function Kanban({
                       onClick={() => onOpenItem(c.id)}
                       className="text-left text-sm leading-[1.4] text-ink hover:text-accent transition-colors before:absolute before:inset-0"
                     >
-                      {c.title || "Tanpa judul"}
+                      {c.title || "Untitled"}
                     </button>
                     <CardCommit commit={commit} />
                     <CardActor lastActor={actor} />
@@ -399,8 +399,8 @@ export function Kanban({
                         {cardMenu ? (
                           <button
                             type="button"
-                            aria-label="Menu tugas"
-                            title="Menu tugas"
+                            aria-label="Task menu"
+                            title="Task menu"
                             onClick={(e) => open(anchorOf(e), cardMenu(c))}
                             className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
                           >
@@ -412,8 +412,8 @@ export function Kanban({
                           <button
                             type="button"
                             onClick={() => onDeleteCard(c)}
-                            aria-label="Hapus tugas"
-                            title="Hapus tugas"
+                            aria-label="Delete task"
+                            title="Delete task"
                             className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-danger"
                           >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

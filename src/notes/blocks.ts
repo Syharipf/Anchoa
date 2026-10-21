@@ -367,15 +367,15 @@ export interface SlashOption {
 }
 
 export const SLASH_OPTIONS: readonly SlashOption[] = [
-  { kind: "paragraph", label: "Teks" },
-  { kind: "heading1", label: "Judul 1" },
-  { kind: "heading2", label: "Judul 2" },
-  { kind: "heading3", label: "Judul 3" },
-  { kind: "bullet", label: "Daftar" },
-  { kind: "numbered", label: "Daftar bernomor" },
-  { kind: "todo", label: "Tugas" },
-  { kind: "quote", label: "Kutipan" },
-  { kind: "code", label: "Kode" },
+  { kind: "paragraph", label: "Text" },
+  { kind: "heading1", label: "Heading 1" },
+  { kind: "heading2", label: "Heading 2" },
+  { kind: "heading3", label: "Heading 3" },
+  { kind: "bullet", label: "Bullet list" },
+  { kind: "numbered", label: "Numbered list" },
+  { kind: "todo", label: "Task" },
+  { kind: "quote", label: "Quote" },
+  { kind: "code", label: "Code" },
 ];
 
 /**

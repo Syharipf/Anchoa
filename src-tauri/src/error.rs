@@ -2,27 +2,27 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("Teks tidak boleh kosong")]
+    #[error("Text cannot be empty")]
     Empty,
-    #[error("Item tidak ditemukan")]
+    #[error("Item not found")]
     NotFound,
     #[error("{0}")]
     Invalid(String),
-    #[error("Akun masih punya transaksi atau tagihan")]
+    #[error("Account still has transactions or bills")]
     AccountInUse,
-    #[error("Database tidak tersedia")]
+    #[error("Database unavailable")]
     DbUnavailable,
-    #[error("Database versi {0} dibuat oleh aplikasi yang lebih baru")]
+    #[error("Database version {0} was created by a newer version of the application")]
     DbTooNew(i64),
-    #[error("Anchoa terkunci")]
+    #[error("Anchoa is locked")]
     Locked,
-    #[error("Kesalahan database: {0}")]
+    #[error("Database error: {0}")]
     Db(#[from] rusqlite::Error),
-    #[error("Kesalahan file: {0}")]
+    #[error("File error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Kesalahan waktu: {0}")]
+    #[error("Time error: {0}")]
     Time(#[from] jiff::Error),
-    #[error("Kesalahan aplikasi: {0}")]
+    #[error("Application error: {0}")]
     Tauri(#[from] tauri::Error),
     #[error("{0}")]
     Other(String),

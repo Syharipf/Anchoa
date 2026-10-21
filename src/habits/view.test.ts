@@ -20,12 +20,12 @@ describe("DAY constants", () => {
     expect(DAY_INITIALS).toHaveLength(7);
     expect(DAY_NAMES).toHaveLength(7);
     expect(SHORT_DAY_NAMES).toHaveLength(7);
-    expect(DAY_INITIALS[0]).toBe("S");
-    expect(DAY_INITIALS[6]).toBe("M");
-    expect(DAY_NAMES[0]).toBe("Senin");
-    expect(DAY_NAMES[6]).toBe("Minggu");
-    expect(SHORT_DAY_NAMES[0]).toBe("Sen");
-    expect(SHORT_DAY_NAMES[6]).toBe("Min");
+    expect(DAY_INITIALS[0]).toBe("M");
+    expect(DAY_INITIALS[6]).toBe("S");
+    expect(DAY_NAMES[0]).toBe("Monday");
+    expect(DAY_NAMES[6]).toBe("Sunday");
+    expect(SHORT_DAY_NAMES[0]).toBe("Mon");
+    expect(SHORT_DAY_NAMES[6]).toBe("Sun");
   });
 });
 
@@ -52,58 +52,58 @@ describe("toggleDay", () => {
 
 describe("scheduleLabel", () => {
   it("handles standard cases", () => {
-    expect(scheduleLabel(127)).toBe("Setiap hari");
-    expect(scheduleLabel(31)).toBe("Sen–Jum");
-    expect(scheduleLabel(96)).toBe("Sab–Min");
+    expect(scheduleLabel(127)).toBe("Every day");
+    expect(scheduleLabel(31)).toBe("Mon–Fri");
+    expect(scheduleLabel(96)).toBe("Sat–Sun");
   });
 
   it("handles other consecutive day ranges", () => {
     // Sel, Rab, Kam (bits 1, 2, 3 = 2 + 4 + 8 = 14)
-    expect(scheduleLabel(14)).toBe("Sel–Kam");
+    expect(scheduleLabel(14)).toBe("Tue–Thu");
     // Sen, Sel (bits 0, 1 = 3)
-    expect(scheduleLabel(3)).toBe("Sen–Sel");
+    expect(scheduleLabel(3)).toBe("Mon–Tue");
     // Sel..Min (bits 1..6 = 126)
-    expect(scheduleLabel(126)).toBe("Sel–Min");
+    expect(scheduleLabel(126)).toBe("Tue–Sun");
     // Sen..Sab (bits 0..5 = 63)
-    expect(scheduleLabel(63)).toBe("Sen–Sab");
+    expect(scheduleLabel(63)).toBe("Mon–Sat");
   });
 
   it("handles non-consecutive days", () => {
     // Sen, Rab, Jum (bits 0, 2, 4 = 1 + 4 + 16 = 21)
-    expect(scheduleLabel(21)).toBe("Sen, Rab, Jum");
+    expect(scheduleLabel(21)).toBe("Mon, Wed, Fri");
     // Sen, Jum (bits 0, 4 = 17)
-    expect(scheduleLabel(17)).toBe("Sen, Jum");
+    expect(scheduleLabel(17)).toBe("Mon, Fri");
   });
 
   it("handles single day and empty bitmask", () => {
-    expect(scheduleLabel(1)).toBe("Sen");
-    expect(scheduleLabel(64)).toBe("Min");
+    expect(scheduleLabel(1)).toBe("Mon");
+    expect(scheduleLabel(64)).toBe("Sun");
     expect(scheduleLabel(0)).toBe("");
   });
 });
 
 describe("metaLabel", () => {
   it("formats time and schedule label", () => {
-    expect(metaLabel({ days: 127, remindAt: "06:30" })).toBe("06.30 · Setiap hari");
-    expect(metaLabel({ days: 31, remindAt: "07:00" })).toBe("07.00 · Sen–Jum");
+    expect(metaLabel({ days: 127, remindAt: "06:30" })).toBe("06:30 · Every day");
+    expect(metaLabel({ days: 31, remindAt: "07:00" })).toBe("07:00 · Mon–Fri");
   });
 
   it("formats schedule label without time when remindAt is missing or empty", () => {
-    expect(metaLabel({ days: 127, remindAt: null })).toBe("Setiap hari");
-    expect(metaLabel({ days: 127, remindAt: "" })).toBe("Setiap hari");
-    expect(metaLabel({ days: 96 })).toBe("Sab–Min");
+    expect(metaLabel({ days: 127, remindAt: null })).toBe("Every day");
+    expect(metaLabel({ days: 127, remindAt: "" })).toBe("Every day");
+    expect(metaLabel({ days: 96 })).toBe("Sat–Sun");
   });
 });
 
 describe("longSchedule", () => {
   it("formats schedule with pukul and time", () => {
-    expect(longSchedule({ days: 127, remindAt: "06:30" })).toBe("Setiap hari pukul 06.30");
-    expect(longSchedule({ days: 31, remindAt: "20:00" })).toBe("Sen–Jum pukul 20.00");
+    expect(longSchedule({ days: 127, remindAt: "06:30" })).toBe("Every day at 06:30");
+    expect(longSchedule({ days: 31, remindAt: "20:00" })).toBe("Mon–Fri at 20:00");
   });
 
   it("formats schedule without time when remindAt is missing or empty", () => {
-    expect(longSchedule({ days: 127, remindAt: null })).toBe("Setiap hari");
-    expect(longSchedule({ days: 96 })).toBe("Sab–Min");
+    expect(longSchedule({ days: 127, remindAt: null })).toBe("Every day");
+    expect(longSchedule({ days: 96 })).toBe("Sat–Sun");
   });
 });
 

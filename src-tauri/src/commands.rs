@@ -1104,9 +1104,9 @@ pub async fn download_engines() -> Result<EnginesInfo, AppError> {
         });
 
     let hint = if ytdlp.is_none() || ffmpeg.is_none() {
-        Some("sudo dnf install yt-dlp ffmpeg".to_string())
+        Some("Install yt-dlp and ffmpeg using your system package manager".to_string())
     } else if ytdlp.as_ref().is_some_and(|y| y.stale) {
-        Some("Perbarui: sudo dnf upgrade yt-dlp".to_string())
+        Some("Update yt-dlp using your system package manager".to_string())
     } else {
         None
     };

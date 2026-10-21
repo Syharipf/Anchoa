@@ -35,7 +35,7 @@ export function Dialog({ title, onClose, children }: Readonly<{ title: string; o
 
   return (
     <div className="fixed inset-0 z-40" onKeyDown={onKeyDown}>
-      <button aria-label="Tutup" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#05070a]/80" />
+      <button aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#05070a]/80" />
       <div
         ref={box}
         role="dialog"
@@ -64,12 +64,12 @@ export function Field({ label, children }: Readonly<{ label: string; children: R
   );
 }
 
-/** Hapus (asks once more), Batal and Simpan. Pass `onDelete` only when editing. */
+/** Delete (asks once more), Cancel and Save. Pass `onDelete` only when editing. */
 export function DialogActions({
   busy,
   onCancel,
   onDelete,
-  deleteLabel = "Hapus",
+  deleteLabel = "Delete",
 }: Readonly<{ busy: boolean; onCancel: () => void; onDelete?: () => void; deleteLabel?: string }>) {
   const [confirming, setConfirming] = useState(false);
   return (
@@ -81,14 +81,14 @@ export function DialogActions({
           onClick={() => (confirming ? onDelete() : setConfirming(true))}
           className="min-h-10 rounded-full px-3 text-[13px] text-danger transition-colors hover:bg-danger-row"
         >
-          {confirming ? "Yakin hapus?" : deleteLabel}
+          {confirming ? "Are you sure?" : deleteLabel}
         </button>
       )}
       <button type="button" onClick={onCancel} className={`${SECONDARY} ml-auto`}>
-        Batal
+        Cancel
       </button>
       <button type="submit" disabled={busy} className={PRIMARY}>
-        Simpan
+        Save
       </button>
     </div>
   );

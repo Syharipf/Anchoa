@@ -49,17 +49,17 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
   };
 
   function body(): ReactNode {
-    if (!status) return <p className="m-0 text-xs text-muted">Memuat status Google Kalender…</p>;
+    if (!status) return <p className="m-0 text-xs text-muted">Loading Google Calendar status…</p>;
     if (waiting) {
       return (
         <div className="flex items-center gap-3">
-          <p className="m-0 text-sm text-ink">Menunggu login di browser…</p>
+          <p className="m-0 text-sm text-ink">Waiting for login in browser…</p>
           <button
             type="button"
             onClick={cancelConnect}
             className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2"
           >
-            Batal
+            Cancel
           </button>
         </div>
       );
@@ -67,20 +67,20 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
     if (status.connected) {
       return (
         <>
-          <p className="m-0 break-all text-sm">{`Terhubung sebagai ${status.account ?? "akun Google"}`}</p>
+          <p className="m-0 break-all text-sm">{`Connected as ${status.account ?? "Google account"}`}</p>
           {status.fetchedAt !== null && (
-            <p className="m-0 text-xs text-muted">{`Diperbarui ${relativeTime(status.fetchedAt, Date.now())}`}</p>
+            <p className="m-0 text-xs text-muted">{`Updated ${relativeTime(status.fetchedAt, Date.now())}`}</p>
           )}
           {status.readOnly && (
             <div className="flex flex-col items-start gap-1">
-              <p className="m-0 text-xs text-muted">Sambungkan ulang untuk sinkron dua arah</p>
+              <p className="m-0 text-xs text-muted">Reconnect for two-way sync</p>
               <button
                 type="button"
                 disabled={busy}
                 onClick={connect}
                 className="flex h-8 items-center rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
               >
-                Sambungkan ulang untuk sinkron dua arah
+                Reconnect for two-way sync
               </button>
             </div>
           )}
@@ -91,7 +91,7 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
               onClick={() => void run(api.calendarRefresh)}
               className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
             >
-              {busy ? "Memuat…" : "Muat ulang"}
+              {busy ? "Loading…" : "Refresh"}
             </button>
             <button
               type="button"
@@ -99,7 +99,7 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
               onClick={() => void run(api.calendarDisconnect)}
               className="flex h-8 items-center rounded-[9px] border border-line bg-surface px-3 text-xs text-danger transition-colors hover:bg-danger-row disabled:opacity-50"
             >
-              Putuskan
+              Disconnect
             </button>
           </div>
         </>
@@ -113,10 +113,10 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
           onClick={connect}
           className="flex h-8 items-center rounded-[9px] bg-accent px-3.5 text-xs font-semibold text-canvas transition-colors hover:brightness-105 disabled:bg-disabled disabled:text-muted"
         >
-          Sambungkan Google Kalender
+          Connect Google Calendar
         </button>
         <p className="m-0 text-xs text-muted">
-          Acara kalender utama dan tugas Anchoa terhubung dengan sinkron dua arah.
+          Primary calendar events and Anchoa tasks connect with two-way sync.
         </p>
       </>
     );
@@ -126,9 +126,9 @@ export function CalendarSection({ onChanged }: Readonly<{ onChanged: () => void 
   return (
     <section className={`${PANEL} flex flex-col items-start gap-3`}>
       <div className="flex items-center gap-2">
-        <h2 className={H2}>Google Kalender</h2>
+        <h2 className={H2}>Google Calendar</h2>
         {status?.readOnly && (
-          <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">Hanya baca</span>
+          <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">Read-only</span>
         )}
       </div>
       {body()}

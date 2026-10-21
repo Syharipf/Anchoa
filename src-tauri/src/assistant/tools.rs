@@ -20,7 +20,7 @@ impl Policy {
 
     fn allow(self, name: &str) -> Result<(), AppError> {
         if self == Self::Custom && name == "add_journal_entry" {
-            return Err(AppError::Invalid("Tool jurnal hanya tersedia untuk AI lokal".into()));
+            return Err(AppError::Invalid("Journal tool is only available for local AI".into()));
         }
         Ok(())
     }
@@ -43,59 +43,59 @@ pub fn definitions(policy: Policy) -> Vec<Value> {
     let mut definitions = vec![
         schema(
             "today_overview",
-            "Tugas dan tagihan hari ini, habit yang belum dicentang, serta akun. Tanpa jurnal.",
+            "Today's tasks and bills, unchecked habits, and accounts. Without journal.",
             json!({}),
             &[],
         ),
         schema(
             "search_items",
-            "Cari item selain jurnal. Isi jurnal tidak dapat dibaca.",
+            "Search items other than journal. Journal contents cannot be read.",
             json!({"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}),
             &["query"],
         ),
         schema(
             "list_tasks",
-            "Daftar tugas dengan ID untuk memilih tugas yang akan diselesaikan.",
+            "List tasks with IDs to select tasks to complete.",
             json!({"status":{"type":"string","enum":["plan","doing","test","review","done"]},"projectId":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}),
             &[],
         ),
         schema(
             "create_task",
-            "Usulkan tugas baru. Menunggu persetujuan pengguna.",
-            json!({"title":{"type":"string"},"projectId":{"type":"string"},"parentId":{"type":"string"},"dueAt":{"type":"integer","description":"Tenggat, epoch milidetik UTC"}}),
+            "Propose a new task. Awaiting user approval.",
+            json!({"title":{"type":"string"},"projectId":{"type":"string"},"parentId":{"type":"string"},"dueAt":{"type":"integer","description":"Due date, UTC epoch milliseconds"}}),
             &["title"],
         ),
         schema(
             "complete_task",
-            "Usulkan menandai tugas sebagai selesai.",
+            "Propose marking a task as completed.",
             json!({"id":{"type":"string"}}),
             &["id"],
         ),
         schema(
             "update_task",
-            "Usulkan perubahan tugas: status, prioritas (1 tinggi, 2 sedang, 3 rendah, null kosong), tenggat, atau tag. Menunggu persetujuan pengguna.",
+            "Propose changes to a task: status, priority (1 high, 2 medium, 3 low, null clear), due date, or tag. Awaiting user approval.",
             json!({"id":{"type":"string"},
                 "status":{"type":"string","enum":["plan","doing","test","review","done"]},
                 "priority":{"type":["integer","null"],"minimum":1,"maximum":3},
-                "dueAt":{"type":["integer","null"],"description":"Tenggat, epoch milidetik UTC; null mengosongkan"},
+                "dueAt":{"type":["integer","null"],"description":"Due date, UTC epoch milliseconds; null clears"},
                 "tag":{"type":["string","null"]}}),
             &["id"],
         ),
         schema(
             "add_transaction",
-            "Usulkan transaksi baru. Uang bilangan bulat satuan terkecil; amount positif, kind menentukan arah.",
-            json!({"kind":{"type":"string","enum":["expense","income"]},"title":{"type":"string"},"body":{"type":"string"},"amount":{"type":"integer","minimum":1},"accountId":{"type":"string"},"occurredAt":{"type":"integer","description":"Epoch milidetik UTC"},"category":{"type":"string"}}),
+            "Propose a new transaction. Money in minor integer units; positive amount, kind determines direction.",
+            json!({"kind":{"type":"string","enum":["expense","income"]},"title":{"type":"string"},"body":{"type":"string"},"amount":{"type":"integer","minimum":1},"accountId":{"type":"string"},"occurredAt":{"type":"integer","description":"UTC epoch milliseconds"},"category":{"type":"string"}}),
             &["title", "kind", "amount", "accountId", "occurredAt"],
         ),
         schema(
             "add_journal_entry",
-            "Usulkan entri jurnal baru dari teks yang diberikan pengguna. Tidak membaca jurnal.",
+            "Propose a new journal entry from user-provided text. Does not read journal.",
             json!({"title":{"type":"string"},"body":{"type":"string"},"kind":{"type":"string","enum":["idea","vent","note"]}}),
             &["title", "body"],
         ),
         schema(
             "check_habit",
-            "Usulkan mencentang habit hari ini.",
+            "Propose checking off a habit for today.",
             json!({"id":{"type":"string"}}),
             &["id"],
         ),
@@ -109,12 +109,12 @@ pub fn is_read(name: &str) -> bool {
 }
 
 fn unknown(name: &str) -> AppError {
-    AppError::Invalid(format!("Tool tidak dikenal: {name}"))
+    AppError::Invalid(format!("Unknown tool: {name}"))
 }
 
 fn decode<T: DeserializeOwned>(name: &str, args: &Value) -> Result<T, AppError> {
     serde_json::from_value(args.clone())
-        .map_err(|_| AppError::Invalid(format!("Argumen tool {name} tidak valid")))
+        .map_err(|_| AppError::Invalid(format!("Invalid arguments for tool {name}")))
 }
 
 #[derive(Deserialize)]
@@ -190,7 +190,7 @@ fn transaction_args(args: &Value) -> Result<finance::TransactionInput, AppError>
         .is_none_or(|map| map.keys().any(|key| !allowed.contains(&key.as_str())))
     {
         return Err(AppError::Invalid(
-            "Argumen transaksi hanya boleh membuat transaksi baru".into(),
+            "Transaction arguments may only create new transactions".into(),
         ));
     }
     Ok(input)
@@ -244,7 +244,7 @@ pub fn propose(policy: Policy, name: &str, args: &Value) -> Result<Proposal, App
                 .map(|ms| {
                     jiff::Timestamp::from_millisecond(ms).map(|stamp| {
                         format!(
-                            " · tenggat {}",
+                            " · due {}",
                             stamp
                                 .to_zoned(TimeZone::system())
                                 .strftime("%Y-%m-%d %H:%M")
@@ -253,42 +253,42 @@ pub fn propose(policy: Policy, name: &str, args: &Value) -> Result<Proposal, App
                 })
                 .transpose()?
                 .unwrap_or_default();
-            format!("Buat tugas “{}”{due}", args.title.trim())
+            format!("Create task “{}”{due}", args.title.trim())
         }
         "update_task" => {
             let a: UpdateTaskArgs = decode(name, args)?;
             let fields: Vec<&str> = [
                 a.status.map(|_| "status"),
-                a.priority.map(|_| "prioritas"),
-                a.due_at.map(|_| "tenggat"),
+                a.priority.map(|_| "priority"),
+                a.due_at.map(|_| "due date"),
                 a.tag.as_ref().map(|_| "tag"),
             ]
             .into_iter()
             .flatten()
             .collect();
             if fields.is_empty() {
-                return Err(AppError::Invalid("Tidak ada perubahan tugas".into()));
+                return Err(AppError::Invalid("No task changes specified".into()));
             }
-            format!("Ubah {} tugas {}", fields.join(", "), a.id)
+            format!("Update {} of task {}", fields.join(", "), a.id)
         }
-        "complete_task" => format!("Selesaikan tugas {}", decode::<IdArgs>(name, args)?.id),
+        "complete_task" => format!("Complete task {}", decode::<IdArgs>(name, args)?.id),
         "add_transaction" => {
             let args = transaction_args(args)?;
             let kind = match args.kind {
-                finance::TransactionKind::Expense => "pengeluaran",
-                finance::TransactionKind::Income => "pemasukan",
+                finance::TransactionKind::Expense => "expense",
+                finance::TransactionKind::Income => "income",
             };
             format!(
-                "Catat {kind} “{}” · {} · akun {}",
+                "Record {kind} “{}” · {} · account {}",
                 args.title, args.amount, args.account_id
             )
         }
         "add_journal_entry" => format!(
-            "Tambah jurnal “{}”",
+            "Add journal “{}”",
             decode::<JournalArgs>(name, args)?.title
         ),
         "check_habit" => format!(
-            "Centang habit {} hari ini",
+            "Check habit {} today",
             decode::<IdArgs>(name, args)?.id
         ),
         _ => return Err(unknown(name)),
@@ -302,7 +302,7 @@ pub fn propose(policy: Policy, name: &str, args: &Value) -> Result<Proposal, App
 }
 
 fn encode(value: impl Serialize) -> Result<Value, AppError> {
-    serde_json::to_value(value).map_err(|_| AppError::Other("Hasil tool tidak dapat dibaca".into()))
+    serde_json::to_value(value).map_err(|_| AppError::Other("Tool result cannot be read".into()))
 }
 
 pub fn apply(
@@ -456,7 +456,7 @@ mod tests {
             &json!({"id": task.id, "priority": 1, "dueAt": now(), "status": "doing", "tag": "dapur"}),
         )
         .unwrap();
-        assert!(proposal.summary.contains("prioritas"), "{}", proposal.summary);
+        assert!(proposal.summary.contains("priority"), "{}", proposal.summary);
         let result = apply(Policy::Local, &conn, &proposal, now(), &tz).unwrap();
         assert_eq!(result["priority"], 1);
         assert_eq!(result["status"], "doing");

@@ -35,9 +35,9 @@ it("renders tray section with close-to-tray switch and GNOME copy", async () => 
   await start(DEFAULT_SETTINGS);
 
   const texts = renderedTexts();
-  expect(texts.some((t) => t.includes("Baki sistem (Tray)"))).toBe(true);
-  expect(texts.some((t) => t.includes("Tetap berjalan di tray saat jendela ditutup"))).toBe(true);
-  expect(texts.some((t) => t.includes("Tersedia"))).toBe(true);
+  expect(texts.some((t) => t.includes("System tray"))).toBe(true);
+  expect(texts.some((t) => t.includes("Keep running in tray when window is closed"))).toBe(true);
+  expect(texts.some((t) => t.includes("Available"))).toBe(true);
   expect(texts.some((t) => t.includes("AppIndicator"))).toBe(true);
 
   const sw = elements(harness.render()).find((el) => el.props.role === "switch");
@@ -50,8 +50,8 @@ it("displays fallback warning when system tray is unavailable", async () => {
   await start({ closeToTray: true, trayAvailable: false });
 
   const texts = renderedTexts();
-  expect(texts.some((t) => t.includes("Tidak terdeteksi"))).toBe(true);
-  expect(texts.some((t) => t.includes("Baki sistem tidak aktif di sesi desktop ini"))).toBe(true);
+  expect(texts.some((t) => t.includes("Not detected"))).toBe(true);
+  expect(texts.some((t) => t.includes("System tray is not active in this desktop session"))).toBe(true);
 });
 
 it("toggles close-to-tray setting via api.saveCloseToTray", async () => {

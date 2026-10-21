@@ -43,7 +43,7 @@ describe("shared assistant voice controls", () => {
     harness = hookHarness<ReactNode>(() => mini ? AssistantMini({ hint: "Petunjuk", onOpenFull: () => {} }) : AssistantStage({}));
     harness.render();
     await harness.settle();
-    if (mini) click("Buka asisten");
+    if (mini) click("Open assistant");
   };
   const assistant = () => elements(harness.render()).find((el) => el.type === AssistantCaption)!.props.assistant as Parameters<typeof AssistantCaption>[0]["assistant"];
 
@@ -64,7 +64,7 @@ describe("shared assistant voice controls", () => {
     harness.render();
     harness.replayEffects();
     expect(input().props.value).toBe("Pesan yang saya edit");
-    await click("Kirim");
+    await click("Send");
     await harness.settle();
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith("Pesan yang saya edit", expect.any(Function));
@@ -92,7 +92,7 @@ describe("shared assistant voice controls", () => {
     harness.render();
     expect(api.voiceRecordStart).toHaveBeenCalledTimes(1);
     expect(api.voiceRecordStop).not.toHaveBeenCalled();
-    await click("Berhenti mendengarkan");
+    await click("Stop listening");
     expect(send).toHaveBeenCalledWith("Halo", expect.any(Function));
     expect(assistant().pendingProposals).toEqual([proposal]);
     expect(decide).not.toHaveBeenCalled();
@@ -119,7 +119,7 @@ describe("shared assistant voice controls", () => {
     expect(assistant().mode).toBe("speaking");
     expect(assistant().streamingCaption).toBe("Isi jurnal yang sedang diedit");
     expect(assistant().messages).toEqual([]);
-    await click("Hentikan suara");
+    await click("Stop voice");
     expect(api.voiceStop).toHaveBeenCalled();
     expect(assistant().mode).toBe("idle");
     speech.resolve();
@@ -144,7 +144,7 @@ describe("shared assistant voice controls", () => {
     if (failure === "missing") {
       expect(speak).not.toHaveBeenCalled();
       expect(assistant().voiceMissing).toBe(true);
-      expect(renderToStaticMarkup(harness.render())).toContain("Suara belum dipasang");
+      expect(renderToStaticMarkup(harness.render())).toContain("Voice not installed");
     } else expect(assistant().error).toBe("Pemutaran gagal");
     expect(assistant().mode).toBe("idle");
   });
@@ -201,14 +201,14 @@ describe("shared assistant voice controls", () => {
     const send = spyOn(api, "assistantSend").mockResolvedValue({ message: { role: "assistant", content: "Reply" }, proposals: [] });
     spies.push(send);
     await mount(mini);
-    click("Ketik pesan");
+    click("Type message");
     const input = elements(harness.render()).find((el) => el.type === "input")!;
     (input.props.onChange as (e: unknown) => void)({ target: { value: "Typed" } });
-    await click("Ketuk untuk bicara");
-    expect(button("Kirim").props.disabled).toBe(true);
+    await click("Tap to speak");
+    expect(button("Send").props.disabled).toBe(true);
     const disabledInput = elements(harness.render()).find((el) => el.type === "input")!;
     expect(disabledInput.props.disabled).toBe(true);
-    click("Kirim");
+    click("Send");
     (disabledInput.props.onKeyDown as (e: unknown) => void)({ key: "Enter", preventDefault: () => {} });
     expect(send).not.toHaveBeenCalled();
     expect(assistant().mode).toBe("listening");
@@ -219,15 +219,15 @@ describe("shared assistant voice controls", () => {
     spies.push(spyOn(api, "assistantSend").mockResolvedValue({ message: { role: "assistant", content: "Reply" }, proposals: [] }),
       spyOn(api, "voiceSpeak").mockReturnValue(speech.promise));
     await mount(mini);
-    await click("Ketuk untuk bicara");
-    const reply = click("Berhenti mendengarkan");
+    await click("Tap to speak");
+    const reply = click("Stop listening");
     await harness.settle();
     expect(assistant().mode).toBe("speaking");
-    const stopping = elements(harness.render()).filter((el) => el.props["aria-label"] === "Hentikan suara");
+    const stopping = elements(harness.render()).filter((el) => el.props["aria-label"] === "Stop voice");
     expect(stopping).toHaveLength(2);
     expect(stopping.every((el) => el.props.onClick === assistant().stop)).toBe(true);
-    await click("Hentikan suara");
-    await click("Ketuk untuk bicara");
+    await click("Stop voice");
+    await click("Tap to speak");
     speech.resolve();
     await reply;
     expect(assistant().mode).toBe("listening");
@@ -242,11 +242,11 @@ describe("shared assistant voice controls", () => {
     const speak = spyOn(api, "voiceSpeak");
     spies.push(recordStop, send, speak);
     await mount(true);
-    const recording = click("Ketuk untuk bicara");
+    const recording = click("Tap to speak");
     if (phase !== "starting") await recording;
     let transcribing: Promise<void> | void = undefined;
-    if (phase === "transcribing") transcribing = click("Berhenti mendengarkan");
-    click("Kecilkan asisten");
+    if (phase === "transcribing") transcribing = click("Stop listening");
+    click("Collapse assistant");
     if (phase === "starting") {
       starting.resolve();
       await harness.settle();
@@ -258,8 +258,8 @@ describe("shared assistant voice controls", () => {
     await harness.settle();
     expect(send).not.toHaveBeenCalled();
     expect(speak).not.toHaveBeenCalled();
-    click("Buka asisten");
-    await click("Ketuk untuk bicara");
+    click("Open assistant");
+    await click("Tap to speak");
     expect(assistant().mode).toBe("listening");
   });
 });

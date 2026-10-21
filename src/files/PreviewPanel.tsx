@@ -15,7 +15,7 @@ function formatModDate(ms: number): string {
   if (!ms) return "-";
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const dateStr = d.toLocaleDateString("id-ID", {
+  const dateStr = d.toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -105,15 +105,15 @@ function ArchivePreview({
       >
         <path d="M4 4h16v16H4zM4 9h16M10 4v5" />
       </svg>
-      <span className="font-medium text-xs text-ink">Berkas Arsip</span>
-      <span className="text-[11px] text-muted">Dapat diekstrak langsung ke folder</span>
+      <span className="font-medium text-xs text-ink">Archive File</span>
+      <span className="text-[11px] text-muted">Can be extracted directly to folder</span>
       {onExtract && (
         <button
           type="button"
           onClick={() => onExtract(entry.path)}
           className="mt-1 flex h-7 items-center rounded-md bg-accent px-3 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
         >
-          Ekstrak di sini
+          Extract here
         </button>
       )}
     </div>
@@ -142,7 +142,7 @@ function TextPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
   if (!data) {
     return (
       <div className="flex h-full w-full items-center justify-center p-3 text-xs text-muted">
-        Memuat teks…
+        Loading text…
       </div>
     );
   }
@@ -150,7 +150,7 @@ function TextPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
   return (
     <pre className="h-full w-full overflow-auto p-3 font-mono text-[11px] leading-[1.55] text-[#c9ced8] whitespace-pre-wrap break-words">
       {data.text}
-      {data.truncated ? "\n\n… dipotong" : ""}
+      {data.truncated ? "\n\n… truncated" : ""}
     </pre>
   );
 }
@@ -177,7 +177,7 @@ function FolderPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
   if (!listing) {
     return (
       <div className="flex h-full w-full items-center justify-center p-3 text-xs text-muted">
-        Memuat folder…
+        Loading folder…
       </div>
     );
   }
@@ -185,10 +185,10 @@ function FolderPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
   return (
     <div className="flex h-full w-full flex-col gap-1.5 overflow-y-auto p-3 text-xs text-[#c9ced8]">
       <span className="text-[11px] uppercase tracking-[0.08em] text-muted">
-        Isi folder
+        Folder contents
       </span>
       {listing.entries.length === 0 ? (
-        <span className="text-muted">Kosong</span>
+        <span className="text-muted">Empty</span>
       ) : (
         listing.entries.slice(0, 20).map((c) => (
           <span key={c.path} className="truncate">
@@ -216,7 +216,7 @@ function OtherPreviewBody({ entry }: Readonly<{ entry: FileEntry }>) {
       >
         <path d={KIND_ICONS[entry.kind]} />
       </svg>
-      <span>Pratinjau belum tersedia</span>
+      <span>Preview not available</span>
     </div>
   );
 }
@@ -253,7 +253,7 @@ export function PreviewPanel({
     <aside
       data-anim
       style={{ animation: "anchoa-slide 0.18s ease-out" }}
-      aria-label={`Pratinjau ${entry.name}`}
+      aria-label={`Preview ${entry.name}`}
       className="flex w-[320px] shrink-0 flex-col gap-3.5 overflow-y-auto rounded-2xl border border-line bg-surface p-3.5"
     >
       <div className="flex items-center gap-2">
@@ -266,8 +266,8 @@ export function PreviewPanel({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Tutup pratinjau"
-          title="Tutup pratinjau"
+          aria-label="Close preview"
+          title="Close preview"
           className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         >
           <svg
@@ -297,11 +297,11 @@ export function PreviewPanel({
         )}
       </div>
       <dl className="m-0 grid grid-cols-[88px_minmax(0,1fr)] gap-y-1.5 gap-x-2.5 text-xs">
-        <dt className="text-muted">Jenis</dt>
+        <dt className="text-muted">Kind</dt>
         <dd className="m-0 break-words text-ink">{KIND_LABELS[entry.kind]}</dd>
-        <dt className="text-muted">Ukuran</dt>
+        <dt className="text-muted">Size</dt>
         <dd className="m-0 font-mono break-words text-ink">{sub}</dd>
-        <dt className="text-muted">Diubah</dt>
+        <dt className="text-muted">Modified</dt>
         <dd className="m-0 font-mono break-words text-ink">
           {formatModDate(entry.modified)}
         </dd>
@@ -313,7 +313,7 @@ export function PreviewPanel({
           onClick={() => onOpen(entry)}
           className="flex h-8 items-center justify-center rounded-[9px] bg-accent px-4 text-xs font-semibold text-canvas transition-colors hover:brightness-105"
         >
-          Buka
+          Open
         </button>
         {isArchive(entry.name) && onExtract && (
           <button
@@ -321,12 +321,12 @@ export function PreviewPanel({
             onClick={() => onExtract(entry.path)}
             className="flex h-8 items-center justify-center rounded-[9px] border border-accent bg-accent/10 px-4 text-xs font-semibold text-accent transition-colors hover:bg-accent/20"
           >
-            Ekstrak Arsip
+            Extract Archive
           </button>
         )}
         <button
           type="button"
-          onClick={() => onOpenAssistant({ kind: "compose", text: `Bantu jelaskan informasi berkas ini berdasarkan metadata berikut:\nNama: ${entry.name}\nLokasi: ${entry.path}\nJenis: ${KIND_LABELS[entry.kind]}\nUkuran: ${sub}\nDiubah: ${formatModDate(entry.modified)}` })}
+          onClick={() => onOpenAssistant({ kind: "compose", text: `Help explain this file based on the following metadata:\nName: ${entry.name}\nLocation: ${entry.path}\nKind: ${KIND_LABELS[entry.kind]}\nSize: ${sub}\nModified: ${formatModDate(entry.modified)}` })}
           className="flex min-h-9 items-center justify-center gap-2 rounded-[10px] border border-line text-xs text-ink transition-colors hover:bg-surface-2"
         >
           <svg
@@ -343,7 +343,7 @@ export function PreviewPanel({
             <rect x="9" y="3" width="6" height="11" rx="3" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>
-          <span>Tanya asisten</span>
+          <span>Ask assistant</span>
         </button>
       </div>
 

@@ -65,9 +65,9 @@ describe("finance forms", () => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => TransactionForm({ accounts, categories: { expense: ["Kopi"], income: ["Gaji"] }, onClose: close, onSaved: saved }));
-    props(Segmented, "Jenis transaksi").onChange(kind);
-    money("Jumlah", "Rp 25.001");
-    field("Tanggal", "2026-10-01");
+    props(Segmented, "Transaction type").onChange(kind);
+    money("Amount", "Rp 25.001");
+    field("Date", "2026-10-01");
     submit();
     await harness!.settle();
     const occurredAt = new Date("2026-09-30T17:00:00Z").getTime();
@@ -85,21 +85,21 @@ describe("finance forms", () => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => TransactionForm({ accounts, categories: null, onClose: close, onSaved: saved }));
-    money("Jumlah", amount);
+    money("Amount", amount);
     submit();
     expect(invoke).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenCalledWith("Jumlah harus angka bulat lebih dari 0", "error");
+    expect(toast).toHaveBeenCalledWith("Amount must be a whole number greater than 0", "error");
   });
 
   it.each(["", "bad-date", "2026-02-30"])("rejects invalid transaction date %s", (date) => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => TransactionForm({ accounts, categories: null, onClose: close, onSaved: saved }));
-    money("Jumlah", "1");
-    field("Tanggal", date);
+    money("Amount", "1");
+    field("Date", date);
     submit();
     expect(invoke).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenCalledWith("Tanggal wajib diisi", "error");
+    expect(toast).toHaveBeenCalledWith("Date is required", "error");
   });
 
   it("preserves edits after AppError and retries after the save settles", async () => {
@@ -107,17 +107,17 @@ describe("finance forms", () => {
     const invoke = spyOn(core, "invoke").mockReturnValueOnce(pending.promise).mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => TransactionForm({ edit, accounts, categories: null, onClose: close, onSaved: saved }));
-    money("Jumlah", "17");
+    money("Amount", "17");
     submit();
     harness!.render();
     expect(props(DialogActions).busy).toBe(true);
     submit();
     expect(invoke).toHaveBeenCalledTimes(1);
-    pending.reject({ code: "invalid", message: "Akun tidak ditemukan" });
+    pending.reject({ code: "invalid", message: "Account not found" });
     await harness!.settle();
-    expect(toast).toHaveBeenCalledWith("Akun tidak ditemukan", "error");
+    expect(toast).toHaveBeenCalledWith("Account not found", "error");
     expect(saved).not.toHaveBeenCalled();
-    expect(props(MoneyField, "Jumlah").value).toBe("17");
+    expect(props(MoneyField, "Amount").value).toBe("17");
     expect(props(DialogActions).busy).toBe(false);
     submit();
     await harness!.settle();
@@ -129,7 +129,7 @@ describe("finance forms", () => {
     spies.push(invoke);
     const transfer = { ...edit, transferId: "transfer", counterAccountId: "a1" };
     mount(() => TransactionForm({ edit: transfer, accounts, categories: null, onClose: close, onSaved: saved }));
-    const segmented = props(Segmented, "Jenis transaksi");
+    const segmented = props(Segmented, "Transaction type");
     expect(segmented.value).toBe("transfer");
     expect(segmented.disabled!("income")).toBe(true);
     expect(segmented.disabled!("expense")).toBe(true);
@@ -146,8 +146,8 @@ describe("finance forms", () => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => AccountForm({ onClose: close, onSaved: saved }));
-    field("Nama", "BCA");
-    money("Saldo awal", opening);
+    field("Name", "BCA");
+    money("Opening balance", opening);
     submit();
     await harness!.settle();
     expect(invoke).toHaveBeenCalledWith("save_account", { input: { id: undefined, name: "BCA", kind: "bank", openingBalance: opening === "" ? 0 : -50001 } });
@@ -158,19 +158,19 @@ describe("finance forms", () => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => AccountForm({ onClose: close, onSaved: saved }));
-    money("Saldo awal", "1,5");
+    money("Opening balance", "1,5");
     submit();
     expect(invoke).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenCalledWith("Saldo awal harus angka bulat", "error");
+    expect(toast).toHaveBeenCalledWith("Opening balance must be a whole number", "error");
   });
 
   it("saves a bill amount and due date without scaling or a UTC date shift", async () => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => BillForm({ accounts, onClose: close, onSaved: saved }));
-    field("Nama", "Air");
-    money("Jumlah", "Rp 1");
-    field("Jatuh tempo", "2026-10-01");
+    field("Name", "Air");
+    money("Amount", "Rp 1");
+    field("Due date", "2026-10-01");
     submit();
     await harness!.settle();
     expect(invoke).toHaveBeenCalledWith("save_bill", { input: { id: undefined, name: "Air", amount: 1, accountId: "a0", repeat: "monthly", dueAt: new Date("2026-09-30T17:00:00Z").getTime() } });
@@ -181,13 +181,13 @@ describe("finance forms", () => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => BillForm({ accounts, onClose: close, onSaved: saved }));
-    money("Jumlah", "1,5");
+    money("Amount", "1,5");
     submit();
-    expect(toast).toHaveBeenLastCalledWith("Jumlah harus angka bulat lebih dari 0", "error");
-    money("Jumlah", "1");
-    field("Jatuh tempo", "");
+    expect(toast).toHaveBeenLastCalledWith("Amount must be a whole number greater than 0", "error");
+    money("Amount", "1");
+    field("Due date", "");
     submit();
-    expect(toast).toHaveBeenLastCalledWith("Jatuh tempo wajib diisi", "error");
+    expect(toast).toHaveBeenLastCalledWith("Due date is required", "error");
     expect(invoke).not.toHaveBeenCalled();
   });
 
@@ -195,7 +195,7 @@ describe("finance forms", () => {
     const invoke = spyOn(core, "invoke").mockResolvedValue(undefined);
     spies.push(invoke);
     mount(() => BudgetForm({ current: 1000, onClose: close, onSaved: saved }));
-    money("Batas per bulan", "2.001");
+    money("Limit per month", "2.001");
     submit();
     await harness!.settle();
     expect(invoke).toHaveBeenCalledWith("set_budget", { amount: 2001 });
@@ -209,16 +209,16 @@ describe("finance forms", () => {
     spies.push(invoke);
     mount(() => BudgetForm({ current: null, onClose: close, onSaved: saved }));
     expect(props(DialogActions).onDelete).toBeUndefined();
-    money("Batas per bulan", "0");
+    money("Limit per month", "0");
     submit();
     expect(invoke).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenCalledWith("Batas harus angka bulat lebih dari 0", "error");
+    expect(toast).toHaveBeenCalledWith("Limit must be a whole number greater than 0", "error");
   });
 
   it("normalizes valid MoneyField text on blur and preserves invalid text", () => {
     const change = mock((_value: string) => {});
     for (const [value, expected] of [["Rp 25.001", "25.001"], ["−1", "-1"], ["1,5", null]] as const) {
-      const input = elements(MoneyField({ label: "Jumlah", value, onChange: change })).find((element) => element.type === "input")!;
+      const input = elements(MoneyField({ label: "Amount", value, onChange: change })).find((element) => element.type === "input")!;
       (input.props.onBlur as () => void)();
       if (expected === null) expect(change).not.toHaveBeenCalled();
       else expect(change).toHaveBeenCalledWith(expected);

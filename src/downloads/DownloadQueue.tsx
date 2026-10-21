@@ -57,7 +57,7 @@ export function DownloadQueue({
   const visible = filterDownloads(items, tab);
   return (
     <section
-      aria-labelledby="antrean-judul"
+      aria-labelledby="queue-title"
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -86,16 +86,16 @@ export function DownloadQueue({
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-surface-2/95 backdrop-blur-sm p-4 text-center pointer-events-none">
           <span className="text-3xl mb-2">📥</span>
           <p className="font-display text-sm font-semibold text-accent">
-            Lepaskan tautan atau berkas .torrent di sini
+            Drop link or .torrent file here
           </p>
           <p className="text-xs text-muted mt-1">
-            Unduhan otomatis ditambahkan ke antrean
+            Download will be added to queue automatically
           </p>
         </div>
       )}
       <div className="flex shrink-0 items-center gap-1 border-b border-line bg-sidebar px-2.5 py-2">
-        <h2 id="antrean-judul" className="mx-2 text-sm font-semibold font-display text-ink">
-          Antrean
+        <h2 id="queue-title" className="mx-2 text-sm font-semibold font-display text-ink">
+          Queue
         </h2>
         {TABS.map((t) => {
           const active = tab === t;
@@ -119,7 +119,7 @@ export function DownloadQueue({
       <div className="flex-1 min-h-0 overflow-y-auto">
         {visible.length === 0 ? (
           <div className="py-10 px-4 text-center text-xs text-muted">
-            Tidak ada unduhan di tab ini.
+            No downloads in this tab.
           </div>
         ) : (
           visible.map((row) => {
@@ -208,7 +208,7 @@ export function DownloadQueue({
                 <div className="flex w-56 shrink-0 flex-col gap-1.5">
                   <FishProgress
                     value={row.totalBytes ? pct : undefined}
-                    label={`Kemajuan unduhan ${row.title}`}
+                    label={`Download progress for ${row.title}`}
                     state={downloadProgressState(row.status)}
                     tone={downloadProgressTone(row.status)}
                     className="h-3"
@@ -246,8 +246,8 @@ export function DownloadQueue({
                     <button
                       type="button"
                       onClick={() => onPause(row.id)}
-                      aria-label={`Jeda ${row.title}`}
-                      title="Jeda"
+                      aria-label={`Pause ${row.title}`}
+                      title="Pause"
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-ink hover:bg-surface-2"
                     >
                       <svg
@@ -266,8 +266,8 @@ export function DownloadQueue({
                     <button
                       type="button"
                       onClick={() => onResume(row.id)}
-                      aria-label={`Lanjutkan ${row.title}`}
-                      title="Lanjutkan"
+                      aria-label={`Resume ${row.title}`}
+                      title="Resume"
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-accent hover:bg-surface-2"
                     >
                       <svg
@@ -285,8 +285,8 @@ export function DownloadQueue({
                     <button
                       type="button"
                       onClick={() => onResume(row.id)}
-                      aria-label={`Lanjutkan sekarang: ${row.title}`}
-                      title="Lanjutkan sekarang"
+                      aria-label={`Resume now: ${row.title}`}
+                      title="Resume now"
                       className="flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-xs font-medium text-accent hover:bg-surface-2"
                     >
                       <svg
@@ -298,15 +298,15 @@ export function DownloadQueue({
                       >
                         <path d="M8 5v14l11-7z" />
                       </svg>
-                      <span>Lanjut</span>
+                      <span>Resume</span>
                     </button>
                   )}
                   {row.status === "failed" && (
                     <button
                       type="button"
                       onClick={() => onRetry(row.id)}
-                      aria-label={`Coba lagi ${row.title}`}
-                      title="Coba lagi"
+                      aria-label={`Retry ${row.title}`}
+                      title="Retry"
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-accent hover:bg-surface-2"
                     >
                       <svg
@@ -332,8 +332,8 @@ export function DownloadQueue({
                         <button
                           type="button"
                           onClick={() => onPlay(row)}
-                          aria-label={`Putar ${row.title}`}
-                          title="Putar media"
+                          aria-label={`Play ${row.title}`}
+                          title="Play media"
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-accent hover:bg-surface-2 transition-colors"
                         >
                           <svg
@@ -350,8 +350,8 @@ export function DownloadQueue({
                       <button
                         type="button"
                         onClick={() => onOpen(row.id)}
-                        aria-label={`Buka berkas ${row.title}`}
-                        title="Buka berkas"
+                        aria-label={`Open file ${row.title}`}
+                        title="Open file"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-ink hover:bg-surface-2"
                       >
                         <svg
@@ -373,8 +373,8 @@ export function DownloadQueue({
                       <button
                         type="button"
                         onClick={() => onReveal?.(row.id)}
-                        aria-label={`Buka folder ${row.title}`}
-                        title="Buka di Berkas"
+                        aria-label={`Open folder ${row.title}`}
+                        title="Show in Files"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-ink hover:bg-surface-2"
                       >
                         <svg
@@ -404,10 +404,10 @@ export function DownloadQueue({
                     }}
                     aria-label={
                       row.status === "done"
-                        ? `Hapus dari daftar: ${row.title}`
-                        : `Batalkan: ${row.title}`
+                        ? `Remove from list: ${row.title}`
+                        : `Cancel: ${row.title}`
                     }
-                    title={row.status === "done" ? "Hapus dari daftar" : "Batalkan"}
+                    title={row.status === "done" ? "Remove from list" : "Cancel"}
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
                   >
                     <svg
@@ -438,7 +438,7 @@ export function DownloadQueue({
         >
           <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4 shadow-xl">
             <h3 id="cancel-title" className="text-sm font-semibold text-ink">
-              Batalkan unduhan?
+              Cancel download?
             </h3>
             <p className="mt-1 truncate text-xs text-muted">
               {cancelTarget.title}
@@ -452,8 +452,8 @@ export function DownloadQueue({
                 }}
                 className="flex w-full items-center justify-between rounded-lg bg-surface-2 px-3 py-2 text-left text-xs font-medium text-ink transition-colors hover:bg-surface-3"
               >
-                <span>Simpan bagian dan jeda</span>
-                <span className="text-[10px] text-muted">Bisa dilanjutkan</span>
+                <span>Keep partial file and pause</span>
+                <span className="text-[10px] text-muted">Can be resumed</span>
               </button>
               <button
                 type="button"
@@ -463,15 +463,15 @@ export function DownloadQueue({
                 }}
                 className="flex w-full items-center justify-between rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-left text-xs font-medium text-danger transition-colors hover:bg-danger/20"
               >
-                <span>Hapus unduhan dan bagian</span>
-                <span className="text-[10px] text-danger/80">Permanen</span>
+                <span>Delete download and files</span>
+                <span className="text-[10px] text-danger/80">Permanent</span>
               </button>
               <button
                 type="button"
                 onClick={() => setCancelTarget(null)}
                 className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:text-ink"
               >
-                Kembali
+                Back
               </button>
             </div>
           </div>

@@ -9,7 +9,7 @@ function barHeight(value: number, max: number): number {
   return value > 0 ? Math.max(3, Math.round((value / max) * BAR_MAX)) : 2;
 }
 
-/** "Arus kas 6 bulan": CSS bars, one button per month; picking one changes the page's month. */
+/** "6-month cash flow": CSS bars, one button per month; picking one changes the page's month. */
 export function CashFlowChart({
   chart,
   month,
@@ -17,26 +17,26 @@ export function CashFlowChart({
 }: Readonly<{ chart: MonthFlow[]; month: string; onPick: (month: string) => void }>) {
   const max = Math.max(1, ...chart.flatMap((m) => [m.income, m.expense]));
   return (
-    <section aria-labelledby="arus-judul" className={`${PANEL} flex flex-col gap-3`}>
+    <section aria-labelledby="cashflow-heading" className={`${PANEL} flex flex-col gap-3`}>
       <div className="flex items-center justify-between">
-        <h2 id="arus-judul" className={H2}>
-          Arus kas 6 bulan
+        <h2 id="cashflow-heading" className={H2}>
+          6-month cash flow
         </h2>
         <div aria-hidden="true" className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-sm bg-accent" />
-            Masuk
+            Income
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-sm bg-danger" />
-            Keluar
+            Expense
           </span>
         </div>
       </div>
       <div className="flex h-[120px] items-end gap-2">
         {chart.map((m) => {
           const on = m.month === month;
-          const label = `${monthLabel(m.month)}: masuk ${formatRupiah(m.income)}, keluar ${formatRupiah(m.expense)}`;
+          const label = `${monthLabel(m.month)}: income ${formatRupiah(m.income)}, expense ${formatRupiah(m.expense)}`;
           return (
             <button
               key={m.month}

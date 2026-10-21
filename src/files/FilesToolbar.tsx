@@ -40,7 +40,7 @@ export function FilesToolbar({
           type="button"
           disabled={!canGoBack}
           onClick={onGoBack}
-          aria-label="Kembali"
+          aria-label="Back"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
         >
           <svg
@@ -61,7 +61,7 @@ export function FilesToolbar({
           type="button"
           disabled={!canGoForward}
           onClick={onGoForward}
-          aria-label="Maju"
+          aria-label="Forward"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
         >
           <svg
@@ -82,7 +82,7 @@ export function FilesToolbar({
           type="button"
           disabled={!canGoUp}
           onClick={onGoUp}
-          aria-label="Naik satu folder"
+          aria-label="Up one folder"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-2 disabled:text-disabled"
         >
           <svg
@@ -102,7 +102,7 @@ export function FilesToolbar({
       </div>
 
       <nav
-        aria-label="Lokasi"
+        aria-label="Location"
         className="flex min-w-0 flex-1 items-center gap-0.5 rounded-[10px] border border-line bg-surface px-1.5 py-[3px] text-[13px]"
       >
         {crumbs.map((crumb, idx) => {
@@ -137,13 +137,13 @@ export function FilesToolbar({
 
       <div
         role="group"
-        aria-label="Tampilan"
+        aria-label="View"
         className="flex gap-0.5 rounded-[10px] border border-line bg-surface p-[3px]"
       >
         <button
           type="button"
           onClick={() => onToggleView("grid")}
-          aria-label="Tampilan ikon"
+          aria-label="Icon view"
           aria-pressed={view === "grid"}
           className={`flex h-[30px] w-8 items-center justify-center rounded-[7px] transition-colors ${
             view === "grid"
@@ -171,7 +171,7 @@ export function FilesToolbar({
         <button
           type="button"
           onClick={() => onToggleView("list")}
-          aria-label="Tampilan daftar"
+          aria-label="List view"
           aria-pressed={view === "list"}
           className={`flex h-[30px] w-8 items-center justify-center rounded-[7px] transition-colors ${
             view === "list"
@@ -202,7 +202,7 @@ export function FilesToolbar({
           onChange={(e) => onToggleHidden(e.target.checked)}
           className="accent-accent"
         />
-        <span>Tampilkan tersembunyi</span>
+        <span>Show hidden</span>
       </label>
 
       {clipboardCount > 0 && (
@@ -212,13 +212,13 @@ export function FilesToolbar({
             onClick={onPaste}
             className="flex min-h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-semibold text-canvas transition-transform hover:scale-105 active:scale-95"
           >
-            <span>Tempel {clipboardCount} item</span>
+            <span>Paste {clipboardCount} item{clipboardCount === 1 ? "" : "s"}</span>
           </button>
           <button
             type="button"
             onClick={onClearClipboard}
-            aria-label="Kosongkan papan klip"
-            title="Kosongkan papan klip"
+            aria-label="Clear clipboard"
+            title="Clear clipboard"
             className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <svg

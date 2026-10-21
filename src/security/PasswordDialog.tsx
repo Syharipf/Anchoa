@@ -26,7 +26,7 @@ export function PasswordDialog({
   const [busy, setBusy] = useState(false);
 
   const title =
-    mode === "create" ? "Buat kata sandi" : mode === "change" ? "Ganti kata sandi" : "Matikan kata sandi";
+    mode === "create" ? "Create password" : mode === "change" ? "Change password" : "Disable password";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,16 +34,16 @@ export function PasswordDialog({
 
     if (mode !== "disable") {
       if (!isValidPassword(next)) {
-        setError("Kata sandi harus 8–128 karakter");
+        setError("Password must be 8–128 characters");
         return;
       }
       if (next !== confirm) {
-        setError("Konfirmasi kata sandi tidak cocok");
+        setError("Password confirmation does not match");
         return;
       }
     }
     if ((mode === "change" || mode === "disable") && !current) {
-      setError(mode === "disable" ? "Masukkan kata sandi atau PIN saat ini" : "Kata sandi saat ini harus diisi");
+      setError(mode === "disable" ? "Enter current password or PIN" : "Current password is required");
       return;
     }
 
@@ -81,12 +81,12 @@ export function PasswordDialog({
         )}
 
         {mode === "disable" ? (
-          <Field label="Kata sandi atau PIN saat ini">
+          <Field label="Current password or PIN">
             <input
               type="password"
               autoFocus
               autoComplete="current-password"
-              aria-label="Kata sandi saat ini"
+              aria-label="Current password"
               placeholder="••••••••"
               value={current}
               onChange={(e) => {
@@ -100,12 +100,12 @@ export function PasswordDialog({
         ) : (
           <>
             {mode === "change" && (
-              <Field label="Kata sandi saat ini">
+              <Field label="Current password">
                 <input
                   type="password"
                   autoFocus
                   autoComplete="current-password"
-                  aria-label="Kata sandi saat ini"
+                  aria-label="Current password"
                   placeholder="••••••••"
                   value={current}
                   onChange={(e) => {
@@ -117,12 +117,12 @@ export function PasswordDialog({
                 />
               </Field>
             )}
-            <Field label={mode === "create" ? "Kata sandi (8–128 karakter)" : "Kata sandi baru (8–128 karakter)"}>
+            <Field label={mode === "create" ? "Password (8–128 characters)" : "New password (8–128 characters)"}>
               <input
                 type="password"
                 autoFocus={mode === "create"}
                 autoComplete="new-password"
-                aria-label={mode === "create" ? "Kata sandi" : "Kata sandi baru"}
+                aria-label={mode === "create" ? "Password" : "New password"}
                 placeholder="••••••••"
                 value={next}
                 onChange={(e) => {
@@ -133,11 +133,11 @@ export function PasswordDialog({
                 className={FIELD}
               />
             </Field>
-            <Field label="Konfirmasi kata sandi">
+            <Field label="Confirm password">
               <input
                 type="password"
                 autoComplete="new-password"
-                aria-label="Konfirmasi kata sandi"
+                aria-label="Confirm password"
                 placeholder="••••••••"
                 value={confirm}
                 onChange={(e) => {

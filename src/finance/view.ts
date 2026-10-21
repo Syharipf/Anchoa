@@ -4,19 +4,19 @@ import { monthOf } from "../money";
 import { shortDate } from "../format";
 
 export const KIND_LABELS: Record<AccountKind, string> = {
-  cash: "Tunai",
+  cash: "Cash",
   bank: "Bank",
   ewallet: "E-wallet",
-  credit: "Kartu kredit",
+  credit: "Credit card",
 };
 
 export type TransactionIcon = "car" | "food" | "bill" | "bag" | "income" | "transfer" | "other";
 
 const CATEGORY_ICONS = new Map<string, TransactionIcon>([
-  ["Transportasi", "car"],
-  ["Makan & minum", "food"],
-  ["Tagihan", "bill"],
-  ["Belanja", "bag"],
+  ["Transportation", "car"],
+  ["Food & drink", "food"],
+  ["Bills", "bill"],
+  ["Shopping", "bag"],
 ]);
 
 export function iconFor(t: Pick<TransactionView, "amount" | "category" | "transferId">): TransactionIcon {
@@ -30,10 +30,10 @@ export function isIncome(t: Pick<TransactionView, "amount" | "transferId">): boo
   return t.amount > 0 && t.transferId === null;
 }
 
-/** "Makan & minum · BCA", or "BCA → GoPay" for a transfer. */
+/** "Food & drink · BCA", or "BCA → GoPay" for a transfer. */
 export function transactionMeta(t: TransactionView): string {
   if (t.transferId) return `${t.accountName} → ${t.counterAccountName ?? "?"}`;
-  return `${t.category ?? "Tanpa kategori"} · ${t.accountName}`;
+  return `${t.category ?? "Uncategorized"} · ${t.accountName}`;
 }
 
 export interface MonthGroup {
@@ -62,17 +62,17 @@ export function accountShares(accounts: AccountView[]): Map<string, number> {
 /** Chip on the dashboard Keuangan card (spec Fase 2 §5). `dueBills` is overdue or due today. */
 export function billChip(dueBills: BillView[]): { text: string; tone: "danger" | "ink" | "accent" } {
   const late = dueBills.filter((b) => b.status === "overdue").length;
-  if (late > 0) return { text: `${late} terlambat`, tone: "danger" };
+  if (late > 0) return { text: `${late} overdue`, tone: "danger" };
   const today = dueBills.filter((b) => b.status === "dueToday");
-  if (today.length === 1) return { text: `${today[0].name} hari ini`, tone: "ink" };
-  if (today.length > 1) return { text: `${today.length} tagihan hari ini`, tone: "ink" };
-  return { text: "Tagihan aman", tone: "accent" };
+  if (today.length === 1) return { text: `${today[0].name} today`, tone: "ink" };
+  if (today.length > 1) return { text: `${today.length} bills today`, tone: "ink" };
+  return { text: "Bills clear", tone: "accent" };
 }
 
-/** Second line of a bill row, e.g. "Terlambat 1 hari · sejak 28 Sep". */
+/** Second line of a bill row, e.g. "Overdue 1 day · since 28 Sep". */
 export function billStatusText(b: BillView): string {
-  if (b.status === "overdue") return `Terlambat ${b.daysLate} hari · sejak ${shortDate(b.dueAt)}`;
-  if (b.status === "dueToday") return "Jatuh tempo hari ini";
-  if (b.status === "paidToday") return "Lunas hari ini";
-  return `Jatuh tempo ${shortDate(b.dueAt)}`;
+  if (b.status === "overdue") return `Overdue ${b.daysLate} ${b.daysLate === 1 ? "day" : "days"} · since ${shortDate(b.dueAt)}`;
+  if (b.status === "dueToday") return "Due today";
+  if (b.status === "paidToday") return "Paid today";
+  return `Due ${shortDate(b.dueAt)}`;
 }

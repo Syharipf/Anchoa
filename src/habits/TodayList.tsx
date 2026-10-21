@@ -62,7 +62,7 @@ function HabitRowItem({
 }>) {
   const doneW = row.week.filter((s) => s === "done").length;
   const schedW = row.week.filter((s) => s !== "off" && s !== "blank" && s !== "future").length;
-  const weekLabel = `7 hari terakhir: ${doneW} dari ${schedW} hari terjadwal selesai`;
+  const weekLabel = `Last 7 days: ${doneW} of ${schedW} scheduled days completed`;
 
   // Check if yesterday was missed (index 5 in 0..6 week array)
   const yesterdayState = row.week.length >= 2 ? row.week[row.week.length - 2] : null;
@@ -89,9 +89,9 @@ function HabitRowItem({
         type="button"
         role="checkbox"
         aria-checked={row.doneToday}
-        aria-label={`Tandai ${row.name} ${row.doneToday ? "belum selesai" : "selesai"}`}
+        aria-label={`Mark ${row.name} as ${row.doneToday ? "incomplete" : "completed"}`}
         disabled={!row.scheduledToday}
-        title={!row.scheduledToday ? "Libur hari ini" : undefined}
+        title={!row.scheduledToday ? "Rest day" : undefined}
         onClick={() => onToggle(row.id, !row.doneToday)}
         className={checkBtnClass}
       >
@@ -120,7 +120,7 @@ function HabitRowItem({
           )}
           {row.targetDays && row.targetDays > 0 && (
             <span className="rounded bg-stage px-1.5 py-0.2 font-mono text-[10px] text-muted shrink-0">
-              Target {row.targetDays}h
+              Target {row.targetDays}d
             </span>
           )}
         </div>
@@ -138,10 +138,10 @@ function HabitRowItem({
                 e.stopPropagation();
                 onCheckYesterday(row.id);
               }}
-              title="Centang untuk hari kemarin"
+              title="Check for yesterday"
               className="rounded bg-warn/15 px-2 py-0.5 font-medium text-[11px] text-warn hover:bg-warn/25 transition-colors"
             >
-              + Centang Kemarin
+              + Check Yesterday
             </button>
           )}
         </div>
@@ -157,7 +157,7 @@ function HabitRowItem({
       </span>
 
       <span
-        aria-label={`Streak: ${row.streak} hari`}
+        aria-label={`Streak: ${row.streak} days`}
         className={`flex w-16 shrink-0 items-center justify-end gap-1 font-mono text-sm ${
           row.streak > 0 ? "text-accent font-semibold" : "text-muted"
         }`}
@@ -219,10 +219,10 @@ export function TodayList({
     >
       <div className="flex items-center gap-2.5 pb-3 border-b border-line">
         <h2 id="h-today" className="m-0 font-display text-base font-semibold text-ink">
-          Centang hari ini
+          Check in today
         </h2>
         <fieldset className="m-0 ml-2 flex gap-1 border-0 p-0">
-          <legend className="sr-only">Saring habit</legend>
+          <legend className="sr-only">Filter habits</legend>
           <button
             type="button"
             aria-pressed={filter === "all"}
@@ -231,7 +231,7 @@ export function TodayList({
               filter === "all" ? "bg-surface-2 text-ink font-medium" : "text-muted hover:text-ink"
             }`}
           >
-            Semua
+            All
           </button>
           <button
             type="button"
@@ -241,7 +241,7 @@ export function TodayList({
               filter === "open" ? "bg-surface-2 text-ink font-medium" : "text-muted hover:text-ink"
             }`}
           >
-            Belum
+            Open
           </button>
           <button
             type="button"
@@ -251,7 +251,7 @@ export function TodayList({
               filter === "archived" ? "bg-surface-2 text-warn font-medium" : "text-muted hover:text-ink"
             }`}
           >
-            Arsip
+            Archived
           </button>
         </fieldset>
         <span aria-hidden="true" className="ml-auto flex gap-1 pr-[76px]">
@@ -273,14 +273,14 @@ export function TodayList({
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center">
             <p className="m-0 text-sm text-muted">
               {filter === "archived"
-                ? "Tidak ada habit di arsip"
+                ? "No habits in archive"
                 : filter === "open"
-                  ? "Semua habit sudah dicentang!"
-                  : "Belum ada habit"}
+                  ? "All habits are completed!"
+                  : "No habits yet"}
             </p>
             {filter === "all" && (
               <button type="button" onClick={onNewHabit} className={PRIMARY}>
-                Buat habit baru
+                Create new habit
               </button>
             )}
           </div>
@@ -299,12 +299,12 @@ export function TodayList({
 
         {allDone && filter !== "archived" && (
           <p className="m-2.5 text-xs text-accent font-medium text-center py-2">
-            ✨ Hebat! Semua habit hari ini sudah berhasil dicentang.
+            ✨ Great job! All habits for today have been checked.
           </p>
         )}
         {emptyFilter && (
           <p className="m-2.5 text-xs text-muted text-center py-2">
-            Tidak ada habit yang belum dicentang.
+            No unchecked habits.
           </p>
         )}
       </div>

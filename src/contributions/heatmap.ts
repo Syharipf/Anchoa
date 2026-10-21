@@ -64,8 +64,8 @@ function monthView(year: number, month: number, counts: Map<string, number>, tod
   for (let i = 0; i < trailing; i++) slots.push({ key: `after-${i}`, cell: null });
   return {
     key: `${year}-${pad(month + 1)}`,
-    label: first.toLocaleDateString("id-ID", { month: "short", year: "numeric" }),
-    fullLabel: first.toLocaleDateString("id-ID", { month: "long", year: "numeric" }),
+    label: first.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+    fullLabel: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
     slots,
     total,
     streak,

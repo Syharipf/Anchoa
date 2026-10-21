@@ -36,7 +36,7 @@ export function ProjectForm({
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
-      toast("Nama proyek tidak boleh kosong", "error");
+      toast("Project name cannot be empty", "error");
       return;
     }
     const deadlineAt = dateInputToMs(deadline);
@@ -66,22 +66,22 @@ export function ProjectForm({
     : undefined;
 
   return (
-    <Dialog title={edit ? "Ubah proyek" : "Proyek baru"} onClose={onClose}>
+    <Dialog title={edit ? "Edit project" : "New project"} onClose={onClose}>
       <form onSubmit={submit} className="flex max-h-[calc(100vh-220px)] flex-col gap-3 overflow-y-auto">
-        <Field label="Nama">
+        <Field label="Name">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Nama proyek…"
+            placeholder="Project name…"
             className={FIELD}
           />
         </Field>
         <div className="flex items-center justify-between gap-3 rounded-[10px] border border-line p-3">
-          <span className="text-sm text-ink">Proyek agen</span>
+          <span className="text-sm text-ink">Agent project</span>
           <button
             type="button"
             role="switch"
-            aria-label="Proyek agen"
+            aria-label="Agent project"
             aria-checked={agent}
             disabled={busy}
             onClick={() => setAgent((value) => !value)}
@@ -92,12 +92,12 @@ export function ProjectForm({
         </div>
         {agent && (
           <>
-            <Field label="Folder repo">
+            <Field label="Repo folder">
               <div className="flex items-center gap-2">
                 <input
                   value={agentDir}
                   onChange={(e) => setAgentDir(e.target.value)}
-                  placeholder="/home/kamu/Proyek/repo"
+                  placeholder="/home/user/Projects/repo"
                   aria-describedby="agent-dir-help"
                   className={FIELD}
                 />
@@ -107,10 +107,10 @@ export function ProjectForm({
                   disabled={busy}
                   className="shrink-0 whitespace-nowrap rounded-lg border border-line px-2.5 py-2 text-xs text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
                 >
-                  Pilih…
+                  Choose…
                 </button>
               </div>
-              <span id="agent-dir-help">Folder yang sudah ada di dalam direktori home.</span>
+              <span id="agent-dir-help">Existing folder inside home directory.</span>
               {pickingDir && (
                 <FolderPicker
                   initialPath={agentDir}
@@ -119,26 +119,26 @@ export function ProjectForm({
                 />
               )}
             </Field>
-            <Field label="Perintah agen (opsional)">
+            <Field label="Agent command (optional)">
               <input
                 value={agentCommand}
                 onChange={(e) => setAgentCommand(e.target.value)}
                 placeholder={'claude -p "$ANCHOA_REQUEST"'}
                 className={`${FIELD} font-mono`}
               />
-              <span>Tanpa perintah, permintaan menunggu di Rencana.</span>
+              <span>Without a command, requests wait in Plan.</span>
             </Field>
           </>
         )}
-        <Field label="Jenis">
+        <Field label="Kind">
           <Segmented
-            label="Jenis proyek"
+            label="Project kind"
             options={KIND_OPTIONS}
             value={kind}
             onChange={setKind}
           />
         </Field>
-        <Field label="Tenggat (opsional)">
+        <Field label="Due date (optional)">
           <input
             type="date"
             value={deadline}
@@ -146,30 +146,30 @@ export function ProjectForm({
             className={FIELD}
           />
         </Field>
-        <Field label="URL Repo GitHub (opsional)">
+        <Field label="GitHub Repo URL (optional)">
           <input
             type="url"
             value={repoUrl}
             onChange={(e) => setRepoUrl(e.target.value)}
-            placeholder="https://github.com/pemilik/repo"
+            placeholder="https://github.com/owner/repo"
             className={FIELD}
           />
         </Field>
-        <Field label="Deskripsi">
+        <Field label="Description">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Deskripsi singkat proyek…"
+            placeholder="Brief project description…"
             className={`${FIELD} resize-none`}
           />
         </Field>
-        {edit && <p className="m-0 text-xs text-muted">Tugasnya pindah ke Tugas lepas</p>}
+        {edit && <p className="m-0 text-xs text-muted">Tasks will move to Loose tasks</p>}
         <DialogActions
           busy={busy}
           onCancel={onClose}
           onDelete={remove}
-          deleteLabel="Hapus proyek"
+          deleteLabel="Delete project"
         />
       </form>
     </Dialog>

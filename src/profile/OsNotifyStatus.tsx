@@ -55,7 +55,7 @@ export function OsNotifyStatus() {
   return (
     <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
       <span className="text-sm text-ink">
-        {status ? OS_PERMISSION_LABEL[status.permission] : "Notifikasi sistem: memuat…"}
+        {status ? OS_PERMISSION_LABEL[status.permission] : "System notifications: loading…"}
       </span>
       {status?.reason && <p className="m-0 text-xs leading-relaxed text-muted">{status.reason}</p>}
       {status?.permission === "prompt" && (
@@ -65,7 +65,7 @@ export function OsNotifyStatus() {
           disabled={busy}
           onClick={() => void requestPermission()}
         >
-          {busy ? "Meminta izin…" : "Izinkan notifikasi"}
+          {busy ? "Requesting permission…" : "Allow notifications"}
         </button>
       )}
       {error && (
@@ -74,13 +74,13 @@ export function OsNotifyStatus() {
         </p>
       )}
       <p className="m-0 text-xs leading-relaxed text-muted">
-        Pengingat dikirim ke sistem selama Anchoa berjalan, termasuk di baki sistem (tray) setelah jendela ditutup. Pengingat menunggu jika Anchoa benar-benar ditutup lewat menu Keluar.
+        Reminders are sent to the system while Anchoa is running, including in the system tray after the window is closed. Reminders will wait if Anchoa is fully quit via the Quit menu.
       </p>
       {status && (
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted">Pengiriman terakhir</span>
+          <span className="text-xs text-muted">Recent deliveries</span>
           {recent.length === 0 ? (
-            <p className="m-0 text-xs text-muted">Belum ada pengingat yang dikirim ke sistem.</p>
+            <p className="m-0 text-xs text-muted">No reminders sent to the system yet.</p>
           ) : (
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {recent.map((entry) => (

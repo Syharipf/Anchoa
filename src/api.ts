@@ -1160,7 +1160,7 @@ export const api = {
   voiceStop: () => invoke<void>("voice_stop"),
   /** Native file picker for a Piper voice; the matching .onnx.json must sit next to the file. */
   pickVoiceModel: async (): Promise<string | null> => {
-    const path = await openFileDialog({ multiple: false, directory: false, filters: [{ name: "Suara Piper", extensions: ["onnx"] }] });
+    const path = await openFileDialog({ multiple: false, directory: false, filters: [{ name: "Piper voice", extensions: ["onnx"] }] });
     return typeof path === "string" ? path : null;
   },
   /** Native folder picker for exports. */

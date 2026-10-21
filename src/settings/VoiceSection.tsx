@@ -210,8 +210,8 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
   const microphoneMissing = status ? [
     !status.pwRecord && "pw-record",
     !status.whisper && "whisper.cpp",
-    !status.whisperModel && "model Whisper Base",
-  ].filter(Boolean) : ["status suara"];
+    !status.whisperModel && "Whisper Base model",
+  ].filter(Boolean) : ["voice status"];
 
   const handleMicTest = async () => {
     if (!mountedRef.current || speakingRef.current || microphoneMissing.length > 0) return;
@@ -228,7 +228,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
         setMode("transcribing");
         const text = await api.voiceRecordStop();
         if (!current()) return;
-        setTranscript(text.trim() || "Tidak ada ucapan yang terdeteksi. Coba lagi.");
+        setTranscript(text.trim() || "No speech detected. Try again.");
         setMode("idle");
       } else {
         setTranscript(null);
@@ -260,10 +260,10 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
 
     const stageLabel =
       progress.stage === "downloading"
-        ? `Mengunduh… ${percent !== null ? `(${percent}%)` : ""}`
+        ? `Downloading… ${percent !== null ? `(${percent}%)` : ""}`
         : progress.stage === "verified"
-          ? "Memverifikasi berkas…"
-          : "Memasang…";
+          ? "Verifying file…"
+          : "Installing…";
 
     return (
       <div className="flex w-full flex-col gap-1 py-1">
@@ -287,7 +287,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
     return (
       <div className="flex flex-col gap-4">
         <section className={PANEL}>
-          <p className="m-0 text-sm text-muted">Memuat pengaturan suara…</p>
+          <p className="m-0 text-sm text-muted">Loading voice settings…</p>
         </section>
       </div>
     );
@@ -303,11 +303,11 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
           <span className="flex-1">{installError}</span>
           <button
             type="button"
-            aria-label="Tutup pesan kesalahan instalasi"
+            aria-label="Close installation error message"
             onClick={() => setInstallError(null)}
             className="cursor-pointer font-semibold hover:underline"
           >
-            Tutup
+            Close
           </button>
         </div>
       )}
@@ -320,11 +320,11 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
           <span className="flex-1">{importError}</span>
           <button
             type="button"
-            aria-label="Tutup pesan kesalahan impor"
+            aria-label="Close import error message"
             onClick={() => setImportError(null)}
             className="cursor-pointer font-semibold hover:underline"
           >
-            Tutup
+            Close
           </button>
         </div>
       )}
@@ -334,7 +334,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <h2 id="heading-voice-status" className={H2}>
-              Status Komponen Suara
+              Voice Component Status
             </h2>
             <span className="text-xs text-muted">STT whisper.cpp &amp; TTS Piper</span>
           </div>
@@ -351,15 +351,15 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                     aria-hidden="true"
                   />
                   <span className="text-sm font-medium text-ink">
-                    Perekam Audio (pw-record)
+                    Audio Recorder (pw-record)
                   </span>
                 </div>
                 <span className="text-xs text-muted">
-                  {status?.pwRecord ? "Tersedia" : "Tidak ditemukan"}
+                  {status?.pwRecord ? "Available" : "Not found"}
                 </span>
               </div>
               <span className="text-xs text-muted pl-4">
-                Layanan PipeWire untuk merekam audio 16 kHz mono dari mikrofon.
+                PipeWire service to record 16 kHz mono audio from the microphone.
               </span>
             </div>
 
@@ -378,19 +378,14 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                   </span>
                 </div>
                 <span className="text-xs text-muted">
-                  {status?.whisper ? "Terpasang" : "Belum terpasang"}
+                  {status?.whisper ? "Installed" : "Not installed"}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-1 text-xs text-muted pl-4">
                 {status?.whisper ? (
-                  <span>Terdeteksi di sistem ({status.whisper}).</span>
+                  <span>Detected on system ({status.whisper}).</span>
                 ) : (
-                  <span>
-                    Pasang paket whisper di Fedora:{" "}
-                    <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-ink select-all">
-                      sudo dnf install whisper-cpp
-                    </code>
-                  </span>
+                  <span>Install whisper.cpp using your system package manager.</span>
                 )}
               </div>
             </div>
@@ -406,26 +401,26 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                     aria-hidden="true"
                   />
                   <span className="text-sm font-medium text-ink">
-                    Model Whisper Base (ggml-base.bin)
+                    Whisper Base Model (ggml-base.bin)
                   </span>
                 </div>
                 {status?.whisperModel ? (
-                  <span className="text-xs text-muted">Terpasang</span>
+                  <span className="text-xs text-muted">Installed</span>
                 ) : (
                   !installing["whisper-model"] && (
                     <button
                       type="button"
-                      aria-label="Pasang model whisper base"
+                      aria-label="Install whisper base model"
                       onClick={() => handleInstall("whisper-model")}
                       className={`${PRIMARY} min-h-8 px-3 text-xs`}
                     >
-                      Pasang
+                      Install
                     </button>
                   )
                 )}
               </div>
               <span className="text-xs text-muted pl-4">
-                Model pengenal suara 148 MB untuk transkripsi offline cepat di CPU.
+                148 MB speech recognition model for fast offline transcription on CPU.
               </span>
               {renderProgressBar(installing["whisper-model"])}
             </div>
@@ -443,22 +438,22 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                   <span className="text-sm font-medium text-ink">Piper TTS</span>
                 </div>
                 {status?.piper ? (
-                  <span className="text-xs text-muted">Terpasang</span>
+                  <span className="text-xs text-muted">Installed</span>
                 ) : (
                   !installing.piper && (
                     <button
                       type="button"
-                      aria-label="Pasang Piper"
+                      aria-label="Install Piper"
                       onClick={() => handleInstall("piper")}
                       className={`${PRIMARY} min-h-8 px-3 text-xs`}
                     >
-                      Pasang
+                      Install
                     </button>
                   )
                 )}
               </div>
               <span className="text-xs text-muted pl-4">
-                Mesin neural speech synthesis lokal yang cepat dan alami.
+                Fast and natural local neural speech synthesis engine.
               </span>
               {renderProgressBar(installing.piper)}
             </div>
@@ -468,23 +463,23 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
 
       <section aria-labelledby="heading-microphone-test" className={PANEL}>
         <div className="flex flex-col gap-3">
-          <h2 id="heading-microphone-test" className={H2}>Uji Mikrofon</h2>
+          <h2 id="heading-microphone-test" className={H2}>Microphone Test</h2>
           <p className="m-0 text-sm text-muted">
-            Bicaralah selama beberapa detik, lalu hentikan rekaman untuk melihat transkripsi.
+            Speak for a few seconds, then stop recording to see transcription.
           </p>
           {microphoneMissing.length > 0 && (
-            <p className="m-0 text-xs text-warn">Uji mikrofon memerlukan: {microphoneMissing.join(", ")}.</p>
+            <p className="m-0 text-xs text-warn">Microphone test requires: {microphoneMissing.join(", ")}.</p>
           )}
           <button
             type="button"
-            aria-label={micMode === "listening" ? "Hentikan rekaman uji" : "Uji mikrofon"}
+            aria-label={micMode === "listening" ? "Stop test recording" : "Test microphone"}
             disabled={microphoneMissing.length > 0 || speaking || micMode === "starting" || micMode === "transcribing"}
             onClick={handleMicTest}
             className={`${SECONDARY} self-start disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {micMode === "listening" ? "Hentikan rekaman uji" : micMode === "starting" ? "Memulai rekaman…" : micMode === "transcribing" ? "Mentranskripsi…" : "Uji mikrofon"}
+            {micMode === "listening" ? "Stop test recording" : micMode === "starting" ? "Starting recording…" : micMode === "transcribing" ? "Transcribing…" : "Test microphone"}
           </button>
-          {micMode === "listening" && <p className="m-0 text-xs text-danger" role="status">Mendengarkan…</p>}
+          {micMode === "listening" && <p className="m-0 text-xs text-danger" role="status">Listening…</p>}
           {transcript !== null && <p className="m-0 rounded-lg bg-surface-2 p-3 text-sm text-ink" role="status">{transcript}</p>}
           {micError && <p className="m-0 text-xs text-danger" role="alert">{micError}</p>}
         </div>
@@ -496,20 +491,20 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
           <div className="flex items-center justify-between">
             <div>
               <h2 id="heading-voice-list" className={H2}>
-                Pilihan Suara Asisten
+                Assistant Voice Choices
               </h2>
               <span className="text-xs text-muted">
-                Pilih suara aktif atau pasang dari katalog Piper
+                Select active voice or install from Piper catalog
               </span>
             </div>
             <button
               type="button"
-              aria-label="Impor suara"
+              aria-label="Import voice"
               disabled={importing}
               onClick={handleImport}
               className={`${SECONDARY} min-h-8 px-3 text-xs cursor-pointer`}
             >
-              {importing ? "Mengimpor…" : "Impor suara…"}
+              {importing ? "Importing…" : "Import voice…"}
             </button>
           </div>
 
@@ -534,32 +529,32 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                       </span>
                       <span className="text-xs text-muted">
                         {v.imported
-                          ? "Model Kustom (Impor)"
-                          : `${v.language} · kualitas ${v.quality}`}
+                          ? "Custom Model (Imported)"
+                          : `${v.language} · quality ${v.quality}`}
                       </span>
                     </div>
                     {isActive && v.installed ? (
                       <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-semibold text-accent">
-                        Suara aktif
+                        Active voice
                       </span>
                     ) : v.installed ? (
                       <button
                         type="button"
-                        aria-label={`Pilih suara ${v.label}`}
+                        aria-label={`Select voice ${v.label}`}
                         onClick={() => handleSelectVoice(v.id)}
                         className={`${SECONDARY} min-h-7 px-2.5 text-xs cursor-pointer`}
                       >
-                        Pilih
+                        Select
                       </button>
                     ) : (
                       !isVoiceInstalling && (
                         <button
                           type="button"
-                          aria-label={`Pasang suara ${v.label}`}
+                          aria-label={`Install voice ${v.label}`}
                           onClick={() => handleInstall(`voice:${v.id}`)}
                           className={`${PRIMARY} min-h-7 px-2.5 text-xs`}
                         >
-                          Pasang
+                          Install
                         </button>
                       )
                     )}
@@ -577,10 +572,10 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
         <div className="flex flex-col gap-4">
           <div>
             <h2 id="heading-voice-params" className={H2}>
-              Penyesuaian Suara Aktif
+              Active Voice Adjustment
             </h2>
             <span className="text-xs text-muted">
-              Sesuaikan kecepatan, ekspresi, dan variasi untuk suara {activeVoice?.label ?? "asisten"}
+              Adjust speed, expression, and variation for voice {activeVoice?.label ?? "assistant"}
             </span>
           </div>
 
@@ -589,7 +584,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs">
                 <label htmlFor="slider-speed" className="font-medium text-ink">
-                  Kecepatan (length_scale)
+                  Speed (length_scale)
                 </label>
                 <span className="font-mono text-muted">{lengthScale.toFixed(2)}</span>
               </div>
@@ -606,7 +601,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                 className="accent-accent cursor-pointer"
               />
               <span className="text-[11px] text-muted">
-                Catatan: nilai lebih tinggi menghasilkan bicara yang lebih lambat (0.8–1.3).
+                Note: higher values produce slower speech (0.8–1.3).
               </span>
             </div>
 
@@ -614,7 +609,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs">
                 <label htmlFor="slider-expression" className="font-medium text-ink">
-                  Ekspresi (noise_scale)
+                  Expression (noise_scale)
                 </label>
                 <span className="font-mono text-muted">{noiseScale.toFixed(2)}</span>
               </div>
@@ -631,7 +626,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                 className="accent-accent cursor-pointer"
               />
               <span className="text-[11px] text-muted">
-                Tingkat variasi intonasi suara dan ekspresivitas (0.3–0.9).
+                Level of voice intonation variation and expressiveness (0.3–0.9).
               </span>
             </div>
 
@@ -639,7 +634,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs">
                 <label htmlFor="slider-variation" className="font-medium text-ink">
-                  Variasi (noise_w)
+                  Variation (noise_w)
                 </label>
                 <span className="font-mono text-muted">{noiseW.toFixed(2)}</span>
               </div>
@@ -656,7 +651,7 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
                 className="accent-accent cursor-pointer"
               />
               <span className="text-[11px] text-muted">
-                Variasi durasi fonem dan ritme jeda bicara (0.5–1.0).
+                Phoneme duration variation and pause rhythm (0.5–1.0).
               </span>
             </div>
           </div>
@@ -664,35 +659,35 @@ export function VoiceSection({ onChanged }: Readonly<VoiceSectionProps>) {
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               type="button"
-              aria-label="Coba suara"
+              aria-label="Test voice"
               disabled={speaking || !canSpeak}
               onClick={handleSpeakSample}
               className={`${PRIMARY} min-h-9 px-4 text-xs`}
             >
-              {speaking ? "Memutar sampel…" : "Coba suara"}
+              {speaking ? "Playing sample…" : "Test voice"}
             </button>
             <button
               type="button"
-              aria-label="Hentikan suara"
+              aria-label="Stop voice"
               disabled={!speaking}
               onClick={handleStopSpeak}
               className={`${SECONDARY} min-h-9 px-4 text-xs cursor-pointer`}
             >
-              Hentikan
+              Stop
             </button>
             {!canSpeak && (
               <span className="text-xs text-warn">
                 {!status?.piper
-                  ? "Piper belum dipasang."
-                  : "Pasang suara aktif terlebih dahulu untuk mencoba."}
+                  ? "Piper is not installed yet."
+                  : "Install active voice first to try."}
               </span>
             )}
           </div>
 
           <div className="rounded-xl border border-line bg-surface-2/40 p-3">
             <p className="m-0 text-xs text-muted leading-relaxed">
-              Suara asisten diproses sepenuhnya di laptop menggunakan model neural
-              Piper yang alami. Anchoa tidak pernah menggunakan espeak.
+              Assistant voice is processed entirely on the laptop using natural Piper neural models.
+              Anchoa never uses espeak.
             </p>
           </div>
         </div>

@@ -63,7 +63,7 @@ describe("email UI", () => {
   }
 
   async function assist() {
-    await (element("button", "aria-label", "Ringkas email").props.onClick as () => Promise<void>)();
+    await (element("button", "aria-label", "Summarize email").props.onClick as () => Promise<void>)();
     await harness.settle();
   }
 
@@ -73,15 +73,15 @@ describe("email UI", () => {
     const decide = spyOn(api, "assistantDecide").mockResolvedValue(null);
     spies.push(generate, decide);
     readingPane();
-    expect(renderToStaticMarkup(harness.render())).toContain("Ringkasan asisten");
+    expect(renderToStaticMarkup(harness.render())).toContain("Assistant Summary");
     expect(generate).not.toHaveBeenCalled();
-    const handler = element("button", "aria-label", "Ringkas email").props.onClick as () => Promise<void>;
+    const handler = element("button", "aria-label", "Summarize email").props.onClick as () => Promise<void>;
     const request = handler();
     await handler();
     expect(generate).toHaveBeenCalledTimes(1);
     expect(generate).toHaveBeenCalledWith(message.id);
-    expect(element("button", "aria-label", "Ringkas email").props.disabled).toBe(true);
-    expect(element("p", "role", "status").props.children).toBe("Asisten sedang merangkum…");
+    expect(element("button", "aria-label", "Summarize email").props.disabled).toBe(true);
+    expect(element("p", "role", "status").props.children).toBe("Assistant is summarizing…");
     pending.resolve(assistance);
     await request;
     await harness.settle();
@@ -112,7 +112,7 @@ describe("email UI", () => {
     readingPane();
     await assist();
     expect(element("p", "role", "alert").props.children).toBe("Jawaban model tidak valid");
-    expect(element("button", "aria-label", "Ringkas email").props.disabled).toBe(false);
+    expect(element("button", "aria-label", "Summarize email").props.disabled).toBe(false);
     await assist();
     expect(elements(harness.render()).some((el) => el.props.role === "alert")).toBe(false);
     expect(elements(harness.render()).some((el) => el.type === ProposalCard)).toBe(false);
@@ -154,14 +154,14 @@ describe("email UI", () => {
     spies.push(decide, spyOn(api, "emailAssist").mockReturnValue(pending.promise));
     let selected = message;
     start(() => ReadingPane({ message: selected, busy: false, onStar() {}, onArchive() {}, onSent() {} }));
-    const request = (element("button", "aria-label", "Ringkas email").props.onClick as () => Promise<void>)();
+    const request = (element("button", "aria-label", "Summarize email").props.onClick as () => Promise<void>)();
     selected = { ...message, id: "mail-2" };
     harness.render();
     pending.resolve(assistance);
     await request;
     await harness.settle();
     expect(elements(harness.render()).some((el) => el.type === "li" || el.type === ProposalCard)).toBe(false);
-    expect(element("button", "aria-label", "Ringkas email").props.disabled).toBe(false);
+    expect(element("button", "aria-label", "Summarize email").props.disabled).toBe(false);
     expect(decide).toHaveBeenCalledWith("proposal-1", false);
   });
 
@@ -205,7 +205,7 @@ describe("email UI", () => {
     await harness.settle();
     expect(open).toHaveBeenCalledWith("https://myaccount.google.com/apppasswords");
     const html = renderToStaticMarkup(harness.render());
-    expect(html).toContain("Sambungkan Gmail");
+    expect(html).toContain("Connect Gmail");
     expect(html).toContain("2-Step Verification");
   });
 
@@ -213,23 +213,23 @@ describe("email UI", () => {
     const html = renderToStaticMarkup(<EmailList messages={[message]} folder="inbox" filter="all" loading={false}
       selectedId={null} busy={false} onFilter={() => {}} onOpen={() => {}} onStar={() => {}} />);
     expect(html).toContain("w-[340px]");
-    expect(html).toContain("Semua");
-    expect(html).toContain("Belum dibaca");
+    expect(html).toContain("All");
+    expect(html).toContain("Unread");
     expect(html).toContain("bg-accent");
     expect(html).toContain("Siti");
     expect(html).toContain("Halo");
     expect(html).toContain("<time");
-    expect(html).not.toContain('aria-label="Buka email');
-    expect(html).not.toContain('aria-label="Belum dibaca"');
+    expect(html).not.toContain('aria-label="Open email');
+    expect(html).not.toContain('aria-label="Unread"');
     expect(html).toContain('aria-hidden="true" class="absolute top-4 left-2');
-    expect(html).toContain('<span class="sr-only">Belum dibaca</span>');
-    expect(html).toContain('aria-label="Bintangi Halo"');
+    expect(html).toContain('<span class="sr-only">Unread</span>');
+    expect(html).toContain('aria-label="Star Halo"');
   });
 
   it.each(["Halo", ""])("keeps the star toggle name constant for subject '%s'", (subject) => {
     for (const starred of [false, true]) {
       const button = StarButton({ message: { ...message, subject, starred }, busy: false, onStar() {} });
-      expect(button.props["aria-label"]).toBe(`Bintangi ${subject || "(Tanpa subjek)"}`);
+      expect(button.props["aria-label"]).toBe(`Star ${subject || "(No subject)"}`);
       expect(button.props["aria-pressed"]).toBe(starred);
     }
   });
@@ -249,10 +249,10 @@ describe("email UI", () => {
       expect(rendered?.type).toBe(part.url ? "button" : "span");
       expect(rendered?.props.children).toBe(part.text);
     }
-    (element("button", "aria-label", "Buka https://example.com/info").props.onClick as () => void)();
+    (element("button", "aria-label", "Open https://example.com/info").props.onClick as () => void)();
     await harness.settle();
     expect(open).toHaveBeenCalledWith("https://example.com/info");
-    expect(elements(harness.render()).filter((el) => String(el.props["aria-label"]).startsWith("Buka https://"))).toHaveLength(2);
+    expect(elements(harness.render()).filter((el) => String(el.props["aria-label"]).startsWith("Open https://"))).toHaveLength(2);
   });
 
   it.each([true, false])("sends a reply with one Re: prefix and clears only on success (%s)", async (success) => {
@@ -264,7 +264,7 @@ describe("email UI", () => {
     start(() => ReadingPane({ message: { ...message, subject: "re: Re: Halo" }, busy: false, onStar() {}, onArchive() {}, onSent }));
     const reply = () => element("textarea", "id", "email-reply");
     expect(reply().props["aria-label"]).toBeUndefined();
-    expect(element("label", "htmlFor", "email-reply").props.children).toEqual(["Balas ke ", "siti@example.com"]);
+    expect(element("label", "htmlFor", "email-reply").props.children).toEqual(["Reply to ", "siti@example.com"]);
     (reply().props.onChange as (event: unknown) => void)({ target: { value: "Terima kasih" } });
     await submit();
     expect(send).toHaveBeenCalledWith({ to: ["siti@example.com"], subject: "Re: Halo", body: "Terima kasih", replyToId: "mail-1" });
@@ -279,7 +279,7 @@ describe("email UI", () => {
     const toAddrs = ["siti@example.com", "dewi@example.com"];
     start(() => ReadingPane({ message: { ...message, folder: "[Gmail]/Sent Mail", fromAddr: "anchoa@gmail.com", toAddrs },
       busy: false, onStar() {}, onArchive() {}, onSent() {} }));
-    expect(element("label", "htmlFor", "email-reply").props.children).toEqual(["Balas ke ", toAddrs.join(", ")]);
+    expect(element("label", "htmlFor", "email-reply").props.children).toEqual(["Reply to ", toAddrs.join(", ")]);
     (element("textarea", "id", "email-reply").props.onChange as (event: unknown) => void)({ target: { value: "Kabar lagi" } });
     await submit();
     expect(send).toHaveBeenCalledWith({ to: toAddrs, subject: "Re: Halo", body: "Kabar lagi", replyToId: "mail-1" });
@@ -293,7 +293,7 @@ describe("email UI", () => {
     const onClose = mock(() => {});
     const onSent = mock(() => {});
     start(() => ComposeDialog({ onClose, onSent }));
-    expect(element(Dialog).props.title).toBe("Tulis email");
+    expect(element(Dialog).props.title).toBe("Compose email");
     change("email-to", "siti@example.com, dewi@example.com");
     change("email-subject", "Kabar");
     (element("textarea", "id", "email-body").props.onChange as (event: unknown) => void)({ target: { value: "Halo semua" } });
@@ -322,13 +322,13 @@ describe("email UI", () => {
     await harness.settle();
     expect(api.emailSync).toHaveBeenCalledTimes(1);
     expect(list).toHaveBeenLastCalledWith("inbox", "all");
-    (element("button", "aria-label", "Berbintang").props.onClick as () => void)();
+    (element("button", "aria-label", "Starred").props.onClick as () => void)();
     await harness.settle();
     expect(list).toHaveBeenLastCalledWith("starred", "all");
     (element(EmailList).props.onFilter as (filter: string) => void)("unread");
     await harness.settle();
     expect(list).toHaveBeenLastCalledWith("starred", "unread");
-    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    (element("button", "aria-label", "Sync").props.onClick as () => void)();
     await harness.settle();
     expect(api.emailSync).toHaveBeenCalledTimes(2);
   });
@@ -368,7 +368,7 @@ describe("email UI", () => {
     expect(pane).toBeDefined();
     expect((pane.props.message as EmailMessage).id).toBe(message.id);
     expect((pane.props.message as EmailMessage).subject).toBe(message.subject);
-    expect(elements(harness.render()).some((el) => el.props.children === "Membuka email…")).toBe(false);
+    expect(elements(harness.render()).some((el) => el.props.children === "Opening email…")).toBe(false);
 
     pending.resolve({ ...message, body: "Full loaded body", unread: false, bodyCached: true });
     await openPromise;
@@ -386,7 +386,7 @@ describe("email UI", () => {
     await (element(EmailList).props.onOpen as (id: string) => Promise<void>)(message.id);
     const refreshed = { ...opened, unread: true, starred: true };
     list.mockResolvedValue([refreshed]);
-    if (reload === "sync") (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    if (reload === "sync") (element("button", "aria-label", "Sync").props.onClick as () => void)();
     else (element(EmailList).props.onFilter as (filter: string) => void)("unread");
     await harness.settle();
     const pane = element(ReadingPane);
@@ -400,15 +400,15 @@ describe("email UI", () => {
     const list = connectedPage();
     await harness.settle();
     list.mockResolvedValue([]);
-    (element("button", "aria-label", "Terkirim").props.onClick as () => void)();
+    (element("button", "aria-label", "Sent").props.onClick as () => void)();
     await harness.settle();
-    ((element("button", "aria-label", "Tulis") || element("button", "children", "Tulis")).props.onClick as () => void)();
+    ((element("button", "aria-label", "Compose") || element("button", "children", "Compose")).props.onClick as () => void)();
     const onSent = element(ComposeDialog).props.onSent as () => void;
     const pending = deferred<{ headers: number }>();
     const followUp = deferred<{ headers: number }>();
     const sync = api.emailSync as unknown as ReturnType<typeof mock>;
     sync.mockReturnValueOnce(pending.promise).mockReturnValueOnce(followUp.promise);
-    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    (element("button", "aria-label", "Sync").props.onClick as () => void)();
     onSent();
     onSent();
     expect(sync).toHaveBeenCalledTimes(2);
@@ -416,7 +416,7 @@ describe("email UI", () => {
     else pending.reject(new Error("Offline"));
     await harness.settle();
     expect(sync).toHaveBeenCalledTimes(3);
-    expect(element("button", "aria-label", "Sinkronkan").props.disabled).toBe(true);
+    expect(element("button", "aria-label", "Sync").props.disabled).toBe(true);
     expect(element(EmailList).props.messages).toEqual([]);
     const sent = { ...message, id: "sent-1", folder: "[Gmail]/Sent Mail", fromAddr: "anchoa@gmail.com", unread: false };
     list.mockResolvedValue([sent]);
@@ -424,14 +424,14 @@ describe("email UI", () => {
     await harness.settle();
     expect(element(EmailList).props.messages).toEqual([sent]);
     expect(sync).toHaveBeenCalledTimes(3);
-    expect(element("button", "aria-label", "Sinkronkan").props.disabled).toBe(false);
+    expect(element("button", "aria-label", "Sync").props.disabled).toBe(false);
   });
 
   it("shows sync errors while keeping cached mail available", async () => {
     connectedPage();
     await harness.settle();
     (api.emailSync as unknown as ReturnType<typeof mock>).mockRejectedValue(new Error("Offline"));
-    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    (element("button", "aria-label", "Sync").props.onClick as () => void)();
     await harness.settle();
     expect(element("p", "role", "alert").props.children).toBe("Offline");
     expect(element(EmailList).props.messages).toEqual([message]);
@@ -442,10 +442,10 @@ describe("email UI", () => {
       .mockResolvedValue({ connected: false, address: null });
     spies.push(status);
     start(() => EmailPage({}));
-    expect(element("span", "role", "status").props.children).toBe("Memuat akun email…");
+    expect(element("span", "role", "status").props.children).toBe("Loading email account…");
     await harness.settle();
     expect(element("p", "role", "alert").props.children).toBe("DB gagal");
-    (element("button", "children", "Coba lagi").props.onClick as () => void)();
+    (element("button", "children", "Try again").props.onClick as () => void)();
     await harness.settle();
     expect(element(ConnectionForm)).toBeDefined();
   });
@@ -457,12 +457,12 @@ describe("email UI", () => {
     (api.emailSync as unknown as ReturnType<typeof mock>).mockReturnValue(syncing.promise);
     (api.emailList as unknown as ReturnType<typeof mock>).mockReturnValue(listing.promise);
     await harness.settle();
-    expect(element("button", "aria-label", "Sinkronkan").props.disabled).toBe(true);
+    expect(element("button", "aria-label", "Sync").props.disabled).toBe(true);
     expect(element(EmailList).props.loading).toBe(true);
     syncing.resolve({ headers: 1 });
     listing.resolve([message]);
     await harness.settle();
-    expect(element("button", "aria-label", "Sinkronkan").props.disabled).toBe(false);
+    expect(element("button", "aria-label", "Sync").props.disabled).toBe(false);
     expect(element(EmailList).props.loading).toBe(false);
   });
 
@@ -487,7 +487,7 @@ describe("email UI", () => {
     expect(element(EmailList).props.messages).toEqual([]);
     expect(element(ReadingPane)).toBeDefined();
     (api.emailList as unknown as ReturnType<typeof mock>).mockResolvedValue([]);
-    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    (element("button", "aria-label", "Sync").props.onClick as () => void)();
     await harness.settle();
     expect(element(ReadingPane).props.message).toEqual({ ...message, unread: false });
   });
@@ -525,9 +525,9 @@ describe("email UI", () => {
     await harness.settle();
     const oldList = deferred<EmailMessage[]>();
     list.mockReturnValueOnce(oldList.promise).mockResolvedValue([]);
-    (element("button", "aria-label", "Berbintang").props.onClick as () => void)();
+    (element("button", "aria-label", "Starred").props.onClick as () => void)();
     harness.render();
-    (element("button", "aria-label", "Terkirim").props.onClick as () => void)();
+    (element("button", "aria-label", "Sent").props.onClick as () => void)();
     await harness.settle();
     oldList.resolve([message]);
     await harness.settle();
@@ -535,7 +535,7 @@ describe("email UI", () => {
     const pendingOpen = deferred<EmailMessage>();
     spies.push(spyOn(api, "emailOpen").mockReturnValue(pendingOpen.promise));
     const opening = (element(EmailList).props.onOpen as (id: string) => Promise<void>)(message.id);
-    (element("button", "aria-label", "Kotak masuk").props.onClick as () => void)();
+    (element("button", "aria-label", "Inbox").props.onClick as () => void)();
     harness.render();
     pendingOpen.resolve(message);
     await opening;
@@ -553,7 +553,7 @@ describe("email UI", () => {
     await harness.settle();
     expect(api.emailSync).toHaveBeenCalledTimes(2);
     // The manual button stays the immediate path.
-    (element("button", "aria-label", "Sinkronkan").props.onClick as () => void)();
+    (element("button", "aria-label", "Sync").props.onClick as () => void)();
     await harness.settle();
     expect(api.emailSync).toHaveBeenCalledTimes(3);
   });

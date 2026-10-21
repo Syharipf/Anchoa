@@ -10,17 +10,16 @@ export const KIND_COLORS: Readonly<Record<ItemKind, string>> = {
 };
 
 export const KIND_LABELS: Readonly<Record<ItemKind, string>> = {
-  project: "Proyek",
-  bill: "Tagihan",
-  personal: "Pribadi",
-  calendar: "Google Kalender",
+  project: "Projects",
+  bill: "Bills",
+  personal: "Personal",
+  calendar: "Google Calendar",
 };
 
 export const ALL_KINDS: readonly ItemKind[] = ["project", "bill", "personal", "calendar"];
 
-/** Shown on Google Kalender items: they are pulled one-way and cannot be checked or edited here. */
-export const READ_ONLY_HINT = "Hanya baca · Google Kalender";
-
+/** Shown on Google Calendar items: they are pulled one-way and cannot be checked or edited here. */
+export const READ_ONLY_HINT = "Read-only · Google Calendar";
 export interface MonthCell {
   date: string;
   inMonth: boolean;
@@ -88,8 +87,8 @@ export function weekLabel(fromDate: string, toDate: string): string {
   const [y2, m2, d2] = toDate.split("-").map(Number);
   const dt1 = new Date(y1, m1 - 1, d1);
   const dt2 = new Date(y2, m2 - 1, d2);
-  const mName1 = dt1.toLocaleDateString("id-ID", { month: "short" });
-  const mName2 = dt2.toLocaleDateString("id-ID", { month: "short" });
+  const mName1 = dt1.toLocaleDateString("en-US", { month: "short" });
+  const mName2 = dt2.toLocaleDateString("en-US", { month: "short" });
   if (y1 === y2 && m1 === m2) {
     return `${d1} – ${d2} ${mName2} ${y1}`;
   }
@@ -166,11 +165,11 @@ export function visible(
   return items.filter((it) => !off.has(it.kind));
 }
 
-/** "2026-09-30" -> "Rabu, 30 September". */
+/** "2026-09-30" -> "Wednesday, September 30". */
 export function agendaTitle(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString("id-ID", {
+  return dt.toLocaleDateString("en-US", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -188,10 +187,10 @@ export function diffDays(start: string, end: string): number {
   return Math.round((parseDateUtc(end) - parseDateUtc(start)) / MS_PER_DAY);
 }
 
-/** "2026-09-30" -> "30 Sep". */
+/** "2026-09-30" -> "Sep 30". */
 export function shortDateStr(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("id-ID", {
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
   });
@@ -380,7 +379,7 @@ export function timelineGroups(
   if (personalItems.length > 0) {
     result.push({
       id: "personal",
-      name: "Pribadi",
+      name: KIND_LABELS.personal,
       kind: "personal",
       items: personalItems,
     });
@@ -388,7 +387,7 @@ export function timelineGroups(
   if (billItems.length > 0) {
     result.push({
       id: "bills",
-      name: "Tagihan",
+      name: KIND_LABELS.bill,
       kind: "bill",
       items: billItems,
     });

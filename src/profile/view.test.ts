@@ -14,9 +14,9 @@ describe("profileInitials", () => {
     expect(profileInitials("John Michael Doe")).toBe("JM");
   });
 
-  it("handles whitespace and empty strings with default K for Kamu", () => {
-    expect(profileInitials("")).toBe("K");
-    expect(profileInitials("   ")).toBe("K");
+  it("handles whitespace and empty strings with default Y for You", () => {
+    expect(profileInitials("")).toBe("Y");
+    expect(profileInitials("   ")).toBe("Y");
     expect(profileInitials("  Dewi   Sartika  ")).toBe("DS");
   });
 
@@ -27,14 +27,14 @@ describe("profileInitials", () => {
 });
 
 describe("formatSince", () => {
-  it("formats timestamp into month and year in Indonesian", () => {
+  it("formats timestamp into month and year in English", () => {
     // 2026-09-20T00:00:00Z -> Sep 2026
     const d = new Date(2026, 8, 20).getTime();
-    expect(formatSince(d)).toBe("Memakai Anchoa sejak Sep 2026");
+    expect(formatSince(d)).toBe("Using Anchoa since Sep 2026");
   });
 
   it("returns fallback when since is null", () => {
-    expect(formatSince(null)).toBe("Memakai Anchoa baru saja");
+    expect(formatSince(null)).toBe("Using Anchoa recently");
   });
 });
 
@@ -42,10 +42,10 @@ describe("profileStatsList", () => {
   it("returns the four profile stats with zero defaults when null", () => {
     const list = profileStatsList(null);
     expect(list).toEqual([
-      { label: "hari streak", value: 0 },
-      { label: "tugas selesai", value: 0 },
-      { label: "entri jurnal", value: 0 },
-      { label: "catatan", value: 0 },
+      { label: "day streak", value: 0 },
+      { label: "tasks completed", value: 0 },
+      { label: "journal entries", value: 0 },
+      { label: "notes", value: 0 },
     ]);
   });
 
@@ -57,10 +57,10 @@ describe("profileStatsList", () => {
       notes: 12,
     });
     expect(list).toEqual([
-      { label: "hari streak", value: 6 },
-      { label: "tugas selesai", value: 18 },
-      { label: "entri jurnal", value: 25 },
-      { label: "catatan", value: 12 },
+      { label: "day streak", value: 6 },
+      { label: "tasks completed", value: 18 },
+      { label: "journal entries", value: 25 },
+      { label: "notes", value: 12 },
     ]);
   });
 });

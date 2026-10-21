@@ -33,7 +33,7 @@ function ItemCheckbox({
           onPayBill(item);
         }
       }}
-      aria-label={`Tandai selesai: ${item.title}`}
+      aria-label={`Mark as completed: ${item.title}`}
       className="h-4 w-4 shrink-0 cursor-pointer accent-accent disabled:cursor-not-allowed"
     />
   );
@@ -42,7 +42,7 @@ function ItemCheckbox({
 function formatLateDate(dueDate: string): string {
   const [y, m, d] = dueDate.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
-  return `${d} ${dt.toLocaleDateString("id-ID", { month: "short" })}`;
+  return `${d} ${dt.toLocaleDateString("en-US", { month: "short" })}`;
 }
 
 function rowContainerClass(variant: "late" | "due" | "next"): string {
@@ -212,7 +212,7 @@ export function AgendaPanel({
     if (dayItems.length > 0) {
       const [y, m, day] = d.split("-").map(Number);
       const dt = new Date(y, m - 1, day);
-      const label = dt.toLocaleDateString("id-ID", {
+      const label = dt.toLocaleDateString("en-US", {
         weekday: "long",
         day: "numeric",
         month: "short",
@@ -236,7 +236,7 @@ export function AgendaPanel({
         </h2>
         {isToday && (
           <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-canvas">
-            Hari ini
+            Today
           </span>
         )}
       </div>
@@ -257,7 +257,7 @@ export function AgendaPanel({
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v6M12 16.5h.01" />
             </svg>
-            Terlambat
+            Overdue
           </div>
           {late.map((item) => (
             <AgendaRow
@@ -277,11 +277,11 @@ export function AgendaPanel({
 
       <div className="flex flex-col gap-1">
         <span className="text-[11px] uppercase tracking-[0.08em] text-muted">
-          {isToday ? "Tenggat hari ini" : "Tenggat hari itu"}
+          {isToday ? "Due today" : "Due on this day"}
         </span>
         {due.length === 0 ? (
           <span className="py-2.5 text-[13px] text-muted">
-            Tidak ada tenggat di tanggal ini.
+            No items due on this date.
           </span>
         ) : (
           due.map((item) => (
@@ -304,7 +304,7 @@ export function AgendaPanel({
         <div className="flex flex-col gap-1.5 border-t border-line/60 pt-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-[0.08em] text-muted">
-              Kebiasaan Hari Ini
+              Today's Habits
             </span>
             <span className="font-mono text-[11px] text-muted">
               {habits.filter((h) => h.doneToday).length}/{habits.length}
@@ -320,7 +320,7 @@ export function AgendaPanel({
                   type="checkbox"
                   checked={habit.doneToday}
                   onChange={() => void handleToggleHabit(habit)}
-                  aria-label={`Tandai habit ${habit.name}`}
+                  aria-label={`Mark habit ${habit.name}`}
                   className="h-4 w-4 shrink-0 cursor-pointer accent-accent"
                 />
                 <span
@@ -338,11 +338,11 @@ export function AgendaPanel({
 
       <div className="flex flex-col gap-1">
         <span className="text-[11px] uppercase tracking-[0.08em] text-muted">
-          7 hari berikutnya
+          Next 7 days
         </span>
         {nextDays.length === 0 ? (
           <span className="py-2.5 text-[13px] text-muted">
-            Kosong. Minggu yang tenang.
+            Empty. A quiet week.
           </span>
         ) : (
           nextDays.map((g) => (

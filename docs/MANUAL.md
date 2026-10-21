@@ -1,6 +1,6 @@
 # Panduan pengguna Anchoa
 
-Untuk Anchoa 0.35.0 di Arch Linux / CachyOS. [Landing page](https://syharipf.github.io/Anchoa/) · [README](../README.md)
+Untuk Anchoa 0.36.0 di Arch Linux / CachyOS. [Landing page](https://syharipf.github.io/Anchoa/) · [README](../README.md)
 
 ## Daftar isi
 

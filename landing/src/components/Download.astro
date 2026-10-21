@@ -22,8 +22,8 @@ import { site } from '../config/site';
             data-i18n="dl.ready"
             set:html={copy['dl.ready']}
           />
-          <h3 data-i18n="dl.rpmT" set:html={copy['dl.rpmT']} />
-          <p data-i18n="dl.rpmD" set:html={copy['dl.rpmD']} />
+          <h3 data-i18n="dl.archT" set:html={copy['dl.archT']} />
+          <p data-i18n="dl.archD" set:html={copy['dl.archD']} />
           <div>
             <a
               class="btn btn-primary js-releases"
@@ -31,52 +31,13 @@ import { site } from '../config/site';
               target="_blank"
               rel="noopener"
             >
-              <span data-i18n="dl.rpmBtn" set:html={copy['dl.rpmBtn']} />
+              <span data-i18n="dl.archBtn" set:html={copy['dl.archBtn']} />
             </a>
           </div>
         </div>
         <div class="cmds">
-          <div class="cmd">
-            <code id="c1" tabindex="0">
-              {site.installCommand}
-            </code>
-            <button
-              class="copy"
-              type="button"
-              data-copy-target="c1"
-              aria-label="Salin perintah instalasi Fedora"
-              data-i18n="copy"
-              set:html={copy['copy']}
-            />
-          </div>
-          <div class="cmd">
-            <code id="c2" tabindex="0">
-              anchoa
-            </code>
-            <button
-              class="copy"
-              type="button"
-              data-copy-target="c2"
-              aria-label="Salin perintah menjalankan Anchoa"
-              data-i18n="copy"
-              set:html={copy['copy']}
-            />
-          </div>
-        </div>
-      </article>
-      <article class="card arch reveal">
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <span
-            class="status ready"
-            data-i18n="dl.ready"
-            set:html={copy['dl.ready']}
-          />
-          <h3 data-i18n="dl.archT" set:html={copy['dl.archT']} />
-          <p data-i18n="dl.archD" set:html={copy['dl.archD']} />
-        </div>
-        <div class="cmds">
           {
-            [...site.archCommands, site.aurCommand].map((command, index) => (
+            site.archCommands.map((command, index) => (
               <div class="cmd">
                 <code id={`ca${index + 1}`} tabindex="0">
                   {command}
@@ -97,42 +58,20 @@ import { site } from '../config/site';
       <article class="card reveal">
         <span
           class="status soon"
-          data-i18n="dl.ready"
-          set:html={copy['dl.ready']}
-        />
-        <h3 data-i18n="dl.dnfT" set:html={copy['dl.dnfT']} />
-        <p data-i18n="dl.dnfD" set:html={copy['dl.dnfD']} />
-        <div class="cmd">
-          <code id="c3" class="js-copr" tabindex="0">
-            {site.coprCommand}
-          </code>
-          <button
-            class="copy"
-            type="button"
-            data-copy-target="c3"
-            aria-label="Salin perintah menambahkan repo DNF Anchoa"
-            data-i18n="copy"
-            set:html={copy['copy']}
-          />
-        </div>
-      </article>
-      <article class="card reveal">
-        <span
-          class="status soon"
           data-i18n="dl.soon"
           set:html={copy['dl.soon']}
         />
-        <h3>Flatpak</h3>
-        <p data-i18n="dl.flatD" set:html={copy['dl.flatD']} />
+        <h3 data-i18n="dl.aurT" set:html={copy['dl.aurT']} />
+        <p data-i18n="dl.aurD" set:html={copy['dl.aurD']} />
         <div class="cmd">
-          <code id="c4" class="js-flat" tabindex="0">
-            {site.flatpakCommand}
+          <code id="c-aur" tabindex="0">
+            {site.aurCommand}
           </code>
           <button
             class="copy"
             type="button"
-            data-copy-target="c4"
-            aria-label="Salin status rencana Flatpak"
+            data-copy-target="c-aur"
+            aria-label="Salin perintah instalasi AUR"
             data-i18n="copy"
             set:html={copy['copy']}
           />
@@ -149,33 +88,8 @@ import { site } from '../config/site';
             <svg class="route-fish" viewBox="-12 -4 22 8" aria-hidden="true">
               <path d="M-7 0C-3-2.4 3-2.6 7 0C3 2.6-3 2.4-7 0ZM-6 0L-10.5-2.8L-9.2 0L-10.5 2.8Z" />
             </svg>
-            <b>Fedora · Arch</b>
+            <b>Arch · CachyOS</b>
             <small data-i18n="rm.s1" set:html={copy['rm.s1']} />
-          </li>
-          <li class="next">
-            <span class="rn"></span>
-            <b data-i18n="rm.l2" set:html={copy['rm.l2']} />
-            <small data-i18n="rm.s2" set:html={copy['rm.s2']} />
-          </li>
-          <li>
-            <span class="rn"></span>
-            <b>Android</b>
-            <small data-i18n="rm.s3" set:html={copy['rm.s3']} />
-          </li>
-          <li>
-            <span class="rn"></span>
-            <b>Windows</b>
-            <small data-i18n="rm.s3" set:html={copy['rm.s3']} />
-          </li>
-          <li>
-            <span class="rn"></span>
-            <b>macOS</b>
-            <small data-i18n="rm.s4" set:html={copy['rm.s4']} />
-          </li>
-          <li>
-            <span class="rn"></span>
-            <b>iOS</b>
-            <small data-i18n="rm.s4" set:html={copy['rm.s4']} />
           </li>
         </ol>
       </article>

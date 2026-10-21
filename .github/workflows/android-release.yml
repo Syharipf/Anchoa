@@ -1,8 +1,7 @@
+# Mobile builds are paused until further notice. Releases are Arch Linux only.
 name: Android Release
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:

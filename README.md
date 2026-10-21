@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/Syharipf/Anchoa/releases/latest"><img alt="Rilis terbaru" src="https://img.shields.io/github/v/release/Syharipf/Anchoa?label=versi&color=c6f36b&labelColor=0f1115"></a>
   <a href="https://github.com/Syharipf/Anchoa/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Syharipf/Anchoa/ci.yml?branch=main&label=CI&labelColor=0f1115"></a>
-  <img alt="Platform: Fedora and Arch Linux" src="https://img.shields.io/badge/platform-Fedora%20%26%20Arch%20Linux-51a2da?labelColor=0f1115">
+  <img alt="Platform: Arch Linux and CachyOS" src="https://img.shields.io/badge/platform-Arch%20Linux%20%26%20CachyOS-1793d1?labelColor=0f1115">
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
 
 ---
 
-Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Fedora dan Arch Linux (termasuk CachyOS) yang menggabungkan manajemen tugas, kalender, keuangan, jurnal, catatan, berkas, unduhan, dan email dalam satu antarmuka. Semua data disimpan secara lokal di satu basis data SQLite, sehingga aplikasi tetap berfungsi penuh tanpa koneksi internet maupun akun cloud. Asisten AI-nya berjalan di [Ollama](https://ollama.com/) di mesin yang sama, sehingga percakapan dan pemrosesan dokumen tidak meninggalkan perangkat. Sinkronisasi antarperangkat tersedia sebagai opsi dan selalu terenkripsi ujung-ke-ujung.
+Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Arch Linux dan CachyOS yang menggabungkan manajemen tugas, kalender, keuangan, jurnal, catatan, berkas, unduhan, dan email dalam satu antarmuka. Semua data disimpan secara lokal di satu basis data SQLite, sehingga aplikasi tetap berfungsi penuh tanpa koneksi internet maupun akun cloud. Asisten AI-nya berjalan di [Ollama](https://ollama.com/) di mesin yang sama, sehingga percakapan dan pemrosesan dokumen tidak meninggalkan perangkat. Sinkronisasi antarperangkat tersedia sebagai opsi dan selalu terenkripsi ujung-ke-ujung.
 
 ## Fitur utama
 
@@ -47,10 +47,12 @@ Anchoa adalah aplikasi desktop [Tauri](https://v2.tauri.app/) untuk Fedora dan A
 | Email | Satu akun Gmail: baca, tulis, balas, bintang, arsip, ringkasan dan saran balasan dari asisten |
 | Jadwal | Kalender bulanan dan timeline 8 minggu dari tugas, tagihan, dan Google Kalender (sinkron dua arah) |
 | Habit | Centang harian, hari aktif, pengingat, streak, riwayat |
+| Health | Berat, tidur, langkah, detak jantung istirahat; tren dan riwayat 14 hari |
 | Keuangan | Akun, pemasukan, pengeluaran, transfer, tagihan, batas pengeluaran bulanan |
 | Proyek | Kanban, sub-tugas, papan agen kode dengan utas aktivitas |
 | Berkas | Jelajah folder lokal, pratinjau, salin, pindah, buang ke Tong Sampah |
 | Unduhan | File langsung serta video/audio lewat yt-dlp dan ffmpeg, dengan antrean |
+| Library | Film, serial, anime, buku, dan manga: status, progres, rating, ulasan |
 | Asisten | Chat dan suara, usulan aksi yang harus disetujui, model per tugas |
 | Notifikasi, Profil, Pengaturan | Pengingat, statistik, kunci PIN, model AI, suara, backup, baki sistem, integrasi, sinkronisasi |
 
@@ -58,26 +60,9 @@ Cara memakai setiap modul ada di [panduan pengguna](docs/MANUAL.md).
 
 ## Instalasi
 
-### Fedora (repo dnf)
-
-Tambahkan repo Anchoa sekali, lalu pasang:
-
-```bash
-sudo dnf config-manager addrepo --from-repofile=https://syharipf.github.io/Anchoa/anchoa.repo
-sudo dnf install anchoa
-```
-
-Pembaruan lewat `sudo dnf upgrade`. Paket dan metadata repo ditandatangani GPG; dnf meminta konfirmasi kunci saat pertama kali.
-
-File `.rpm` juga tersedia di [GitHub Releases](https://github.com/Syharipf/Anchoa/releases/latest). Mulai versi 0.35.0 rilis baru hanya menyediakan paket Arch; RPM terakhir adalah 0.34.0. Pasang file yang diunduh dengan:
-
-```bash
-sudo dnf install ./Anchoa-<versi>-1.x86_64.rpm
-```
-
 ### Arch Linux / CachyOS (repo pacman)
 
-Repo pacman `anchoa` (hanya x86_64) berada di `https://syharipf.github.io/Anchoa/arch/$arch`. Paket dan database repo ditandatangani GPG dengan kunci yang sama seperti repo dnf; kunci publiknya ada di `https://syharipf.github.io/Anchoa/arch/anchoa.gpg`. Impor kunci, tambahkan repo, lalu pasang:
+Repo pacman `anchoa` (hanya x86_64) berada di `https://syharipf.github.io/Anchoa/arch/$arch`. Paket dan database repo ditandatangani GPG; kunci publiknya ada di `https://syharipf.github.io/Anchoa/arch/anchoa.gpg`. Impor kunci, tambahkan repo, lalu pasang:
 
 ```bash
 curl -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg
@@ -105,13 +90,7 @@ Di mesin yang hanya memakai GPU NVIDIA, jendela bisa kosong karena renderer DMA-
 
 ### Dari kode sumber
 
-Kebutuhan: Rust stable, [bun](https://bun.sh), dan library sistem untuk Tauri:
-
-```bash
-sudo dnf install webkit2gtk4.1-devel librsvg2-devel libappindicator-gtk3-devel libxdo-devel
-```
-
-Di Arch Linux / CachyOS:
+Kebutuhan: Rust stable, [bun](https://bun.sh), dan library sistem untuk Tauri di Arch Linux / CachyOS:
 
 ```bash
 sudo pacman -S --needed base-devel webkit2gtk-4.1 libayatana-appindicator librsvg xdotool openssl rust
@@ -131,7 +110,7 @@ Perintah lain yang dipakai saat pengembangan:
 ```bash
 bun run typecheck                                  # cek TypeScript
 bun run test                                       # unit test frontend (bun test, TZ=Asia/Jakarta)
-bun tauri build                                    # build rilis; RPM di src-tauri/target/release/bundle/rpm/
+bun tauri build                                    # build rilis; deb di src-tauri/target/release/bundle/deb/
 cd src-tauri && cargo clippy --all-targets -- -D warnings   # lint backend
 cd src-tauri && cargo test                         # unit test backend
 ```
@@ -158,7 +137,7 @@ bun run test:e2e       # test Playwright
 2. *(Opsional)* **Asisten AI.** Pasang [Ollama](https://ollama.com/), jalankan layanannya, lalu unduh model bawaan:
 
    ```bash
-   sudo dnf install ollama
+   sudo pacman -S ollama
    sudo systemctl start ollama
    ollama pull qwen2.5:3b
    ```
@@ -215,7 +194,7 @@ flowchart LR
 
 ## Roadmap
 
-Pengembangan berjalan per fase; setiap fase punya spec di [`docs/superpowers/specs/`](docs/superpowers/specs/) dan rencana implementasi per PR di [`docs/superpowers/plans/`](docs/superpowers/plans/), dengan isu GitHub yang dikelompokkan dalam milestone. Status saat ini: tersedia untuk Fedora dan Arch Linux/CachyOS; build Windows dan Android direncanakan pada Fase 9. Fitur yang tersedia mengikuti kode, bukan rencana.
+Pengembangan berjalan per fase; setiap fase punya spec di [`docs/superpowers/specs/`](docs/superpowers/specs/) dan rencana implementasi per PR di [`docs/superpowers/plans/`](docs/superpowers/plans/), dengan isu GitHub yang dikelompokkan dalam milestone. Status saat ini: tersedia untuk Arch Linux dan CachyOS (x86_64). Fedora/RPM dan mobile ditunda; fokus pengembangan ada di Arch. Fitur yang tersedia mengikuti kode, bukan rencana.
 
 ## Kontribusi
 

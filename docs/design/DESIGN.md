@@ -174,6 +174,9 @@ Sub-nav kiri 212px (6 bagian, tiap item punya status kecil): Asisten & AI · Ava
 - **Penyiapan pertama** (5 langkah, kolom langkah kiri 300px, tombol Kembali/Lewati/Lanjut di bawah): 1 Asisten AI (penyedia + kunci + Tes, atau Ollama lokal, atau Nanti), 2 Suara & mikrofon (izin, uji "Hai Anchoa", pilih suara), 3 Avatar (pilih model + *Uji performa* → memilih avatar 3D penuh atau gambar diam), 4 Laptop opsional (langkah Tailscale + SFTP, *Hubungkan*), 5 Ringkasan → *Buka Dashboard*.
 
 ### Versi HP (390×844, 19 artboard di dua halaman canvas: *HP · Utama* dan *HP · Modul*)
+
+> Ditunda 2026-10-21: fokus rilis ada di Arch Linux/CachyOS desktop. Artboard HP disimpan sebagai referensi, bukan target implementasi saat ini.
+
 Semua menu desktop ada di HP. Daftar: `HpMasuk`, `HpBeranda`, `HpBerandaRoda`, `HpAsisten`, `HpCari`, `HpNotif`, `HpJurnal`, `HpHabit`, `HpJadwal`, `HpKeuangan`, `HpProyek`, `HpAgen`, `HpEmail`, `HpEmailBaca`, `HpBerkas`, `HpUnduhan`, `HpPengaturan`, `HpPengaturanAI`, `HpProfil`.
 
 **Dok + roda menu (pengganti nav bawah)** — dipakai di 11 layar utama; layar detail (`HpAsisten`, `HpEmailBaca`, `HpPengaturanAI`, `HpProfil`, `HpNotif`, `HpCari`, `HpMasuk`) memakai tombol kembali dan tanpa dok. Artboard `HpBerandaRoda` = keadaan roda terbuka.

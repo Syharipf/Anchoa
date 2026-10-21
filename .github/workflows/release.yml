@@ -2,9 +2,9 @@ name: Release
 
 # Merging a version bump in src-tauri/tauri.conf.json into main releases it:
 # builds the Arch package (Arch container), creates the GitHub Release
-# v<version>, then dispatches the Pages repos. RPM and Android builds are
-# paused until further notice. A release made with GITHUB_TOKEN fires no
-# `release` event, so those workflows are dispatched explicitly.
+# v<version>, then dispatches the Pages repo (pacman repository and landing page).
+# RPM and Android builds are paused until further notice. A release made with
+# GITHUB_TOKEN fires no `release` event, so the workflow is dispatched explicitly.
 # workflow_dispatch rebuilds and re-attaches the packages of an existing tag.
 on:
   push:
@@ -139,7 +139,7 @@ jobs:
           else
             gh release upload "$TAG" assets/* --repo "$GITHUB_REPOSITORY" --clobber
           fi
-      - name: Publish the dnf and pacman repos
+      - name: Publish the pacman repo and landing page
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run dnf-repo.yml --repo "$GITHUB_REPOSITORY" --ref main

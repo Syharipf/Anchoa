@@ -41,6 +41,58 @@ export type SearchHit = ItemSummary & { snippet: string };
 
 export type Backlink = ItemSummary & { excerpt: string };
 
+export type MediaKind = "film" | "series" | "anime" | "book" | "manga";
+export type MediaStatus = "want" | "active" | "finished" | "dropped";
+
+export interface MediaInput {
+  id?: string;
+  title: string;
+  body: string;
+  kind: MediaKind;
+  status: MediaStatus;
+  progress?: number | null;
+  progressTotal?: number | null;
+  rating?: number | null;
+  year?: number | null;
+  creator: string;
+  tags: string;
+}
+
+export interface MediaRow {
+  id: string;
+  title: string;
+  body: string;
+  kind: MediaKind;
+  status: MediaStatus;
+  progress: number | null;
+  progressTotal: number | null;
+  rating: number | null;
+  startedAt: number | null;
+  finishedAt: number | null;
+  year: number | null;
+  creator: string;
+  tags: string;
+}
+
+export interface LibraryCounts {
+  all: number;
+  want: number;
+  active: number;
+  finished: number;
+  dropped: number;
+}
+
+export interface LibraryList {
+  items: MediaRow[];
+  counts: LibraryCounts;
+}
+
+export interface LibraryOverview {
+  active: MediaRow[];
+  finishedThisMonth: number;
+  want: number;
+}
+
 /** Omitted fields stay unchanged; `dueAt: null` clears the due date. */
 export interface ItemPatch {
   title?: string;
@@ -462,6 +514,46 @@ export interface HabitInput {
   icon?: string | null;
   targetDays?: number | null;
   archived?: boolean;
+}
+
+export type HealthKind = "weight_g" | "sleep_min" | "steps" | "resting_hr";
+
+export interface HealthMetric {
+  kind: HealthKind;
+  date: string;
+  value: number;
+  note: string | null;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export interface HealthField {
+  kind: HealthKind;
+  value: number | null;
+  delta: number | null;
+}
+
+export interface HealthToday {
+  date: string;
+  fields: HealthField[];
+}
+
+export interface HealthSeries {
+  kind: HealthKind;
+  points: (number | null)[];
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+}
+
+export interface HealthDayRow {
+  date: string;
+  weightG: number | null;
+  sleepMin: number | null;
+  steps: number | null;
+  restingHr: number | null;
+  note: string | null;
 }
 
 export type EntryKind = "idea" | "vent" | "note";
@@ -1376,6 +1468,23 @@ export const api = {
   completeOnboarding: () => invoke<void>("complete_onboarding"),
   financeRecapPdf: (dir: string, kind: "monthly" | "yearly", period: string) =>
     invoke<string>("finance_recap_pdf", { dir, kind, period }),
+  libraryList: (f: { kind?: MediaKind; status?: MediaStatus; query?: string } = {}) =>
+    invoke<LibraryList>("library_list", { kind: f.kind ?? null, status: f.status ?? null, query: f.query ?? null }),
+  libraryOverview: () => invoke<LibraryOverview>("library_overview"),
+  saveMedia: (input: MediaInput) => invoke<MediaRow>("save_media", { input }),
+  setMediaStatus: (id: string, status: MediaStatus) =>
+    invoke<MediaRow>("set_media_status", { id, status }),
+  deleteMedia: (id: string) => invoke<void>("delete_media", { id }),
+  restoreMedia: (id: string) => invoke<void>("restore_media", { id }),
+  saveHealthMetric: (kind: HealthKind, date: string, value: number, note?: string) =>
+    invoke<HealthMetric>("save_health_metric", { kind, date, value, note: note ?? null }),
+  deleteHealthMetric: (kind: HealthKind, date: string) =>
+    invoke<void>("delete_health_metric", { kind, date }),
+  healthToday: () => invoke<HealthToday>("health_today"),
+  healthSeries: (kind: HealthKind, days: number) =>
+    invoke<HealthSeries>("health_series", { kind, days }),
+  healthHistory: (days: number) =>
+    invoke<HealthDayRow[]>("health_history", { days }),
 };
 
 /** Convert a local absolute path to an asset:// URL for <img>, <video>, <iframe>. */

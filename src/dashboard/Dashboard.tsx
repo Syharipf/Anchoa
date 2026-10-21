@@ -1,9 +1,12 @@
-import type { Dashboard as DashboardData, DayTask } from "../api";
+import { useEffect, useState } from "react";
+import { api, type Dashboard as DashboardData, type DayTask, type HealthToday, type LibraryOverview } from "../api";
 import type { OpenAssistant } from "../assistant/useAssistantRequest";
 import { greeting } from "../format";
 import type { PageId } from "../shell/nav";
 import { FinanceCard } from "./FinanceCard";
 import { DownloadsCard } from "./DownloadsCard";
+import { HealthCard } from "./HealthCard";
+import { LibraryCard } from "./LibraryCard";
 import { ProjectsCard } from "./ProjectsCard";
 import { RecentPanel } from "./RecentPanel";
 import { summaryLine } from "./summary";
@@ -26,6 +29,13 @@ export function Dashboard({
   onSelect: (page: PageId) => void;
   onOpenAssistant: OpenAssistant;
 }>) {
+  const [libraryOverview, setLibraryOverview] = useState<LibraryOverview | undefined>(undefined);
+
+  const [healthToday, setHealthToday] = useState<HealthToday | undefined>(undefined);
+  useEffect(() => {
+    api.libraryOverview().then(setLibraryOverview).catch(() => {});
+    api.healthToday().then(setHealthToday).catch(() => {});
+  }, [data]);
   const now = new Date();
   const recap = data
     ? summaryLine(data.today, data.inboxCount, data.finance.dueBills.filter((bill) => bill.status === "overdue").length)
@@ -140,6 +150,8 @@ export function Dashboard({
         </button>
         <ProjectsCard projects={data?.projects} onSelect={onSelect} />
         <DownloadsCard downloads={data?.downloads} onSelect={onSelect} />
+        <LibraryCard overview={libraryOverview} onSelect={onSelect} />
+        <HealthCard today={healthToday} onSelect={onSelect} />
         <RecentPanel items={data?.recent} onOpen={onOpen} onSelect={onSelect} />
       </div>
     </>

@@ -12,12 +12,14 @@ import { DownloadsPage } from "./downloads/DownloadsPage";
 import { EmailPage } from "./email/EmailPage";
 import { FinancePage } from "./finance/FinancePage";
 import { HabitsPage } from "./habits/HabitsPage";
+import { HealthPage } from "./health/HealthPage";
 import { JournalPage } from "./journal/JournalPage";
 import { NotesPage } from "./notes/NotesPage";
 import { ItemPage } from "./item/ItemPage";
 import { ProfilePage } from "./profile/ProfilePage";
 import { ProjectsPage } from "./projects/ProjectsPage";
 import { SchedulePage } from "./schedule/SchedulePage";
+import { LibraryPage } from "./library/LibraryPage";
 import { NotifPanel } from "./notifications/NotifPanel";
 import { reminderCount } from "./notifications/reminders";
 import { CommandPalette } from "./palette/CommandPalette";
@@ -164,6 +166,8 @@ export function App() {
           if (item.type === "page") {
             const intent = ++intents.current;
             setStack((s) => [...s, { name: "catatan", id, intent }]);
+          } else if (item.type === "media") {
+            setStack((s) => [...s, { name: "library", id }]);
           } else {
             setStack((s) => [...s, { name: "item", id }]);
           }
@@ -252,6 +256,7 @@ export function App() {
           />
         )}
         {page.name === "habit" && <HabitsPage key={assistantDataVersion} onChanged={reload} onOpenAssistant={openAssistant} />}
+        {page.name === "health" && <HealthPage key={assistantDataVersion} />}
         {page.name === "keuangan" && (
           <FinancePage key={`${page.intent ?? 0}:${assistantDataVersion}`} newTransaction={page.intent !== undefined} onChanged={reload} onOpenAssistant={openAssistant} />
         )}
@@ -278,6 +283,9 @@ export function App() {
         )}
         {page.name === "unduhan" && (
           <DownloadsPage key={assistantDataVersion} onReveal={onReveal} />
+        )}
+        {page.name === "library" && (
+          <LibraryPage key={`${page.id ?? ""}:${assistantDataVersion}`} initialId={page.id} />
         )}
         {page.name === "email" && <EmailPage onChanged={reload} />}
         {page.name === "item" && <ItemPage key={`${page.id}:${assistantDataVersion}`} id={page.id} onBack={back} onOpenItem={openItem} />}

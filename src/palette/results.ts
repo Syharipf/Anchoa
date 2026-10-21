@@ -32,6 +32,8 @@ export function itemKindLabel(type: string): string {
       return "Habits";
     case "project":
       return "Projects";
+    case "media":
+      return "Library";
     default:
       return "Item";
   }

@@ -14,7 +14,7 @@ describe("paletteResults", () => {
     const groups = paletteResults("", recent);
     expect(groups.map((g) => g.title)).toEqual(["Quick actions", "Open page", "Recent"]);
     expect(groups[1].options.map((o) => o.label)).toEqual([
-      "Dashboard", "Journal", "Notes", "Email", "Schedule", "Habits", "Finance", "Projects", "Files", "Downloads", "Profile", "Settings",
+      "Dashboard", "Journal", "Notes", "Email", "Schedule", "Habits", "Health", "Finance", "Projects", "Files", "Downloads", "Library", "Profile", "Settings",
     ]);
     expect(groups[2].options).toHaveLength(5);
   });
@@ -164,6 +164,7 @@ describe("paletteResults", () => {
     expect(itemKindLabel("task")).toBe("Tasks");
     expect(itemKindLabel("habit")).toBe("Habits");
     expect(itemKindLabel("project")).toBe("Projects");
+    expect(itemKindLabel("media")).toBe("Library");
     expect(itemKindLabel("other")).toBe("Item");
     expect(itemKindLabel("")).toBe("Item");
   });

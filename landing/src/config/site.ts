@@ -7,7 +7,7 @@ export const site = {
   repository: 'https://github.com/Syharipf/Anchoa',
   releases: 'https://github.com/Syharipf/Anchoa/releases/latest',
   profile: 'https://github.com/Syharipf/Anchoa',
-  version: '0.33.0',
+  version: '0.36.0',
   installCommand: 'sudo pacman -Syu anchoa',
   archCommands: [
     'curl -fsSLO https://syharipf.github.io/Anchoa/arch/anchoa.gpg',

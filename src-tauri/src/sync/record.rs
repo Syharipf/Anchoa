@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 
 use crate::error::AppError;
 
-pub const SYNCED_TYPES: &[&str] = &["task", "project", "account", "transaction", "bill", "budget", "habit", "note", "page"];
+pub const SYNCED_TYPES: &[&str] = &["task", "project", "account", "transaction", "bill", "budget", "habit", "note", "page", "media"];
 pub const MAX_RECORD_BYTES: usize = 262_144;
 pub const MAX_DECOMPRESSED_BYTES: usize = 8 * 1024 * 1024;
 // crypto::seal adds a 24-byte nonce and a 16-byte Poly1305 tag.
@@ -53,6 +53,24 @@ const EXTENSIONS: &[Extension] = &[
         columns: &["item_id", "kind", "mood", "tags", "task_id", "pinned"],
         references: &["task_id"],
     },
+    Extension {
+        kind: "media",
+        table: "media",
+        columns: &[
+            "item_id",
+            "kind",
+            "status",
+            "progress",
+            "progress_total",
+            "rating",
+            "started_at",
+            "finished_at",
+            "year",
+            "creator",
+            "tags",
+        ],
+        references: &[],
+    },
 ];
 
 #[derive(Serialize, Deserialize)]
@@ -90,6 +108,22 @@ struct CheckData {
 struct CheckDocument {
     schema: i64,
     habit_check: CheckData,
+}
+#[derive(Serialize, Deserialize)]
+struct HealthData {
+    kind: String,
+    date: String,
+    value: i64,
+    note: Option<String>,
+    created_at: i64,
+    updated_at: i64,
+    deleted_at: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct HealthDocument {
+    schema: i64,
+    health_metric: HealthData,
 }
 
 #[derive(Serialize)]
@@ -135,6 +169,17 @@ fn check_key(id: &str) -> Result<Option<(&str, &str)>, AppError> {
     }
     Ok(Some((habit, date)))
 }
+fn health_key(id: &str) -> Result<Option<(&str, &str)>, AppError> {
+    let Some(key) = id.strip_prefix("hm:") else { return Ok(None) };
+    let (kind, date) = key.rsplit_once(':').ok_or_else(invalid_record)?;
+    if !crate::health::HealthKind::ALL.iter().any(|k| k.as_str() == kind)
+        || date.parse::<jiff::civil::Date>().is_err()
+    {
+        return Err(invalid_record());
+    }
+    Ok(Some((kind, date)))
+}
+
 
 fn queued_at(conn: &Connection, id: &str) -> Result<Option<i64>, AppError> {
     Ok(conn.query_row("SELECT changed_at FROM sync_outbox WHERE record_id = ?1", [id], |r| r.get(0)).optional()?)
@@ -186,7 +231,32 @@ fn export_extension(conn: &Connection, ext: &Extension, id: &str) -> Result<Opti
 /// become tombstones. Missing unqueued rows and excluded types return `None`.
 pub fn export(conn: &Connection, record_id: &str) -> Result<Option<Record>, AppError> {
     let queued = queued_at(conn, record_id)?;
-    let (updated_at, payload) = if let Some((habit, date)) = check_key(record_id)? {
+    let (updated_at, payload) = if let Some((kind, date)) = health_key(record_id)? {
+        let metric = conn
+            .query_row(
+                "SELECT kind, date, value, note, created_at, updated_at, deleted_at FROM health_metrics WHERE kind = ?1 AND date = ?2",
+                params![kind, date],
+                |r| {
+                    Ok(HealthData {
+                        kind: r.get(0)?,
+                        date: r.get(1)?,
+                        value: r.get(2)?,
+                        note: r.get(3)?,
+                        created_at: r.get(4)?,
+                        updated_at: r.get(5)?,
+                        deleted_at: r.get(6)?,
+                    })
+                },
+            )
+            .optional()?;
+        let Some(metric) = metric else {
+            return queued.map(|changed_at| export_tombstone(conn, record_id, changed_at)).transpose();
+        };
+        let updated = metric.updated_at.max(metric.deleted_at.unwrap_or(0));
+        let title = format!("health:{kind}:{date}");
+        let payload = compressed(&HealthDocument { schema: schema(conn)?, health_metric: metric }, &title)?;
+        (updated, payload)
+    } else if let Some((habit, date)) = check_key(record_id)? {
         let check = conn
             .query_row(
                 "SELECT habit_id, date, created_at, updated_at, deleted_at FROM habit_checks WHERE habit_id = ?1 AND date = ?2",
@@ -357,6 +427,7 @@ fn apply_item(conn: &Connection, record: &Record, document: ItemDocument) -> Res
 }
 
 fn apply_inner(conn: &Connection, record: &Record) -> Result<Applied, AppError> {
+    let hkey = health_key(&record.id)?;
     let key = check_key(&record.id)?;
     let payload = record.payload.as_ref().ok_or_else(invalid_record)?;
     if payload.len() > MAX_RECORD_BYTES - ENCRYPTION_OVERHEAD {
@@ -378,7 +449,12 @@ fn apply_inner(conn: &Connection, record: &Record) -> Result<Applied, AppError> 
         return Ok(Applied::NewerSchema);
     }
     if record.deleted {
-        if let Some((habit, date)) = key {
+        if let Some((kind, date)) = hkey {
+            conn.execute(
+                "UPDATE health_metrics SET deleted_at = COALESCE(deleted_at, ?3), updated_at = ?3 WHERE kind = ?1 AND date = ?2",
+                params![kind, date, record.changed_at],
+            )?;
+        } else if let Some((habit, date)) = key {
             conn.execute(
                 "UPDATE habit_checks SET deleted_at = COALESCE(deleted_at, ?3), updated_at = ?3 WHERE habit_id = ?1 AND date = ?2",
                 params![habit, date, record.changed_at],
@@ -392,6 +468,19 @@ fn apply_inner(conn: &Connection, record: &Record) -> Result<Applied, AppError> 
             values.extend(SYNCED_TYPES.iter().map(|s| SqlValue::Text((*s).into())));
             conn.execute(&sql, params_from_iter(values))?;
         }
+        return Ok(Applied::Done);
+    }
+    if let Some((kind, date)) = hkey {
+        let document: HealthDocument = serde_json::from_value(document).map_err(|_| invalid_record())?;
+        let metric = document.health_metric;
+        if metric.kind != kind || metric.date != date {
+            return Err(invalid_record());
+        }
+        conn.execute(
+            "INSERT INTO health_metrics (kind, date, value, note, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(kind, date) DO UPDATE SET value = excluded.value, note = excluded.note, created_at = excluded.created_at, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at",
+            params![metric.kind, metric.date, metric.value, metric.note, metric.created_at, metric.updated_at, metric.deleted_at],
+        )?;
         return Ok(Applied::Done);
     }
     if let Some((habit, date)) = key {
@@ -459,6 +548,12 @@ pub fn enqueue_all(conn: &Connection) -> Result<(), AppError> {
              ON CONFLICT(record_id) DO UPDATE SET changed_at = MAX(sync_outbox.changed_at, excluded.changed_at)",
             [],
         )?;
+        conn.execute(
+            "INSERT INTO sync_outbox (record_id, changed_at)
+             SELECT 'hm:' || kind || ':' || date, MAX(updated_at, COALESCE(deleted_at, 0)) FROM health_metrics WHERE 1
+             ON CONFLICT(record_id) DO UPDATE SET changed_at = MAX(sync_outbox.changed_at, excluded.changed_at)",
+            [],
+        )?;
         Ok(())
     })
 }
@@ -492,6 +587,7 @@ mod tests {
         ("habit", "habits", "INSERT INTO habits VALUES ('habit', 127, '08:00', 1, 1)", "days = 31"),
         ("task", "tasks", "INSERT INTO tasks (item_id, status, project_id, start_at, tag, priority) VALUES ('task', 'doing', 'project', 90, 'tag', 2)", "status = 'review'"),
         ("note", "journal_entries", "INSERT INTO journal_entries (item_id, kind, mood, tags, task_id) VALUES ('note', 'idea', 4, 'tag', 'task')", "mood = 5"),
+        ("media", "media", "INSERT INTO media (item_id, kind, status, progress, progress_total, rating, started_at, finished_at, year, creator, tags) VALUES ('media', 'series', 'active', 2, 10, 4, 100, NULL, 2024, 'Creator', 'tag')", "progress = 3"),
     ];
 
     fn insert_item(conn: &Connection, id: &str, kind: &str) {
@@ -581,7 +677,7 @@ mod tests {
     #[test]
     fn items_insert_update_soft_delete_restore_and_delete_are_captured_for_every_synced_type() {
         let conn = open_in_memory();
-        assert_eq!(SYNCED_TYPES, &["task", "project", "account", "transaction", "bill", "budget", "habit", "note", "page"]);
+        assert_eq!(SYNCED_TYPES, &["task", "project", "account", "transaction", "bill", "budget", "habit", "note", "page", "media"]);
         for kind in SYNCED_TYPES {
             clear_outbox(&conn);
             insert_item(&conn, kind, kind);
@@ -765,6 +861,72 @@ mod tests {
         assert!(record.deleted);
         assert_eq!(document(&record), json!({"schema":schema(&conn).unwrap(),"tombstone":true,"id":record.id}));
     }
+    #[test]
+    fn health_outbox_triggers_export_apply_and_tombstones() {
+        let conn = open_in_memory();
+        clear_outbox(&conn);
+
+        // Insert triggers hm: outbox
+        conn.execute(
+            "INSERT INTO health_metrics (kind, date, value, note, created_at, updated_at) VALUES ('steps', '2026-10-21', 8500, 'good walk', 100, 100)",
+            [],
+        ).unwrap();
+        only_outbox(&conn, "hm:steps:2026-10-21");
+
+        // Export test
+        let record = export(&conn, "hm:steps:2026-10-21").unwrap().unwrap();
+        assert!(!record.deleted);
+        let doc = document(&record);
+        assert_eq!(doc["schema"], schema(&conn).unwrap());
+        assert_eq!(doc["health_metric"]["kind"], "steps");
+        assert_eq!(doc["health_metric"]["date"], "2026-10-21");
+        assert_eq!(doc["health_metric"]["value"], 8500);
+        assert_eq!(doc["health_metric"]["note"], "good walk");
+
+        // Apply to peer
+        let peer = open_in_memory();
+        let applied = apply(&peer, &record).unwrap();
+        assert_eq!(applied, Applied::Done);
+        let peer_val: i64 = peer.query_row(
+            "SELECT value FROM health_metrics WHERE kind = 'steps' AND date = '2026-10-21'",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+        assert_eq!(peer_val, 8500);
+
+        // Invalid id rejected
+        let mut bad_key = record.clone();
+        bad_key.id = "hm:unknown:2026-10-21".into();
+        assert!(apply(&peer, &bad_key).is_err());
+        bad_key.id = "hm:steps:bad-date".into();
+        assert!(apply(&peer, &bad_key).is_err());
+
+        // Peer tombstone apply
+        let tombstone_rec = Record {
+            id: "hm:steps:2026-10-21".into(),
+            changed_at: 200,
+            deleted: true,
+            payload: Some(compressed(&TombstoneDocument { schema: schema(&conn).unwrap(), tombstone: true, id: "hm:steps:2026-10-21" }, "health:steps:2026-10-21").unwrap()),
+        };
+        let applied_tomb = apply(&peer, &tombstone_rec).unwrap();
+        assert_eq!(applied_tomb, Applied::Done);
+        let (deleted_at, updated_at): (Option<i64>, i64) = peer.query_row(
+            "SELECT deleted_at, updated_at FROM health_metrics WHERE kind = 'steps' AND date = '2026-10-21'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap();
+        assert_eq!(deleted_at, Some(200));
+        assert_eq!(updated_at, 200);
+
+        // Physical delete on source generates tombstone on export
+        clear_outbox(&conn);
+        conn.execute("DELETE FROM health_metrics WHERE kind = 'steps' AND date = '2026-10-21'", []).unwrap();
+        only_outbox(&conn, "hm:steps:2026-10-21");
+        let exported_tomb = export(&conn, "hm:steps:2026-10-21").unwrap().unwrap();
+        assert!(exported_tomb.deleted);
+        assert_eq!(document(&exported_tomb), json!({"schema": schema(&conn).unwrap(), "tombstone": true, "id": exported_tomb.id}));
+    }
+
 
     #[test]
     fn compound_task_writes_capture_subtasks_project_detachment_and_note_conversion() {
@@ -1007,7 +1169,7 @@ mod tests {
         let source = open_in_memory();
         let destination = open_in_memory();
         fixtures(&source);
-        for id in ["project", "account", "bill", "transaction", "budget", "habit", "task", "note", "page", "hc:habit:2026-10-02"] {
+        for id in ["project", "account", "bill", "transaction", "budget", "habit", "task", "note", "page", "media", "hc:habit:2026-10-02"] {
             let record = export(&source, id).unwrap().unwrap();
             let value = document(&record);
             assert_eq!(value["schema"], schema(&source).unwrap());
@@ -1040,6 +1202,7 @@ mod tests {
             "SELECT * FROM habits ORDER BY item_id",
             "SELECT * FROM journal_entries ORDER BY item_id",
             "SELECT * FROM habit_checks ORDER BY habit_id, date",
+            "SELECT * FROM media ORDER BY item_id",
         ] {
             assert_eq!(rows(&source, sql), rows(&destination, sql), "{sql}");
         }
@@ -1215,7 +1378,7 @@ mod tests {
         fixtures(&source);
         let existing = open_in_memory();
         let empty = open_in_memory();
-        let ids = ["project", "account", "bill", "transaction", "budget", "habit", "task", "note", "page", "hc:habit:2026-10-02"];
+        let ids = ["project", "account", "bill", "transaction", "budget", "habit", "task", "note", "page", "media", "hc:habit:2026-10-02"];
         for id in ids {
             apply(&existing, &export(&source, id).unwrap().unwrap()).unwrap();
         }
@@ -1334,14 +1497,17 @@ mod tests {
         insert_item(&conn, "email", "email");
         conn.execute("UPDATE items SET deleted_at = 99 WHERE id = 'habit'", []).unwrap();
         conn.execute("UPDATE habit_checks SET deleted_at = 99, updated_at = 99", []).unwrap();
+        conn.execute("INSERT INTO health_metrics (kind, date, value, created_at, updated_at) VALUES ('steps', '2026-10-21', 5000, 50, 99)", []).unwrap();
         clear_outbox(&conn);
         enqueue_all(&conn).unwrap();
         let mut expected: Vec<String> = SYNCED_TYPES.iter().map(|s| s.to_string()).collect();
         expected.push("hc:habit:2026-10-02".into());
+        expected.push("hm:steps:2026-10-21".into());
         expected.sort();
         assert_eq!(outbox(&conn), expected);
         assert_eq!(queued_at(&conn, "habit").unwrap(), Some(99));
         assert_eq!(queued_at(&conn, "hc:habit:2026-10-02").unwrap(), Some(99));
+        assert_eq!(queued_at(&conn, "hm:steps:2026-10-21").unwrap(), Some(99));
         let own_time: i64 = conn.query_row("SELECT updated_at FROM items WHERE id='page'", [], |r| r.get(0)).unwrap();
         assert_eq!(queued_at(&conn, "page").unwrap(), Some(own_time));
         conn.execute("UPDATE sync_outbox SET changed_at = 9007199254740993 WHERE record_id = 'task'", []).unwrap();

@@ -18,10 +18,12 @@ mod files_meta;
 mod finance;
 mod github;
 mod gpu;
+pub mod health;
 mod habits;
 mod items;
 pub mod journal;
 pub mod keystore;
+pub mod library;
 pub mod links;
 pub mod notes;
 mod notify;
@@ -292,7 +294,18 @@ pub fn run() {
             commands::save_habit,
             commands::delete_habit,
             commands::check_habit,
+            commands::save_health_metric,
+            commands::delete_health_metric,
+            commands::health_today,
+            commands::health_series,
+            commands::health_history,
             commands::journal_list,
+            commands::library_list,
+            commands::library_overview,
+            commands::save_media,
+            commands::set_media_status,
+            commands::delete_media,
+            commands::restore_media,
             commands::journal_entry,
             commands::create_entry,
             commands::update_entry,

@@ -20,8 +20,10 @@ use crate::overview::{self, FinanceOverview};
 use crate::bills::{self, BillInput, BillView};
 use crate::github::{self, Contributions};
 use crate::habits::{self, HabitInput, HabitRow, History as HabitHistory, Overview as HabitsOverview};
+use crate::health::{self, HealthDayRow, HealthKind, HealthMetric, HealthSeries, HealthToday};
 use crate::items::{self, Item, ItemPatch, ItemSummary};
 use crate::journal::{self, CalendarView, Entry, EntryKind, EntryPatch, ExportResult, JournalList, ListQuery, Side};
+use crate::library::{self, LibraryList, LibraryOverview, MediaInput, MediaKind, MediaRow, MediaStatus};
 use crate::profile::{self, NotifyPrefs, Profile};
 use crate::projects::{self, Board, BoardFilter, Overview as ProjectsOverview, ProjectDetail, ProjectInput};
 use crate::schedule::{self, Schedule, ScheduleRange};
@@ -563,6 +565,83 @@ pub fn check_habit(
         time::now_ms(),
         &TimeZone::system(),
     )
+}
+#[tauri::command]
+pub fn save_health_metric(
+    db: State<'_, Db>,
+    kind: HealthKind,
+    date: String,
+    value: i64,
+    note: Option<String>,
+) -> Result<HealthMetric, AppError> {
+    health::save_health_metric(&*db.conn()?, kind, &date, value, note, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_health_metric(
+    db: State<'_, Db>,
+    kind: HealthKind,
+    date: String,
+) -> Result<(), AppError> {
+    health::delete_health_metric(&*db.conn()?, kind, &date, time::now_ms())
+}
+
+#[tauri::command]
+pub fn health_today(db: State<'_, Db>) -> Result<HealthToday, AppError> {
+    health::health_today(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn health_series(
+    db: State<'_, Db>,
+    kind: HealthKind,
+    days: u32,
+) -> Result<HealthSeries, AppError> {
+    health::health_series(&*db.conn()?, kind, days, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn health_history(
+    db: State<'_, Db>,
+    days: u32,
+) -> Result<Vec<HealthDayRow>, AppError> {
+    health::health_history(&*db.conn()?, days, time::now_ms(), &TimeZone::system())
+}
+
+
+#[tauri::command]
+pub fn library_list(
+    db: State<'_, Db>,
+    kind: Option<MediaKind>,
+    status: Option<MediaStatus>,
+    query: Option<String>,
+) -> Result<LibraryList, AppError> {
+    library::library_list(&*db.conn()?, kind, status, query.as_deref())
+}
+
+#[tauri::command]
+pub fn library_overview(db: State<'_, Db>) -> Result<LibraryOverview, AppError> {
+    library::library_overview(&*db.conn()?, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn save_media(db: State<'_, Db>, input: MediaInput) -> Result<MediaRow, AppError> {
+    library::save_media(&*db.conn()?, &input, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn set_media_status(db: State<'_, Db>, id: String, status: MediaStatus) -> Result<MediaRow, AppError> {
+    library::set_media_status(&*db.conn()?, &id, status, time::now_ms(), &TimeZone::system())
+}
+
+#[tauri::command]
+pub fn delete_media(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    library::delete_media(&*db.conn()?, &id, time::now_ms())
+}
+
+#[tauri::command]
+pub fn restore_media(db: State<'_, Db>, id: String) -> Result<(), AppError> {
+    library::restore_media(&*db.conn()?, &id, time::now_ms())
 }
 
 #[tauri::command]

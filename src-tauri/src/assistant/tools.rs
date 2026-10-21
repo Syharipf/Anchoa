@@ -1,6 +1,6 @@
 use super::context;
 use crate::error::AppError;
-use crate::{finance, habits, items, journal, search, tasks};
+use crate::{finance, habits, items, journal, library, search, tasks};
 use jiff::tz::TimeZone;
 use rusqlite::{Connection, params};
 use serde::de::DeserializeOwned;
@@ -99,13 +99,19 @@ pub fn definitions(policy: Policy) -> Vec<Value> {
             json!({"id":{"type":"string"}}),
             &["id"],
         ),
+        schema(
+            "list_library",
+            "List media items from library (film, series, anime, book, manga) without user reviews.",
+            json!({"status":{"type":"string","enum":["want","active","finished","dropped"]}}),
+            &[],
+        ),
     ];
     definitions.retain(|definition| policy.allow(definition["function"]["name"].as_str().unwrap_or("")).is_ok());
     definitions
 }
 
 pub fn is_read(name: &str) -> bool {
-    matches!(name, "today_overview" | "search_items" | "list_tasks")
+    matches!(name, "today_overview" | "search_items" | "list_tasks" | "list_library")
 }
 
 fn unknown(name: &str) -> AppError {
@@ -136,6 +142,24 @@ struct ListArgs {
     limit: Option<usize>,
 }
 
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ListLibraryArgs {
+    status: Option<library::MediaStatus>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LibraryToolItem {
+    id: String,
+    title: String,
+    kind: library::MediaKind,
+    status: library::MediaStatus,
+    progress: Option<i64>,
+    progress_total: Option<i64>,
+    rating: Option<i64>,
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TaskArgs {
@@ -229,6 +253,24 @@ pub fn run_read(
                 now,
                 tz,
             )?)
+        }
+        "list_library" => {
+            let args: ListLibraryArgs = decode(name, args)?;
+            let list = library::library_list(conn, None, args.status, None)?;
+            let tool_items: Vec<LibraryToolItem> = list
+                .items
+                .into_iter()
+                .map(|item| LibraryToolItem {
+                    id: item.id,
+                    title: item.title,
+                    kind: item.kind,
+                    status: item.status,
+                    progress: item.progress,
+                    progress_total: item.progress_total,
+                    rating: item.rating,
+                })
+                .collect();
+            encode(tool_items)
         }
         _ => Err(unknown(name)),
     }
@@ -852,5 +894,40 @@ mod tests {
         let list = run_read(&conn, "list_tasks", &json!({"limit":1}), now(), &tz).unwrap();
         assert_eq!(list.as_array().unwrap().len(), 1);
         assert_eq!(list[0]["id"], public.id);
+    }
+
+    #[test]
+    fn list_library_returns_data_without_body_leak() {
+        let conn = open_in_memory();
+        let tz = jakarta();
+        let media_input = library::MediaInput {
+            id: None,
+            title: "Dune Messiah".into(),
+            body: "SUPER_SECRET_PERSONAL_REVIEW".into(),
+            kind: library::MediaKind::Book,
+            status: library::MediaStatus::Active,
+            progress: Some(150),
+            progress_total: Some(300),
+            rating: Some(5),
+            year: Some(1969),
+            creator: "Frank Herbert".into(),
+            tags: "sci-fi".into(),
+        };
+        library::save_media(&conn, &media_input, now(), &tz).unwrap();
+
+        let res = run_read(&conn, "list_library", &json!({"status": "active"}), now(), &tz).unwrap();
+        let arr = res.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        let item = &arr[0];
+        assert_eq!(item["title"], "Dune Messiah");
+        assert_eq!(item["kind"], "book");
+        assert_eq!(item["status"], "active");
+        assert_eq!(item["progress"], 150);
+        assert_eq!(item["progressTotal"], 300);
+        assert_eq!(item["rating"], 5);
+        // verify body is not leaked
+        assert!(item.get("body").is_none());
+        let json_str = serde_json::to_string(&res).unwrap();
+        assert!(!json_str.contains("SUPER_SECRET_PERSONAL_REVIEW"));
     }
 }

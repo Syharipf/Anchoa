@@ -11,10 +11,12 @@ Untuk Anchoa 0.18.0 di Fedora Linux. [Landing page](https://syharipf.github.io/A
 - [Email](#email)
 - [Jadwal](#jadwal)
 - [Habit](#habit)
+- [Health](#health)
 - [Keuangan](#keuangan)
 - [Proyek](#proyek)
 - [Berkas](#berkas)
 - [Unduhan](#unduhan)
+- [Library](#library)
 - [Profil](#profil)
 - [Pengaturan](#pengaturan)
 - [Asisten](#asisten)
@@ -118,6 +120,17 @@ Untuk kebiasaan terjadwal, centang hari ini, streak, dan konsistensi.
 
 **Batas:** centang hanya untuk hari ini yang terjadwal, bukan mengisi hari lampau. Hari libur tidak memutus streak. Pengingat tampil di panel Notifikasi; belum ada notifikasi desktop. **Catat lewat suara** di header masih nonaktif; gunakan Asisten untuk usulan centang.
 
+## Health
+
+Untuk mencatat metrik harian: berat, tidur, langkah, dan detak jantung istirahat.
+
+1. Buka **Health**. Di kartu **Today**, isi **Weight** (`68.4`), **Sleep** (`7:30`), **Steps** (`8,420`), dan **Resting HR** (`62`). Nilai tersimpan saat kolom ditinggalkan atau Enter ditekan.
+2. Kosongkan kolom lalu tinggalkan untuk menghapus metrik hari itu. Isian yang tidak valid ditolak dengan pesan, bukan dihapus.
+3. **Weight trend · 90 days** dan **Sleep & steps · 30 days** menggambar garis dari data; hari tanpa data memutus garis. **Last 14 days** menampilkan riwayat, dengan `—` untuk hari kosong.
+4. Angka disimpan sebagai integer: gram, menit, langkah, dan bpm. Layar menampilkan `kg` dan `jam:menit`.
+
+**Batas:** tidak ada impor wearable/CSV, kalori, atau saran medis. Data health tidak dikirim ke penyedia AI eksternal.
+
 ## Keuangan
 
 Untuk pencatatan uang secara manual: akun, transaksi, tagihan, dan batas bulanan.
@@ -184,7 +197,19 @@ Untuk file HTTP/HTTPS langsung serta video/audio melalui yt-dlp.
 5. Saat selesai, klik **Buka berkas** atau **Buka di Berkas**. **Hapus dari daftar** menghapus catatan antrean, bukan file hasil.
 6. Di panel **Pengaturan**, klik **Ubah** pada **Simpan ke**, isi path folder yang sudah ada, lalu **Simpan**. Atur unduhan bersamaan (1–5) dan batas kecepatan.
 
-**Batas:** torrent/magnet belum didukung. yt-dlp dan ffmpeg harus ada di PATH untuk media; file langsung tidak memerlukannya. Playlist tidak diikuti, kualitas/subtitle bergantung sumber. Folder tujuan harus di dalam home. Setelah aplikasi dibuka kembali, unduhan yang belum selesai berstatus Dijeda; klik **Lanjutkan**. Jika server file tidak mendukung kelanjutan, unduhan dimulai ulang. Batas kecepatan dibagi menurut jumlah unduhan bersamaan yang diatur.
+**Batas:** torrent/magnet belum didukung. yt-dlp dan ffmpeg harus ada di PATH untuk media; file langsung tidak memerlukannya. Playlist tidak diikuti, kualitas/subtitle bergantung sumber. Folder tujuan harus di dalam home. Setelah aplikasi dibuka kembali, unduhan yang belum selesai berstatus Dijeda; klik **Lanjutkan**. Jika server tidak mendukung kelanjutan, unduhan dimulai ulang. Batas kecepatan dibagi menurut jumlah unduhan bersamaan yang diatur.
+
+## Library
+
+Untuk koleksi film, serial, anime, buku, dan manga: status, progres, rating, dan ulasan.
+
+1. Buka **Library** lalu klik **+ Add**. Isi **Title**, **Creator**, dan **Year**; pilih **Kind** dan **Status**, lalu **Save**.
+2. Untuk serial/anime isi **Progress** dalam episode; untuk buku/manga dalam halaman atau chapter. Film tidak punya progres.
+3. Klik kartu untuk mengubah detail, memberi rating 1–5 bintang, menambah tag, dan menulis ulasan. Ulasan ikut muncul di pencarian command palette.
+4. Filter dengan chip status (**All**, **Want**, **Watching/Reading**, **Finished**, **Dropped**), kolom cari, atau tombol **All kinds**.
+5. **Delete** menghapus dengan toast **Undo**; data tidak langsung hilang.
+
+**Batas:** tanpa sampul, tanpa ambil metadata dari TMDB/AniList/Goodreads, dan tanpa pelacakan per episode.
 
 ## Profil
 
